@@ -1,0 +1,304 @@
+{% extends "owner/base.html" %}
+
+{% block title %}ClubModule — Дашборд{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="content">
+    <div class="dashboard-toolbar">
+        <div class="period-switcher">
+            <a href="{{ url_for('owner.dashboard', period=7) }}"
+               class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
+            <a href="{{ url_for('owner.dashboard', period=30) }}"
+               class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
+            <a href="{{ url_for('owner.dashboard', period=90) }}"
+               class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
+        </div>
+    </div>
+            <section class="cards">
+                <div class="card">
+                    <div class="card-title">Гостей за последние {{ stats.period_days }} дней</div>
+                    <div class="card-value">{{ stats.guests_current }}</div>
+                    <div class="card-sub">
+                        {% if stats.guests_diff > 0 %}
+                            <span class="positive">+{{ stats.guests_diff }}</span>
+                        {% elif stats.guests_diff < 0 %}
+                            <span class="negative">{{ stats.guests_diff }}</span>
+                        {% else %}
+                            <span>0</span>
+                        {% endif %}
+                        к прошлому периоду
+                    </div>
+                    <div class="card-meta">{{ stats.guests_diff_percent }}%</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Возвращаемость за последние {{ stats.period_days }} дней</div>
+                    <div class="card-value">{{ stats.retention_current }}%</div>
+                    <div class="card-sub">
+                        {% if stats.retention_diff > 0 %}
+                            <span class="positive">+{{ stats.retention_diff }}</span>
+                        {% elif stats.retention_diff < 0 %}
+                            <span class="negative">{{ stats.retention_diff }}</span>
+                        {% else %}
+                            <span>0</span>
+                        {% endif %}
+                        п.п. к прошлому периоду
+                    </div>
+                    <div class="card-meta card-meta-placeholder">—</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Средний чек за последние {{ stats.period_days }} дней</div>
+                    <div class="card-value">{{ stats.avg_check_current }}</div>
+                    <div class="card-sub">
+                        {% if stats.avg_check_diff > 0 %}
+                            <span class="positive">+{{ stats.avg_check_diff }}</span>
+                        {% elif stats.avg_check_diff < 0 %}
+                            <span class="negative">{{ stats.avg_check_diff }}</span>
+                        {% else %}
+                            <span>0</span>
+                        {% endif %}
+                        к прошлому периоду
+                    </div>
+                    <div class="card-meta">{{ stats.avg_check_diff_percent }}%</div>
+                </div>
+            </section>
+
+            {% set engagement_data = engagement|default({
+                "wheel": {
+                    "total_guests": 0,
+                    "involved_guests": 0,
+                    "engagement_percent": 0,
+                    "returned_guests": 0
+                },
+                "missions": {
+                    "total_guests": 0,
+                    "involved_guests": 0,
+                    "engagement_percent": 0,
+                    "returned_guests": 0
+                }
+            }) %}
+
+
+
+            <section class="dashboard-grid">
+                <div class="chart-block chart-block-main">
+                    <div class="chart-title">{{ stats.chart["title"] }}</div>
+                    <canvas id="guestsChart" height="160"></canvas>
+                </div>
+
+                <div class="right-top-block">
+                    <div class="small-card">
+                        <div class="small-card-title">CSI</div>
+                        <div class="small-card-value">{{ stats.csi_percent }}%</div>
+                        <div class="small-card-sub">
+                            {{ stats.csi_linked_guests }} / {{ stats.csi_total_guests }} гостей
+                        </div>
+                    </div>
+
+                    <div class="small-card">
+                        <div class="small-card-title">Людей в рассылке</div>
+                        <div class="small-card-value">{{ stats.mailing_count }}</div>
+                        <div class="small-card-sub">
+                            с привязанным Telegram
+                        </div>
+                    </div>
+                </div>
+
+                <div class="left-placeholder-block">
+                    <div class="engagement-header">
+                        <span id="wheelLabel" class="engagement-label active">Колесо</span>
+
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="engagementToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+
+                        <span id="missionsLabel" class="engagement-label">Задания</span>
+                    </div>
+
+                    <div id="wheelMetrics" class="placeholder-columns">
+                        <div class="placeholder-card stats-card">
+                            <div class="stats-title">Колесо фортуны</div>
+                            <div class="stats-line">Всего гостей: <b>{{ engagement_data.wheel.total_guests }}</b></div>
+                            <div class="stats-line">Прокрутило хотя бы 1 раз: <b>{{ engagement_data.wheel.involved_guests }}</b></div>
+                            <div class="stats-line">Вовлеченность: <b>{{ engagement_data.wheel.engagement_percent }}%</b></div>
+                        </div>
+
+                        <div class="placeholder-card stats-card">
+                            <div class="stats-title">Возврат после прокрута</div>
+                            <div class="stats-line">Вернулось в клуб после 1-го прокрута:</div>
+                            <div class="stats-big">{{ engagement_data.wheel.returned_guests }}</div>
+                        </div>
+                    </div>
+
+                    <div id="missionMetrics" class="placeholder-columns hidden-block">
+                        <div class="placeholder-card stats-card">
+                            <div class="stats-title">Задания</div>
+                            <div class="stats-line">Всего гостей: <b>{{ engagement_data.missions.total_guests }}</b></div>
+                            <div class="stats-line">Выполнило хотя бы 1 задание: <b>{{ engagement_data.missions.involved_guests }}</b></div>
+                            <div class="stats-line">Вовлеченность: <b>{{ engagement_data.missions.engagement_percent }}%</b></div>
+                        </div>
+
+                        <div class="placeholder-card stats-card">
+                            <div class="stats-title">Возврат после выполнения</div>
+                            <div class="stats-line">Вернулось в клуб после 1-го выполненного задания:</div>
+                            <div class="stats-big">{{ engagement_data.missions.returned_guests }}</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+        const chartLabels = {{ stats.chart["labels"] | tojson | safe }};
+        const chartValues = {{ stats.chart["values"] | tojson | safe }};
+    
+        const canvas = document.getElementById('guestsChart');
+        const ctx = canvas.getContext('2d');
+    
+        function drawChart(progress = 1) {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+    
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+            const width = rect.width;
+            const height = rect.height;
+    
+            ctx.clearRect(0, 0, width, height);
+    
+            const padding = { top: 20, right: 20, bottom: 40, left: 40 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+    
+            const animatedValues = chartValues.map((value) => value * progress);
+            const maxValue = Math.max(...chartValues, 1);
+            const stepX = chartLabels.length > 1 ? chartWidth / (chartLabels.length - 1) : chartWidth;
+    
+            ctx.strokeStyle = '#5a3a92';
+            ctx.lineWidth = 1;
+    
+            ctx.beginPath();
+            ctx.moveTo(padding.left, padding.top);
+            ctx.lineTo(padding.left, padding.top + chartHeight);
+            ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+            ctx.stroke();
+    
+            const gridCount = 4;
+            ctx.fillStyle = '#bcabd9';
+            ctx.font = '12px Manrope, Segoe UI, Arial';
+    
+            for (let i = 0; i <= gridCount; i++) {
+                const y = padding.top + (chartHeight / gridCount) * i;
+                const value = Math.round(maxValue - (maxValue / gridCount) * i);
+    
+                ctx.strokeStyle = 'rgba(188, 171, 217, 0.22)';
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(padding.left + chartWidth, y);
+                ctx.stroke();
+    
+                ctx.fillStyle = '#bcabd9';
+                ctx.fillText(value, 8, y + 4);
+            }
+    
+            ctx.strokeStyle = '#a572ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+    
+            animatedValues.forEach((value, index) => {
+                const x = padding.left + stepX * index;
+                const y = padding.top + chartHeight - (value / maxValue) * chartHeight;
+    
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+    
+            ctx.stroke();
+    
+            ctx.fillStyle = '#a572ff';
+            animatedValues.forEach((value, index) => {
+                const x = padding.left + stepX * index;
+                const y = padding.top + chartHeight - (value / maxValue) * chartHeight;
+    
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+    
+            ctx.fillStyle = '#bcabd9';
+            ctx.font = '12px Manrope, Segoe UI, Arial';
+            ctx.textAlign = 'center';
+    
+            chartLabels.forEach((label, index) => {
+                const x = padding.left + stepX * index;
+                const y = padding.top + chartHeight + 20;
+                ctx.fillText(label, x, y);
+            });
+    
+            ctx.textAlign = 'start';
+        }
+    
+        function animateChart() {
+            const duration = 460;
+            const start = performance.now();
+
+            function frame(now) {
+                const elapsed = now - start;
+                const t = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - t, 3);
+                drawChart(eased);
+
+                if (t < 1) {
+                    requestAnimationFrame(frame);
+                }
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        window.addEventListener('load', animateChart);
+        window.addEventListener('resize', () => drawChart(1));
+    </script>
+<script>
+        const engagementToggle = document.getElementById('engagementToggle');
+        const wheelMetrics = document.getElementById('wheelMetrics');
+        const missionMetrics = document.getElementById('missionMetrics');
+        const wheelLabel = document.getElementById('wheelLabel');
+        const missionsLabel = document.getElementById('missionsLabel');
+
+        function syncEngagementToggle() {
+            const missionsMode = engagementToggle.checked;
+
+            if (missionsMode) {
+                wheelMetrics.classList.add('hidden-block');
+                missionMetrics.classList.remove('hidden-block');
+                wheelLabel.classList.remove('active');
+                missionsLabel.classList.add('active');
+            } else {
+                missionMetrics.classList.add('hidden-block');
+                wheelMetrics.classList.remove('hidden-block');
+                missionsLabel.classList.remove('active');
+                wheelLabel.classList.add('active');
+            }
+        }
+
+        if (engagementToggle) {
+            engagementToggle.addEventListener('change', syncEngagementToggle);
+            syncEngagementToggle();
+        }
+    </script>
+{% endblock %}

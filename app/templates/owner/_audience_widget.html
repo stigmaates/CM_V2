@@ -1,0 +1,107 @@
+<section class="audience-section">
+                <div class="audience-section__header">
+                    <div class="audience-section__title-wrap">
+                        <div class="audience-section__title">Аудитория</div>
+                        <div class="info-chip" tabindex="0">
+                            <span class="info-chip__icon">i</span>
+                            <div class="info-chip__tooltip info-chip__tooltip--wide">
+                                Блок считает сегменты из таблицы <b>user_portrait</b> по текущему клубу.<br>
+                                <b>TOP</b> — 15+ визитов за 90 дней.<br>
+                                <b>BASE</b> — 10–14 визитов за 90 дней.<br>
+                                <b>RARE</b> — 1–9 визитов за 90 дней и последний визит меньше 14 дней назад.<br>
+                                <b>RISK</b> — последний визит 14–29 дней назад.<br>
+                                <b>LOST</b> — последний визит 30–89 дней назад.<br>
+                                <b>DEAD</b> — последний визит 90+ дней назад.<br>
+                                <b>NO VISITS</b> — гость есть в базе, но еще ни разу не играл.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="audience-total">Всего гостей: {{ audience.total }}</div>
+                </div>
+
+                <div class="audience-grid">
+                    <div class="audience-card audience-card--top">
+                        <div class="audience-card__topline">
+                            <div class="audience-card__badge">👑</div>
+                            <div class="info-chip" tabindex="0">
+                                <span class="info-chip__icon">i</span>
+                                <div class="info-chip__tooltip">Самое активное ядро клуба: 15 и более визитов за последние 90 дней.</div>
+                            </div>
+                        </div>
+                        <div class="audience-card__label">TOP</div>
+                        <div class="audience-card__value">{{ audience.top }}</div>
+                    </div>
+
+                    <div class="audience-card audience-card--base">
+                        <div class="audience-card__topline">
+                            <div class="audience-card__badge">👥</div>
+                            <div class="info-chip" tabindex="0">
+                                <span class="info-chip__icon">i</span>
+                                <div class="info-chip__tooltip">Стабильная база: от 10 до 14 визитов за последние 90 дней.</div>
+                            </div>
+                        </div>
+                        <div class="audience-card__label">BASE</div>
+                        <div class="audience-card__value">{{ audience.base }}</div>
+                    </div>
+
+                    <div class="audience-card audience-card--rare">
+                        <div class="audience-card__topline">
+                            <div class="audience-card__badge">✨</div>
+                            <div class="info-chip" tabindex="0">
+                                <span class="info-chip__icon">i</span>
+                                <div class="info-chip__tooltip">Редкие, но еще живые гости: 1–9 визитов за 90 дней и последний визит был меньше 14 дней назад.</div>
+                            </div>
+                        </div>
+                        <div class="audience-card__label">RARE</div>
+                        <div class="audience-card__value">{{ audience.rare }}</div>
+                    </div>
+
+                    <div class="audience-card audience-card--risk">
+                        <div class="audience-card__topline">
+                            <div class="audience-card__badge">⚠️</div>
+                            <div class="info-chip" tabindex="0">
+                                <span class="info-chip__icon">i</span>
+                                <div class="info-chip__tooltip">Гости на грани оттока: последний визит был 14–29 дней назад.</div>
+                            </div>
+                        </div>
+                        <div class="audience-card__label">RISK</div>
+                        <div class="audience-card__value">{{ audience.risk }}</div>
+                    </div>
+
+                    <div class="audience-card audience-card--lost">
+                        <div class="audience-card__topline">
+                            <div class="audience-card__badge">💔</div>
+                            <div class="info-chip" tabindex="0">
+                                <span class="info-chip__icon">i</span>
+                                <div class="info-chip__tooltip">Потерянные гости: последний визит был 30–89 дней назад.</div>
+                            </div>
+                        </div>
+                        <div class="audience-card__label">LOST</div>
+                        <div class="audience-card__value">{{ audience.lost }}</div>
+                    </div>
+
+                    <div class="audience-card audience-card--dead">
+                        <div class="audience-card__topline">
+                            <div class="audience-card__badge">☠️</div>
+                            <div class="info-chip" tabindex="0">
+                                <span class="info-chip__icon">i</span>
+                                <div class="info-chip__tooltip">Старая мертвая база: последний визит был 90 и более дней назад.</div>
+                            </div>
+                        </div>
+                        <div class="audience-card__label">DEAD</div>
+                        <div class="audience-card__value">{{ audience.dead }}</div>
+                    </div>
+
+                    <div class="audience-card audience-card--no-visits">
+                        <div class="audience-card__topline">
+                            <div class="audience-card__badge">🆕</div>
+                            <div class="info-chip" tabindex="0">
+                                <span class="info-chip__icon">i</span>
+                                <div class="info-chip__tooltip">Гости есть в базе, но в их истории пока нет ни одной игровой сессии.</div>
+                            </div>
+                        </div>
+                        <div class="audience-card__label">NO VISITS</div>
+                        <div class="audience-card__value">{{ audience.no_visits }}</div>
+                    </div>
+                </div>
+            </section>

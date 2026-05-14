@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin — Создать клуб{% endblock %}
+{% set active_page = 'club_create' %}
+{% block content %}
+<section class="admin-page-head">
+    <div>
+        <h1>Создание клуба</h1>
+        <p>Добавь клуб и данные для подключения к LANGAME API.</p>
+    </div>
+</section>
+
+<section class="admin-card admin-form-card">
+    <form class="admin-form" method="POST">
+        <div>
+            <label for="name">Название клуба</label>
+            <input type="text" id="name" name="name" placeholder="ClubName" required>
+        </div>
+
+        <div>
+            <label for="api_key">LANGAME API key</label>
+            <input type="text" id="api_key" name="api_key" required>
+        </div>
+
+        <div>
+            <label for="secret">Secret / tenant</label>
+            <input type="text" id="secret" name="secret" placeholder="620" required>
+        </div>
+
+        <button class="admin-btn" type="submit">Создать клуб</button>
+    </form>
+</section>
+{% endblock %}

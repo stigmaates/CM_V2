@@ -1,0 +1,236 @@
+{% extends "owner/base.html" %}
+
+{% block title %}Рассылки{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="mailing-page">
+    <div class="mailing-header">
+        <div class="mailing-header__text">
+            <h1 class="mailing-title">Рассылка</h1>
+            <p class="mailing-lead">Собирай аудиторию по фильтрам, сохраняй сегменты и отправляй сообщения гостям с привязанным Telegram.</p>
+        </div>
+        <div class="mailing-header__aside">
+            <div class="audience-compact" role="status">
+        
+                <div class="audience-compact__line">
+                    <span class="audience-compact__label">Людей в рассылке:</span>
+                    <span class="audience-compact__count" id="audienceCount">—</span>
+                    <button type="button" class="help-btn help-btn--rail" id="mailingAudienceHelpBtn" title="Кто входит в рассылку" aria-label="Подробнее о количестве людей в рассылке">?</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mailing-tabs">
+        <button type="button" class="mailing-tab is-active" data-tab="manual">Ручная рассылка</button>
+        <button type="button" class="mailing-tab" data-tab="auto">Авторассылки</button>
+    </div>
+
+    <div class="mailing-tab-panel is-active" data-tab-panel="manual">
+    <div class="mailing-layout">
+        <div class="mailing-left">
+            <section class="mailing-box">
+                <div class="filters-header">
+                    <div>
+                        <h3>Группы из CRM-Аналитики</h3>
+                        <div class="crm-segments-hint">Нажми на группу, чтобы быстро подставить её как фильтр аудитории.</div>
+                    </div>
+                </div>
+
+                <div class="crm-segments-grid">
+                    {% for segment in crm_segments %}
+                        <button
+                            type="button"
+                            class="crm-segment-card crm-segment-card--{{ segment.key }}"
+                            data-crm-key="{{ segment.key }}"
+                            data-rules='{{ segment.rules | tojson | safe }}'
+                        >
+                            <span class="crm-segment-card__emoji">{{ segment.emoji }}</span>
+                            <span class="crm-segment-card__body">
+                                <span class="crm-segment-card__title">{{ segment.title }}</span>
+                                <span class="crm-segment-card__desc">{{ segment.description }}</span>
+                            </span>
+                        </button>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="mailing-box">
+                <div class="segments-block-head">
+                    <h3>Сохранённые сегменты</h3>
+                    <button type="button" class="btn btn-secondary btn-history-open" id="openMailingHistoryBtn">История рассылок</button>
+                </div>
+                <div class="segments-scroller">
+                    <div id="segmentsList" class="segments-list">
+                        {% for segment in segments %}
+                            <div class="segment-chip" data-id="{{ segment.id }}" data-rules='{{ segment.rules_json | tojson | safe }}'>
+                                <button class="segment-chip__use" type="button">{{ segment.name }}</button>
+                                <button class="segment-chip__delete" type="button" data-id="{{ segment.id }}">×</button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="mailing-box">
+                <div class="filters-header">
+                    <h3>Фильтры</h3>
+                    <button type="button" class="btn btn-secondary" id="addRuleBtn">Добавить фильтр</button>
+                </div>
+
+                <div id="rulesContainer" class="rules-container"></div>
+
+                <div class="segment-save-row">
+                    <input type="text" id="segmentName" placeholder="Название сегмента" autocomplete="off">
+                    <button type="button" class="btn" id="saveSegmentBtn">Сохранить сегмент</button>
+                    <button type="button" class="btn btn-primary" id="previewBtn">Применить</button>
+                </div>
+            </section>
+        </div>
+
+        <div class="mailing-right">
+            <section class="mailing-box">
+                <h3>Сообщение</h3>
+
+                <div class="editor-toolbar">
+                    <button type="button" data-tag="b"><b>Ж</b></button>
+                    <button type="button" data-tag="i"><i>К</i></button>
+                    <button type="button" data-tag="u"><u>Ч</u></button>
+                    <button type="button" id="insertLinkBtn">Ссылка</button>
+                </div>
+
+                <textarea id="messageText" class="message-textarea" placeholder="Текст сообщения"></textarea>
+            </section>
+
+            <section class="mailing-box">
+                <h3>Файлы</h3>
+                <input type="file" id="filesInput" multiple>
+                <div id="filesList" class="files-list"></div>
+            </section>
+
+            <section class="mailing-box">
+                <button type="button" class="btn btn-primary btn-send" id="sendMailingBtn">Отправить рассылку</button>
+            </section>
+        </div>
+    </div>
+    </div>
+
+    <div class="mailing-tab-panel" data-tab-panel="auto">
+        <section class="mailing-box auto-mailing-box">
+            <div class="auto-mailing-head">
+                <div>
+                    <h3>Авторассылки</h3>
+                </div>
+            </div>
+
+            <div class="auto-mailing-list">
+                {% for item in auto_mailings %}
+                    <div class="auto-mailing-card">
+                        <div class="auto-mailing-card__main">
+                            <div class="auto-mailing-card__icon">↩</div>
+                            <div>
+                                <div class="auto-mailing-card__title">{{ item.title }}</div>
+                                <div class="auto-mailing-card__desc">{{ item.description }}</div>
+                                <div class="auto-mailing-card__message">{{ item.message_text }}</div>
+                            </div>
+                        </div>
+
+                        <label class="toggle-switch">
+                            <input
+                                type="checkbox"
+                                class="auto-mailing-toggle"
+                                data-code="{{ item.code }}"
+                                {% if item.is_enabled %}checked{% endif %}
+                            >
+                            <span></span>
+                        </label>
+                    </div>
+                {% else %}
+                    <div class="empty-hint">Авторассылки пока не настроены.</div>
+                {% endfor %}
+            </div>
+
+        </section>
+    </div>
+</div>
+
+<div class="mailing-history-modal" id="mailingHistoryModal" aria-hidden="true">
+    <div class="mailing-history-modal__backdrop" id="mailingHistoryBackdrop"></div>
+    <div class="mailing-history-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="mailingHistoryTitle">
+        <div class="mailing-history-modal__head">
+            <h2 id="mailingHistoryTitle">История рассылок</h2>
+            <button type="button" class="mailing-history-modal__close" id="closeMailingHistoryBtn" aria-label="Закрыть">×</button>
+        </div>
+        <div class="mailing-history-modal__body">
+            <div class="mailing-history">
+                {% for mailing in mailings %}
+                    <div class="history-row">
+                        <div>#{{ mailing.id }}</div>
+                        <div>{{ mailing.status }}</div>
+                        <div>{{ mailing.recipients_count }} чел.</div>
+                        <div>{{ mailing.success_count }} успешно</div>
+                        <div>{{ mailing.failed_count }} ошибок</div>
+                        <div>{{ mailing.created_at }}</div>
+                    </div>
+                {% else %}
+                    <div class="empty-hint">Пока нет рассылок</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mailing-modal" id="mailingConfirmModal" aria-hidden="true">
+    <div class="mailing-modal__overlay" id="mailingModalOverlay"></div>
+    <div class="mailing-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="mailingModalTitle">
+        <div class="mailing-modal__head">
+            <div>
+                <div class="mailing-modal__eyebrow">Проверка перед отправкой</div>
+                <h2 id="mailingModalTitle">Подтвердить рассылку?</h2>
+            </div>
+            <button type="button" class="mailing-modal__close" id="mailingModalClose">×</button>
+        </div>
+
+        <div class="mailing-modal__stats">
+            <div>
+                <span>Получателей</span>
+                <strong id="modalRecipientsCount">—</strong>
+            </div>
+            <div>
+                <span>Файлов</span>
+                <strong id="modalFilesCount">0</strong>
+            </div>
+        </div>
+
+        <div class="mailing-modal__preview">
+            <div class="mailing-modal__label">Текст сообщения</div>
+            <div class="mailing-modal__message" id="modalMessagePreview"></div>
+        </div>
+
+        <div class="mailing-modal__actions">
+            <button type="button" class="btn btn-secondary" id="modalEditBtn">Редактировать</button>
+            <button type="button" class="btn btn-primary" id="modalConfirmSendBtn">Отправить</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="mailingAudienceHintModal" aria-hidden="true">
+    <div class="modal-panel" style="width: min(480px, 100%);" role="dialog" aria-modal="true" aria-labelledby="mailingAudienceHintTitle">
+        <div class="modal-header">
+            <h2 class="modal-title" id="mailingAudienceHintTitle">Люди в рассылке</h2>
+            <button type="button" class="modal-close" id="mailingAudienceHintClose" aria-label="Закрыть">×</button>
+        </div>
+        <p class="muted" style="margin: 0 0 20px; line-height: 1.5; font-size: 15px;">Только гости с Telegram и по выбранным фильтрам.</p>
+        <button type="button" class="btn" id="mailingAudienceHintOk" style="width: 100%;">Понятно</button>
+    </div>
+</div>
+
+<script>
+    window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
+</script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}"></script>
+{% endblock %}

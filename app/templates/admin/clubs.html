@@ -1,0 +1,162 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin — Клубы{% endblock %}
+{% block content %}
+<section class="admin-page-head">
+    <div>
+        <h1>Клубы</h1>
+        <p>Список всех клубов и быстрый запуск синхронизаций.</p>
+    </div>
+    <a class="admin-btn" href="{{ url_for('admin.create_club') }}">Создать клуб</a>
+</section>
+
+<section class="admin-card">
+    <div class="admin-table-wrap">
+        <table class="admin-table clubs-table">
+            <thead>
+                <tr><th>ID</th><th>Название</th><th>Owner</th><th>Дата создания</th></tr>
+            </thead>
+            <tbody>
+                {% for club in clubs %}
+                    <tr class="club-row" data-club-id="{{ club.club_id }}">
+                        <td>{{ club.club_id }}</td>
+                        <td>{{ club.name }}</td>
+                        <td>{{ club.owner_name or club.owner_login or '—' }}</td>
+                        <td>{{ club.created_at or '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="empty-cell">Клубов пока нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="admin-modal-backdrop" id="clubModal" hidden>
+    <div class="admin-modal">
+        <button type="button" class="modal-close" id="clubModalClose">×</button>
+        <div class="modal-head">
+            <div>
+                <h2 id="modalClubName">Клуб</h2>
+                <p id="modalClubMeta">—</p>
+            </div>
+        </div>
+
+        <div class="modal-actions sync-groups">
+            <div class="sync-group">
+                <div class="sync-group-title">Гости</div>
+                <button class="admin-btn sync-btn" data-sync="guests-incremental">Incremental</button>
+                <button class="admin-btn sync-btn" data-sync="guests-initial">Initial</button>
+            </div>
+            <div class="sync-group">
+                <div class="sync-group-title">Сессии</div>
+                <button class="admin-btn sync-btn" data-sync="sessions-incremental">Incremental</button>
+                <button class="admin-btn sync-btn" data-sync="sessions-initial">Initial</button>
+            </div>
+            <div class="sync-group">
+                <div class="sync-group-title">Операции</div>
+                <button class="admin-btn sync-btn" data-sync="operations-incremental">Incremental</button>
+                <button class="admin-btn sync-btn" data-sync="operations-initial">Initial</button>
+            </div>
+        </div>
+
+        <div class="sync-result" id="syncResult" hidden></div>
+
+        <div class="logs-block">
+            <h3>Логи обновлений</h3>
+            <div id="modalLogs" class="logs-list"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentClubId = null;
+const modal = document.getElementById('clubModal');
+const closeBtn = document.getElementById('clubModalClose');
+const resultBox = document.getElementById('syncResult');
+
+function formatValue(value) {
+    return value || '—';
+}
+
+function renderLogs(logs) {
+    const box = document.getElementById('modalLogs');
+    if (!logs || logs.length === 0) {
+        box.innerHTML = '<div class="empty-logs">Логов пока нет</div>';
+        return;
+    }
+    box.innerHTML = logs.map(log => `
+        <div class="log-item ${log.status}">
+            <div class="log-title">${log.script_name} · ${log.sync_mode}</div>
+            <div class="log-meta">${log.status} · ${formatValue(log.started_at)}</div>
+            <div class="log-message">${formatValue(log.message)}</div>
+        </div>
+    `).join('');
+}
+
+async function openClubModal(clubId) {
+    currentClubId = clubId;
+    resultBox.hidden = true;
+    resultBox.textContent = '';
+
+    const resp = await fetch(`/admin/clubs/${clubId}/details`);
+    const data = await resp.json();
+
+    if (!data.status) {
+        alert(data.message || 'Не удалось открыть клуб');
+        return;
+    }
+
+    const club = data.club;
+    document.getElementById('modalClubName').textContent = club.name || 'Клуб';
+    document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Создан: ${formatValue(club.created_at)}`;
+    renderLogs(data.logs);
+    modal.hidden = false;
+}
+
+function closeModal() {
+    modal.hidden = true;
+    currentClubId = null;
+}
+
+document.querySelectorAll('.club-row').forEach(row => {
+    row.addEventListener('click', () => openClubModal(row.dataset.clubId));
+});
+
+closeBtn.addEventListener('click', closeModal);
+modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+});
+
+document.querySelectorAll('.sync-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        if (!currentClubId) return;
+        const syncType = btn.dataset.sync;
+        const oldText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Запуск...';
+        resultBox.hidden = false;
+        resultBox.className = 'sync-result';
+        resultBox.textContent = 'Синхронизация запущена. Дождись ответа страницы.';
+
+        try {
+            const resp = await fetch(`/admin/clubs/${currentClubId}/sync/${syncType}`, { method: 'POST' });
+            const data = await resp.json();
+            resultBox.className = `sync-result ${data.status ? 'success' : 'error'}`;
+            resultBox.textContent = data.message || (data.status ? 'Готово' : 'Ошибка');
+            await openClubModal(currentClubId);
+            resultBox.hidden = false;
+            resultBox.className = `sync-result ${data.status ? 'success' : 'error'}`;
+            resultBox.textContent = data.message || (data.status ? 'Готово' : 'Ошибка');
+        } catch (e) {
+            resultBox.className = 'sync-result error';
+            resultBox.textContent = e.message || 'Ошибка запроса';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
+    });
+});
+</script>
+{% endblock %}

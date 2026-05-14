@@ -1,0 +1,414 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+import httpx
+
+from app.config import CM_BONUS_ADMIN_CHAT_ID, CM_BONUS_BOT_TOKEN, TG_PROXY_URL
+from app.core import get_db_connection
+from app.services.clubs import ensure_club_bonus_chat_column
+
+
+_cm_bonus_tables_ready = False
+
+
+def ensure_cm_bonus_tables(cursor) -> None:
+    """Create ClubModule bonus balance, ledger and redeem request tables lazily."""
+    global _cm_bonus_tables_ready
+    if _cm_bonus_tables_ready:
+        return
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cm_bonus_balances (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            club_id INT NOT NULL,
+            guest_id INT NOT NULL,
+            balance INT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_cm_bonus_balance (club_id, guest_id),
+            KEY idx_cm_bonus_balance_guest (guest_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cm_bonus_transactions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            club_id INT NOT NULL,
+            guest_id INT NOT NULL,
+            amount INT NOT NULL,
+            balance_after INT NOT NULL,
+            source_type VARCHAR(50) NOT NULL,
+            source_id VARCHAR(120) NULL,
+            description VARCHAR(255) NULL,
+            status VARCHAR(40) NOT NULL DEFAULT 'done',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_cm_bonus_source (club_id, guest_id, source_type, source_id),
+            KEY idx_cm_bonus_guest_created (club_id, guest_id, created_at),
+            KEY idx_cm_bonus_source_type (source_type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cm_bonus_redeem_requests (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            club_id INT NOT NULL,
+            guest_id INT NOT NULL,
+            amount INT NOT NULL,
+            status VARCHAR(40) NOT NULL DEFAULT 'pending',
+            admin_chat_id VARCHAR(80) NULL,
+            telegram_message_id BIGINT NULL,
+            error_text TEXT NULL,
+            requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            processed_at DATETIME NULL,
+            KEY idx_cm_bonus_redeem_guest (club_id, guest_id, requested_at),
+            KEY idx_cm_bonus_redeem_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    _cm_bonus_tables_ready = True
+
+
+def _ensure_balance_row(cursor, guest_id: int, club_id: int) -> None:
+    ensure_cm_bonus_tables(cursor)
+    cursor.execute(
+        """
+        INSERT IGNORE INTO cm_bonus_balances (club_id, guest_id, balance)
+        VALUES (%s, %s, 0)
+        """,
+        (club_id, guest_id),
+    )
+
+
+def _get_balance_for_update(cursor, guest_id: int, club_id: int) -> int:
+    _ensure_balance_row(cursor, guest_id, club_id)
+    cursor.execute(
+        """
+        SELECT balance
+        FROM cm_bonus_balances
+        WHERE club_id = %s AND guest_id = %s
+        FOR UPDATE
+        """,
+        (club_id, guest_id),
+    )
+    row = cursor.fetchone() or {}
+    return int(row.get("balance") or 0)
+
+
+def _transaction_exists(cursor, guest_id: int, club_id: int, source_type: str, source_id: str | None) -> bool:
+    if source_id is None:
+        return False
+    ensure_cm_bonus_tables(cursor)
+    cursor.execute(
+        """
+        SELECT id
+        FROM cm_bonus_transactions
+        WHERE club_id = %s
+          AND guest_id = %s
+          AND source_type = %s
+          AND source_id = %s
+        LIMIT 1
+        """,
+        (club_id, guest_id, source_type, str(source_id)),
+    )
+    return bool(cursor.fetchone())
+
+
+def add_cm_bonus_transaction(
+    cursor,
+    guest_id: int,
+    club_id: int,
+    amount: int,
+    source_type: str,
+    source_id: str | None = None,
+    description: str | None = None,
+    status: str = "done",
+) -> bool:
+    """Change CM bonus balance and write a ledger row. Returns False for duplicate idempotent sources."""
+    amount = int(amount or 0)
+    if amount == 0:
+        return False
+
+    source_id_str = str(source_id) if source_id is not None else None
+    if _transaction_exists(cursor, guest_id, club_id, source_type, source_id_str):
+        return False
+
+    balance = _get_balance_for_update(cursor, guest_id, club_id)
+    balance_after = balance + amount
+    if balance_after < 0:
+        raise ValueError("Недостаточно бонусов")
+
+    cursor.execute(
+        """
+        UPDATE cm_bonus_balances
+        SET balance = %s,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE club_id = %s AND guest_id = %s
+        """,
+        (balance_after, club_id, guest_id),
+    )
+    cursor.execute(
+        """
+        INSERT INTO cm_bonus_transactions (
+            club_id,
+            guest_id,
+            amount,
+            balance_after,
+            source_type,
+            source_id,
+            description,
+            status,
+            created_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            club_id,
+            guest_id,
+            amount,
+            balance_after,
+            source_type,
+            source_id_str,
+            description,
+            status,
+            datetime.utcnow(),
+        ),
+    )
+    return True
+
+
+def award_cm_bonuses_for_wheel_prize(
+    cursor,
+    guest_id: int,
+    club_id: int,
+    spin_id: int,
+    prize: dict[str, Any] | None,
+) -> bool:
+    if not prize:
+        return False
+    bonus_amount = int(prize.get("bonus_amount") or 0)
+    if bonus_amount <= 0:
+        return False
+
+    prize_name = prize.get("name") or "приз колеса"
+    return add_cm_bonus_transaction(
+        cursor=cursor,
+        guest_id=guest_id,
+        club_id=club_id,
+        amount=bonus_amount,
+        source_type="wheel_prize",
+        source_id=str(spin_id),
+        description=f"Приз колеса: {prize_name}",
+        status="done",
+    )
+
+
+def get_cm_bonus_balance(guest_id: int, club_id: int) -> int:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            _ensure_balance_row(cursor, guest_id, club_id)
+            cursor.execute(
+                """
+                SELECT balance
+                FROM cm_bonus_balances
+                WHERE club_id = %s AND guest_id = %s
+                LIMIT 1
+                """,
+                (club_id, guest_id),
+            )
+            row = cursor.fetchone() or {}
+        conn.commit()
+        return max(int(row.get("balance") or 0), 0)
+    finally:
+        conn.close()
+
+
+def get_cm_bonus_history(guest_id: int, club_id: int, limit: int = 20):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                SELECT id, amount, balance_after, source_type, source_id, description, status, created_at
+                FROM cm_bonus_transactions
+                WHERE club_id = %s AND guest_id = %s
+                ORDER BY created_at DESC, id DESC
+                LIMIT %s
+                """,
+                (club_id, guest_id, limit),
+            )
+            return cursor.fetchall()
+    finally:
+        conn.close()
+
+
+def _format_phone(phone: str | None) -> str:
+    if not phone:
+        return "не указан"
+    value = str(phone).strip()
+    if len(value) == 10 and value.isdigit():
+        return "+7" + value
+    return value
+
+
+def get_cm_bonus_admin_chat_id_for_club(club_id: int) -> str | None:
+    """Return per-club Telegram chat id for CM-bonus redeem requests.
+
+    CM_BONUS_ADMIN_CHAT_ID from .env is kept as optional fallback for old setups,
+    but the main source is clubs.cm_bonus_admin_chat_id.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_club_bonus_chat_column(cursor)
+            cursor.execute(
+                """
+                SELECT cm_bonus_admin_chat_id
+                FROM clubs
+                WHERE club_id = %s
+                LIMIT 1
+                """,
+                (club_id,),
+            )
+            row = cursor.fetchone() or {}
+        conn.commit()
+    finally:
+        conn.close()
+
+    chat_id = str(row.get("cm_bonus_admin_chat_id") or "").strip()
+    if chat_id:
+        return chat_id
+
+    # Fallback for dev/old installations. For production fill the field in club settings.
+    fallback = str(CM_BONUS_ADMIN_CHAT_ID or "").strip()
+    return fallback or None
+
+
+def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: int) -> tuple[bool, int | None, str | None, str | None]:
+    token = (CM_BONUS_BOT_TOKEN or "").strip()
+    chat_id = get_cm_bonus_admin_chat_id_for_club(int(guest.get("club_id") or 0))
+    if not token:
+        return False, None, "CM_BONUS_BOT_TOKEN не заполнен", chat_id
+    if not chat_id:
+        return False, None, "В настройках клуба не заполнен ID Telegram-беседы для CM-бонусов", chat_id
+
+    guest_name = guest.get("fio") or "Гость"
+    phone = _format_phone(guest.get("phone"))
+    club_id = guest.get("club_id")
+    guest_id = guest.get("guest_id")
+    text = (
+        "💎 <b>Заявка на перевод CM-бонусов</b>\n\n"
+        f"Гость: <b>{guest_name}</b>\n"
+        f"Телефон: <code>{phone}</code>\n"
+        f"Guest ID: <code>{guest_id}</code>\n"
+        f"Club ID: <code>{club_id}</code>\n"
+        f"Сумма к зачислению в Langame: <b>{amount}</b> бонусов\n\n"
+        f"Заявка CM: <code>{redeem_request_id}</code>\n"
+        "Бонусы уже списаны с кошелька гостя в ClubModule."
+    )
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        client_kwargs: dict[str, Any] = {"timeout": 20.0}
+        if TG_PROXY_URL:
+            client_kwargs["proxy"] = TG_PROXY_URL
+        with httpx.Client(**client_kwargs) as client:
+            response = client.post(url, json=payload)
+        data = response.json()
+        if response.status_code >= 400 or not data.get("ok"):
+            return False, None, str(data), chat_id
+        message_id = ((data.get("result") or {}).get("message_id"))
+        return True, message_id, None, chat_id
+    except Exception as e:
+        return False, None, str(e), chat_id
+
+
+def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[str, Any]:
+    """Withdraw guest CM bonuses and notify admin chat for manual Langame credit."""
+    guest_id = int(guest["guest_id"])
+    club_id = int(guest["club_id"])
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            balance = _get_balance_for_update(cursor, guest_id, club_id)
+            redeem_amount = int(amount or balance)
+            if redeem_amount <= 0:
+                raise ValueError("Нет бонусов для перевода")
+            if redeem_amount > balance:
+                raise ValueError("Недостаточно бонусов")
+
+            cursor.execute(
+                """
+                INSERT INTO cm_bonus_redeem_requests (club_id, guest_id, amount, status, requested_at)
+                VALUES (%s, %s, %s, 'created', %s)
+                """,
+                (club_id, guest_id, redeem_amount, datetime.utcnow()),
+            )
+            redeem_request_id = cursor.lastrowid
+
+            add_cm_bonus_transaction(
+                cursor=cursor,
+                guest_id=guest_id,
+                club_id=club_id,
+                amount=-redeem_amount,
+                source_type="redeem_request",
+                source_id=str(redeem_request_id),
+                description="Перевод CM-бонусов на игровой баланс Langame",
+                status="pending_admin_credit",
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    notification_sent, message_id, error_text, admin_chat_id = _notify_admin_chat(guest, redeem_amount, redeem_request_id)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                UPDATE cm_bonus_redeem_requests
+                SET status = %s,
+                    admin_chat_id = %s,
+                    telegram_message_id = %s,
+                    error_text = %s,
+                    processed_at = %s
+                WHERE id = %s
+                """,
+                (
+                    "notified" if notification_sent else "notify_failed",
+                    str(admin_chat_id or "") or None,
+                    message_id,
+                    error_text,
+                    datetime.utcnow(),
+                    redeem_request_id,
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "ok": True,
+        "amount": redeem_amount,
+        "request_id": redeem_request_id,
+        "notification_sent": notification_sent,
+        "error_text": error_text,
+        "balance_after": get_cm_bonus_balance(guest_id, club_id),
+    }

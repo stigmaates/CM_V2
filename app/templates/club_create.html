@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создание клуба</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+</head>
+<body class="auth-page">
+    <div class="card center-card">
+        <h1 class="auth-title">Создание клуба</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form class="auth-form" method="POST">
+            <div class="form-group">
+                <label for="club_id">Club ID</label>
+                <input class="form-input" type="number" id="club_id" name="club_id" required>
+            </div>
+
+            <div class="form-group">
+                <label for="name">Название клуба</label>
+                <input class="form-input" type="text" id="name" name="name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="lg_api_key">LG API Key</label>
+                <input class="form-input" type="text" id="lg_api_key" name="lg_api_key" required>
+            </div>
+
+            <div class="form-group">
+                <label for="secret">Secret</label>
+                <input class="form-input" type="text" id="secret" name="secret" required>
+            </div>
+
+            <button class="btn" style="margin-top: 10px; width: 100%;" type="submit">Создать клуб</button>
+        </form>
+    </div>
+</body>
+</html>

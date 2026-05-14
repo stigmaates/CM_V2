@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin — Создать пользователя{% endblock %}
+{% set active_page = 'users_create' %}
+{% block content %}
+<section class="admin-page-head">
+    <div>
+        <h1>Создание пользователя</h1>
+        <p>Создай администратора или владельца клуба.</p>
+    </div>
+</section>
+
+<section class="admin-card admin-form-card">
+    <form class="admin-form" method="POST">
+        <div>
+            <label for="role">Роль</label>
+            <select id="role" name="role" required>
+                <option value="owner">owner</option>
+                <option value="admin">admin</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="name">Имя</label>
+            <input type="text" id="name" name="name" placeholder="Иван Иванов" required>
+        </div>
+
+        <div>
+            <label for="login">Логин</label>
+            <input type="text" id="login" name="login" placeholder="ivanov" required>
+        </div>
+
+        <div>
+            <label for="club_id">Club ID</label>
+            <input type="number" id="club_id" name="club_id" placeholder="Можно оставить пустым для admin">
+        </div>
+
+        <div>
+            <label for="password">Пароль</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+
+        <button class="admin-btn" type="submit">Создать пользователя</button>
+    </form>
+</section>
+{% endblock %}

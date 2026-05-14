@@ -1,0 +1,89 @@
+{% extends "owner/base.html" %}
+
+{% block title %}WALLZ — CRM-Аналитика{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="content crm-page">
+    <section class="crm-hero card">
+        <div>
+            <div class="section-title">CRM-Аналитика</div>
+            <div class="muted crm-hero-text">Раздел в разработке. Сейчас сюда вынесен блок аудитории, дальше здесь появятся сегменты, фильтры и CRM-метрики.</div>
+        </div>
+    </section>
+
+    {% include "owner/_audience_widget.html" %}
+
+    <section class="heatmap-section card">
+        <div class="heatmap-head">
+            <div>
+                <div class="section-title">Тепловая карта посещений</div>
+                <div class="muted crm-hero-text">Показывает, в какие дни недели и часы чаще всего начинаются игровые сессии.</div>
+            </div>
+
+            <div class="period-switcher heatmap-switcher">
+                <a href="{{ url_for('owner.crm_analytics', period=7) }}"
+                   class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
+                <a href="{{ url_for('owner.crm_analytics', period=30) }}"
+                   class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
+                <a href="{{ url_for('owner.crm_analytics', period=90) }}"
+                   class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
+            </div>
+        </div>
+
+        <div class="heatmap-summary">
+            <div class="heatmap-summary-item">
+                <span>Сессий за период</span>
+                <strong>{{ heatmap.total_visits }}</strong>
+            </div>
+            <div class="heatmap-summary-item">
+                <span>Пиковое окно</span>
+                <strong>{{ heatmap.peak.day }}, {{ heatmap.peak.hour }}</strong>
+            </div>
+            <div class="heatmap-summary-item">
+                <span>Сессий в пике</span>
+                <strong>{{ heatmap.peak.value }}</strong>
+            </div>
+        </div>
+
+        <div class="heatmap-scroll">
+            <table class="visits-heatmap">
+                <thead>
+                    <tr>
+                        <th class="heatmap-day-col">День</th>
+                        {% for hour in heatmap.hours %}
+                            <th>{{ "%02d"|format(hour) }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in heatmap.grid %}
+                        <tr>
+                            <th class="heatmap-day-col">{{ row.day.label }}</th>
+                            {% for cell in row.cells %}
+                                <td class="heatmap-cell heatmap-level-{{ cell.level }}"
+                                    title="{{ row.day.full }}, {{ '%02d'|format(cell.hour) }}:00 — {{ cell.value }} сессий">
+                                    {% if cell.value > 0 %}{{ cell.value }}{% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="heatmap-legend">
+            <span>Меньше</span>
+            <i class="heatmap-level-1"></i>
+            <i class="heatmap-level-2"></i>
+            <i class="heatmap-level-3"></i>
+            <i class="heatmap-level-4"></i>
+            <i class="heatmap-level-5"></i>
+            <span>Больше</span>
+        </div>
+    </section>
+</main>
+{% endblock %}

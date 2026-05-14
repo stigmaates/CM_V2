@@ -1,0 +1,642 @@
+import json
+import os
+import uuid
+from typing import Any, Dict, List, Tuple
+
+from werkzeug.utils import secure_filename
+
+AUTO_MAILING_DEFAULTS = {
+    "inactive_14_bonus": {
+        "title": "Вернуть гостей 14+ дней",
+        "description": "Автоматически отправляет сообщение гостям, которых не было в клубе 14+ дней.",
+        "message_text": (
+            "Привет! Тебя давно не было в клубе 😔\n\n"
+            "Мы начислили тебе 200 бонусов — приходи играть, будем ждать!"
+        ),
+        "days_inactive": 14,
+        "bonus_amount": 200,
+        "repeat_after_days": 30,
+    }
+}
+
+CRM_SEGMENT_OPTIONS = [
+    {"key": "top", "label": "TOP", "title": "Топ-гости", "emoji": "👑", "description": "15+ визитов за 90 дней"},
+    {"key": "base", "label": "BASE", "title": "База", "emoji": "👥", "description": "10–14 визитов за 90 дней"},
+    {"key": "rare", "label": "RARE", "title": "Редкие", "emoji": "✨", "description": "1–9 визитов, были недавно"},
+    {"key": "risk", "label": "RISK", "title": "В зоне риска", "emoji": "⚠️", "description": "Не были 14–29 дней"},
+    {"key": "lost", "label": "LOST", "title": "Потерянные", "emoji": "💔", "description": "Не были 30–89 дней"},
+    {"key": "dead", "label": "DEAD", "title": "Мёртвая база", "emoji": "☠️", "description": "Не были 90+ дней"},
+    {"key": "no_visits", "label": "NO VISITS", "title": "Без визитов", "emoji": "🆕", "description": "Есть в базе, без визитов"},
+]
+
+FILTER_FIELDS = {
+    "gender": {"type": "enum", "column": "up.gender", "label": "Пол", "options": [{"value": 1, "label": "Мужской"}, {"value": 2, "label": "Женский"}]},
+    "age": {"type": "number", "column": "up.age", "label": "Возраст"},
+    "registration_date": {"type": "date", "column": "up.registration_date", "label": "Дата регистрации"},
+    "first_visit_date": {"type": "date", "column": "up.first_visit_date", "label": "Дата первого визита"},
+    "last_visit_date": {"type": "date", "column": "up.last_visit_date", "label": "Дата последнего визита"},
+    "visits_7d": {"type": "number", "column": "up.visits_7d", "label": "Визиты за 7 дней"},
+    "visits_30d": {"type": "number", "column": "up.visits_30d", "label": "Визиты за 30 дней"},
+    "visits_90d": {"type": "number", "column": "up.visits_90d", "label": "Визиты за 90 дней"},
+    "total_visits": {"type": "number", "column": "up.total_visits", "label": "Всего визитов"},
+    "avg_visits_per_month": {"type": "number", "column": "up.avg_visits_per_month", "label": "Среднее визитов в месяц"},
+    "avg_session_minutes": {"type": "number", "column": "up.avg_session_minutes", "label": "Средняя длина сессии"},
+    "max_session_minutes": {"type": "number", "column": "up.max_session_minutes", "label": "Макс. длина сессии"},
+    "total_hours_30d": {"type": "number", "column": "up.total_hours_30d", "label": "Часов за 30 дней"},
+    "total_hours_all": {"type": "number", "column": "up.total_hours_all", "label": "Часов за всё время"},
+    "days_since_last_visit": {"type": "number", "column": "up.days_since_last_visit", "label": "Дней с последнего визита"},
+    "night_share": {"type": "number", "column": "up.night_share", "label": "Доля ночных визитов"},
+    "weekend_share": {"type": "number", "column": "up.weekend_share", "label": "Доля визитов в выходные"},
+    "favorite_period": {
+        "type": "enum",
+        "column": "up.favorite_period",
+        "label": "Любимое время",
+        "options": [
+            {"value": "day", "label": "День"},
+            {"value": "evening", "label": "Вечер"},
+            {"value": "night", "label": "Ночь"},
+        ],
+    },
+    "avg_check_all": {"type": "number", "column": "up.avg_check_all", "label": "Средний чек за всё время"},
+    "avg_check_30d": {"type": "number", "column": "up.avg_check_30d", "label": "Средний чек за 30 дней"},
+    "last_payment_date": {"type": "date", "column": "up.last_payment_date", "label": "Последнее пополнение"},
+    "missions_completed_count": {"type": "number", "column": "up.missions_completed_count", "label": "Выполнено миссий"},
+    "missions_in_progress_count": {"type": "number", "column": "up.missions_in_progress_count", "label": "Миссий в процессе"},
+    "last_mission_activity_date": {"type": "date", "column": "up.last_mission_activity_date", "label": "Последняя активность по миссиям"},
+    "spins_count": {"type": "number", "column": "up.spins_count", "label": "Количество прокрутов"},
+    "last_spin_date": {"type": "date", "column": "up.last_spin_date", "label": "Последний прокрут"},
+    "lifetime_days": {"type": "number", "column": "up.lifetime_days", "label": "Дней с первого визита"},
+    "avg_days_between_visits": {"type": "number", "column": "up.avg_days_between_visits", "label": "Средний интервал между визитами"},
+    "is_active_30d": {"type": "bool", "column": "up.is_active_30d", "label": "Активен за 30 дней"},
+    "is_active_90d": {"type": "bool", "column": "up.is_active_90d", "label": "Активен за 90 дней"},
+    "has_telegram": {"type": "bool", "column": "up.has_telegram", "label": "Есть Telegram"},
+    "crm_type": {
+        "type": "enum",
+        "column": "up.crm_type",
+        "label": "CRM-группа",
+        "options": [
+            {"value": "top", "label": "TOP / Топ-гости"},
+            {"value": "base", "label": "BASE / База"},
+            {"value": "rare", "label": "RARE / Редкие"},
+            {"value": "risk", "label": "RISK / В зоне риска"},
+            {"value": "lost", "label": "LOST / Потерянные"},
+            {"value": "dead", "label": "DEAD / Мёртвая база"},
+            {"value": "no_visits", "label": "NO VISITS / Без визитов"},
+        ],
+    },
+}
+
+ALLOWED_NUMBER_OPS = {"=", "!=", ">", ">=", "<", "<=", "between"}
+ALLOWED_DATE_OPS = {"=", "!=", ">", ">=", "<", "<=", "between", "is_null", "is_not_null"}
+ALLOWED_ENUM_OPS = {"=", "!=", "in", "not_in"}
+ALLOWED_BOOL_OPS = {"="}
+
+ALLOWED_EXTENSIONS = {
+    "photo": {".jpg", ".jpeg", ".png", ".webp"},
+    "video": {".mp4", ".mov", ".mkv"},
+    "animation": {".gif"},
+    "document": {".pdf", ".doc", ".docx", ".txt", ".xlsx", ".xls", ".ppt", ".pptx"},
+}
+
+
+AUTO_MAILING_DEFAULTS = {
+    "inactive_14_bonus": {
+        "title": "Вернуть гостей 14+ дней",
+        "description": "Автоматически отправляет сообщение гостям, которых не было в клубе 14+ дней.",
+        "message_text": "Привет! Тебя давно не было в клубе 😔\n\nМы начислили тебе 200 бонусов — приходи играть, будем ждать!",
+        "days_inactive": 14,
+        "bonus_amount": 200,
+        "repeat_after_days": 30,
+    }
+}
+
+
+def get_filter_fields() -> List[Dict[str, Any]]:
+    result = []
+    for key, meta in FILTER_FIELDS.items():
+        item = {
+            "key": key,
+            "type": meta["type"],
+            "label": meta["label"],
+        }
+        if "options" in meta:
+            item["options"] = meta["options"]
+        result.append(item)
+    return result
+
+def ensure_auto_mailings(conn, club_id: int) -> None:
+    """
+    Создаёт дефолтные авторассылки для клуба, если их ещё нет.
+    Работает лениво: вызвал при открытии страницы — настройки появились.
+    """
+    with conn.cursor() as cur:
+        for code, defaults in AUTO_MAILING_DEFAULTS.items():
+            cur.execute(
+                """
+                INSERT INTO auto_mailing_settings (
+                    club_id,
+                    code,
+                    title,
+                    description,
+                    message_text,
+                    days_inactive,
+                    bonus_amount,
+                    repeat_after_days,
+                    is_enabled
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)
+                ON DUPLICATE KEY UPDATE
+                    title = VALUES(title),
+                    description = VALUES(description),
+                    updated_at = NOW()
+                """,
+                (
+                    club_id,
+                    code,
+                    defaults["title"],
+                    defaults["description"],
+                    defaults["message_text"],
+                    defaults["days_inactive"],
+                    defaults["bonus_amount"],
+                    defaults["repeat_after_days"],
+                ),
+            )
+
+def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
+    """Возвращает готовые CRM-группы для быстрых рассылок.
+
+    count считается так же, как реальная рассылка: только гости текущего клуба
+    с привязанным Telegram. Сами правила потом идут через общий механизм
+    фильтров, поэтому CRM-группу можно комбинировать с другими условиями.
+    """
+    counts = {item["key"]: 0 for item in CRM_SEGMENT_OPTIONS}
+
+    sql = """
+        SELECT
+            up.crm_type,
+            COUNT(*) AS cnt
+        FROM user_portrait up
+        JOIN guests g ON g.guest_id = up.guest_id
+        WHERE up.club_id = %s
+          AND up.has_telegram = 1
+          AND g.telegram_id IS NOT NULL
+          AND up.crm_type IS NOT NULL
+        GROUP BY up.crm_type
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (club_id,))
+        rows = cur.fetchall()
+
+    for row in rows:
+        key = row.get("crm_type")
+        if key in counts:
+            counts[key] = int(row.get("cnt") or 0)
+
+    result = []
+    for item in CRM_SEGMENT_OPTIONS:
+        result.append({
+            **item,
+            "count": counts.get(item["key"], 0),
+            "rules": {
+                "rules": [
+                    {"field": "crm_type", "op": "=", "value": item["key"]}
+                ]
+            },
+        })
+    return result
+
+
+def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
+    field = rule.get("field")
+    op = rule.get("op")
+    value = rule.get("value")
+    value_to = rule.get("value_to")
+
+    if field not in FILTER_FIELDS:
+        raise ValueError(f"Недопустимое поле фильтра: {field}")
+
+    meta = FILTER_FIELDS[field]
+    column = meta["column"]
+    field_type = meta["type"]
+
+    if field_type == "number":
+        if op not in ALLOWED_NUMBER_OPS:
+            raise ValueError(f"Недопустимый оператор для {field}: {op}")
+        if op == "between":
+            return f"{column} BETWEEN %s AND %s", [value, value_to]
+        return f"{column} {op} %s", [value]
+
+    if field_type == "date":
+        if op not in ALLOWED_DATE_OPS:
+            raise ValueError(f"Недопустимый оператор для {field}: {op}")
+        if op == "is_null":
+            return f"{column} IS NULL", []
+        if op == "is_not_null":
+            return f"{column} IS NOT NULL", []
+        if op == "between":
+            return f"DATE({column}) BETWEEN %s AND %s", [value, value_to]
+        return f"DATE({column}) {op} %s", [value]
+
+    if field_type == "enum":
+        if op not in ALLOWED_ENUM_OPS:
+            raise ValueError(f"Недопустимый оператор для {field}: {op}")
+        if op in {"in", "not_in"}:
+            if not isinstance(value, list) or not value:
+                raise ValueError(f"Для {field} оператор {op} требует непустой список")
+            placeholders = ", ".join(["%s"] * len(value))
+            sql_op = "IN" if op == "in" else "NOT IN"
+            return f"{column} {sql_op} ({placeholders})", list(value)
+        return f"{column} {op} %s", [value]
+
+    if field_type == "bool":
+        if op not in ALLOWED_BOOL_OPS:
+            raise ValueError(f"Недопустимый оператор для {field}: {op}")
+        return f"{column} = %s", [1 if str(value) in {"1", "true", "True"} else 0]
+
+    raise ValueError(f"Неизвестный тип поля: {field_type}")
+
+
+def build_where_clause(club_id: int, rules: List[Dict[str, Any]]) -> Tuple[str, List[Any]]:
+    where_parts = [
+        "up.club_id = %s",
+        "up.has_telegram = 1",
+        "g.telegram_id IS NOT NULL",
+    ]
+    params: List[Any] = [club_id]
+
+    for rule in rules:
+        if not rule.get("field") or not rule.get("op"):
+            continue
+        sql_part, sql_params = _build_single_rule(rule)
+        where_parts.append(sql_part)
+        params.extend(sql_params)
+
+    return " WHERE " + " AND ".join(where_parts), params
+
+
+def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]]) -> int:
+    where_sql, params = build_where_clause(club_id, rules)
+    sql = f"""
+        SELECT COUNT(*) AS cnt
+        FROM user_portrait up
+        JOIN guests g ON g.guest_id = up.guest_id
+        {where_sql}
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        row = cur.fetchone()
+    return int(row["cnt"] or 0)
+
+
+def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    where_sql, params = build_where_clause(club_id, rules)
+    sql = f"""
+        SELECT
+            up.guest_id,
+            g.telegram_id
+        FROM user_portrait up
+        JOIN guests g ON g.guest_id = up.guest_id
+        {where_sql}
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        return cur.fetchall()
+
+
+def list_segments(conn, club_id: int) -> List[Dict[str, Any]]:
+    sql = """
+        SELECT id, club_id, name, rules_json, created_at, updated_at
+        FROM saved_segments
+        WHERE club_id = %s
+        ORDER BY id DESC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (club_id,))
+        rows = cur.fetchall()
+
+    for row in rows:
+        if isinstance(row["rules_json"], str):
+            row["rules_json"] = json.loads(row["rules_json"])
+    return rows
+
+
+def save_segment(conn, club_id: int, name: str, rules: List[Dict[str, Any]]) -> int:
+    sql = """
+        INSERT INTO saved_segments (club_id, name, rules_json)
+        VALUES (%s, %s, %s)
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (club_id, name, json.dumps({"rules": rules}, ensure_ascii=False)))
+        return cur.lastrowid
+
+
+def delete_segment(conn, club_id: int, segment_id: int) -> None:
+    sql = "DELETE FROM saved_segments WHERE id = %s AND club_id = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (segment_id, club_id))
+
+
+def detect_file_type(filename: str) -> str:
+    ext = os.path.splitext(filename.lower())[1]
+    for file_type, exts in ALLOWED_EXTENSIONS.items():
+        if ext in exts:
+            return file_type
+    return "document"
+
+
+def save_uploaded_file(file_storage, upload_dir: str) -> Dict[str, str]:
+    os.makedirs(upload_dir, exist_ok=True)
+
+    original_name = file_storage.filename or "file"
+    safe_name = secure_filename(original_name)
+    unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+    full_path = os.path.join(upload_dir, unique_name)
+    file_storage.save(full_path)
+
+    return {
+        "original_name": original_name,
+        "stored_name": unique_name,
+        "file_path": full_path,
+        "file_type": detect_file_type(original_name),
+    }
+
+
+def create_mailing(
+    conn,
+    club_id: int,
+    segment_id: int | None,
+    rules: List[Dict[str, Any]],
+    message_text: str,
+    parse_mode: str,
+    attachments: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    recipients = get_recipient_rows(conn, club_id, rules)
+    recipients_count = len(recipients)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO mailings (
+                club_id,
+                segment_id,
+                filters_json,
+                message_text,
+                parse_mode,
+                status,
+                recipients_count
+            )
+            VALUES (%s, %s, %s, %s, %s, 'queued', %s)
+            """,
+            (
+                club_id,
+                segment_id,
+                json.dumps({"rules": rules}, ensure_ascii=False),
+                message_text,
+                parse_mode,
+                recipients_count,
+            ),
+        )
+        mailing_id = cur.lastrowid
+
+        if attachments:
+            cur.executemany(
+                """
+                INSERT INTO mailing_attachments (
+                    mailing_id,
+                    file_type,
+                    file_path,
+                    original_name
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                [
+                    (
+                        mailing_id,
+                        item["file_type"],
+                        item["file_path"],
+                        item["original_name"],
+                    )
+                    for item in attachments
+                ],
+            )
+
+        if recipients:
+            cur.executemany(
+                """
+                INSERT INTO mailing_recipients (
+                    mailing_id,
+                    guest_id,
+                    telegram_id,
+                    status
+                )
+                VALUES (%s, %s, %s, 'pending')
+                """,
+                [
+                    (
+                        mailing_id,
+                        row["guest_id"],
+                        row["telegram_id"],
+                    )
+                    for row in recipients
+                ],
+            )
+
+    return {
+        "mailing_id": mailing_id,
+        "recipients_count": recipients_count,
+    }
+
+
+def list_mailings(conn, club_id: int) -> List[Dict[str, Any]]:
+    sql = """
+        SELECT
+            id,
+            status,
+            recipients_count,
+            success_count,
+            failed_count,
+            created_at,
+            started_at,
+            finished_at
+        FROM mailings
+        WHERE club_id = %s
+        ORDER BY id DESC
+        LIMIT 50
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (club_id,))
+        return cur.fetchall()
+
+def ensure_auto_mailings(conn, club_id: int) -> None:
+    """Создаёт дефолтные авторассылки для клуба, если их ещё нет."""
+    with conn.cursor() as cur:
+        for code, defaults in AUTO_MAILING_DEFAULTS.items():
+            cur.execute(
+                """
+                INSERT INTO auto_mailing_settings (
+                    club_id,
+                    code,
+                    title,
+                    description,
+                    message_text,
+                    days_inactive,
+                    bonus_amount,
+                    repeat_after_days,
+                    is_enabled
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)
+                ON DUPLICATE KEY UPDATE
+                    title = VALUES(title),
+                    description = VALUES(description),
+                    updated_at = NOW()
+                """,
+                (
+                    club_id,
+                    code,
+                    defaults["title"],
+                    defaults["description"],
+                    defaults["message_text"],
+                    defaults["days_inactive"],
+                    defaults["bonus_amount"],
+                    defaults["repeat_after_days"],
+                ),
+            )
+
+
+def list_auto_mailings(conn, club_id: int):
+    ensure_auto_mailings(conn, club_id)
+    conn.commit()
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                id,
+                code,
+                title,
+                description,
+                message_text,
+                days_inactive,
+                bonus_amount,
+                repeat_after_days,
+                is_enabled,
+                last_run_at,
+                last_mailing_id,
+                updated_at
+            FROM auto_mailing_settings
+            WHERE club_id = %s
+            ORDER BY id ASC
+            """,
+            (club_id,),
+        )
+        return cur.fetchall()
+
+
+def update_auto_mailing_enabled(conn, club_id: int, code: str, is_enabled: bool) -> bool:
+    ensure_auto_mailings(conn, club_id)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE auto_mailing_settings
+            SET is_enabled = %s,
+                updated_at = NOW()
+            WHERE club_id = %s
+              AND code = %s
+            """,
+            (1 if is_enabled else 0, club_id, code),
+        )
+        return cur.rowcount > 0
+
+
+def get_inactive_auto_mailing_recipients(
+    conn,
+    club_id: int,
+    automation_code: str,
+    days_inactive: int = 14,
+    repeat_after_days: int = 30,
+) -> List[Dict[str, Any]]:
+    """Получатели авторассылки: были в клубе давно и не получали эту авторассылку недавно."""
+    sql = """
+        SELECT
+            up.guest_id,
+            g.telegram_id
+        FROM user_portrait up
+        JOIN guests g ON g.guest_id = up.guest_id
+        WHERE up.club_id = %s
+          AND up.has_telegram = 1
+          AND g.telegram_id IS NOT NULL
+          AND up.days_since_last_visit >= %s
+          AND NOT EXISTS (
+              SELECT 1
+              FROM auto_mailing_logs aml
+              WHERE aml.club_id = up.club_id
+                AND aml.automation_code = %s
+                AND aml.guest_id = up.guest_id
+                AND aml.created_at >= DATE_SUB(NOW(), INTERVAL %s DAY)
+          )
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (club_id, days_inactive, automation_code, repeat_after_days))
+        return cur.fetchall()
+
+
+def create_mailing_for_recipients(
+    conn,
+    club_id: int,
+    recipients: List[Dict[str, Any]],
+    message_text: str,
+    parse_mode: str = "HTML",
+    filters_json: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    recipients_count = len(recipients)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO mailings (
+                club_id,
+                segment_id,
+                filters_json,
+                message_text,
+                parse_mode,
+                status,
+                recipients_count
+            )
+            VALUES (%s, NULL, %s, %s, %s, 'queued', %s)
+            """,
+            (
+                club_id,
+                json.dumps(filters_json or {}, ensure_ascii=False),
+                message_text,
+                parse_mode,
+                recipients_count,
+            ),
+        )
+        mailing_id = cur.lastrowid
+
+        if recipients:
+            cur.executemany(
+                """
+                INSERT INTO mailing_recipients (
+                    mailing_id,
+                    guest_id,
+                    telegram_id,
+                    status
+                )
+                VALUES (%s, %s, %s, 'pending')
+                """,
+                [
+                    (
+                        mailing_id,
+                        row["guest_id"],
+                        row["telegram_id"],
+                    )
+                    for row in recipients
+                ],
+            )
+
+    return {
+        "mailing_id": mailing_id,
+        "recipients_count": recipients_count,
+    }

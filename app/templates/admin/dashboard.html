@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin — Дашборд{% endblock %}
+{% block content %}
+<section class="admin-page-head">
+    <div>
+        <h1>Админский дашборд</h1>
+        <p>Общая панель управления платформой ClubModule.</p>
+    </div>
+</section>
+
+<section class="admin-metrics-grid">
+    <div class="admin-card metric-card"><span>Клубов</span><strong>{{ metrics.clubs_count }}</strong></div>
+    <div class="admin-card metric-card"><span>Пользователей</span><strong>{{ metrics.users_count }}</strong></div>
+    <div class="admin-card metric-card"><span>Владельцев</span><strong>{{ metrics.owners_count }}</strong></div>
+    <div class="admin-card metric-card"><span>Админов</span><strong>{{ metrics.admins_count }}</strong></div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Последние клубы</h2>
+            <p>Быстрый обзор подключённых клубов.</p>
+        </div>
+        <a class="admin-btn secondary" href="{{ url_for('admin.clubs_list') }}">Все клубы</a>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr><th>ID</th><th>Название</th><th>Owner</th><th>Дата создания</th></tr>
+            </thead>
+            <tbody>
+                {% for club in recent_clubs %}
+                    <tr>
+                        <td>{{ club.club_id }}</td>
+                        <td>{{ club.name }}</td>
+                        <td>{{ club.owner_name or club.owner_login or '—' }}</td>
+                        <td>{{ club.created_at or '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="empty-cell">Клубов пока нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

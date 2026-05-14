@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WALLZ - Кабинет гостя</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <style>
+        .guest-page {
+            max-width: 1380px;
+            margin: 0 auto;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .guest-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .guest-logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent-strong);
+        }
+
+        .logout-link {
+            text-decoration: none;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: 10px;
+        }
+
+        .hero {
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            background: linear-gradient(180deg, rgba(43, 25, 80, 0.78), rgba(31, 18, 58, 0.9));
+        }
+
+        .dashboard-top {
+            display: grid;
+            grid-template-columns: 0.95fr 1.35fr;
+            gap: 24px;
+            margin-bottom: 32px;
+            align-items: start;
+        }
+
+        .profile-panel,
+        .missions-section,
+        .section,
+        .panel,
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: linear-gradient(180deg, rgba(43, 25, 80, 0.78), rgba(31, 18, 58, 0.9));
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .profile-main,
+        .profile-stats-grid,
+        .grid,
+        .wheel-layout {
+            display: grid;
+            gap: 12px;
+        }
+
+        .profile-main {
+            grid-template-columns: 1fr 1.2fr 1fr;
+            text-align: center;
+            margin-bottom: 22px;
+            align-items: center;
+        }
+
+        .profile-stats-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .profile-mini-card {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .wheel-layout {
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 16px;
+        }
+
+        .wheel-wrap {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .wheel-pointer {
+            position: absolute;
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 16px solid transparent;
+            border-right: 16px solid transparent;
+            border-bottom: 26px solid #ffffff;
+            z-index: 5;
+        }
+
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 10px solid #1891FF;
+            background: conic-gradient(
+                #1891FF 0deg 60deg,
+                #31a0ff 60deg 120deg,
+                #1677d8 120deg 180deg,
+                #4cb0ff 180deg 240deg,
+                #1167bd 240deg 300deg,
+                #78c3ff 300deg 360deg
+            );
+            transition: transform 4.2s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wheel-center {
+            position: absolute;
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            background: #242424;
+            border: 8px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .wheel-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: 0 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .spin-btn {
+            width: 100%;
+            border: none;
+            border-radius: 14px;
+            background: #1891FF;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 14px 18px;
+            cursor: pointer;
+        }
+
+        .spin-btn:disabled {
+            background: #5b5b5b;
+            cursor: not-allowed;
+        }
+
+        .tokens-box,
+        .result-box,
+        .prize-item,
+        .empty,
+        .period,
+        .status {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .grid {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #ffffff;
+            border-radius: 999px;
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-top {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% set profile = profile_stats|default({
+        "total_hours": 0,
+        "bonus_balance_placeholder": "-",
+        "loyalty_level_placeholder": "-"
+    }) %}
+    {% set missions_list = missions|default([]) %}
+
+    <div class="guest-page">
+        <div class="guest-topbar">
+            <div class="guest-logo">WALLZ</div>
+            <a class="logout-link" href="{{ url_for('guest_logout') }}">Выйти</a>
+        </div>
+
+        <div class="hero">
+            <h1 style="margin:0 0 8px;">Привет, {{ guest_name or 'гость' }} 👋</h1>
+            <p style="margin:0; color: var(--text-muted);">Здесь ты можешь выполнять задания, получать жетоны за дни посещений и крутить колесо фортуны.</p>
+        </div>
+
+        <div class="dashboard-top">
+            <div>
+                <div class="profile-panel">
+                    <div class="profile-main">
+                        <div style="font-size:20px; font-weight:700;">-</div>
+                        <div style="font-size:22px; font-weight:700;">{{ guest_name or 'Гость' }}</div>
+                        <div style="font-size:20px; font-weight:700;">{{ profile.bonus_balance_placeholder }}</div>
+                    </div>
+
+                    <div class="profile-stats-grid">
+                        <div class="profile-mini-card">
+                            <div style="font-size:24px; font-weight:700;">{{ profile.total_hours }}</div>
+                            <div style="font-size:12px; color: var(--text-muted);">часов отыграно</div>
+                        </div>
+
+                        <div class="profile-mini-card">
+                            <div style="font-size:24px; font-weight:700;">{{ profile.loyalty_level_placeholder }}</div>
+                            <div style="font-size:12px; color: var(--text-muted);">уровень лояльности</div>
+                        </div>
+
+                        <div class="profile-mini-card">
+                            <div style="font-size:24px; font-weight:700;">-</div>
+                            <div style="font-size:12px; color: var(--text-muted);">миссий выполнено / достижений получено</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="height: 24px;"></div>
+
+                <section class="missions-section">
+                    <div class="section-title">Задания и прогресс по ним</div>
+
+                    {% if missions_list %}
+                        <div class="grid">
+                            {% for mission in missions_list %}
+                                <div class="card">
+                                    <h3 style="margin:0 0 10px;">{{ mission.name }}</h3>
+                                    <p style="margin:0 0 16px; color: var(--text-muted);">{{ mission.description }}</p>
+
+                                    {% if mission.start_at or mission.end_at %}
+                                        <div class="period">
+                                            Период:
+                                            {% if mission.start_at %} с {{ mission.start_at.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+                                            {% if mission.end_at %} до {{ mission.end_at.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+                                        </div>
+                                    {% endif %}
+
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-weight:700;">
+                                        <span>Прогресс</span>
+                                        <span>{{ mission.progress }} / {{ mission.target }}</span>
+                                    </div>
+
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: {{ mission.progress_percent }}%;"></div>
+                                    </div>
+
+                                    {% if mission.is_completed %}
+                                        <div class="status">Выполнено</div>
+                                    {% else %}
+                                        <div class="status">В процессе</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty">Для твоего клуба пока нет активных заданий.</div>
+                    {% endif %}
+                </section>
+            </div>
+
+            <section class="section" style="margin-bottom: 0;">
+                <div class="section-title">Колесо фортуны</div>
+
+                <div class="wheel-layout">
+                    <div class="panel">
+                        <div class="wheel-wrap">
+                            <div class="wheel-pointer"></div>
+                            <div class="wheel" id="wheel">
+                                <div class="wheel-label" style="transform: rotate(30deg) translate(96px) rotate(-30deg);">Приз 1</div>
+                                <div class="wheel-label" style="transform: rotate(90deg) translate(96px) rotate(-90deg);">Приз 2</div>
+                                <div class="wheel-label" style="transform: rotate(150deg) translate(96px) rotate(-150deg);">Приз 3</div>
+                                <div class="wheel-label" style="transform: rotate(210deg) translate(96px) rotate(-210deg);">Приз 4</div>
+                                <div class="wheel-label" style="transform: rotate(270deg) translate(96px) rotate(-270deg);">Приз 5</div>
+                                <div class="wheel-label" style="transform: rotate(330deg) translate(96px) rotate(-330deg);">Приз 6</div>
+                            </div>
+                            <div class="wheel-center">WALLZ</div>
+                        </div>
+
+                        <div style="display:grid; gap:12px; max-width:320px; margin:16px auto 0;">
+                            <div class="tokens-box" style="text-align:center;">
+                                <div style="font-size:13px; color: var(--text-muted); margin-bottom:6px;">Доступно жетонов</div>
+                                <div style="font-size:30px; font-weight:700;" id="tokensCount">0</div>
+                            </div>
+
+                            <button class="spin-btn" id="spinBtn" onclick="spinWheel()">Крутить за 1 жетон</button>
+                            <div style="font-size:13px; color: var(--text-muted); text-align:center;">1 день посещения = 1 жетон • 1 прокрут = 1 жетон</div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="result-box">
+                            <div style="font-size:14px; font-weight:700; margin-bottom:8px;">Результат прокрута</div>
+                            <div style="font-size:22px; font-weight:700; margin-bottom:6px;" id="spinResultTitle">Пока без выигрыша</div>
+                            <div id="spinResultDescription">Нажми на кнопку и попробуй удачу.</div>
+                        </div>
+
+                        <div style="height: 16px;"></div>
+
+                        <div style="display:grid; gap:10px;">
+                            <div class="prize-item">
+                                <div style="font-size:16px; font-weight:700; margin-bottom:6px;">Как это работает</div>
+                                <div style="font-size:14px; color: var(--text-muted);">Жетоны начисляются за уникальные дни посещения клуба после даты запуска ивента.</div>
+                            </div>
+                            <div class="prize-item">
+                                <div style="font-size:16px; font-weight:700; margin-bottom:6px;">Важно</div>
+                                <div style="font-size:14px; color: var(--text-muted);">После прокрута приз сразу сохраняется за тобой.</div>
+                            </div>
+                            <div class="prize-item">
+                                <div style="font-size:16px; font-weight:700; margin-bottom:6px;">История круток</div>
+                                <div style="font-size:14px; color: var(--text-muted);">Пока заглушка. Позже сюда можно добавить последние выигрыши гостя.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const wheel = document.getElementById('wheel');
+        const spinBtn = document.getElementById('spinBtn');
+        const tokensCount = document.getElementById('tokensCount');
+        const spinResultTitle = document.getElementById('spinResultTitle');
+        const spinResultDescription = document.getElementById('spinResultDescription');
+
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        async function loadTokens() {
+            try {
+                const response = await fetch('/api/guest/tokens');
+                const data = await response.json();
+
+                if (data.tokens !== undefined) {
+                    tokensCount.textContent = data.tokens;
+                    spinBtn.disabled = data.tokens < 1;
+                }
+            } catch (error) {
+                spinBtn.disabled = false;
+            }
+        }
+
+        async function spinWheel() {
+            if (isSpinning) return;
+
+            isSpinning = true;
+            spinBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/wheel/spin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    let errorText = 'Не удалось выполнить прокрут';
+
+                    if (data.error === 'no_tokens') {
+                        errorText = 'У тебя недостаточно жетонов';
+                    } else if (data.error === 'no_prizes') {
+                        errorText = 'Для клуба пока не настроены призы';
+                    } else if (data.error === 'unauthorized') {
+                        errorText = 'Нужно заново войти в кабинет';
+                    }
+
+                    spinResultTitle.textContent = 'Ошибка';
+                    spinResultDescription.textContent = errorText;
+                    isSpinning = false;
+                    await loadTokens();
+                    return;
+                }
+
+                const extraRotation = 360 * 6 + Math.floor(Math.random() * 360);
+                currentRotation += extraRotation;
+                wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+                setTimeout(async () => {
+                    spinResultTitle.textContent = data.prize.name || 'Приз получен';
+                    spinResultDescription.textContent = data.prize.description || 'Поздравляем! Твой приз сохранён.';
+                    await loadTokens();
+                    isSpinning = false;
+                }, 4200);
+            } catch (error) {
+                spinResultTitle.textContent = 'Ошибка';
+                spinResultDescription.textContent = 'Что-то пошло не так при прокруте';
+                isSpinning = false;
+                await loadTokens();
+            }
+        }
+
+        loadTokens();
+    </script>
+</body>
+</html>

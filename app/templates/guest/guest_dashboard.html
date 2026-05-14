@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClubModule — Кабинет гостя</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+        }
+        .guest-page {
+            width: min(1640px, 100%);
+            margin: 0 auto;
+            padding: 28px 32px 48px;
+        }
+        .guest-topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
+        .guest-logo { font-size: 42px; line-height: 1; font-weight: 800; color: var(--accent-strong); letter-spacing: 1px; }
+        .top-actions { display: flex; align-items: center; gap: 12px; }
+        .token-pill, .logout-link, .mini-btn {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            text-decoration: none;
+            font-weight: 700;
+            transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .token-pill span { color: #ffd469; }
+        .mini-btn { cursor: pointer; font-size: 14px; }
+        .token-pill:hover, .mini-btn:hover, .logout-link:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(165, 114, 255, 0.45);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+            transform: translateY(-1px);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
+            gap: 24px;
+            align-items: stretch;
+            justify-content: center;
+            min-height: min(920px, calc(100vh - 140px));
+        }
+        .left-column { min-height: 0; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(43, 25, 80, 0.78), rgba(31, 18, 58, 0.9));
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: border-color 0.18s ease, box-shadow 0.22s ease;
+        }
+        .panel:hover {
+            border-color: rgba(165, 114, 255, 0.42);
+            box-shadow: var(--shadow), 0 14px 40px rgba(7, 2, 16, 0.45);
+        }
+
+        .profile-panel {
+            padding: 22px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .profile-header-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        .profile-intro {
+            text-align: left;
+            min-width: 0;
+        }
+        .profile-stats-stack {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .avatar {
+            width: 80px; height: 80px; border-radius: 50%; display: grid; place-items: center;
+            font-size: 34px; font-weight: 900;
+            background: radial-gradient(circle at 30% 20%, #b98bff, #6a45bf 70%);
+            border: 1px solid rgba(165, 114, 255, 0.75);
+            flex-shrink: 0;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .avatar:hover {
+            transform: scale(1.04);
+            border-color: rgba(255, 212, 105, 0.45);
+            box-shadow: 0 8px 28px rgba(143, 91, 255, 0.38);
+        }
+        .profile-streak-row {
+            position: relative;
+            width: 100%;
+            margin-top: 10px;
+            padding: 30px 14px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+        }
+        .profile-streak-row:hover {
+            border-color: rgba(165, 114, 255, 0.38);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+        .help-btn--rail {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            width: 26px;
+            height: 26px;
+            font-size: 13px;
+        }
+        .streak-row-caption {
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.35;
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            padding: 0 28px 0 8px;
+        }
+        .streak-row-caption .streak-row-plus {
+            color: #ffd469;
+            font-weight: 900;
+        }
+        .cm-bonus-wallet {
+            margin-top: 12px;
+            border: 1px solid rgba(255, 212, 105, 0.24);
+            border-radius: 14px;
+            padding: 14px;
+            background: linear-gradient(135deg, rgba(255, 212, 105, 0.10), rgba(143, 91, 255, 0.10));
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+        }
+        .cm-bonus-wallet-title {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 4px;
+        }
+        .cm-bonus-wallet-value {
+            font-size: 26px;
+            font-weight: 900;
+            color: #ffd469;
+            line-height: 1.1;
+        }
+        .cm-bonus-wallet-hint {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 4px;
+            line-height: 1.35;
+        }
+        .cm-bonus-transfer-btn {
+            border: 0;
+            border-radius: 12px;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, #ffd469, #e8a93a);
+            color: #1a0f2e;
+            font-weight: 900;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+        }
+        .cm-bonus-transfer-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.06);
+            box-shadow: 0 10px 24px rgba(255, 212, 105, .25);
+        }
+        .cm-bonus-transfer-btn:disabled {
+            opacity: .48;
+            cursor: not-allowed;
+            filter: grayscale(.25);
+        }
+        @media (max-width: 560px) {
+            .cm-bonus-wallet { grid-template-columns: 1fr; }
+            .cm-bonus-transfer-btn { width: 100%; }
+        }
+
+        .profile-name { font-size: 28px; font-weight: 800; margin-bottom: 4px; line-height: 1.15; }
+        .profile-subtitle { color: var(--text-muted); margin-bottom: 0; font-size: 14px; line-height: 1.35; }
+        .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .stat-card {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .05);
+            border-radius: 12px;
+            padding: 12px 10px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            text-align: center;
+            min-height: 138px;
+            position: relative;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(165, 114, 255, 0.48);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+        }
+        .stat-card-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            padding: 4px 0 2px;
+        }
+        .stat-label {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+            text-transform: none;
+            margin-bottom: 4px;
+            width: 100%;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .stat-value { font-size: 28px; font-weight: 900; line-height: 1.05; }
+        .accent { color: #ffd469; }
+        .help-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid rgba(165, 114, 255, 0.55);
+            background: linear-gradient(145deg, rgba(143, 91, 255, 0.35), rgba(255, 255, 255, 0.08));
+            color: #f0e8ff;
+            cursor: pointer;
+            font-weight: 900;
+            font-size: 14px;
+            line-height: 1;
+            box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 4px 14px rgba(95, 58, 166, .35);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+        .help-btn:hover {
+            transform: scale(1.06);
+            border-color: rgba(255, 212, 105, 0.65);
+            box-shadow: 0 0 0 1px rgba(255, 212, 105, 0.2), 0 6px 20px rgba(255, 212, 105, 0.18);
+        }
+        .help-btn:focus-visible {
+            outline: 2px solid #ffd469;
+            outline-offset: 2px;
+        }
+        .stat-metric {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .stat-metric-num,
+        .stat-metric-den {
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        .stat-metric-num { color: #fff; }
+        .stat-metric-den { color: rgba(244, 236, 255, 0.55); margin-left: 1px; }
+        .reward-progress {
+            width: 100%;
+            max-width: 220px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.12);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .reward-progress.streak-row-bar {
+            max-width: none;
+            margin-left: 0;
+            margin-right: 0;
+            height: 8px;
+        }
+        .reward-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8b35ff, #ffd469); }
+        .rules-list { display: grid; gap: 10px; color: var(--text-muted); line-height: 1.45; }
+        .rules-list b { color: var(--text-main); }
+        .rules-table { width: 100%; border-collapse: collapse; margin-top: 12px; overflow: hidden; border-radius: 12px; }
+        .rules-table td { border: 1px solid rgba(255,255,255,.10); padding: 9px 10px; color: var(--text-muted); }
+        .rules-table td:last-child { color: #ffd469; font-weight: 900; text-align: right; }
+        .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 24px; font-weight: 800; margin: 0 0 16px; }
+
+        /* Высота списка как у ровно 3 карточек (126px × 3 + зазоры 12px) — не растёт и не сжимается */
+        .missions-panel {
+            padding: 22px;
+            margin-top: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .missions-list {
+            --mission-row: 126px;
+            --mission-gap: 12px;
+            --missions-list-h: calc(var(--mission-row) * 3 + var(--mission-gap) * 2);
+            --mission-slot-2h: calc((var(--missions-list-h) - var(--mission-gap)) / 2);
+            display: flex;
+            flex-direction: column;
+            gap: var(--mission-gap);
+            align-items: stretch;
+            flex: 0 0 auto;
+            height: var(--missions-list-h);
+            min-height: var(--missions-list-h);
+            max-height: var(--missions-list-h);
+            overflow: hidden;
+        }
+        .missions-list[data-count="1"] {
+            justify-content: center;
+        }
+        .missions-list[data-count="1"] .mission-card {
+            flex: 0 0 var(--mission-slot-2h);
+            min-height: var(--mission-slot-2h);
+            max-height: var(--mission-slot-2h);
+        }
+        .missions-list[data-overflow="1"] {
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+        .mission-card {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0 18px;
+            align-items: stretch;
+            border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.04); padding: 14px;
+            min-height: 0;
+            flex: 1 1 0;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+        .missions-list[data-overflow="1"] .mission-card {
+            flex: 0 0 var(--mission-row);
+            min-height: var(--mission-row);
+            max-height: var(--mission-row);
+        }
+        .mission-main {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            min-width: 0;
+        }
+        .mission-head {
+            flex: 0 0 auto;
+        }
+        .mission-progress-stack {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: center;
+            min-height: 0;
+            gap: 8px;
+        }
+        .mission-progress-stack .progress-line {
+            width: 100%;
+            max-width: min(420px, 100%);
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .missions-list[data-count="1"] .mission-title { font-size: 19px; margin-bottom: 6px; }
+        .missions-list[data-count="1"] .mission-desc { font-size: 14px; margin-bottom: 0; }
+        .missions-list[data-count="1"] .progress-line { height: 10px; }
+        .missions-list[data-count="1"] .progress-text { font-size: 13px; margin-top: 0; text-align: center; }
+        .missions-list[data-count="1"] .mission-reward { font-size: 19px; }
+        .missions-list[data-count="2"] .mission-title { font-size: 19px; margin-bottom: 6px; }
+        .missions-list[data-count="2"] .mission-desc { font-size: 14px; margin-bottom: 0; }
+        .missions-list[data-count="2"] .progress-line { height: 10px; }
+        .missions-list[data-count="2"] .progress-text { font-size: 13px; margin-top: 0; text-align: center; }
+        .missions-list[data-count="2"] .mission-reward { font-size: 19px; }
+        .missions-list[data-count="3"] .mission-desc { margin-bottom: 0; }
+        .missions-list[data-count="3"] .progress-text { margin-top: 0; text-align: center; }
+        .mission-head .mission-desc {
+            margin-bottom: 0;
+        }
+        .mission-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(165, 114, 255, 0.42);
+            background: rgba(255, 255, 255, 0.07);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+        }
+        .mission-card--has-reward {
+            grid-template-columns: 1fr minmax(132px, 30%);
+        }
+        .mission-title { font-weight: 700; margin-bottom: 6px; }
+        .mission-desc { color: var(--text-muted); font-size: 13px; margin-bottom: 10px; }
+        .mission-reward-col {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-width: 0;
+            padding: 2px 4px;
+        }
+        .mission-reward {
+            font-size: 17px;
+            font-weight: 900;
+            line-height: 1.35;
+            color: #ffd469;
+        }
+        .progress-line {
+            width: 100%;
+            max-width: 420px;
+            height: 8px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(255,255,255,.1);
+            flex-shrink: 0;
+        }
+        .progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #ffd469); }
+        .progress-text { color: var(--text-muted); font-size: 12px; margin-top: 0; flex-shrink: 0; }
+        .empty {
+            border: 1px dashed rgba(255,255,255,.24); border-radius: 14px; padding: 20px; text-align: center; color: var(--text-muted);
+            background: rgba(255,255,255,.03);
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+        .empty:hover {
+            border-color: rgba(165, 114, 255, 0.35);
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .missions-panel > .empty {
+            flex: 1;
+            display: grid;
+            place-items: center;
+            min-height: 220px;
+        }
+
+        .wheel-panel {
+            padding: 28px;
+            height: 100%;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            isolation: isolate;
+            background:
+                radial-gradient(circle at 78% 14%, rgba(126, 235, 70, 0.18), transparent 35%),
+                radial-gradient(circle at 14% 88%, rgba(70, 207, 255, 0.16), transparent 30%),
+                linear-gradient(180deg, rgba(30, 17, 52, 0.96), rgba(15, 10, 28, 0.98));
+        }
+        .wheel-center-stage {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            padding: 20px 0 32px;
+        }
+        .wheel-panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: inherit;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 26px 26px;
+            mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.85), transparent 88%);
+            z-index: 0;
+        }
+        .wheel-panel > * { position: relative; z-index: 1; }
+        .wheel-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 4px; flex-shrink: 0; }
+        .wheel-hint { color: var(--text-muted); font-weight: 700; }
+        .wheel-history-btn {
+            border: 1px solid rgba(165, 114, 255, 0.45);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f4ecff;
+            font-weight: 800;
+            font-size: 13px;
+            letter-spacing: 0.02em;
+            padding: 9px 16px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .wheel-history-btn:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 212, 105, 0.45);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+        }
+        .wheel-area { display: flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 auto; }
+        .wheel-wrap {
+            position: relative;
+            width: min(620px, 92vw);
+            aspect-ratio: 1;
+            display: grid;
+            place-items: center;
+            filter: drop-shadow(0 18px 48px rgba(0, 0, 0, 0.62));
+        }
+        .wheel-wrap::before {
+            content: "";
+            position: absolute;
+            inset: 3%;
+            border-radius: 50%;
+            border: 1px solid rgba(162, 255, 110, 0.2);
+            box-shadow: 0 0 34px rgba(96, 255, 163, 0.18), inset 0 0 36px rgba(110, 164, 255, 0.14);
+            z-index: 1;
+            pointer-events: none;
+        }
+        .wheel-wrap::after {
+            content: "";
+            position: absolute;
+            inset: -3%;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 0;
+            pointer-events: none;
+        }
+        .wheel-pointer {
+            position: absolute; top: -4px; left: 50%; transform: translateX(-50%) rotate(180deg);
+            width: 0; height: 0; border-left: 22px solid transparent; border-right: 22px solid transparent;
+            border-bottom: 42px solid #d5b6ff;
+            z-index: 7;
+            filter: drop-shadow(0 0 12px rgba(165, 114, 255, 0.72));
+            transform-origin: 50% 50%;
+        }
+        .wheel-pointer.ticking { animation: pointerHit 90ms ease-out; }
+        .wheel {
+            width: 100%; height: 100%; border-radius: 50%; position: relative; overflow: hidden;
+            border: 10px solid rgba(143, 91, 255, 0.66);
+            background: radial-gradient(circle at center, #1d1830 0%, #100d1a 100%);
+            box-shadow:
+                inset 0 0 48px rgba(0, 0, 0, 0.52),
+                0 0 0 2px rgba(255,255,255,.06),
+                0 0 55px rgba(95, 58, 166, .42);
+            transition: transform 4.1s cubic-bezier(0.16, 0.76, 0.15, 0.99);
+        }
+        .wheel-svg { width: 100%; height: 100%; display: block; }
+        .wheel-segment {
+            position: absolute; top: 50%; left: 50%;
+            width: 170px; height: 128px; margin-left: -85px; margin-top: -64px;
+            transform: rotate(var(--angle)) translateY(-196px) rotate(calc(-1 * var(--angle)));
+            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+            z-index: 2;
+        }
+        .wheel-center {
+            position: absolute; width: 124px; height: 124px; border-radius: 50%; display: grid; place-items: center; z-index: 5;
+            background:
+                radial-gradient(circle at 34% 28%, #f0d8ff 0%, #c997ff 30%, #8f5bff 66%, #5b3799 100%);
+            border: 9px solid rgba(218, 192, 255, 0.84);
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            color: #25153f;
+            text-transform: uppercase;
+            box-shadow: 0 0 24px rgba(165, 114, 255, 0.5), inset 0 -10px 14px rgba(0, 0, 0, 0.2);
+        }
+        @keyframes pointerHit {
+            0% { transform: translateX(-50%) rotate(180deg); }
+            35% { transform: translateX(-50%) rotate(172deg); }
+            65% { transform: translateX(-50%) rotate(186deg); }
+            100% { transform: translateX(-50%) rotate(180deg); }
+        }
+        @keyframes segmentPulse {
+            0% { opacity: 0.16; }
+            50% { opacity: 1; }
+            100% { opacity: 0.16; }
+        }
+        @keyframes segmentLabelPulse {
+            0% { opacity: 0.28; }
+            50% { opacity: 1; }
+            100% { opacity: 0.28; }
+        }
+        .spin-controls { display: flex; justify-content: center; align-items: center; margin-top: 8px; flex-shrink: 0; }
+        .spin-btn {
+            border: 0; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #6a45bf); color: #fff;
+            min-height: 58px; min-width: min(420px, 100%); font-size: 16px; font-weight: 800; text-transform: uppercase; cursor: pointer;
+            transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+        }
+        .spin-btn:not(:disabled):hover {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 36px rgba(95, 58, 166, 0.48);
+        }
+        .spin-btn:disabled { opacity: .55; cursor: not-allowed; }
+        .cost-box { border: 1px solid var(--border); border-radius: 14px; display: grid; place-items: center; color: var(--text-muted); background: rgba(255,255,255,.04); font-weight: 700; }
+        .cost-box span { color: #ffd469; }
+        .wheel-footer-actions { margin-top: 12px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+            font-size: 18px;
+            cursor: pointer;
+            display: inline-grid;
+            place-items: center;
+            padding: 0;
+            transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(165, 114, 255, 0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+        }
+        .wheel-footnote { text-align: center; color: var(--text-muted); font-weight: 700; margin-top: 14px; padding-bottom: 2px; font-size: 13px; flex-shrink: 0; }
+
+        .modal-backdrop {
+            position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 18px;
+            background: rgba(8, 4, 15, 0.74); backdrop-filter: blur(8px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.24s ease, visibility 0.24s ease;
+        }
+        .modal-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        .app-modal {
+            width: min(680px, 100%); border: 1px solid var(--border); border-radius: 20px;
+            background: linear-gradient(180deg, rgba(43, 25, 80, 0.97), rgba(22, 12, 40, 0.97));
+            box-shadow: var(--shadow); padding: 22px; position: relative;
+            transform: translateY(20px) scale(0.94);
+            opacity: 0;
+            transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.24s ease;
+        }
+        .modal-backdrop.show .app-modal { transform: translateY(0) scale(1); opacity: 1; }
+        .modal-close {
+            position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: #fff; font-size: 30px; cursor: pointer;
+            line-height: 1; z-index: 2; border-radius: 8px;
+            transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+        }
+        .modal-close:hover {
+            opacity: 1;
+            transform: scale(1.06);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .modal-title { margin: 0 0 16px; font-size: 24px; font-weight: 800; }
+        .app-modal--streak {
+            width: min(560px, 100%);
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid rgba(165, 114, 255, 0.45);
+            box-shadow: var(--shadow), 0 0 0 1px rgba(255, 212, 105, 0.12), 0 24px 64px rgba(0, 0, 0, 0.55);
+        }
+        .streak-modal-head {
+            padding: 22px 52px 18px 22px;
+            background:
+                radial-gradient(ellipse 120% 100% at 50% 0%, rgba(143, 91, 255, 0.45), transparent 55%),
+                linear-gradient(180deg, rgba(55, 32, 98, 0.95), rgba(28, 16, 52, 0.4));
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+        }
+        .streak-modal-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255, 212, 105, 0.95);
+            margin-bottom: 8px;
+        }
+        .streak-modal-kicker span { font-size: 18px; line-height: 1; }
+        .streak-modal-title { margin: 0; font-size: 26px; font-weight: 900; line-height: 1.2; letter-spacing: -0.02em; }
+        .streak-modal-body { padding: 20px 22px 24px; }
+        .streak-callout {
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 18px;
+            background: rgba(255, 212, 105, 0.1);
+            border: 1px solid rgba(255, 212, 105, 0.28);
+            color: var(--text-main);
+            font-size: 15px;
+            line-height: 1.5;
+            font-weight: 600;
+        }
+        .streak-callout-label {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #ffd469;
+            margin-bottom: 6px;
+        }
+        .streak-modal-foot {
+            padding: 0 22px 22px;
+        }
+        .streak-modal-ok {
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: #1a0f2e;
+            font-weight: 900;
+            font-size: 15px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #ffd469, #e8a93a);
+            box-shadow: 0 8px 24px rgba(255, 212, 105, 0.25);
+            transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+        }
+        .streak-modal-ok:hover {
+            filter: brightness(1.06);
+            transform: translateY(-1px);
+            box-shadow: 0 12px 32px rgba(255, 212, 105, 0.32);
+        }
+        .win-modal-grid { display: grid; grid-template-columns: 210px 1fr; gap: 18px; align-items: center; }
+        .win-image-box { border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.04); display: grid; place-items: center; min-height: 176px; }
+        .win-image { max-width: 100%; max-height: 168px; object-fit: contain; }
+        .win-name { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+        .win-desc { color: var(--text-muted); line-height: 1.45; margin-bottom: 18px; }
+        .claim-btn {
+            width: 100%; border: 0; border-radius: 12px; padding: 13px 16px; color: #fff; font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), #6a45bf); cursor: pointer;
+            transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+        }
+        .claim-btn:hover {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(95, 58, 166, 0.45);
+        }
+        .detail-card { border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.04); padding: 12px; display: grid; gap: 8px; }
+        .detail-meta { color: var(--text-muted); font-size: 14px; }
+        .history-list { display: grid; gap: 10px; max-height: 420px; overflow: auto; padding-right: 4px; }
+        .history-item {
+            display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px;
+            border: 1px solid var(--border); background: rgba(255,255,255,.04); border-radius: 12px; padding: 10px;
+            transition: background 0.16s ease, border-color 0.16s ease;
+        }
+        .history-item:hover {
+            background: rgba(143, 91, 255, 0.12);
+            border-color: rgba(165, 114, 255, 0.35);
+        }
+        .history-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.08);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .history-thumb-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .history-thumb-placeholder { font-size: 22px; line-height: 1; }
+        .history-title { font-weight: 700; }
+        .history-date { font-size: 12px; color: var(--text-muted); }
+
+        @media (max-width: 1180px) { .layout { grid-template-columns: 1fr; } }
+        @media (max-width: 760px) {
+            body { align-items: flex-start; padding: 0; }
+            .guest-page { padding: 18px 14px 34px; width: 100%; }
+            .profile-header-row {
+                flex-direction: row;
+                justify-content: flex-start;
+            }
+            .profile-intro { text-align: left; }
+            .profile-stats-stack { max-width: 100%; }
+            .stats, .spin-controls, .win-modal-grid { grid-template-columns: 1fr; }
+            .mission-card--has-reward { grid-template-columns: 1fr; }
+            .mission-reward-col { padding: 10px 0 0; }
+            .wheel-wrap { width: min(430px, 92vw); }
+            .wheel-center { width: 86px; height: 86px; font-size: 30px; }
+        }
+    </style>
+</head>
+<body>
+    {% set profile = profile_stats|default({"total_hours": 0, "bonus_balance_placeholder": "—", "loyalty_level_placeholder": "—"}) %}
+    {% set missions_list = missions|default([]) %}
+    {% set prizes_list = wheel_prizes|default([]) %}
+    {% set history_list = wheel_history|default([]) %}
+    {% set spin_cost = wheel_settings.spin_cost if wheel_settings else 2 %}
+    {% set streak = streak_info|default({}) %}
+    {% set cm_balance = cm_bonus_balance|default(0) %}
+    {% set tokens_balance = token_balance|default(0) %}
+
+    <div class="guest-page">
+        <header class="guest-topbar">
+            <div class="guest-logo">ClubModule</div>
+            <div class="top-actions">
+                <div class="token-pill">💎 <span id="cmBonusTop">{{ cm_balance }}</span> CM</div>
+                <div class="token-pill">🪙 <span id="tokensCount">{{ tokens_balance }}</span> жет.</div>
+                <a class="logout-link" href="{{ url_for('guest.logout') }}">Выйти</a>
+            </div>
+        </header>
+
+        <main class="layout">
+            <div class="left-column">
+                <section class="panel profile-panel">
+                    <div class="profile-header-row">
+                        <div class="avatar">{{ (guest_name or 'Г')[0]|upper }}</div>
+                        <div class="profile-intro">
+                            <div class="profile-name">{{ guest_name or 'Гость' }}</div>
+                            <div class="profile-subtitle">Твой игровой профиль ClubModule</div>
+                        </div>
+                    </div>
+                    <div class="profile-stats-stack">
+                        <div class="stats">
+                            <div class="stat-card">
+                                <div class="stat-label">Серия</div>
+                                <div class="stat-card-main">
+                                    <div class="stat-metric" aria-hidden="true">
+                                        <span class="stat-metric-num">{{ streak.streak_days|default(0) }}</span><span class="stat-metric-den">/7</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Часы</div>
+                                <div class="stat-card-main">
+                                    <div class="stat-value">{{ profile.total_hours }}</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Жетоны</div>
+                                <div class="stat-card-main">
+                                    <div class="stat-value accent"><span id="tokensCountProfile">{{ tokens_balance }}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="profile-streak-row">
+                            <button class="help-btn help-btn--rail" type="button" onclick="openModal('streakRulesModal')" title="Как работает серия и жетоны" aria-label="Подробнее о серии и жетонах">?</button>
+                            <div class="streak-row-caption">
+                                <span class="streak-row-plus">+{{ streak.next_reward|default(1) }} жет.</span>
+                                за следующий день серии
+                            </div>
+                            <div class="reward-progress streak-row-bar" role="progressbar" aria-valuenow="{{ (streak.progress_percent|default(0))|round|int }}" aria-valuemin="0" aria-valuemax="100">
+                                <div class="reward-progress-fill" style="width: {{ streak.progress_percent|default(0) }}%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="cm-bonus-wallet">
+                            <div>
+                                <div class="cm-bonus-wallet-title">CM-бонусы</div>
+                                <div class="cm-bonus-wallet-value"><span id="cmBonusBalance">{{ cm_balance }}</span> бонусов</div>
+                                <div class="cm-bonus-wallet-hint">Бонусы из призов колеса. Их можно перевести на игровой аккаунт Langame через администратора.</div>
+                            </div>
+                            <button class="cm-bonus-transfer-btn" id="cmBonusTransferBtn" type="button" {% if cm_balance|int <= 0 %}disabled{% endif %}>Перевести на баланс</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel missions-panel">
+                    <div class="section-title">
+                        <span>Задания</span>
+                        <span>{{ missions_list|selectattr('is_completed')|list|length }} / {{ missions_list|length }}</span>
+                    </div>
+                    {% if missions_list %}
+                        <div class="missions-list" data-count="{{ missions_list|length }}" data-overflow="{{ 1 if missions_list|length > 3 else 0 }}">
+                            {% for mission in missions_list %}
+                                <article class="mission-card{% if mission.reward_display %} mission-card--has-reward{% endif %}">
+                                    <div class="mission-main">
+                                        <div class="mission-head">
+                                            <div class="mission-title">{{ mission.name }}</div>
+                                            <div class="mission-desc">{{ mission.description }}</div>
+                                        </div>
+                                        <div class="mission-progress-stack">
+                                            <div class="progress-line"><div class="progress-fill" style="width: {{ mission.progress_percent }}%;"></div></div>
+                                            <div class="progress-text">{{ mission.progress }} / {{ mission.target }}{% if mission.is_completed %} • выполнено{% endif %}</div>
+                                        </div>
+                                    </div>
+                                    {% if mission.reward_display %}
+                                        <div class="mission-reward-col">
+                                            <div class="mission-reward">{{ mission.reward_display }}</div>
+                                        </div>
+                                    {% endif %}
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty">Для твоего клуба пока нет активных заданий.</div>
+                    {% endif %}
+                </section>
+            </div>
+
+            <section class="panel wheel-panel">
+                <div class="wheel-head">
+                    <div class="section-title" style="margin:0;">Колесо фортуны</div>
+                    <button type="button" class="wheel-history-btn" id="openMyHistoryBtn" title="Открыть историю выпадений" aria-label="История выпадений">История выпадений</button>
+                </div>
+
+                <div class="wheel-center-stage">
+                    <div class="wheel-area">
+                        <div class="wheel-wrap">
+                            <div class="wheel-pointer"></div>
+                            <div class="wheel" id="wheel">
+                                <svg id="wheelSvg" class="wheel-svg" viewBox="0 0 1000 1000" aria-label="Колесо фортуны"></svg>
+                            </div>
+                            <div class="wheel-center">SPIN</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="spin-controls">
+                    <button class="spin-btn" id="spinBtn" onclick="spinWheel()">Крутить</button>
+                </div>
+                <div class="wheel-footnote">Крутка стоит {{ spin_cost }} жетонов • недельная серия даёт от 1 до 7 жетонов • приз сохраняется сразу</div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal-backdrop" id="winModal">
+        <div class="app-modal">
+            <button class="modal-close" onclick="closeModal('winModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Тебе выпал приз!</h2>
+            <div class="win-modal-grid">
+                <div class="win-image-box">
+                    <img class="win-image" id="winImage" src="" alt="Приз" style="display:none;">
+                    <div id="winFallback" style="font-size:70px;">🎁</div>
+                </div>
+                <div>
+                    <div class="win-name" id="winName">Приз</div>
+                    <div class="win-desc" id="winDescription">Поздравляем! Твой приз сохранён за тобой.</div>
+                    <button class="claim-btn" onclick="closeModal('winModal')">Отлично</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <div class="modal-backdrop" id="cmBonusModal">
+        <div class="app-modal">
+            <button class="modal-close" onclick="closeModal('cmBonusModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title" id="cmBonusModalTitle">CM-бонусы</h2>
+            <div class="win-desc" id="cmBonusModalText">В ближайшее время администратор зачислит бонусы на ваш игровой аккаунт Langame.</div>
+            <button class="claim-btn" onclick="closeModal('cmBonusModal')">Понятно</button>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="streakRulesModal">
+        <div class="app-modal app-modal--streak">
+            <div class="streak-modal-head">
+                <button class="modal-close" onclick="closeModal('streakRulesModal')" aria-label="Закрыть">×</button>
+                <div class="streak-modal-kicker"><span>✦</span> ClubModule</div>
+                <h2 class="streak-modal-title">Серия и жетоны</h2>
+            </div>
+            <div class="streak-modal-body">
+                <div class="streak-callout">
+                    <div class="streak-callout-label">Твой статус сейчас</div>
+                    {{ streak.message|default('Следующее посещение может начать или продолжить недельный цикл серии — награда зависит от уникальных дней подряд в рамках семи дней.') }}
+                </div>
+                <div class="rules-list">
+                    <div><b>Прокрутка колеса стоит {{ spin_cost }} жетон.</b> Призы сохраняются сразу после прокрута.</div>
+                    <div><b>Недельная серия:</b> первый уникальный день посещения даёт 1 жетон, второй день в течение недели — 2 жетона, третий — 3 жетона, и так до 7 жетонов.</div>
+                    <div><b>Если прошло 7 дней от первого посещения,</b> следующее посещение начинает новый цикл и снова даёт 1 жетон.</div>
+                    <div><b>Дополнительные задания</b> могут давать жетоны сверх серии, если клуб включил такую награду в настройках задания.</div>
+                </div>
+                <table class="rules-table">
+                    <tr><td>1-й день серии</td><td>+1 жет.</td></tr>
+                    <tr><td>2-й день серии</td><td>+2 жет.</td></tr>
+                    <tr><td>3-й день серии</td><td>+3 жет.</td></tr>
+                    <tr><td>4-й день серии</td><td>+4 жет.</td></tr>
+                    <tr><td>5-й день серии</td><td>+5 жет.</td></tr>
+                    <tr><td>6-й день серии</td><td>+6 жет.</td></tr>
+                    <tr><td>7-й день серии</td><td>+7 жет.</td></tr>
+                </table>
+            </div>
+            <div class="streak-modal-foot">
+                <button type="button" class="streak-modal-ok" onclick="closeModal('streakRulesModal')">Понятно</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="myHistoryModal">
+        <div class="app-modal">
+            <button class="modal-close" onclick="closeModal('myHistoryModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Моя история выпадений</h2>
+            {% if history_list %}
+                <div class="history-list" id="historyList">
+                    {% for item in history_list %}
+                        <div class="history-item">
+                            {% if item.image_url %}
+                                <div class="history-thumb">
+                                    <img class="history-thumb-img" src="{{ item.image_url }}" alt="{{ item.name }}">
+                                </div>
+                            {% else %}
+                                <div class="history-thumb" aria-hidden="true">
+                                    <span class="history-thumb-placeholder">🎁</span>
+                                </div>
+                            {% endif %}
+                            <div>
+                                <div class="history-title">{{ item.name }}</div>
+                                <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
+                            </div>
+                            <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty" id="historyEmpty">Пока нет побед. Крути колесо и получай призы!</div>
+                <div class="history-list" id="historyList"></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        const wheel = document.getElementById('wheel');
+        const wheelPointer = document.querySelector('.wheel-pointer');
+        const spinBtn = document.getElementById('spinBtn');
+        const tokensCount = document.getElementById('tokensCount');
+        const tokensCountProfile = document.getElementById('tokensCountProfile');
+        const cmBonusTop = document.getElementById('cmBonusTop');
+        const cmBonusBalance = document.getElementById('cmBonusBalance');
+        const cmBonusTransferBtn = document.getElementById('cmBonusTransferBtn');
+        const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
+        const cmBonusModalText = document.getElementById('cmBonusModalText');
+        const winImage = document.getElementById('winImage');
+        const winFallback = document.getElementById('winFallback');
+        const winName = document.getElementById('winName');
+        const winDescription = document.getElementById('winDescription');
+        const historyList = document.getElementById('historyList');
+        const historyEmpty = document.getElementById('historyEmpty');
+
+        const openMyHistoryBtn = document.getElementById('openMyHistoryBtn');
+
+        const spinCost = Number({{ spin_cost|default(1) }});
+        const initialTokens = Number({{ tokens_balance|default(0) }});
+        const initialCmBonusBalance = Number({{ cm_balance|default(0) }});
+        const prizes = {{ prizes_list|tojson }};
+        let currentRotation = 0;
+        let isSpinning = false;
+        let pointerTickRaf = null;
+        let lastPointerBoundary = null;
+        let activePrizeBlinkInterval = null;
+        let activePrizeBlinkTimeout = null;
+        let activePrizeSegmentPath = null;
+        let activePrizeSegmentLabel = null;
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.add('show');
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove('show');
+        }
+
+        function setTokens(tokens) {
+            const safeTokens = Number(tokens || 0);
+            tokensCount.textContent = safeTokens;
+            tokensCountProfile.textContent = safeTokens;
+            spinBtn.disabled = safeTokens < Math.max(spinCost, 1);
+        }
+
+        function renderWheelSvg() {
+            stopPrizeSegmentBlink();
+            const svg = document.getElementById('wheelSvg');
+            if (!svg) return;
+            const ns = 'http://www.w3.org/2000/svg';
+            svg.innerHTML = '';
+
+            const cx = 500;
+            const cy = 500;
+            const outerR = 470;
+            const innerR = 195;
+            const textR = 332;
+            const safePrizes = prizes.length ? prizes : [{ name: 'Призы скоро', image_url: null }];
+            const step = 360 / safePrizes.length;
+
+            const defs = document.createElementNS(ns, 'defs');
+
+            const insetFilter = document.createElementNS(ns, 'filter');
+            insetFilter.setAttribute('id', 'segmentInset');
+            insetFilter.setAttribute('x', '-20%');
+            insetFilter.setAttribute('y', '-20%');
+            insetFilter.setAttribute('width', '140%');
+            insetFilter.setAttribute('height', '140%');
+            insetFilter.innerHTML = [
+                '<feOffset dx="0" dy="3" in="SourceAlpha" result="off1"/>',
+                '<feGaussianBlur in="off1" stdDeviation="3.2" result="blur1"/>',
+                '<feComposite in="blur1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="innerShadowDark"/>',
+                '<feColorMatrix in="innerShadowDark" type="matrix" values="0 0 0 0 0.03 0 0 0 0 0.04 0 0 0 0 0.07 0 0 0 0.9 0" result="innerDarkColor"/>',
+                '<feOffset dx="0" dy="-2" in="SourceAlpha" result="off2"/>',
+                '<feGaussianBlur in="off2" stdDeviation="2.2" result="blur2"/>',
+                '<feComposite in="blur2" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="innerShadowLight"/>',
+                '<feColorMatrix in="innerShadowLight" type="matrix" values="0 0 0 0 0.82 0 0 0 0 0.9 0 0 0 0 1 0 0 0 0.32 0" result="innerLightColor"/>',
+                '<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="innerDarkColor"/><feMergeNode in="innerLightColor"/></feMerge>'
+            ].join('');
+            defs.appendChild(insetFilter);
+
+            const textGlow = document.createElementNS(ns, 'filter');
+            textGlow.setAttribute('id', 'textGlow');
+            textGlow.setAttribute('x', '-40%');
+            textGlow.setAttribute('y', '-40%');
+            textGlow.setAttribute('width', '180%');
+            textGlow.setAttribute('height', '180%');
+            textGlow.innerHTML = [
+                '<feDropShadow dx="0" dy="1.2" stdDeviation="1.1" flood-color="#110a21" flood-opacity="0.95"/>',
+                '<feDropShadow dx="0" dy="0" stdDeviation="1.8" flood-color="#c8a4ff" flood-opacity="0.35"/>'
+            ].join('');
+            defs.appendChild(textGlow);
+
+            const activeSegmentGlow = document.createElementNS(ns, 'filter');
+            activeSegmentGlow.setAttribute('id', 'activeSegmentGlow');
+            activeSegmentGlow.setAttribute('x', '-35%');
+            activeSegmentGlow.setAttribute('y', '-35%');
+            activeSegmentGlow.setAttribute('width', '170%');
+            activeSegmentGlow.setAttribute('height', '170%');
+            activeSegmentGlow.innerHTML = [
+                '<feDropShadow dx="0" dy="0" stdDeviation="4.4" flood-color="#ffd469" flood-opacity="0.78"/>',
+                '<feDropShadow dx="0" dy="0" stdDeviation="9.2" flood-color="#c79021" flood-opacity="0.56"/>'
+            ].join('');
+            defs.appendChild(activeSegmentGlow);
+
+            const rimGrad = document.createElementNS(ns, 'radialGradient');
+            rimGrad.setAttribute('id', 'rimGrad');
+            rimGrad.innerHTML = [
+                '<stop offset="0%" stop-color="#6a6f78"/>',
+                '<stop offset="32%" stop-color="#343840"/>',
+                '<stop offset="72%" stop-color="#171a20"/>',
+                '<stop offset="100%" stop-color="#08090c"/>'
+            ].join('');
+            defs.appendChild(rimGrad);
+
+            const hubGrad = document.createElementNS(ns, 'radialGradient');
+            hubGrad.setAttribute('id', 'hubGrad');
+            hubGrad.innerHTML = [
+                '<stop offset="0%" stop-color="#f0ddff"/>',
+                '<stop offset="45%" stop-color="#c997ff"/>',
+                '<stop offset="100%" stop-color="#6a45bf"/>'
+            ].join('');
+            defs.appendChild(hubGrad);
+
+            const segPalettes = [
+                ['#c39aff', '#8f5bff'],
+                ['#b082ff', '#7a4bd6'],
+                ['#a06ff0', '#673cb8'],
+                ['#8c61dc', '#5b369f'],
+                ['#7a51cb', '#4e2f8d'],
+                ['#6945b3', '#432977']
+            ];
+
+            safePrizes.forEach((_, index) => {
+                const grad = document.createElementNS(ns, 'linearGradient');
+                grad.setAttribute('id', `segGrad${index}`);
+                grad.setAttribute('x1', '10%');
+                grad.setAttribute('y1', '0%');
+                grad.setAttribute('x2', '90%');
+                grad.setAttribute('y2', '100%');
+                const [c1, c2] = segPalettes[index % segPalettes.length];
+
+                const stop1 = document.createElementNS(ns, 'stop');
+                stop1.setAttribute('offset', '0%');
+                stop1.setAttribute('stop-color', c1);
+                stop1.setAttribute('stop-opacity', '0.98');
+                grad.appendChild(stop1);
+
+                const stop2 = document.createElementNS(ns, 'stop');
+                stop2.setAttribute('offset', '100%');
+                stop2.setAttribute('stop-color', c2);
+                stop2.setAttribute('stop-opacity', '0.98');
+                grad.appendChild(stop2);
+                defs.appendChild(grad);
+            });
+            svg.appendChild(defs);
+
+            const bgCircle = document.createElementNS(ns, 'circle');
+            bgCircle.setAttribute('cx', cx);
+            bgCircle.setAttribute('cy', cy);
+            bgCircle.setAttribute('r', outerR);
+            bgCircle.setAttribute('fill', 'url(#rimGrad)');
+            svg.appendChild(bgCircle);
+
+            const rimOuterBevel = document.createElementNS(ns, 'circle');
+            rimOuterBevel.setAttribute('cx', cx);
+            rimOuterBevel.setAttribute('cy', cy);
+            rimOuterBevel.setAttribute('r', String(outerR - 2));
+            rimOuterBevel.setAttribute('fill', 'none');
+            rimOuterBevel.setAttribute('stroke', 'rgba(255,255,255,0.52)');
+            rimOuterBevel.setAttribute('stroke-width', '5.4');
+            rimOuterBevel.setAttribute('opacity', '0.66');
+            svg.appendChild(rimOuterBevel);
+
+            const rimMidBevel = document.createElementNS(ns, 'circle');
+            rimMidBevel.setAttribute('cx', cx);
+            rimMidBevel.setAttribute('cy', cy);
+            rimMidBevel.setAttribute('r', String(outerR - 14));
+            rimMidBevel.setAttribute('fill', 'none');
+            rimMidBevel.setAttribute('stroke', 'rgba(7,8,10,0.92)');
+            rimMidBevel.setAttribute('stroke-width', '16');
+            rimMidBevel.setAttribute('opacity', '0.96');
+            svg.appendChild(rimMidBevel);
+
+            const rimLip = document.createElementNS(ns, 'circle');
+            rimLip.setAttribute('cx', cx);
+            rimLip.setAttribute('cy', cy);
+            rimLip.setAttribute('r', String(outerR - 30));
+            rimLip.setAttribute('fill', 'none');
+            rimLip.setAttribute('stroke', 'rgba(255,255,255,0.22)');
+            rimLip.setAttribute('stroke-width', '3');
+            rimLip.setAttribute('opacity', '0.8');
+            svg.appendChild(rimLip);
+
+            const bedShadow = document.createElementNS(ns, 'circle');
+            bedShadow.setAttribute('cx', cx);
+            bedShadow.setAttribute('cy', cy);
+            bedShadow.setAttribute('r', String(outerR - 28));
+            bedShadow.setAttribute('fill', '#2a1849');
+            bedShadow.setAttribute('opacity', '0.5');
+            svg.appendChild(bedShadow);
+
+            function polar(radius, angleDeg) {
+                const rad = (angleDeg * Math.PI) / 180;
+                return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+            }
+
+            function segmentPath(startDeg, endDeg) {
+                const p1 = polar(outerR, startDeg);
+                const p2 = polar(outerR, endDeg);
+                const p3 = polar(innerR, endDeg);
+                const p4 = polar(innerR, startDeg);
+                const largeArc = endDeg - startDeg > 180 ? 1 : 0;
+                return [
+                    `M ${p1.x} ${p1.y}`,
+                    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${p2.x} ${p2.y}`,
+                    `L ${p3.x} ${p3.y}`,
+                    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${p4.x} ${p4.y}`,
+                    'Z'
+                ].join(' ');
+            }
+
+            safePrizes.forEach((prize, index) => {
+                const start = -90 + index * step + 1;
+                const end = -90 + (index + 1) * step - 1;
+                const mid = (start + end) / 2;
+
+                const path = document.createElementNS(ns, 'path');
+                path.setAttribute('d', segmentPath(start, end));
+                path.setAttribute('fill', `url(#segGrad${index})`);
+                path.setAttribute('stroke', 'rgba(53, 33, 90, 0.7)');
+                path.setAttribute('stroke-width', '1.3');
+                path.setAttribute('filter', 'url(#segmentInset)');
+                path.setAttribute('data-segment-index', String(index));
+                path.style.transition = 'filter 720ms ease-in-out, stroke 720ms ease-in-out, stroke-width 720ms ease-in-out, opacity 720ms ease-in-out';
+                svg.appendChild(path);
+
+                const textPos = polar(textR, mid);
+                const label = document.createElementNS(ns, 'text');
+                label.setAttribute('x', String(textPos.x));
+                label.setAttribute('y', String(textPos.y));
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('dominant-baseline', 'middle');
+                label.setAttribute('fill', '#f6eeff');
+                label.setAttribute('font-size', '28');
+                label.setAttribute('font-weight', '700');
+                label.setAttribute('font-family', '"Trebuchet MS", "Segoe UI", Arial, sans-serif');
+                label.setAttribute('letter-spacing', '0.9');
+                label.setAttribute('filter', 'url(#textGlow)');
+                label.textContent = (prize.name || 'Приз').toUpperCase().slice(0, 16);
+                label.setAttribute('data-segment-label', String(index));
+                label.style.transition = 'fill 720ms ease-in-out, opacity 720ms ease-in-out';
+                svg.appendChild(label);
+            });
+
+            for (let i = 0; i < safePrizes.length; i += 1) {
+                const angle = -90 + i * step;
+                const pOuter = polar(outerR - 30, angle);
+                const pInner = polar(innerR - 2, angle);
+
+                const ribDark = document.createElementNS(ns, 'line');
+                ribDark.setAttribute('x1', String(pInner.x));
+                ribDark.setAttribute('y1', String(pInner.y));
+                ribDark.setAttribute('x2', String(pOuter.x));
+                ribDark.setAttribute('y2', String(pOuter.y));
+                ribDark.setAttribute('stroke', 'rgba(45, 28, 77, 0.82)');
+                ribDark.setAttribute('stroke-width', '5.6');
+                ribDark.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(ribDark);
+
+                const ribLight = document.createElementNS(ns, 'line');
+                ribLight.setAttribute('x1', String(pInner.x));
+                ribLight.setAttribute('y1', String(pInner.y));
+                ribLight.setAttribute('x2', String(pOuter.x));
+                ribLight.setAttribute('y2', String(pOuter.y));
+                ribLight.setAttribute('stroke', 'rgba(235, 215, 255, 0.82)');
+                ribLight.setAttribute('stroke-width', '1.8');
+                ribLight.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(ribLight);
+            }
+
+            for (let i = 0; i < safePrizes.length; i += 1) {
+                const angle = -90 + i * step;
+                const dot = polar(outerR + 10, angle);
+                const dotOuter = document.createElementNS(ns, 'circle');
+                dotOuter.setAttribute('cx', String(dot.x));
+                dotOuter.setAttribute('cy', String(dot.y));
+                dotOuter.setAttribute('r', '11');
+                dotOuter.setAttribute('fill', '#2c2145');
+                dotOuter.setAttribute('stroke', '#8f71c4');
+                dotOuter.setAttribute('stroke-width', '2');
+                svg.appendChild(dotOuter);
+
+                const dotInner = document.createElementNS(ns, 'circle');
+                dotInner.setAttribute('cx', String(dot.x));
+                dotInner.setAttribute('cy', String(dot.y));
+                dotInner.setAttribute('r', '4.4');
+                dotInner.setAttribute('fill', '#d9bcff');
+                dotInner.setAttribute('stroke', '#f5e8ff');
+                dotInner.setAttribute('stroke-width', '0.7');
+                svg.appendChild(dotInner);
+            }
+
+            const innerCircle = document.createElementNS(ns, 'circle');
+            innerCircle.setAttribute('cx', cx);
+            innerCircle.setAttribute('cy', cy);
+            innerCircle.setAttribute('r', String(innerR - 8));
+            innerCircle.setAttribute('fill', '#140f23');
+            innerCircle.setAttribute('stroke', 'rgba(255,255,255,0.12)');
+            innerCircle.setAttribute('stroke-width', '3');
+            svg.appendChild(innerCircle);
+
+            const sectionRimOuter = document.createElementNS(ns, 'circle');
+            sectionRimOuter.setAttribute('cx', cx);
+            sectionRimOuter.setAttribute('cy', cy);
+            sectionRimOuter.setAttribute('r', String(outerR - 30));
+            sectionRimOuter.setAttribute('fill', 'none');
+            sectionRimOuter.setAttribute('stroke', 'rgba(222, 196, 255, 0.84)');
+            sectionRimOuter.setAttribute('stroke-width', '4');
+            sectionRimOuter.setAttribute('opacity', '0.72');
+            svg.appendChild(sectionRimOuter);
+
+            const outerInsetRim = document.createElementNS(ns, 'circle');
+            outerInsetRim.setAttribute('cx', cx);
+            outerInsetRim.setAttribute('cy', cy);
+            outerInsetRim.setAttribute('r', String(outerR - 7));
+            outerInsetRim.setAttribute('fill', 'none');
+            outerInsetRim.setAttribute('stroke', 'rgba(242,232,255,0.34)');
+            outerInsetRim.setAttribute('stroke-width', '2.2');
+            outerInsetRim.setAttribute('opacity', '0.34');
+            svg.appendChild(outerInsetRim);
+
+            const innerInsetRim = document.createElementNS(ns, 'circle');
+            innerInsetRim.setAttribute('cx', cx);
+            innerInsetRim.setAttribute('cy', cy);
+            innerInsetRim.setAttribute('r', String(innerR + 2));
+            innerInsetRim.setAttribute('fill', 'none');
+            innerInsetRim.setAttribute('stroke', 'rgba(26,14,49,0.72)');
+            innerInsetRim.setAttribute('stroke-width', '6');
+            innerInsetRim.setAttribute('opacity', '0.58');
+            svg.appendChild(innerInsetRim);
+
+            const hub = document.createElementNS(ns, 'circle');
+            hub.setAttribute('cx', cx);
+            hub.setAttribute('cy', cy);
+            hub.setAttribute('r', '42');
+            hub.setAttribute('fill', 'url(#hubGrad)');
+            hub.setAttribute('stroke', '#6b45a8');
+            hub.setAttribute('stroke-width', '4');
+            svg.appendChild(hub);
+        }
+
+        function setSegmentHighlightState(path, label, mode) {
+            if (!path) return;
+            if (mode === 'strong') {
+                path.setAttribute('filter', 'url(#activeSegmentGlow)');
+                path.setAttribute('stroke', 'rgba(255, 212, 105, 0.95)');
+                path.setAttribute('stroke-width', '2.3');
+                path.style.opacity = '0.98';
+                if (label) {
+                    label.setAttribute('fill', '#ffd469');
+                    label.style.opacity = '0.98';
+                }
+            } else {
+                path.setAttribute('filter', 'url(#segmentInset)');
+                path.setAttribute('stroke', 'rgba(53, 33, 90, 0.7)');
+                path.setAttribute('stroke-width', '1.3');
+                path.style.opacity = '0.84';
+                if (label) {
+                    label.setAttribute('fill', '#f6eeff');
+                    label.style.opacity = '0.72';
+                }
+            }
+        }
+
+        function stopPrizeSegmentBlink(resetToBase = true, clearRefs = true) {
+            if (activePrizeBlinkInterval) {
+                clearInterval(activePrizeBlinkInterval);
+                activePrizeBlinkInterval = null;
+            }
+            if (activePrizeBlinkTimeout) {
+                clearTimeout(activePrizeBlinkTimeout);
+                activePrizeBlinkTimeout = null;
+            }
+            if (activePrizeSegmentPath) {
+                activePrizeSegmentPath.style.animation = '';
+                activePrizeSegmentPath.style.animationPlayState = '';
+            }
+            if (activePrizeSegmentLabel) {
+                activePrizeSegmentLabel.style.animation = '';
+                activePrizeSegmentLabel.style.animationPlayState = '';
+            }
+            if (resetToBase && activePrizeSegmentPath) {
+                setSegmentHighlightState(activePrizeSegmentPath, activePrizeSegmentLabel, 'base');
+            }
+            if (clearRefs) {
+                activePrizeSegmentPath = null;
+                activePrizeSegmentLabel = null;
+            }
+        }
+
+        function clearAllSegmentHighlights() {
+            document.querySelectorAll('#wheelSvg path[data-segment-index]').forEach((path) => {
+                path.style.animation = '';
+                path.setAttribute('filter', 'url(#segmentInset)');
+                path.setAttribute('stroke', 'rgba(53, 33, 90, 0.7)');
+                path.setAttribute('stroke-width', '1.3');
+                path.style.opacity = '0.84';
+            });
+            document.querySelectorAll('#wheelSvg text[data-segment-label]').forEach((label) => {
+                label.style.animation = '';
+                label.setAttribute('fill', '#f6eeff');
+                label.style.opacity = '0.72';
+            });
+            activePrizeSegmentPath = null;
+            activePrizeSegmentLabel = null;
+        }
+
+        function highlightPrizeSegment(prizeId) {
+            const safeCount = Math.max(prizes.length, 0);
+            if (!safeCount) return;
+
+            const segmentIndex = prizes.findIndex((item) => Number(item.id) === Number(prizeId));
+            if (segmentIndex < 0) return;
+
+            const segmentPath = document.querySelector(`#wheelSvg path[data-segment-index="${segmentIndex}"]`);
+            const segmentLabel = document.querySelector(`#wheelSvg text[data-segment-label="${segmentIndex}"]`);
+            if (!segmentPath) return;
+
+            stopPrizeSegmentBlink(true);
+            activePrizeSegmentPath = segmentPath;
+            activePrizeSegmentLabel = segmentLabel;
+
+            setSegmentHighlightState(segmentPath, segmentLabel, 'strong');
+            segmentPath.style.animation = 'segmentPulse 1.95s ease-in-out infinite';
+            if (segmentLabel) {
+                segmentLabel.style.animation = 'segmentLabelPulse 1.95s ease-in-out infinite';
+            }
+            activePrizeBlinkTimeout = setTimeout(() => {
+                stopPrizeSegmentBlink(false, false);
+                segmentPath.style.animation = '';
+                if (segmentLabel) segmentLabel.style.animation = '';
+                setSegmentHighlightState(segmentPath, segmentLabel, 'strong');
+            }, 5200);
+        }
+
+        function triggerPointerTick() {
+            if (!wheelPointer) return;
+            wheelPointer.classList.remove('ticking');
+            void wheelPointer.offsetWidth;
+            wheelPointer.classList.add('ticking');
+        }
+
+        function getCurrentWheelAngleDeg() {
+            const style = window.getComputedStyle(wheel);
+            const transform = style.transform || style.webkitTransform;
+            if (!transform || transform === 'none') return 0;
+            const match2d = transform.match(/^matrix\((.+)\)$/);
+            if (!match2d) return 0;
+            const values = match2d[1].split(',').map((v) => parseFloat(v.trim()));
+            if (values.length < 2) return 0;
+            const [a, b] = values;
+            const angle = Math.atan2(b, a) * (180 / Math.PI);
+            return ((angle % 360) + 360) % 360;
+        }
+
+        function startPointerTicks() {
+            stopPointerTicks();
+            const safeCount = Math.max(prizes.length, 1);
+            const step = 360 / safeCount;
+            const observe = () => {
+                const angle = getCurrentWheelAngleDeg();
+                const boundaryIndex = Math.floor(angle / step);
+                if (lastPointerBoundary === null) {
+                    lastPointerBoundary = boundaryIndex;
+                } else if (boundaryIndex !== lastPointerBoundary) {
+                    triggerPointerTick();
+                    lastPointerBoundary = boundaryIndex;
+                }
+                pointerTickRaf = requestAnimationFrame(observe);
+            };
+            pointerTickRaf = requestAnimationFrame(observe);
+        }
+
+        function stopPointerTicks() {
+            if (pointerTickRaf !== null) {
+                cancelAnimationFrame(pointerTickRaf);
+                pointerTickRaf = null;
+            }
+            lastPointerBoundary = null;
+            if (wheelPointer) wheelPointer.classList.remove('ticking');
+        }
+
+        async function loadTokens() {
+            try {
+                const response = await fetch('/guest/api/tokens');
+                const data = await response.json();
+                if (data.tokens !== undefined) {
+                    setTokens(data.tokens);
+                    if (data.spin_cost) spinBtn.textContent = `Крутить за ${data.spin_cost} жет.`;
+                    if (!data.is_enabled) {
+                        spinBtn.disabled = true;
+                        spinBtn.textContent = 'Колесо отключено';
+                    }
+                }
+            } catch (error) {
+                // Keep server-rendered values when the live API is temporarily unavailable.
+                setTokens(initialTokens);
+            }
+        }
+
+        function setCmBonuses(balance) {
+            const safeBalance = Math.max(Number(balance || 0), 0);
+            if (cmBonusTop) cmBonusTop.textContent = safeBalance;
+            if (cmBonusBalance) cmBonusBalance.textContent = safeBalance;
+            if (cmBonusTransferBtn) cmBonusTransferBtn.disabled = safeBalance <= 0;
+        }
+
+        async function loadCmBonuses() {
+            try {
+                const response = await fetch('/guest/api/cm-bonuses');
+                const data = await response.json();
+                if (response.ok && data.balance !== undefined) {
+                    setCmBonuses(data.balance);
+                }
+            } catch (error) {
+                // Keep server-rendered values when the live API is temporarily unavailable.
+                setCmBonuses(initialCmBonusBalance);
+            }
+        }
+
+        async function redeemCmBonuses() {
+            if (!cmBonusTransferBtn || cmBonusTransferBtn.disabled) return;
+
+            cmBonusTransferBtn.disabled = true;
+            cmBonusTransferBtn.textContent = 'Отправляем...';
+
+            try {
+                const response = await fetch('/guest/api/cm-bonuses/redeem', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    cmBonusModalTitle.textContent = 'Не удалось перевести';
+                    cmBonusModalText.textContent = data.message || 'Попробуйте ещё раз чуть позже.';
+                    openModal('cmBonusModal');
+                    await loadCmBonuses();
+                    return;
+                }
+
+                setCmBonuses(data.balance_after || 0);
+                cmBonusModalTitle.textContent = 'Заявка отправлена';
+                cmBonusModalText.textContent = `В ближайшее время администратор зачислит ${data.amount || 0} бонусов на ваш игровой аккаунт Langame.`;
+                openModal('cmBonusModal');
+            } catch (error) {
+                cmBonusModalTitle.textContent = 'Ошибка';
+                cmBonusModalText.textContent = 'Не удалось отправить заявку. Попробуйте ещё раз чуть позже.';
+                openModal('cmBonusModal');
+                await loadCmBonuses();
+            } finally {
+                cmBonusTransferBtn.textContent = 'Перевести на баланс';
+            }
+        }
+
+        function showWinModal(prize) {
+            winName.textContent = prize.name || 'Приз получен';
+            const bonusText = Number(prize.bonus_amount || 0) > 0 ? `
+
++${prize.bonus_amount} CM-бонусов уже начислены в твой кошелёк.` : '';
+            winDescription.textContent = (prize.description || 'Поздравляем! Твой приз сохранён за тобой.') + bonusText;
+            if (prize.image_url) {
+                winImage.src = prize.image_url;
+                winImage.style.display = 'block';
+                winFallback.style.display = 'none';
+            } else {
+                winImage.removeAttribute('src');
+                winImage.style.display = 'none';
+                winFallback.style.display = 'block';
+            }
+            openModal('winModal');
+        }
+
+        function prependHistory(prize) {
+            if (!historyList) return;
+            if (historyEmpty) historyEmpty.style.display = 'none';
+            const row = document.createElement('div');
+            row.className = 'history-item';
+            const imageHtml = prize.image_url
+                ? `<div class="history-thumb"><img class="history-thumb-img" src="${prize.image_url}" alt="${(prize.name || 'Приз').replace(/"/g, '&quot;')}"></div>`
+                : `<div class="history-thumb" aria-hidden="true"><span class="history-thumb-placeholder">🎁</span></div>`;
+            row.innerHTML = `
+                ${imageHtml}
+                <div>
+                    <div class="history-title"></div>
+                    <div class="history-date"></div>
+                </div>
+                <div class="history-date">сейчас</div>
+            `;
+            row.querySelector('.history-title').textContent = prize.name || 'Приз';
+            row.querySelectorAll('.history-date')[0].textContent = prize.description || 'Приз сохранён за тобой';
+            historyList.prepend(row);
+        }
+
+        function calculateSpinToPrize(prizeId) {
+            if (!prizes.length) return 360 * 5 + Math.floor(Math.random() * 360);
+            const index = prizes.findIndex((item) => Number(item.id) === Number(prizeId));
+            if (index === -1) return 360 * 5 + Math.floor(Math.random() * 360);
+            const step = 360 / prizes.length;
+            const segmentCenter = index * step + step / 2;
+            const targetAngle = (360 - segmentCenter) % 360;
+            const normalizedCurrent = ((currentRotation % 360) + 360) % 360;
+            const delta = ((targetAngle - normalizedCurrent) + 360) % 360;
+            return 360 * 6 + delta;
+        }
+
+        async function spinWheel() {
+            if (isSpinning) return;
+            isSpinning = true;
+            spinBtn.disabled = true;
+            stopPrizeSegmentBlink(true);
+            clearAllSegmentHighlights();
+            try {
+                const response = await fetch('/guest/api/wheel/spin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (!response.ok || data.error) {
+                    let errorText = 'Не удалось выполнить прокрут';
+                    if (data.error === 'no_tokens') errorText = 'У тебя недостаточно жетонов';
+                    if (data.error === 'no_prizes') errorText = 'Для клуба пока не настроены призы';
+                    if (data.error === 'wheel_disabled') errorText = 'Колесо фортуны сейчас отключено';
+                    if (data.error === 'unauthorized') errorText = 'Нужно заново войти в кабинет';
+                    showWinModal({ name: 'Ошибка', description: errorText });
+                    isSpinning = false;
+                    await loadTokens();
+                    return;
+                }
+
+                const prize = data.prize || {};
+                const extraRotation = calculateSpinToPrize(prize.id);
+                currentRotation += extraRotation;
+                startPointerTicks();
+                wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+                setTimeout(async () => {
+                    stopPointerTicks();
+                    highlightPrizeSegment(prize.id);
+                    showWinModal(prize);
+                    prependHistory(prize);
+                    if (data.tokens_after !== undefined) setTokens(data.tokens_after);
+                    await loadTokens();
+                    await loadCmBonuses();
+                    isSpinning = false;
+                }, 4100);
+            } catch (error) {
+                stopPointerTicks();
+                showWinModal({ name: 'Ошибка', description: 'Что-то пошло не так при прокруте' });
+                isSpinning = false;
+                await loadTokens();
+            }
+        }
+
+        if (openMyHistoryBtn) {
+            openMyHistoryBtn.addEventListener('click', () => openModal('myHistoryModal'));
+        }
+
+        document.querySelectorAll('.modal-backdrop').forEach((modal) => {
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) modal.classList.remove('show');
+            });
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                document.querySelectorAll('.modal-backdrop.show').forEach((modal) => modal.classList.remove('show'));
+            }
+        });
+
+        renderWheelSvg();
+        setTokens(initialTokens);
+        setCmBonuses(initialCmBonusBalance);
+        if (cmBonusTransferBtn) cmBonusTransferBtn.addEventListener('click', redeemCmBonuses);
+        loadTokens();
+        loadCmBonuses();
+    </script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Рассылки{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="mailing-page">
+    <div class="mailing-top">
+        <div class="audience-card">
+            <div class="audience-title">Людей в рассылке</div>
+            <div class="audience-count" id="audienceCount">—</div>
+            <div class="audience-subtitle">Только гости с Telegram и по выбранным фильтрам</div>
+        </div>
+    </div>
+
+    <div class="mailing-layout">
+        <div class="mailing-left">
+            <section class="mailing-box">
+                <h3>Сохранённые сегменты</h3>
+                <div id="segmentsList" class="segments-list">
+                    {% for segment in segments %}
+                        <div class="segment-chip" data-id="{{ segment.id }}" data-rules='{{ segment.rules_json | tojson | safe }}'>
+                            <button class="segment-chip__use" type="button">{{ segment.name }}</button>
+                            <button class="segment-chip__delete" type="button" data-id="{{ segment.id }}">×</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="mailing-box">
+                <div class="filters-header">
+                    <h3>Фильтры</h3>
+                    <button type="button" class="btn btn-secondary" id="addRuleBtn">Добавить фильтр</button>
+                </div>
+
+                <div id="rulesContainer" class="rules-container"></div>
+
+                <div class="segment-save-row">
+                    <input type="text" id="segmentName" placeholder="Название сегмента">
+                    <button type="button" class="btn" id="saveSegmentBtn">Сохранить сегмент</button>
+                    <button type="button" class="btn btn-primary" id="previewBtn">Применить</button>
+                </div>
+            </section>
+
+            <section class="mailing-box">
+                <h3>История рассылок</h3>
+                <div class="mailing-history">
+                    {% for mailing in mailings %}
+                        <div class="history-row">
+                            <div>#{{ mailing.id }}</div>
+                            <div>{{ mailing.status }}</div>
+                            <div>{{ mailing.recipients_count }} чел.</div>
+                            <div>{{ mailing.success_count }} успешно</div>
+                            <div>{{ mailing.failed_count }} ошибок</div>
+                            <div>{{ mailing.created_at }}</div>
+                        </div>
+                    {% else %}
+                        <div class="empty-hint">Пока нет рассылок</div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <div class="mailing-right">
+            <section class="mailing-box">
+                <h3>Сообщение</h3>
+
+                <div class="editor-toolbar">
+                    <button type="button" data-tag="b"><b>Ж</b></button>
+                    <button type="button" data-tag="i"><i>К</i></button>
+                    <button type="button" data-tag="u"><u>Ч</u></button>
+                    <button type="button" id="insertLinkBtn">Ссылка</button>
+                </div>
+
+                <textarea id="messageText" class="message-textarea" placeholder="Текст сообщения"></textarea>
+            </section>
+
+            <section class="mailing-box">
+                <h3>Файлы</h3>
+                <input type="file" id="filesInput" multiple>
+                <div id="filesList" class="files-list"></div>
+            </section>
+
+            <section class="mailing-box">
+                <button type="button" class="btn btn-primary btn-send" id="sendMailingBtn">Отправить рассылку</button>
+            </section>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
+</script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}"></script>
+{% endblock %}

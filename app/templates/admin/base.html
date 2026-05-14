@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin — ClubModule{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="admin-shell">
+    <aside class="admin-sidebar">
+        <div class="admin-brand">
+            <div class="admin-burger">☰</div>
+            <div>
+                <div class="admin-logo">CM Admin</div>
+                <div class="admin-subtitle">control panel</div>
+            </div>
+        </div>
+
+        <nav class="admin-nav">
+            <a class="admin-nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="{{ url_for('admin.dashboard') }}">Дашборд</a>
+            <a class="admin-nav-link {% if active_page == 'clubs' %}active{% endif %}" href="{{ url_for('admin.clubs_list') }}">Клубы</a>
+            <a class="admin-nav-link {% if active_page == 'users_create' %}active{% endif %}" href="{{ url_for('admin.users_create') }}">Создать пользователя</a>
+            <a class="admin-nav-link {% if active_page == 'club_create' %}active{% endif %}" href="{{ url_for('admin.create_club') }}">Создать клуб</a>
+        </nav>
+
+        <div class="admin-sidebar-footer">
+            <a href="{{ url_for('auth.logout') }}">Выйти</a>
+        </div>
+    </aside>
+
+    <main class="admin-main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="admin-flashes">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,66 @@
+from flask import flash, redirect, render_template, request, session, url_for
+
+from app.core import owner_required
+from app.services.clubs import get_club_info, update_club_info
+from app.services.missions import get_club_missions_all, get_mission_templates
+from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
+
+from . import owner_bp
+
+
+SETTINGS_TABS = {"club", "missions", "wheel"}
+
+
+@owner_bp.route("/settings", methods=["GET", "POST"])
+@owner_required
+def settings():
+    club_id = session.get("club_id")
+    if not club_id:
+        flash("Сначала создайте клуб", "error")
+        return redirect(url_for("owner.club_create"))
+
+    active_tab = request.args.get("tab", "club").strip()
+    if active_tab not in SETTINGS_TABS:
+        active_tab = "club"
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        lg_api_key = request.form.get("lg_api_key", "").strip()
+        secret = request.form.get("secret", "").strip()
+        cm_bonus_admin_chat_id = request.form.get("cm_bonus_admin_chat_id", "").strip()
+
+        if not name or not lg_api_key or not secret:
+            flash("Заполни все поля", "error")
+            return redirect(url_for("owner.settings", tab="club"))
+
+        try:
+            update_club_info(club_id, name, lg_api_key, secret, cm_bonus_admin_chat_id)
+            flash("Настройки клуба обновлены", "success")
+            return redirect(url_for("owner.settings", tab="club"))
+        except Exception as e:
+            flash(f"Ошибка обновления настроек: {e}", "error")
+            return redirect(url_for("owner.settings", tab="club"))
+
+    club_id_int = int(club_id)
+    context = {
+        "club": get_club_info(club_id),
+        "active_tab": active_tab,
+    }
+
+    if active_tab == "missions":
+        context.update({
+            "templates": get_mission_templates(),
+            "missions": get_club_missions_all(club_id_int),
+        })
+    elif active_tab == "wheel":
+        prizes = get_wheel_prizes_for_admin(club_id_int)
+        wheel_active_prob_sum = sum(
+            float(p.get("probability") or 0) for p in prizes if int(p.get("is_active") or 0)
+        )
+        context.update({
+            "wheel_settings": get_wheel_settings_for_admin(club_id_int),
+            "prizes": prizes,
+            "wheel_active_prob_sum": wheel_active_prob_sum,
+        })
+
+    return render_template("owner/settings.html", **context)

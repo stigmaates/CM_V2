@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход для гостей</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+</head>
+<body>
+    <div class="center-wrap">
+        <div class="card center-card" style="text-align: center;">
+            <h1 class="auth-title">Вход для гостей</h1>
+            <p class="auth-text">
+                Отсканируйте QR-код, перейдите в Telegram-бота и отправьте свой номер телефона.
+            </p>
+
+            <div class="qr-box">
+                <img
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data={{ bot_link }}"
+                    alt="QR-код"
+                >
+            </div>
+
+            <div>
+                <a class="link" href="{{ bot_link }}" target="_blank">{{ bot_link }}</a>
+            </div>
+
+            <div style="margin-top: 20px; font-size: 15px; font-weight: 700;" id="status">Ожидаем подтверждение в Telegram…</div>
+            <div style="margin-top: 10px; font-size: 14px; color: #bcabd9;" id="hint">Эта страница обновится автоматически после подтверждения.</div>
+        </div>
+    </div>
+
+    <script>
+        const token = "{{ token }}";
+        const statusEl = document.getElementById("status");
+        const hintEl = document.getElementById("hint");
+
+        async function checkLogin() {
+            try {
+                const response = await fetch(`/guest/check-login?token=${encodeURIComponent(token)}`);
+                const data = await response.json();
+
+                if (!data.ok && data.status === "expired") {
+                    statusEl.textContent = "Время входа истекло.";
+                    hintEl.textContent = "Обновите страницу и попробуйте снова.";
+                    return;
+                }
+
+                if (data.ok && data.status === "pending") {
+                    statusEl.textContent = "Ожидаем подтверждение в Telegram…";
+                    setTimeout(checkLogin, 2000);
+                    return;
+                }
+
+                if (data.ok && data.status === "confirmed") {
+                    statusEl.textContent = "Вход подтвержден. Переходим…";
+                    window.location.href = data.redirect_url;
+                    return;
+                }
+
+                statusEl.textContent = "Ошибка проверки входа.";
+                hintEl.textContent = "Попробуйте обновить страницу.";
+            } catch (e) {
+                statusEl.textContent = "Ошибка соединения.";
+                hintEl.textContent = "Повторяем попытку…";
+                setTimeout(checkLogin, 3000);
+            }
+        }
+
+        checkLogin();
+    </script>
+</body>
+</html>

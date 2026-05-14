@@ -1,0 +1,65 @@
+{% extends "owner/base.html" %}
+
+{% block title %}WALLZ — Настройки{% endblock %}
+
+{% block content %}
+<div class="settings-page settings-page--wide">
+    <div class="settings-shell">
+        <div class="settings-tabs card">
+            <a href="{{ url_for('owner.settings', tab='club') }}" class="settings-tab {% if active_tab == 'club' %}active{% endif %}">Клуб</a>
+            <a href="{{ url_for('owner.settings', tab='missions') }}" class="settings-tab {% if active_tab == 'missions' %}active{% endif %}">Задания</a>
+            <a href="{{ url_for('owner.settings', tab='wheel') }}" class="settings-tab {% if active_tab == 'wheel' %}active{% endif %}">Колесо фортуны</a>
+        </div>
+
+        {% if active_tab == 'club' %}
+            <div class="settings-grid settings-grid--club-centered">
+                <div class="card settings-card">
+                    <div class="section-title">Настройки клуба</div>
+
+                    <form method="POST" action="{{ url_for('owner.settings', tab='club') }}">
+                        <div class="form-group">
+                            <label for="name">Название клуба</label>
+                            <input class="form-input" type="text" id="name" name="name" value="{{ club.name if club else '' }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lg_api_key">Langame API Key</label>
+                            <input class="form-input" type="text" id="lg_api_key" name="lg_api_key" value="{{ club.lg_api_key if club else '' }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="secret">Secret</label>
+                            <input class="form-input" type="text" id="secret" name="secret" value="{{ club.secret if club else '' }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="cm_bonus_admin_chat_id">ID Telegram-беседы для заявок на CM-бонусы</label>
+                            <input class="form-input" type="text" id="cm_bonus_admin_chat_id" name="cm_bonus_admin_chat_id" value="{{ club.cm_bonus_admin_chat_id if club and club.cm_bonus_admin_chat_id else '' }}" placeholder="Например: -1001234567890">
+                            <div class="muted" style="margin-top:6px;">Сюда бот отправит заявку, когда гость нажмёт «Перевести на баланс». Для каждого клуба можно указать свою беседу.</div>
+                        </div>
+
+                        <button class="btn" type="submit">Сохранить</button>
+                    </form>
+                </div>
+
+                <div class="card settings-card settings-card--sync">
+                    <div class="section-title">Синхронизация</div>
+
+                    <div class="stack">
+                        <a class="btn" href="{{ url_for('owner.sync_guests_route') }}">Синхронизировать гостей</a>
+                        <a class="btn" href="{{ url_for('owner.sync_sessions_route') }}">Синхронизировать сессии</a>
+                    </div>
+
+                    <div class="muted">
+                        club_id: <strong>{{ club.club_id if club else '-' }}</strong>
+                    </div>
+                </div>
+            </div>
+        {% elif active_tab == 'missions' %}
+            {% include "owner/_settings_missions.html" %}
+        {% elif active_tab == 'wheel' %}
+            {% include "owner/_settings_wheel.html" %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

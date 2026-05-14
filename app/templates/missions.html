@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+
+{% block title %}WALLZ - Задания{% endblock %}
+
+{% block content %}
+<style>
+    .missions-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+        min-height: calc(100vh - 200px);
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .missions-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .missions-body > .card {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .missions-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+
+    .missions-card-head .section-title {
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .missions-add-trigger {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1;
+        padding: 0;
+        border: none;
+        background: none;
+        color: var(--accent-strong);
+        cursor: pointer;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .missions-add-trigger:hover {
+        color: var(--text-main);
+    }
+
+    .missions-grid {
+        display: grid;
+        width: 100%;
+        gap: 16px;
+        align-items: stretch;
+        align-content: start;
+        justify-content: start;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-flow: row;
+        grid-auto-rows: auto;
+    }
+
+    @media (max-width: 1100px) {
+        .missions-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 640px) {
+        .missions-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    .mission-card {
+        padding: 20px;
+        min-width: 0;
+        overflow-x: clip;
+        container-type: inline-size;
+        container-name: mission;
+    }
+
+    .mission-title {
+        margin: 0 0 10px;
+        font-size: 22px;
+        font-weight: 700;
+    }
+
+    .mission-text {
+        margin: 0 0 16px;
+        color: var(--text-muted);
+        line-height: 1.45;
+    }
+
+    .mission-period-slot {
+        margin-bottom: 14px;
+        min-height: 34px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .mission-period {
+        font-size: 13px;
+        color: var(--text-main);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border);
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        max-width: 100%;
+        word-break: break-word;
+    }
+
+    .mission-period--empty {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .mission-card .form-input,
+    .mission-card select.form-input {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .mission-card .form-group {
+        margin-bottom: 0;
+    }
+
+    .mission-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+        width: 100%;
+    }
+
+    .mission-form-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .mission-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+    }
+
+    .mission-actions--row {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .mission-actions--row .btn {
+        flex: 1 1 0;
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    .modal-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+
+    .modal-form-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 760px) {
+        .mission-form-grid,
+        .modal-form-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    @container mission (max-width: 360px) {
+        .mission-form-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    .mission-reward-preview {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 0 14px;
+        padding: 7px 11px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 214, 10, 0.38);
+        background: rgba(255, 214, 10, 0.10);
+        color: #ffd60a;
+        font-size: 13px;
+        font-weight: 800;
+        max-width: 100%;
+        word-break: break-word;
+    }
+
+    .btn-danger {
+        background: #7a2a46;
+        border-color: #9f4464;
+    }
+</style>
+
+<div class="missions-page">
+    <div class="missions-body">
+        <div class="card" style="padding: 28px;">
+            <div class="missions-card-head">
+                <div class="section-title">Задания клуба</div>
+                <button class="missions-add-trigger" type="button" id="openMissionAddModal">+ Добавить задание</button>
+            </div>
+
+            {% if missions %}
+                <div class="missions-grid">
+                    {% for m in missions %}
+                        <div class="card mission-card">
+                            <h3 class="mission-title">{{ m.name }}</h3>
+                            <p class="mission-text">{{ m.short_description }}</p>
+
+                            <div class="mission-reward-preview">🏆 {{ m.reward_text or '+ приз' }}{% if m.token_reward %} • 🪙 +{{ m.token_reward }} жет.{% endif %}{% if m.cm_bonus_reward %} • 🎁 +{{ m.cm_bonus_reward }} CM-бонусов{% endif %}</div>
+
+                            <div class="mission-period-slot">
+                                {% if m.start_at or m.end_at %}
+                                    <div class="mission-period">
+                                        {% if m.start_at %}с {{ m.start_at }}{% endif %}
+                                        {% if m.end_at %} до {{ m.end_at }}{% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="mission-period mission-period--empty">—</span>
+                                {% endif %}
+                            </div>
+
+                            <form method="POST" action="{{ url_for('missions_update', mission_id=m.id) }}">
+                                <input type="hidden" name="mission_template_id" value="{{ m.mission_template_id }}">
+
+                                <div class="mission-form-grid">
+                                    <div class="form-group">
+                                        <label for="target_{{ m.id }}">Цель</label>
+                                        <input class="form-input" type="number" id="target_{{ m.id }}" name="target_amount" value="{{ m.target_amount }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="reward_{{ m.id }}">Приз</label>
+                                        <input class="form-input" type="text" id="reward_{{ m.id }}" name="reward_text" value="{{ m.reward_text or '' }}" placeholder="Например: +50 бонусов">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="token_reward_{{ m.id }}">Жетонов за выполнение</label>
+                                        <input class="form-input" type="number" id="token_reward_{{ m.id }}" name="token_reward" min="0" step="1" value="{{ m.token_reward or 0 }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="cm_bonus_reward_{{ m.id }}">CM-бонусов за выполнение</label>
+                                        <input class="form-input" type="number" id="cm_bonus_reward_{{ m.id }}" name="cm_bonus_reward" min="0" step="1" value="{{ m.cm_bonus_reward or 0 }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="enabled_{{ m.id }}">Включено</label>
+                                        <select class="form-input" id="enabled_{{ m.id }}" name="is_enabled">
+                                            <option value="1" {% if m.is_enabled %}selected{% endif %}>Да</option>
+                                            <option value="0" {% if not m.is_enabled %}selected{% endif %}>Нет</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="start_{{ m.id }}">Дата начала</label>
+                                        <input
+                                            class="form-input"
+                                            type="datetime-local"
+                                            id="start_{{ m.id }}"
+                                            name="start_at"
+                                            value="{{ m.start_at.strftime('%Y-%m-%dT%H:%M') if m.start_at else '' }}"
+                                        >
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="end_{{ m.id }}">Дата окончания</label>
+                                        <input
+                                            class="form-input"
+                                            type="datetime-local"
+                                            id="end_{{ m.id }}"
+                                            name="end_at"
+                                            value="{{ m.end_at.strftime('%Y-%m-%dT%H:%M') if m.end_at else '' }}"
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="mission-actions mission-actions--row">
+                                    <button class="btn" type="submit">Сохранить</button>
+                                    <button
+                                        type="submit"
+                                        class="btn btn-danger"
+                                        formaction="{{ url_for('missions_disable', mission_id=m.id) }}"
+                                        formmethod="post"
+                                    >Отключить</button>
+                                </div>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="muted">Пока нет заданий.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="missionAddModal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="missionAddModalTitle">
+        <div class="modal-header">
+            <h2 class="modal-title" id="missionAddModalTitle">Добавить задание</h2>
+            <button type="button" class="modal-close" id="closeMissionAddModal" aria-label="Закрыть">×</button>
+        </div>
+
+        <form method="POST" action="{{ url_for('missions_add') }}">
+            <div class="modal-form-grid">
+                <div class="form-group full">
+                    <label for="mission_template_id">Шаблон</label>
+                    <select class="form-input" id="mission_template_id" name="mission_template_id" required>
+                        {% for t in templates %}
+                            <option value="{{ t.id }}">{{ t.name }} - {{ t.short_description }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="target_amount">Цель</label>
+                    <input class="form-input" type="number" id="target_amount" name="target_amount" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="reward_text">Приз</label>
+                    <input class="form-input" type="text" id="reward_text" name="reward_text" placeholder="Например: +50 бонусов">
+                </div>
+
+                <div class="form-group">
+                    <label for="token_reward">Жетонов за выполнение</label>
+                    <input class="form-input" type="number" id="token_reward" name="token_reward" min="0" step="1" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="cm_bonus_reward">CM-бонусов за выполнение</label>
+                    <input class="form-input" type="number" id="cm_bonus_reward" name="cm_bonus_reward" min="0" step="1" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="min_hours">Минимум часов</label>
+                    <input class="form-input" type="number" id="min_hours" name="min_hours" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="start_at">Дата начала</label>
+                    <input class="form-input" type="datetime-local" id="start_at" name="start_at">
+                </div>
+
+                <div class="form-group">
+                    <label for="end_at">Дата окончания</label>
+                    <input class="form-input" type="datetime-local" id="end_at" name="end_at">
+                </div>
+            </div>
+
+            <div class="mission-actions">
+                <button class="btn" type="submit">Добавить</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const modal = document.getElementById('missionAddModal');
+        const openBtn = document.getElementById('openMissionAddModal');
+        const closeBtn = document.getElementById('closeMissionAddModal');
+
+        if (!modal || !openBtn || !closeBtn) return;
+
+        function openModal() {
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            requestAnimationFrame(function () {
+                void modal.offsetWidth;
+            });
+        }
+
+        function closeModal() {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+
+        openBtn.addEventListener('click', openModal);
+        closeBtn.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+                closeModal();
+            }
+        });
+    })();
+</script>
+{% endblock %}
