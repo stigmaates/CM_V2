@@ -9,20 +9,8 @@
 {% block content %}
 <div class="mailing-page">
     <div class="mailing-header">
-        <div class="mailing-header__text">
-            <h1 class="mailing-title">Рассылка</h1>
-            <p class="mailing-lead">Собирай аудиторию по фильтрам, сохраняй сегменты и отправляй сообщения гостям с привязанным Telegram.</p>
-        </div>
-        <div class="mailing-header__aside">
-            <div class="audience-compact" role="status">
-        
-                <div class="audience-compact__line">
-                    <span class="audience-compact__label">Людей в рассылке:</span>
-                    <span class="audience-compact__count" id="audienceCount">—</span>
-                    <button type="button" class="help-btn help-btn--rail" id="mailingAudienceHelpBtn" title="Кто входит в рассылку" aria-label="Подробнее о количестве людей в рассылке">?</button>
-                </div>
-            </div>
-        </div>
+        <h1 class="mailing-title">Рассылка</h1>
+        <p class="mailing-lead">Собирай аудиторию по фильтрам, сохраняй сегменты и отправляй сообщения гостям с привязанным Telegram.</p>
     </div>
 
     <div class="mailing-tabs">
@@ -94,7 +82,14 @@
 
         <div class="mailing-right">
             <section class="mailing-box">
-                <h3>Сообщение</h3>
+                <div class="message-box-head">
+                    <h3>Сообщение</h3>
+                    <div class="message-audience" role="status">
+                        <span class="message-audience__label">Людей в рассылке:</span>
+                        <span class="message-audience__count" id="audienceCount">—</span>
+                        <button type="button" class="help-btn" id="mailingAudienceHelpBtn" title="Кто входит в рассылку" aria-label="Подробнее о количестве людей в рассылке">?</button>
+                    </div>
+                </div>
 
                 <div class="editor-toolbar">
                     <button type="button" data-tag="b"><b>Ж</b></button>
