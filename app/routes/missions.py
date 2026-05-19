@@ -39,6 +39,7 @@ def api_create_mission():
         end_at=parse_datetime_local(data.get("end_at")) if data.get("end_at") else None,
         config=data.get("config"),
         reward_text=data.get("reward_text"),
+        custom_name=data.get("custom_name"),
         token_reward=int(data.get("token_reward") or 0),
         cm_bonus_reward=int(data.get("cm_bonus_reward") or 0),
     )
@@ -61,6 +62,7 @@ def api_update_mission(mission_id):
         config=data.get("config"),
         is_enabled=data.get("is_enabled", 1),
         reward_text=data.get("reward_text"),
+        custom_name=data.get("custom_name"),
         token_reward=int(data.get("token_reward") or 0),
         cm_bonus_reward=int(data.get("cm_bonus_reward") or 0),
     )
@@ -97,6 +99,7 @@ def missions_add():
     target_amount = request.form.get("target_amount", "").strip()
     start_at_raw = request.form.get("start_at", "").strip()
     end_at_raw = request.form.get("end_at", "").strip()
+    custom_name = request.form.get("custom_name", "").strip()
     reward_text = request.form.get("reward_text", "").strip()
     token_reward_raw = request.form.get("token_reward", "0").strip() or "0"
     cm_bonus_reward_raw = request.form.get("cm_bonus_reward", "0").strip() or "0"
@@ -150,6 +153,7 @@ def missions_add():
             end_at=end_at,
             config=config,
             reward_text=reward_text,
+            custom_name=custom_name,
             token_reward=token_reward,
             cm_bonus_reward=cm_bonus_reward,
         )
@@ -170,6 +174,7 @@ def missions_update(mission_id):
     target_amount = request.form.get("target_amount", "").strip()
     start_at_raw = request.form.get("start_at", "").strip()
     end_at_raw = request.form.get("end_at", "").strip()
+    custom_name = request.form.get("custom_name", "").strip()
     reward_text = request.form.get("reward_text", "").strip()
     token_reward_raw = request.form.get("token_reward", "0").strip() or "0"
     cm_bonus_reward_raw = request.form.get("cm_bonus_reward", "0").strip() or "0"
@@ -225,6 +230,7 @@ def missions_update(mission_id):
             config=config,
             is_enabled=is_enabled,
             reward_text=reward_text,
+            custom_name=custom_name,
             token_reward=token_reward,
             cm_bonus_reward=cm_bonus_reward,
         )

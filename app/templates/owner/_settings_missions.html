@@ -246,6 +246,14 @@
         background: #7a2a46;
         border-color: #9f4464;
     }
+
+    .mission-field-hint {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.35;
+        color: var(--text-muted);
+    }
 </style>
 
 <div class="missions-page">
@@ -263,8 +271,9 @@
                             <form class="mission-delete-form" method="POST" action="{{ url_for('owner.missions_delete', mission_id=m.id) }}" onsubmit="return confirm('Удалить это задание?')">
                                 <button class="mission-delete-btn" type="submit" aria-label="Удалить задание" title="Удалить задание">×</button>
                             </form>
-                            <h3 class="mission-title">{{ m.name }}</h3>
+                            <h3 class="mission-title">{{ m.display_name or m.name }}</h3>
                             <p class="mission-text">{{ m.short_description }}</p>
+                            {% if m.custom_name %}<p class="mission-text" style="font-size: 12px; margin-top: -8px;">Шаблон: {{ m.name }}</p>{% endif %}
 
                             <div class="mission-reward-preview">🏆 {{ m.reward_text or '+ приз' }}{% if m.token_reward %} • 🪙 +{{ m.token_reward }} жет.{% endif %}{% if m.cm_bonus_reward %} • 🎁 +{{ m.cm_bonus_reward }} CM-бонусов{% endif %}</div>
 
@@ -283,10 +292,25 @@
                                 <input type="hidden" name="mission_template_id" value="{{ m.mission_template_id }}">
 
                                 <div class="mission-form-grid">
-                                    <div class="form-group">
-                                        <label for="target_{{ m.id }}">Цель</label>
-                                        <input class="form-input" type="number" id="target_{{ m.id }}" name="target_amount" value="{{ m.target_amount }}">
+                                    <div class="form-group full">
+                                        <label for="custom_name_{{ m.id }}">Название задания</label>
+                                        <input class="form-input" type="text" id="custom_name_{{ m.id }}" name="custom_name" value="{{ m.custom_name or '' }}" placeholder="Например: Майский марафон или Ночная лига">
+                                        <span class="mission-field-hint">Это название увидит гость. Если оставить пустым, будет использовано название шаблона.</span>
                                     </div>
+
+                                    <div class="form-group">
+                                        <label for="target_{{ m.id }}">{{ m.target_label or 'Цель' }}</label>
+                                        <input class="form-input" type="number" id="target_{{ m.id }}" name="target_amount" min="1" step="1" value="{{ m.target_amount }}">
+                                        {% if m.target_hint %}<span class="mission-field-hint">{{ m.target_hint }}</span>{% endif %}
+                                    </div>
+
+                                    {% if m.requires_min_hours %}
+                                        <div class="form-group">
+                                            <label for="min_hours_{{ m.id }}">{{ m.min_hours_label or 'X — минимум часов за визит' }}</label>
+                                            <input class="form-input" type="number" id="min_hours_{{ m.id }}" name="min_hours" min="1" step="1" value="{{ (m.config or {}).get('min_hours', 3) }}">
+                                            <span class="mission-field-hint">X задаёт минимальную длительность каждого подходящего визита.</span>
+                                        </div>
+                                    {% endif %}
 
                                     <div class="form-group">
                                         <label for="reward_{{ m.id }}">Приз</label>
@@ -367,14 +391,27 @@
                     <label for="mission_template_id">Шаблон</label>
                     <select class="form-input" id="mission_template_id" name="mission_template_id" required>
                         {% for t in templates %}
-                            <option value="{{ t.id }}">{{ t.name }} - {{ t.short_description }}</option>
+                            <option
+                                value="{{ t.id }}"
+                                data-requires-min-hours="{{ 1 if t.requires_min_hours else 0 }}"
+                                data-target-label="{{ t.target_label or 'Цель' }}"
+                                data-target-hint="{{ t.target_hint or '' }}"
+                                data-min-hours-label="{{ t.min_hours_label or 'X — минимум часов за визит' }}"
+                            >{{ t.name }} - {{ t.short_description }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
+                <div class="form-group full">
+                    <label for="custom_name">Название задания</label>
+                    <input class="form-input" type="text" id="custom_name" name="custom_name" placeholder="Например: Майский марафон или Ночная лига">
+                    <span class="mission-field-hint">Кастомное название для гостевого кабинета. Можно оставить пустым.</span>
+                </div>
+
                 <div class="form-group">
-                    <label for="target_amount">Цель</label>
-                    <input class="form-input" type="number" id="target_amount" name="target_amount" min="1" required>
+                    <label for="target_amount" id="targetAmountLabel">Цель</label>
+                    <input class="form-input" type="number" id="target_amount" name="target_amount" min="1" step="1" required>
+                    <span class="mission-field-hint" id="targetAmountHint"></span>
                 </div>
 
                 <div class="form-group">
@@ -392,9 +429,10 @@
                     <input class="form-input" type="number" id="cm_bonus_reward" name="cm_bonus_reward" min="0" step="1" value="0">
                 </div>
 
-                <div class="form-group">
-                    <label for="min_hours">Минимум часов</label>
-                    <input class="form-input" type="number" id="min_hours" name="min_hours" min="0">
+                <div class="form-group" id="minHoursGroup" style="display: none;">
+                    <label for="min_hours" id="minHoursLabel">X — минимум часов за визит</label>
+                    <input class="form-input" type="number" id="min_hours" name="min_hours" min="1" step="1" value="3">
+                    <span class="mission-field-hint">X задаёт минимальную длительность каждого подходящего визита.</span>
                 </div>
 
                 <div class="form-group">
@@ -422,6 +460,37 @@
         const closeBtn = document.getElementById('closeMissionAddModal');
 
         if (!modal || !openBtn || !closeBtn) return;
+
+        const templateSelect = document.getElementById('mission_template_id');
+        const minHoursGroup = document.getElementById('minHoursGroup');
+        const minHoursInput = document.getElementById('min_hours');
+        const minHoursLabel = document.getElementById('minHoursLabel');
+        const targetAmountLabel = document.getElementById('targetAmountLabel');
+        const targetAmountHint = document.getElementById('targetAmountHint');
+
+        function updateConfigFields() {
+            if (!templateSelect || !minHoursGroup || !minHoursInput) return;
+            const selected = templateSelect.options[templateSelect.selectedIndex];
+            const needsMinHours = selected && selected.dataset.requiresMinHours === '1';
+
+            if (targetAmountLabel) {
+                targetAmountLabel.textContent = selected?.dataset.targetLabel || 'Цель';
+            }
+            if (targetAmountHint) {
+                targetAmountHint.textContent = selected?.dataset.targetHint || '';
+            }
+            if (minHoursLabel) {
+                minHoursLabel.textContent = selected?.dataset.minHoursLabel || 'X — минимум часов за визит';
+            }
+
+            minHoursGroup.style.display = needsMinHours ? '' : 'none';
+            minHoursInput.required = Boolean(needsMinHours);
+        }
+
+        if (templateSelect) {
+            templateSelect.addEventListener('change', updateConfigFields);
+            updateConfigFields();
+        }
 
         function openModal() {
             modal.classList.add('is-open');
