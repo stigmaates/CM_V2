@@ -27,6 +27,24 @@ function createOption(value, label) {
     return option;
 }
 
+const OPERATOR_LABELS = {
+    "=": "Равно",
+    "!=": "Не равно",
+    ">": "Больше чем",
+    ">=": "Не меньше чем",
+    "<": "Меньше чем",
+    "<=": "Не больше чем",
+    "between": "В диапазоне",
+    "in": "Один из вариантов",
+    "not_in": "Не входит в варианты",
+    "is_null": "Не заполнено",
+    "is_not_null": "Заполнено",
+};
+
+function getOperatorLabel(op) {
+    return OPERATOR_LABELS[op] || op;
+}
+
 function getFieldMeta(fieldKey) {
     return fieldsMeta.find((item) => item.key === fieldKey);
 }
@@ -135,7 +153,9 @@ function addRule(rule = {}, targetContainer = rulesContainer) {
         opSelect.innerHTML = "";
         opSelect.appendChild(createOption("", "Оператор"));
         if (!meta) return;
-        buildOpOptions(meta.type).forEach((op) => opSelect.appendChild(createOption(op, op)));
+        buildOpOptions(meta.type).forEach((op) => {
+            opSelect.appendChild(createOption(op, getOperatorLabel(op)));
+        });
         renderValueInputs(row, meta);
     });
 
