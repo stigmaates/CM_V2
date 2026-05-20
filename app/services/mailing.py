@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Tuple
 
 from werkzeug.utils import secure_filename
 
+from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+
 AUTO_MAILING_DEFAULTS = {
     "inactive_14_bonus": {
         "title": "Вернуть гостей 14+ дней",
@@ -176,7 +178,7 @@ def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
             up.crm_type,
             COUNT(*) AS cnt
         FROM user_portrait up
-        JOIN guests g ON g.guest_id = up.guest_id
+        JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         WHERE up.club_id = %s
           AND up.has_telegram = 1
           AND g.telegram_id IS NOT NULL
@@ -279,7 +281,7 @@ def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]]) ->
     sql = f"""
         SELECT COUNT(*) AS cnt
         FROM user_portrait up
-        JOIN guests g ON g.guest_id = up.guest_id
+        JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         {where_sql}
     """
     with conn.cursor() as cur:
@@ -295,7 +297,7 @@ def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[
             up.guest_id,
             g.telegram_id
         FROM user_portrait up
-        JOIN guests g ON g.guest_id = up.guest_id
+        JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         {where_sql}
     """
     with conn.cursor() as cur:
@@ -562,7 +564,7 @@ def get_inactive_auto_mailing_recipients(
             up.guest_id,
             g.telegram_id
         FROM user_portrait up
-        JOIN guests g ON g.guest_id = up.guest_id
+        JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         WHERE up.club_id = %s
           AND up.has_telegram = 1
           AND g.telegram_id IS NOT NULL
@@ -639,4 +641,217 @@ def create_mailing_for_recipients(
     return {
         "mailing_id": mailing_id,
         "recipients_count": recipients_count,
+    }
+
+
+def ensure_bonus_giveaway_tables(conn) -> None:
+    """Создаёт таблицы раздач бонусов лениво.
+
+    Раздача — это массовое начисление CM-бонусов выбранной аудитории + Telegram-уведомление.
+    """
+    with conn.cursor() as cur:
+        ensure_cm_bonus_tables(cur)
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bonus_giveaways (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                club_id INT NOT NULL,
+                filters_json JSON NULL,
+                bonus_amount INT NOT NULL,
+                message_text TEXT NOT NULL,
+                mailing_id INT NULL,
+                status VARCHAR(40) NOT NULL DEFAULT 'created',
+                recipients_count INT NOT NULL DEFAULT 0,
+                awarded_count INT NOT NULL DEFAULT 0,
+                skipped_count INT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                finished_at DATETIME NULL,
+                KEY idx_bonus_giveaways_club_created (club_id, created_at),
+                KEY idx_bonus_giveaways_mailing (mailing_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bonus_giveaway_recipients (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                giveaway_id INT NOT NULL,
+                club_id INT NOT NULL,
+                guest_id INT NOT NULL,
+                telegram_id BIGINT NULL,
+                bonus_amount INT NOT NULL,
+                transaction_status VARCHAR(40) NOT NULL DEFAULT 'pending',
+                transaction_id INT NULL,
+                mailing_recipient_id INT NULL,
+                error_text TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                awarded_at DATETIME NULL,
+                UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, guest_id),
+                KEY idx_bonus_giveaway_recipients_guest (club_id, guest_id),
+                KEY idx_bonus_giveaway_recipients_status (transaction_status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """
+        )
+
+
+def list_bonus_giveaways(conn, club_id: int) -> List[Dict[str, Any]]:
+    ensure_bonus_giveaway_tables(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                id,
+                bonus_amount,
+                status,
+                recipients_count,
+                awarded_count,
+                skipped_count,
+                mailing_id,
+                created_at,
+                finished_at
+            FROM bonus_giveaways
+            WHERE club_id = %s
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (club_id,),
+        )
+        return cur.fetchall()
+
+
+def create_bonus_giveaway(
+    conn,
+    club_id: int,
+    rules: List[Dict[str, Any]],
+    bonus_amount: int,
+    message_text: str,
+    parse_mode: str = "HTML",
+) -> Dict[str, Any]:
+    """Начисляет CM-бонусы выбранной аудитории и создаёт Telegram-рассылку.
+
+    Фильтры используются ровно те же, что и в сегментах/ручной рассылке.
+    Возвращает id раздачи, id рассылки и количество получателей.
+    """
+    bonus_amount = int(bonus_amount or 0)
+    if bonus_amount <= 0:
+        raise ValueError("Количество бонусов должно быть больше 0")
+
+    message_text = (message_text or "").strip()
+    if not message_text:
+        raise ValueError("Сообщение раздачи пустое")
+
+    ensure_bonus_giveaway_tables(conn)
+    recipients = get_recipient_rows(conn, club_id, rules)
+    recipients_count = len(recipients)
+    filters_json = {"rules": rules, "type": "bonus_giveaway", "bonus_amount": bonus_amount}
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO bonus_giveaways (
+                club_id,
+                filters_json,
+                bonus_amount,
+                message_text,
+                status,
+                recipients_count
+            )
+            VALUES (%s, %s, %s, %s, 'processing', %s)
+            """,
+            (
+                club_id,
+                json.dumps(filters_json, ensure_ascii=False),
+                bonus_amount,
+                message_text,
+                recipients_count,
+            ),
+        )
+        giveaway_id = cur.lastrowid
+
+        awarded_count = 0
+        skipped_count = 0
+        for row in recipients:
+            guest_id = int(row["guest_id"])
+            telegram_id = row.get("telegram_id")
+            error_text = None
+            status = "awarded"
+            try:
+                awarded = add_cm_bonus_transaction(
+                    cursor=cur,
+                    guest_id=guest_id,
+                    club_id=club_id,
+                    amount=bonus_amount,
+                    source_type="bonus_giveaway",
+                    source_id=str(giveaway_id),
+                    description=f"Раздача бонусов #{giveaway_id}",
+                    status="done",
+                )
+                if awarded:
+                    awarded_count += 1
+                else:
+                    status = "skipped"
+                    skipped_count += 1
+                    error_text = "Дубликат операции"
+            except Exception as exc:
+                status = "failed"
+                skipped_count += 1
+                error_text = str(exc)[:1000]
+
+            cur.execute(
+                """
+                INSERT INTO bonus_giveaway_recipients (
+                    giveaway_id,
+                    club_id,
+                    guest_id,
+                    telegram_id,
+                    bonus_amount,
+                    transaction_status,
+                    error_text,
+                    awarded_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, IF(%s = 'awarded', NOW(), NULL))
+                """,
+                (
+                    giveaway_id,
+                    club_id,
+                    guest_id,
+                    telegram_id,
+                    bonus_amount,
+                    status,
+                    error_text,
+                    status,
+                ),
+            )
+
+    mailing = create_mailing_for_recipients(
+        conn=conn,
+        club_id=club_id,
+        recipients=recipients,
+        message_text=message_text,
+        parse_mode=parse_mode,
+        filters_json=filters_json,
+    )
+    mailing_id = mailing["mailing_id"]
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE bonus_giveaways
+            SET mailing_id = %s,
+                status = 'completed',
+                awarded_count = %s,
+                skipped_count = %s,
+                finished_at = NOW()
+            WHERE id = %s AND club_id = %s
+            """,
+            (mailing_id, awarded_count, skipped_count, giveaway_id, club_id),
+        )
+
+    return {
+        "giveaway_id": giveaway_id,
+        "mailing_id": mailing_id,
+        "recipients_count": recipients_count,
+        "awarded_count": awarded_count,
+        "skipped_count": skipped_count,
+        "bonus_amount": bonus_amount,
     }

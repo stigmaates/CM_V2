@@ -7,10 +7,12 @@ from app.core import get_db_connection, owner_required
 from scripts.process_mailings import process_one_mailing
 from app.services.mailing import (
     create_mailing,
+    create_bonus_giveaway,
     delete_segment,
     get_filter_fields,
     get_crm_segment_options,
     list_auto_mailings,
+    list_bonus_giveaways,
     list_mailings,
     list_segments,
     preview_recipients_count,
@@ -77,6 +79,7 @@ def mailing_page():
         crm_segments = get_crm_segment_options(conn, club_id)
         mailings = list_mailings(conn, club_id)
         auto_mailings = list_auto_mailings(conn, club_id)
+        bonus_giveaways = list_bonus_giveaways(conn, club_id)
     finally:
         conn.close()
 
@@ -87,6 +90,7 @@ def mailing_page():
         segments=segments,
         mailings=mailings,
         auto_mailings=auto_mailings,
+        bonus_giveaways=bonus_giveaways,
     )
 
 
@@ -222,6 +226,53 @@ def api_mailings_create():
             attachments=attachments,
         )
         conn.commit()
+    finally:
+        conn.close()
+
+    if start_now:
+        _start_mailing_worker(result["mailing_id"])
+
+    return jsonify({"ok": True, "started": start_now, **result})
+
+
+@owner_bp.route('/api/bonus-giveaways/create', methods=['POST'])
+@owner_required
+def api_bonus_giveaways_create():
+    club_id = get_current_club_id()
+    data = request.get_json(force=True)
+    rules = data.get("rules", [])
+    bonus_amount_raw = data.get("bonus_amount")
+    message_text = (data.get("message_text") or "").strip()
+    start_now = bool(data.get("start_now"))
+
+    try:
+        bonus_amount = int(bonus_amount_raw or 0)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Количество бонусов должно быть числом"}), 400
+
+    if bonus_amount <= 0:
+        return jsonify({"ok": False, "error": "Количество бонусов должно быть больше 0"}), 400
+
+    if not message_text:
+        return jsonify({"ok": False, "error": "Сообщение пустое"}), 400
+
+    conn = get_db_connection()
+    try:
+        result = create_bonus_giveaway(
+            conn=conn,
+            club_id=club_id,
+            rules=rules,
+            bonus_amount=bonus_amount,
+            message_text=message_text,
+            parse_mode="HTML",
+        )
+        conn.commit()
+    except ValueError as exc:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         conn.close()
 

@@ -1,6 +1,14 @@
 const fieldsMeta = window.MAILING_FIELDS || [];
 const rulesContainer = document.getElementById("rulesContainer");
 const audienceCountEl = document.getElementById("audienceCount");
+const giveawayAudienceCountEl = document.getElementById("giveawayAudienceCount");
+const giveawayRulesContainer = document.getElementById("giveawayRulesContainer");
+const addGiveawayRuleBtn = document.getElementById("addGiveawayRuleBtn");
+const previewGiveawayBtn = document.getElementById("previewGiveawayBtn");
+const copyMailingRulesToGiveawayBtn = document.getElementById("copyMailingRulesToGiveawayBtn");
+const giveawayBonusAmountEl = document.getElementById("giveawayBonusAmount");
+const giveawayMessageTextEl = document.getElementById("giveawayMessageText");
+const sendBonusGiveawayBtn = document.getElementById("sendBonusGiveawayBtn");
 const filesListEl = document.getElementById("filesList");
 const messageTextEl = document.getElementById("messageText");
 const modalEl = document.getElementById("mailingConfirmModal");
@@ -23,8 +31,9 @@ function getFieldMeta(fieldKey) {
     return fieldsMeta.find((item) => item.key === fieldKey);
 }
 
-function getRules() {
-    const rows = Array.from(document.querySelectorAll(".rule-row"));
+function getRules(container = rulesContainer) {
+    if (!container) return [];
+    const rows = Array.from(container.querySelectorAll(".rule-row"));
     return rows.map((row) => {
         const field = row.querySelector(".rule-field").value;
         const op = row.querySelector(".rule-op").value;
@@ -89,7 +98,7 @@ function renderValueInputs(row, meta) {
     row.querySelector(".rule-value-to").style.display = opSelect.value === "between" ? "" : "none";
 }
 
-function addRule(rule = {}) {
+function addRule(rule = {}, targetContainer = rulesContainer) {
     const row = document.createElement("div");
     row.className = "rule-row";
 
@@ -142,7 +151,7 @@ function addRule(rule = {}) {
     row.appendChild(valueToInput);
     row.appendChild(removeBtn);
 
-    rulesContainer.appendChild(row);
+    targetContainer.appendChild(row);
 
     if (rule.field) {
         fieldSelect.value = rule.field;
@@ -173,7 +182,7 @@ async function previewSegment() {
     const response = await fetch("/owner/api/segments/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules: getRules() }),
+        body: JSON.stringify({ rules: getRules(rulesContainer) }),
     });
     const data = await response.json();
     if (!data.ok) {
@@ -195,7 +204,7 @@ async function saveSegment() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             name,
-            rules: getRules(),
+            rules: getRules(rulesContainer),
         }),
     });
     const data = await response.json();
@@ -251,19 +260,26 @@ function renderUploadedFiles() {
     });
 }
 
-async function getRecipientsPreviewCount() {
+async function getRecipientsPreviewCount(rules = getRules(rulesContainer), targetEl = audienceCountEl) {
     const response = await fetch("/owner/api/segments/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules: getRules() }),
+        body: JSON.stringify({ rules }),
     });
     const data = await response.json();
     if (!data.ok) {
         throw new Error(data.error || "Не удалось посчитать аудиторию");
     }
-    audienceCountEl.textContent = data.count;
+    if (targetEl) {
+        targetEl.textContent = data.count;
+    }
     return data.count;
 }
+
+async function previewGiveawayAudience() {
+    return getRecipientsPreviewCount(getRules(giveawayRulesContainer), giveawayAudienceCountEl);
+}
+
 
 function escapeHtml(value) {
     return value
@@ -304,7 +320,7 @@ async function openMailingConfirm() {
     }
 
     try {
-        const recipientsCount = await getRecipientsPreviewCount();
+        const recipientsCount = await getRecipientsPreviewCount(getRules(rulesContainer), audienceCountEl);
         openMailingModal(recipientsCount, messageText);
     } catch (error) {
         alert(error.message || "Не удалось подготовить предпросмотр");
@@ -327,7 +343,7 @@ async function createMailing() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 segment_id: currentSegmentId,
-                rules: getRules(),
+                rules: getRules(rulesContainer),
                 message_text: messageText,
                 attachments: uploadedFiles,
                 start_now: true,
@@ -347,14 +363,81 @@ async function createMailing() {
     }
 }
 
+
+async function createBonusGiveaway() {
+    if (!giveawayBonusAmountEl || !giveawayMessageTextEl || !sendBonusGiveawayBtn) {
+        return;
+    }
+
+    const bonusAmount = Number(giveawayBonusAmountEl.value || 0);
+    const messageText = giveawayMessageTextEl.value.trim();
+
+    if (!Number.isFinite(bonusAmount) || bonusAmount <= 0) {
+        alert("Укажи количество бонусов больше 0");
+        return;
+    }
+
+    if (!messageText) {
+        alert("Введи текст сообщения для гостей");
+        return;
+    }
+
+    let recipientsCount = 0;
+    try {
+        recipientsCount = await previewGiveawayAudience();
+    } catch (error) {
+        alert(error.message || "Не удалось посчитать аудиторию");
+        return;
+    }
+
+    if (recipientsCount <= 0) {
+        alert("По текущим фильтрам нет гостей с Telegram");
+        return;
+    }
+
+    const confirmed = confirm(`Начислить ${bonusAmount} бонусов ${recipientsCount} гостям и отправить им сообщение?`);
+    if (!confirmed) {
+        return;
+    }
+
+    sendBonusGiveawayBtn.disabled = true;
+    sendBonusGiveawayBtn.textContent = "Запускаю...";
+
+    try {
+        const response = await fetch("/owner/api/bonus-giveaways/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                rules: getRules(giveawayRulesContainer),
+                bonus_amount: bonusAmount,
+                message_text: messageText,
+                start_now: true,
+            }),
+        });
+        const data = await response.json();
+        if (!data.ok) {
+            alert(data.error || "Не удалось запустить раздачу");
+            return;
+        }
+
+        alert(`Раздача запущена. Получателей: ${data.recipients_count}. Начислено: ${data.awarded_count}.`);
+        window.location.reload();
+    } catch (error) {
+        alert(error.message || "Не удалось запустить раздачу");
+    } finally {
+        sendBonusGiveawayBtn.disabled = false;
+        sendBonusGiveawayBtn.textContent = "Отправить раздачу";
+    }
+}
+
 function applySegmentRules(rulesJson, segmentId = null) {
     currentSegmentId = segmentId;
     rulesContainer.innerHTML = "";
     const rules = (rulesJson && rulesJson.rules) || [];
-    rules.forEach((rule) => addRule(rule));
+    rules.forEach((rule) => addRule(rule, rulesContainer));
 
     if (!rules.length) {
-        addRule();
+        addRule({}, rulesContainer);
     }
 }
 
@@ -399,10 +482,36 @@ function insertLink() {
     textarea.focus();
 }
 
-document.getElementById("addRuleBtn").addEventListener("click", () => addRule());
+document.getElementById("addRuleBtn").addEventListener("click", () => addRule({}, rulesContainer));
 document.getElementById("previewBtn").addEventListener("click", previewSegment);
 document.getElementById("saveSegmentBtn").addEventListener("click", saveSegment);
 document.getElementById("sendMailingBtn").addEventListener("click", openMailingConfirm);
+if (sendBonusGiveawayBtn) {
+    sendBonusGiveawayBtn.addEventListener("click", createBonusGiveaway);
+}
+if (addGiveawayRuleBtn && giveawayRulesContainer) {
+    addGiveawayRuleBtn.addEventListener("click", () => addRule({}, giveawayRulesContainer));
+}
+if (previewGiveawayBtn) {
+    previewGiveawayBtn.addEventListener("click", () => {
+        previewGiveawayAudience().catch((error) => alert(error.message || "Не удалось посчитать получателей раздачи"));
+    });
+}
+if (copyMailingRulesToGiveawayBtn && giveawayRulesContainer) {
+    copyMailingRulesToGiveawayBtn.addEventListener("click", async () => {
+        giveawayRulesContainer.innerHTML = "";
+        const rules = getRules(rulesContainer);
+        rules.forEach((rule) => addRule(rule, giveawayRulesContainer));
+        if (!rules.length) {
+            addRule({}, giveawayRulesContainer);
+        }
+        try {
+            await previewGiveawayAudience();
+        } catch (error) {
+            console.error(error);
+        }
+    });
+}
 document.getElementById("filesInput").addEventListener("change", (e) => uploadFiles(e.target.files));
 
 document.querySelectorAll(".segment-chip__delete").forEach((btn) => {
@@ -567,3 +676,8 @@ async function toggleAutoMailing(input) {
 document.querySelectorAll(".auto-mailing-toggle").forEach((input) => {
     input.addEventListener("change", () => toggleAutoMailing(input));
 });
+
+
+if (giveawayRulesContainer && !giveawayRulesContainer.querySelector(".rule-row")) {
+    addRule({}, giveawayRulesContainer);
+}

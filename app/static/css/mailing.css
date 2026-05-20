@@ -989,3 +989,170 @@
         flex-direction: column;
     }
 }
+/* Bonus giveaway block */
+.bonus-giveaway-box {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bonus-giveaway-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.bonus-giveaway-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 13px;
+}
+
+.bonus-giveaway-field input,
+.bonus-giveaway-field textarea {
+    width: 100%;
+}
+
+.bonus-giveaway-field--full {
+    margin-top: 14px;
+}
+
+.bonus-giveaway-textarea {
+    min-height: 112px;
+}
+
+.bonus-giveaway-box .btn-send {
+    margin-top: 14px;
+}
+
+.bonus-giveaway-history {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+@media (max-width: 860px) {
+    .bonus-giveaway-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Bonus giveaway full-width section */
+.bonus-giveaway-box,
+.bonus-giveaway-history-box {
+    width: 100%;
+    clear: both;
+}
+
+.bonus-giveaway-box .message-box-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: flex-start;
+}
+
+.bonus-giveaway-box .crm-segments-hint {
+    margin-top: 6px;
+}
+
+.bonus-giveaway-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.82fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.bonus-giveaway-main,
+.bonus-giveaway-side {
+    min-width: 0;
+}
+
+.bonus-giveaway-form {
+    display: grid;
+    gap: 16px;
+    padding: 20px;
+    border: 1px solid rgba(143, 91, 255, 0.24);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.bonus-giveaway-field--amount {
+    max-width: 280px;
+}
+
+.bonus-giveaway-field--message {
+    min-width: 0;
+}
+
+.bonus-giveaway-textarea {
+    min-height: 220px !important;
+}
+
+.bonus-giveaway-actions {
+    display: flex;
+}
+
+.bonus-giveaway-actions .btn-send {
+    margin-top: 0;
+    width: 100%;
+}
+
+@media (max-width: 980px) {
+    .bonus-giveaway-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .bonus-giveaway-field--amount {
+        max-width: none;
+    }
+}
+
+@media (max-width: 860px) {
+    .bonus-giveaway-box .message-box-head {
+        grid-template-columns: 1fr;
+    }
+
+    .bonus-giveaway-box .message-audience {
+        justify-self: start;
+    }
+}
+
+/* Separate bonus giveaway filters */
+.bonus-giveaway-filter-block {
+    margin: 0;
+    padding: 20px;
+    border: 1px solid rgba(143, 91, 255, 0.24);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.bonus-giveaway-filter-block h4 {
+    margin: 0 0 6px;
+    color: var(--text-main);
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.bonus-giveaway-filter-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.bonus-giveaway-filter-actions .btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+    .bonus-giveaway-filter-actions {
+        justify-content: stretch;
+    }
+
+    .bonus-giveaway-filter-actions .btn {
+        width: 100%;
+    }
+
+    .bonus-giveaway-form {
+        padding: 16px;
+    }
+}

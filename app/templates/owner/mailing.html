@@ -110,8 +110,80 @@
             <section class="mailing-box">
                 <button type="button" class="btn btn-primary btn-send" id="sendMailingBtn">Отправить рассылку</button>
             </section>
+
         </div>
+
     </div>
+
+    <section class="mailing-box bonus-giveaway-box">
+        <div class="message-box-head">
+            <div>
+                <h3>Раздача бонусов</h3>
+                <div class="crm-segments-hint">Начислит выбранной аудитории CM-бонусы и отправит Telegram-сообщение.</div>
+            </div>
+            <div class="message-audience" role="status">
+                <span class="message-audience__label">Получателей:</span>
+                <span class="message-audience__count" id="giveawayAudienceCount">—</span>
+            </div>
+        </div>
+
+        <div class="bonus-giveaway-layout">
+            <div class="bonus-giveaway-main">
+                <div class="bonus-giveaway-filter-block">
+                    <div class="filters-header">
+                        <div>
+                            <h4>Фильтры раздачи</h4>
+                            <div class="crm-segments-hint">Эти фильтры отдельные от обычной рассылки и влияют только на раздачу бонусов.</div>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="addGiveawayRuleBtn">Добавить фильтр</button>
+                    </div>
+
+                    <div id="giveawayRulesContainer" class="rules-container"></div>
+
+                    <div class="bonus-giveaway-filter-actions">
+                        <button type="button" class="btn btn-secondary" id="copyMailingRulesToGiveawayBtn">Скопировать фильтры рассылки</button>
+                        <button type="button" class="btn btn-primary" id="previewGiveawayBtn">Применить фильтры раздачи</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bonus-giveaway-side">
+                <div class="bonus-giveaway-form">
+                    <label class="bonus-giveaway-field bonus-giveaway-field--amount">
+                        <span>Кол-во бонусов</span>
+                        <input type="number" id="giveawayBonusAmount" min="1" step="1" placeholder="Например, 200" autocomplete="off">
+                    </label>
+
+                    <label class="bonus-giveaway-field bonus-giveaway-field--message">
+                        <span>Сообщение гостям</span>
+                        <textarea id="giveawayMessageText" class="message-textarea bonus-giveaway-textarea" placeholder="Например: Мы начислили тебе 200 бонусов — залетай играть!"></textarea>
+                    </label>
+
+                    <div class="bonus-giveaway-actions">
+                        <button type="button" class="btn btn-primary btn-send" id="sendBonusGiveawayBtn">Отправить раздачу</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mailing-box bonus-giveaway-history-box">
+        <h3>История раздач</h3>
+        <div class="bonus-giveaway-history">
+            {% for item in bonus_giveaways %}
+                <div class="history-row">
+                    <div>#{{ item.id }}</div>
+                    <div>{{ item.status }}</div>
+                    <div>+{{ item.bonus_amount }} бонусов</div>
+                    <div>{{ item.recipients_count }} чел.</div>
+                    <div>{{ item.awarded_count }} начислено</div>
+                    <div>{{ item.created_at }}</div>
+                </div>
+            {% else %}
+                <div class="empty-hint">Пока нет раздач</div>
+            {% endfor %}
+        </div>
+    </section>
     </div>
 
     <div class="mailing-tab-panel" data-tab-panel="auto">
