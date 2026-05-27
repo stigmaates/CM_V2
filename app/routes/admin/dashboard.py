@@ -153,8 +153,8 @@ def run_operations_initial(club_id: int):
     from scripts.sync_operations_initial import sync_operations_initial
 
     today = datetime.now().date()
-    date_from = today.replace(month=1, day=1).strftime("%d.%m.%Y")
-    date_to = today.strftime("%d.%m.%Y")
+    date_from = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+    date_to = today.strftime("%Y-%m-%d")
 
     sync_operations_initial(club_id, date_from=date_from, date_to=date_to)
     return f"Период: {date_from} — {date_to}. Initial sync операций завершён."
@@ -228,8 +228,8 @@ def run_operations_incremental_for_club(club_id: int):
         raise Exception("Клуб не найден")
 
     today = datetime.now().date()
-    date_from = (today - timedelta(days=soi.LOOKBACK_DAYS)).strftime("%d.%m.%Y")
-    date_to = today.strftime("%d.%m.%Y")
+    date_from = (today - timedelta(days=soi.LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    date_to = today.strftime("%Y-%m-%d")
 
     operations = soi.fetch_operations(club["secret"], club["lg_api_key"], club_id, date_from, date_to)
     soi.save_operations(club_id, operations)

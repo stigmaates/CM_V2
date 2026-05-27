@@ -12,7 +12,7 @@ from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 logging.basicConfig(level=logging.INFO)
 
-SUM_FROM = 0
+SUM_FROM = 1
 SUM_TO = 100000
 CHUNK_DAYS = 7
 
@@ -60,7 +60,6 @@ def fetch_operations(secret: str, api_key: str, club_id: int, date_from: str, da
     params = {
         "date_from": date_from,
         "date_to": date_to,
-        "club_id": club_id,
         "sum_from": SUM_FROM,
         "sum_to": SUM_TO
     }
@@ -214,12 +213,12 @@ def sync_operations_initial(club_id: int, date_from: str, date_to: str):
     api_key = club["lg_api_key"]
     secret = club["secret"]
 
-    start_date = datetime.strptime(date_from, "%d.%m.%Y").date()
-    end_date = datetime.strptime(date_to, "%d.%m.%Y").date()
+    start_date = datetime.strptime(date_from, "%Y-%m-%d").date()
+    end_date = datetime.strptime(date_to, "%Y-%m-%d").date()
 
     for chunk_start, chunk_end in daterange_chunks(start_date, end_date, CHUNK_DAYS):
-        chunk_from = chunk_start.strftime("%d.%m.%Y")
-        chunk_to = chunk_end.strftime("%d.%m.%Y")
+        chunk_from = chunk_start.strftime("%Y-%m-%d")
+        chunk_to = chunk_end.strftime("%Y-%m-%d")
 
         logging.info(f"Клуб {club_id} | {chunk_from} → {chunk_to}")
 
@@ -235,6 +234,6 @@ if __name__ == "__main__":
 
     sync_operations_initial(
         club_id=1,
-        date_from="01.01.2026",
-        date_to=today.strftime("%d.%m.%Y")
-    )
+        date_from="2026-01-01",
+        date_to=today.strftime("%Y-%m-%d")
+)
