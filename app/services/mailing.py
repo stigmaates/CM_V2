@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import uuid
 from typing import Any, Dict, List, Tuple
 
@@ -32,6 +33,7 @@ CRM_SEGMENT_OPTIONS = [
 ]
 
 FILTER_FIELDS = {
+    "phone": {"type": "phone_list", "column": "g.phone", "label": "Номер телефона"},
     "gender": {"type": "enum", "column": "up.gender", "label": "Пол", "options": [{"value": 1, "label": "Мужской"}, {"value": 2, "label": "Женский"}]},
     "age": {"type": "number", "column": "up.age", "label": "Возраст"},
     "registration_date": {"type": "date", "column": "up.registration_date", "label": "Дата регистрации"},
@@ -208,6 +210,61 @@ def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
     return result
 
 
+PHONE_NORMALIZED_SQL = (
+    "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE("
+    "COALESCE(g.phone, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), '.', '')"
+)
+
+
+def _split_phone_values(value: Any) -> List[str]:
+    """Парсит поле персональной рассылки: телефоны можно вводить через ;, запятую или перенос строки."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        raw_items = []
+        for item in value:
+            raw_items.extend(_split_phone_values(item))
+        return raw_items
+    return [item.strip() for item in re.split(r"[;,\n]+", str(value)) if item.strip()]
+
+
+def _phone_variants(raw_phone: str) -> List[str]:
+    """Возвращает варианты номера для сопоставления с базой: 7999..., 8999..., 999..."""
+    digits = re.sub(r"\D+", "", str(raw_phone or ""))
+    if len(digits) < 7:
+        return []
+
+    variants = {digits}
+
+    if len(digits) == 10:
+        variants.add("7" + digits)
+        variants.add("8" + digits)
+    elif len(digits) == 11:
+        variants.add(digits[-10:])
+        if digits.startswith("8"):
+            variants.add("7" + digits[1:])
+        elif digits.startswith("7"):
+            variants.add("8" + digits[1:])
+
+    return [item for item in variants if item]
+
+
+def _build_phone_rule(value: Any) -> Tuple[str, List[Any]]:
+    variants: List[str] = []
+    seen = set()
+
+    for raw_phone in _split_phone_values(value):
+        for variant in _phone_variants(raw_phone):
+            if variant not in seen:
+                seen.add(variant)
+                variants.append(variant)
+
+    if not variants:
+        return "1 = 0", []
+
+    placeholders = ", ".join(["%s"] * len(variants))
+    return f"{PHONE_NORMALIZED_SQL} IN ({placeholders})", variants
+
 def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
     field = rule.get("field")
     op = rule.get("op")
@@ -220,6 +277,11 @@ def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
     meta = FILTER_FIELDS[field]
     column = meta["column"]
     field_type = meta["type"]
+
+    if field_type == "phone_list":
+        if op not in {"=", "in"}:
+            raise ValueError(f"Недопустимый оператор для {field}: {op}")
+        return _build_phone_rule(value)
 
     if field_type == "number":
         if op not in ALLOWED_NUMBER_OPS:

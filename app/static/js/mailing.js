@@ -72,6 +72,7 @@ function buildOpOptions(fieldType) {
     if (fieldType === "date") return ["=", "!=", ">", ">=", "<", "<=", "between", "is_null", "is_not_null"];
     if (fieldType === "enum") return ["=", "!=", "in", "not_in"];
     if (fieldType === "bool") return ["="];
+    if (fieldType === "phone_list") return ["="];
     return ["="];
 }
 
@@ -103,6 +104,9 @@ function renderValueInputs(row, meta) {
         const input = document.createElement("input");
         input.className = "rule-value";
         input.type = meta.type === "date" ? "date" : "text";
+        if (meta.type === "phone_list") {
+            input.placeholder = "Например: +79991234567; 89997654321";
+        }
         row.replaceChild(input, row.querySelector(".rule-value"));
     }
 
