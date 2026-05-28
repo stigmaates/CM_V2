@@ -1,0 +1,81 @@
+{% extends "owner/base.html" %}
+
+{% block title %}Заявки на призы{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Заявки на выдачу призов</h1>
+        <p class="muted">Ручные призы из колеса фортуны. Админы могут закрывать их в Telegram командой <code>/done ID</code>.</p>
+    </div>
+</div>
+
+<div class="panel" style="margin-bottom: 16px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% for value, label in [('all', 'Все'), ('notified', 'Ожидают'), ('notify_failed', 'Ошибка уведомления'), ('issued', 'Выданы'), ('cancelled', 'Отменены')] %}
+            <a class="btn {% if selected_status == value %}btn-primary{% endif %}" href="{{ url_for('owner.prize_claims', status=value) }}">{{ label }}</a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="panel">
+    {% if claims %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Дата</th>
+                        <th>Гость</th>
+                        <th>Телефон</th>
+                        <th>Приз</th>
+                        <th>Статус</th>
+                        <th>Telegram</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for claim in claims %}
+                    <tr>
+                        <td><code>{{ claim.id }}</code></td>
+                        <td>{{ claim.created_at.strftime('%d.%m.%Y %H:%M') if claim.created_at else '—' }}</td>
+                        <td>{{ claim.guest_name or ('Guest ID ' ~ claim.guest_id) }}</td>
+                        <td>{{ claim.guest_phone or '—' }}</td>
+                        <td>
+                            <b>{{ claim.prize_name }}</b>
+                            {% if claim.prize_description %}<div class="muted">{{ claim.prize_description }}</div>{% endif %}
+                        </td>
+                        <td>{{ claim.status_label }}</td>
+                        <td>
+                            {% if claim.telegram_message_id %}
+                                отправлено
+                            {% elif claim.notify_error %}
+                                <span class="text-danger">ошибка</span>
+                                <div class="muted">{{ claim.notify_error }}</div>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if claim.status != 'issued' and claim.status != 'cancelled' %}
+                                <form method="post" action="{{ url_for('owner.prize_claim_issue', claim_id=claim.id, status=selected_status) }}" style="display:inline;">
+                                    <button class="btn btn-primary" type="submit">Выдать</button>
+                                </form>
+                                <form method="post" action="{{ url_for('owner.prize_claim_cancel', claim_id=claim.id, status=selected_status) }}" style="display:inline;">
+                                    <button class="btn" type="submit">Отменить</button>
+                                </form>
+                            {% else %}
+                                {% if claim.issued_at %}<div class="muted">Выдан {{ claim.issued_at.strftime('%d.%m %H:%M') }}</div>{% endif %}
+                                {% if claim.cancelled_at %}<div class="muted">Отменён {{ claim.cancelled_at.strftime('%d.%m %H:%M') }}</div>{% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty">Заявок на призы пока нет.</div>
+    {% endif %}
+</div>
+{% endblock %}

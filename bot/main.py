@@ -16,6 +16,7 @@ from telegram.ext import (
 )
 
 from app.config import BOT_TOKEN, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, TG_PROXY_URL
+from app.services.prize_claims import mark_prize_claim_issued_by_telegram
 
 
 logging.basicConfig(
@@ -263,6 +264,55 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def done_prize_claim(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
+    if not message:
+        return
+
+    if not context.args:
+        await message.reply_text("Укажи ID заявки: /done 123")
+        return
+
+    raw_claim_id = context.args[0].strip()
+    try:
+        claim_id = int(raw_claim_id)
+    except ValueError:
+        await message.reply_text("ID заявки должен быть числом. Пример: /done 123")
+        return
+
+    user = update.effective_user
+    chat = update.effective_chat
+    username = None
+    if user:
+        username = user.username or user.full_name
+
+    try:
+        result = mark_prize_claim_issued_by_telegram(
+            claim_id=claim_id,
+            chat_id=chat.id if chat else None,
+            telegram_id=user.id if user else None,
+            username=username,
+        )
+    except Exception as e:
+        logging.exception("Ошибка при выдаче приза #%s", claim_id)
+        await message.reply_text(f"Не удалось отметить приз #{claim_id} как выданный: {e}")
+        return
+
+    if not result.get("ok"):
+        await message.reply_text(result.get("message") or f"Не удалось закрыть заявку #{claim_id}.")
+        return
+
+    claim = result.get("claim") or {}
+    prize_name = claim.get("prize_name") or "Приз"
+    guest_name = claim.get("guest_name") or f"Guest ID {claim.get('guest_id')}"
+    prefix = "ℹ️" if result.get("already_done") else "✅"
+    await message.reply_text(
+        f"{prefix} Приз #{claim_id} отмечен как выдан.\n"
+        f"Гость: {guest_name}\n"
+        f"Приз: {prize_name}"
+    )
+
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
@@ -319,6 +369,7 @@ def main():
     app = builder.build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("done", done_prize_claim))
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
 
     app.run_polling(

@@ -5,6 +5,11 @@ from typing import Any
 from app.core import get_db_connection
 from app.services.missions import get_guest_missions_with_progress
 from app.services.cm_bonuses import award_cm_bonuses_for_wheel_prize, add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.prize_claims import (
+    create_prize_claim,
+    ensure_prize_claim_tables,
+    notify_prize_claim_admin_chat,
+)
 
 
 _token_tables_ready = False
@@ -567,6 +572,7 @@ def get_guest_wheel_history(guest_id: int, club_id: int, limit: int = 8):
     try:
         with conn.cursor() as cursor:
             ensure_wheel_prize_bonus_columns(cursor)
+            ensure_prize_claim_tables(cursor)
             cursor.execute(
                 """
                 SELECT
@@ -577,9 +583,15 @@ def get_guest_wheel_history(guest_id: int, club_id: int, limit: int = 8):
                     p.name,
                     p.description,
                     p.image_url,
-                    p.bonus_amount
+                    p.bonus_amount,
+                    c.id AS claim_id,
+                    c.status AS claim_status,
+                    c.issued_at AS claim_issued_at,
+                    c.cancelled_at AS claim_cancelled_at,
+                    c.cancel_reason AS claim_cancel_reason
                 FROM guest_wheel_spins s
                 JOIN club_wheel_prizes p ON p.id = s.prize_id
+                LEFT JOIN guest_prize_claims c ON c.spin_id = s.id
                 WHERE s.guest_id = %s
                   AND s.club_id = %s
                 ORDER BY s.created_at DESC, s.id DESC
@@ -587,7 +599,21 @@ def get_guest_wheel_history(guest_id: int, club_id: int, limit: int = 8):
                 """,
                 (guest_id, club_id, limit),
             )
-            return cursor.fetchall()
+            rows = cursor.fetchall()
+            for row in rows:
+                bonus_amount = int(row.get("bonus_amount") or 0)
+                claim_status = row.get("claim_status")
+                if bonus_amount > 0:
+                    row["prize_status_label"] = "начислено автоматически"
+                elif claim_status == "issued":
+                    row["prize_status_label"] = "выдан"
+                elif claim_status == "cancelled":
+                    row["prize_status_label"] = "отменён"
+                elif claim_status in ("pending", "notified", "notify_failed"):
+                    row["prize_status_label"] = "ожидает выдачи"
+                else:
+                    row["prize_status_label"] = "ожидает выдачи"
+            return rows
     finally:
         conn.close()
 
@@ -673,7 +699,7 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
             ensure_wheel_prize_bonus_columns(cursor)
             cursor.execute(
                 """
-                SELECT id, name, bonus_amount
+                SELECT id, name, description, image_url, bonus_amount
                 FROM club_wheel_prizes
                 WHERE id = %s AND club_id = %s
                 LIMIT 1
@@ -681,17 +707,30 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
                 (prize_id, club_id),
             )
             prize = cursor.fetchone()
-            award_cm_bonuses_for_wheel_prize(
+            bonus_awarded = award_cm_bonuses_for_wheel_prize(
                 cursor=cursor,
                 guest_id=guest_id,
                 club_id=club_id,
                 spin_id=spin_id,
                 prize=prize,
             )
+            claim_id = None
+            if not bonus_awarded:
+                claim_id = create_prize_claim(
+                    cursor=cursor,
+                    guest_id=guest_id,
+                    club_id=club_id,
+                    spin_id=spin_id,
+                    prize=prize,
+                )
         conn.commit()
-        return spin_id
     finally:
         conn.close()
+
+    if claim_id:
+        notify_prize_claim_admin_chat(claim_id)
+
+    return spin_id
 
 
 def serialize_wheel_prize(prize):

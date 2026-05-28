@@ -6,6 +6,7 @@ from app.core import guest_required
 from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_token
 from app.services.missions import get_guest_missions_with_progress
 from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, redeem_cm_bonuses
+from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.wheel import (
     choose_wheel_prize,
     get_guest_profile_stats,
@@ -177,11 +178,14 @@ def api_wheel_spin():
 
     tokens_after = get_guest_tokens(guest_id, club_id)
 
+    claim = get_prize_claim_by_spin_id(spin_id)
+
     return {
         "ok": True,
         "spin_id": spin_id,
         "tokens_after": tokens_after,
         "prize": serialize_wheel_prize(prize),
+        "claim": serialize_prize_claim(claim),
     }
 
 

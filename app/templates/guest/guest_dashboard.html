@@ -800,6 +800,23 @@
         .history-thumb-placeholder { font-size: 22px; line-height: 1; }
         .history-title { font-weight: 700; }
         .history-date { font-size: 12px; color: var(--text-muted); }
+        .history-status {
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            margin-top: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .02em;
+            color: #f5ecff;
+            background: rgba(150, 111, 255, .18);
+            border: 1px solid rgba(202, 174, 255, .26);
+        }
+        .history-status--issued { color: #d8ffe6; background: rgba(73, 207, 130, .13); border-color: rgba(120, 238, 170, .26); }
+        .history-status--pending { color: #fff2c8; background: rgba(255, 202, 92, .12); border-color: rgba(255, 218, 132, .28); }
+        .history-status--cancelled { color: #ffd6dc; background: rgba(255, 92, 125, .13); border-color: rgba(255, 132, 158, .28); }
 
         @media (max-width: 1180px) { .layout { grid-template-columns: 1fr; } }
         @media (max-width: 760px) {
@@ -966,6 +983,7 @@
                 <div>
                     <div class="win-name" id="winName">Приз</div>
                     <div class="win-desc" id="winDescription">Поздравляем! Твой приз сохранён за тобой.</div>
+                    <div class="history-status history-status--pending" id="winClaimStatus" style="display:none;"></div>
                     <button class="claim-btn" onclick="closeModal('winModal')">Отлично</button>
                 </div>
             </div>
@@ -1038,6 +1056,10 @@
                             <div>
                                 <div class="history-title">{{ item.name }}</div>
                                 <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
+                                {% if item.prize_status_label %}
+                                    {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
+                                    <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
+                                {% endif %}
                             </div>
                             <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
                         </div>
@@ -1065,6 +1087,7 @@
         const winFallback = document.getElementById('winFallback');
         const winName = document.getElementById('winName');
         const winDescription = document.getElementById('winDescription');
+        const winClaimStatus = document.getElementById('winClaimStatus');
         const historyList = document.getElementById('historyList');
         const historyEmpty = document.getElementById('historyEmpty');
 
@@ -1634,12 +1657,35 @@
             }
         }
 
-        function showWinModal(prize) {
+        function claimStatusClass(status) {
+            if (status === 'issued') return 'history-status--issued';
+            if (status === 'cancelled') return 'history-status--cancelled';
+            return 'history-status--pending';
+        }
+
+        function showWinModal(prize, claim = null) {
             winName.textContent = prize.name || 'Приз получен';
             const bonusText = Number(prize.bonus_amount || 0) > 0 ? `
 
 +${prize.bonus_amount} CM-бонусов уже начислены в твой кошелёк.` : '';
-            winDescription.textContent = (prize.description || 'Поздравляем! Твой приз сохранён за тобой.') + bonusText;
+            const manualText = claim ? `
+
+Статус: ${claim.status_label || 'ожидает выдачи'}. Подойди к администратору и назови ID заявки #${claim.id}.` : '';
+            winDescription.textContent = (prize.description || 'Поздравляем! Твой приз сохранён за тобой.') + bonusText + manualText;
+            if (winClaimStatus) {
+                if (claim) {
+                    winClaimStatus.style.display = 'inline-flex';
+                    winClaimStatus.className = `history-status ${claimStatusClass(claim.status)}`;
+                    winClaimStatus.textContent = `Заявка #${claim.id}: ${claim.status_label || 'ожидает выдачи'}`;
+                } else if (Number(prize.bonus_amount || 0) > 0) {
+                    winClaimStatus.style.display = 'inline-flex';
+                    winClaimStatus.className = 'history-status history-status--issued';
+                    winClaimStatus.textContent = 'Начислено автоматически';
+                } else {
+                    winClaimStatus.style.display = 'none';
+                    winClaimStatus.textContent = '';
+                }
+            }
             if (prize.image_url) {
                 winImage.src = prize.image_url;
                 winImage.style.display = 'block';
@@ -1652,7 +1698,7 @@
             openModal('winModal');
         }
 
-        function prependHistory(prize) {
+        function prependHistory(prize, claim = null) {
             if (!historyList) return;
             if (historyEmpty) historyEmpty.style.display = 'none';
             const row = document.createElement('div');
@@ -1665,11 +1711,24 @@
                 <div>
                     <div class="history-title"></div>
                     <div class="history-date"></div>
+                    <div class="history-status" style="display:none;"></div>
                 </div>
                 <div class="history-date">сейчас</div>
             `;
             row.querySelector('.history-title').textContent = prize.name || 'Приз';
             row.querySelectorAll('.history-date')[0].textContent = prize.description || 'Приз сохранён за тобой';
+            const statusBadge = row.querySelector('.history-status');
+            if (statusBadge) {
+                if (claim) {
+                    statusBadge.style.display = 'inline-flex';
+                    statusBadge.className = `history-status ${claimStatusClass(claim.status)}`;
+                    statusBadge.textContent = claim.status_label || 'ожидает выдачи';
+                } else if (Number(prize.bonus_amount || 0) > 0) {
+                    statusBadge.style.display = 'inline-flex';
+                    statusBadge.className = 'history-status history-status--issued';
+                    statusBadge.textContent = 'начислено автоматически';
+                }
+            }
             historyList.prepend(row);
         }
 
@@ -1718,8 +1777,8 @@
                 setTimeout(async () => {
                     stopPointerTicks();
                     highlightPrizeSegment(prize.id);
-                    showWinModal(prize);
-                    prependHistory(prize);
+                    showWinModal(prize, data.claim || null);
+                    prependHistory(prize, data.claim || null);
                     if (data.tokens_after !== undefined) setTokens(data.tokens_after);
                     await loadTokens();
                     await loadCmBonuses();
