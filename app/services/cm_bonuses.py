@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from html import escape
 
 import httpx
 
@@ -11,6 +12,22 @@ from app.services.clubs import ensure_club_bonus_chat_column
 
 
 _cm_bonus_tables_ready = False
+
+
+def _ensure_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND COLUMN_NAME = %s
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone() or {}
+    if int(row.get("cnt") or 0) == 0:
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
 
 
 def ensure_cm_bonus_tables(cursor) -> None:
@@ -70,6 +87,8 @@ def ensure_cm_bonus_tables(cursor) -> None:
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
     )
+    _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_telegram_id", "BIGINT NULL")
+    _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_username", "VARCHAR(255) NULL")
     _cm_bonus_tables_ready = True
 
 
@@ -291,6 +310,81 @@ def get_cm_bonus_admin_chat_id_for_club(club_id: int) -> str | None:
     return fallback or None
 
 
+def _html(value: Any) -> str:
+    return escape(str(value or ""), quote=False)
+
+
+def _format_dt(value: Any) -> str:
+    if not value:
+        return "не указано"
+    try:
+        return value.strftime("%d.%m.%Y %H:%M")
+    except AttributeError:
+        return str(value)
+
+
+def get_cm_bonus_redeem_request_by_id(request_id: int) -> dict[str, Any] | None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                SELECT r.*,
+                       g.fio AS guest_name,
+                       g.phone AS guest_phone
+                FROM cm_bonus_redeem_requests r
+                LEFT JOIN guests g
+                  ON g.guest_id = r.guest_id
+                 AND g.club_id = r.club_id
+                WHERE r.id = %s
+                LIMIT 1
+                """,
+                (request_id,),
+            )
+            return cursor.fetchone()
+    finally:
+        conn.close()
+
+
+def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = False) -> str:
+    request_id = request.get("id")
+    guest_name = _html(request.get("guest_name") or "Гость")
+    phone = _html(_format_phone(request.get("guest_phone")))
+    guest_id = _html(request.get("guest_id"))
+    club_id = _html(request.get("club_id"))
+    amount = _html(request.get("amount"))
+
+    status = request.get("status") or "pending"
+    if credited or status == "credited":
+        processed_by = request.get("processed_by_username") or "администратор"
+        processed_at = _format_dt(request.get("processed_at"))
+        return (
+            "✅ <b>CM-бонусы зачислены в Langame</b>\n\n"
+            f"Заявка CM: <code>{request_id}</code>\n\n"
+            f"Гость: <b>{guest_name}</b>\n"
+            f"Телефон: <code>{phone}</code>\n"
+            f"Guest ID: <code>{guest_id}</code>\n"
+            f"Club ID: <code>{club_id}</code>\n"
+            f"Сумма: <b>{amount}</b> бонусов\n\n"
+            "Статус: <b>зачислено</b>\n"
+            f"Зачислил: <b>{_html(processed_by)}</b>\n"
+            f"Дата зачисления: <b>{_html(processed_at)}</b>"
+        )
+
+    return (
+        "💎 <b>Заявка на перевод CM-бонусов</b>\n\n"
+        f"Заявка CM: <code>{request_id}</code>\n\n"
+        f"Гость: <b>{guest_name}</b>\n"
+        f"Телефон: <code>{phone}</code>\n"
+        f"Guest ID: <code>{guest_id}</code>\n"
+        f"Club ID: <code>{club_id}</code>\n"
+        f"Сумма к зачислению в Langame: <b>{amount}</b> бонусов\n\n"
+        "Бонусы уже списаны с кошелька гостя в ClubModule.\n"
+        "После зачисления в Langame нажмите кнопку ниже."
+    )
+
+
 def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: int) -> tuple[bool, int | None, str | None, str | None]:
     token = (CM_BONUS_BOT_TOKEN or "").strip()
     chat_id = get_cm_bonus_admin_chat_id_for_club(int(guest.get("club_id") or 0))
@@ -299,20 +393,16 @@ def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: in
     if not chat_id:
         return False, None, "В настройках клуба не заполнен ID Telegram-беседы для CM-бонусов", chat_id
 
-    guest_name = guest.get("fio") or "Гость"
-    phone = _format_phone(guest.get("phone"))
-    club_id = guest.get("club_id")
-    guest_id = guest.get("guest_id")
-    text = (
-        "💎 <b>Заявка на перевод CM-бонусов</b>\n\n"
-        f"Гость: <b>{guest_name}</b>\n"
-        f"Телефон: <code>{phone}</code>\n"
-        f"Guest ID: <code>{guest_id}</code>\n"
-        f"Club ID: <code>{club_id}</code>\n"
-        f"Сумма к зачислению в Langame: <b>{amount}</b> бонусов\n\n"
-        f"Заявка CM: <code>{redeem_request_id}</code>\n"
-        "Бонусы уже списаны с кошелька гостя в ClubModule."
-    )
+    request = {
+        "id": redeem_request_id,
+        "club_id": guest.get("club_id"),
+        "guest_id": guest.get("guest_id"),
+        "guest_name": guest.get("fio"),
+        "guest_phone": guest.get("phone"),
+        "amount": amount,
+        "status": "notified",
+    }
+    text = format_cm_bonus_redeem_message(request)
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -320,6 +410,16 @@ def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: in
         "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
+        "reply_markup": {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "✅ Бонусы зачислены",
+                        "callback_data": f"cm_bonus_credited:{redeem_request_id}",
+                    }
+                ]
+            ]
+        },
     }
     try:
         client_kwargs: dict[str, Any] = {"timeout": 20.0}
@@ -396,7 +496,7 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
                     str(admin_chat_id or "") or None,
                     message_id,
                     error_text,
-                    datetime.utcnow(),
+                    None,
                     redeem_request_id,
                 ),
             )
@@ -411,4 +511,97 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
         "notification_sent": notification_sent,
         "error_text": error_text,
         "balance_after": get_cm_bonus_balance(guest_id, club_id),
+    }
+
+
+
+def mark_cm_bonus_redeem_credited_by_telegram(
+    request_id: int,
+    chat_id: str | int | None,
+    telegram_id: int | None,
+    username: str | None = None,
+) -> dict[str, Any]:
+    chat_id_str = str(chat_id or "").strip()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                SELECT r.*,
+                       g.fio AS guest_name,
+                       g.phone AS guest_phone
+                FROM cm_bonus_redeem_requests r
+                LEFT JOIN guests g
+                  ON g.guest_id = r.guest_id
+                 AND g.club_id = r.club_id
+                WHERE r.id = %s
+                LIMIT 1
+                FOR UPDATE
+                """,
+                (request_id,),
+            )
+            request = cursor.fetchone()
+            if not request:
+                return {"ok": False, "error": "not_found", "message": f"Заявка CM #{request_id} не найдена."}
+
+            stored_chat_id = str(request.get("admin_chat_id") or "").strip()
+            if stored_chat_id and chat_id_str and stored_chat_id != chat_id_str:
+                return {
+                    "ok": False,
+                    "error": "wrong_chat",
+                    "message": "Эту заявку нельзя закрыть из этого чата.",
+                }
+
+            status = request.get("status") or "pending"
+            if status == "credited":
+                return {
+                    "ok": True,
+                    "already_done": True,
+                    "request": request,
+                    "message": f"Заявка CM #{request_id} уже была отмечена как зачисленная.",
+                }
+
+            if status in {"cancelled", "failed"}:
+                return {
+                    "ok": False,
+                    "error": "invalid_status",
+                    "request": request,
+                    "message": f"Заявку CM #{request_id} нельзя закрыть в статусе {status}.",
+                }
+
+            processed_at = datetime.utcnow()
+            cursor.execute(
+                """
+                UPDATE cm_bonus_redeem_requests
+                SET status = 'credited',
+                    processed_at = %s,
+                    processed_by_telegram_id = %s,
+                    processed_by_username = %s,
+                    error_text = NULL
+                WHERE id = %s
+                """,
+                (processed_at, telegram_id, username, request_id),
+            )
+            cursor.execute(
+                """
+                UPDATE cm_bonus_transactions
+                SET status = 'credited_to_langame'
+                WHERE club_id = %s
+                  AND guest_id = %s
+                  AND source_type = 'redeem_request'
+                  AND source_id = %s
+                """,
+                (request.get("club_id"), request.get("guest_id"), str(request_id)),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    updated_request = get_cm_bonus_redeem_request_by_id(request_id)
+    return {
+        "ok": True,
+        "request": updated_request,
+        "message": f"CM-бонусы по заявке #{request_id} отмечены как зачисленные.",
     }

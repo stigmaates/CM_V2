@@ -10,6 +10,10 @@ from app.services.prize_claims import (
     format_prize_claim_message,
     mark_prize_claim_issued_by_telegram,
 )
+from app.services.cm_bonuses import (
+    format_cm_bonus_redeem_message,
+    mark_cm_bonus_redeem_credited_by_telegram,
+)
 
 
 logging.basicConfig(
@@ -82,6 +86,70 @@ async def prize_claim_issued_callback(update: Update, context: ContextTypes.DEFA
         await query.answer(f"Приз #{claim_id} отмечен как выдан", show_alert=False)
 
 
+async def cm_bonus_credited_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button ✅ Бонусы зачислены from the admin chat bot."""
+    query = update.callback_query
+    if not query:
+        return
+
+    data = query.data or ""
+    match = re.match(r"^cm_bonus_credited:(\d+)$", data)
+    if not match:
+        await query.answer("Некорректная кнопка", show_alert=True)
+        return
+
+    request_id = int(match.group(1))
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if user:
+        username = f"@{user.username}" if user.username else user.full_name
+    else:
+        username = None
+
+    logging.info(
+        "CM BONUS BUTTON: request_id=%s chat_id=%s user_id=%s username=%s",
+        request_id,
+        chat.id if chat else None,
+        user.id if user else None,
+        username,
+    )
+
+    try:
+        result = mark_cm_bonus_redeem_credited_by_telegram(
+            request_id=request_id,
+            chat_id=chat.id if chat else None,
+            telegram_id=user.id if user else None,
+            username=username,
+        )
+    except Exception as e:
+        logging.exception("Ошибка при закрытии заявки CM-бонусов через кнопку #%s", request_id)
+        await query.answer(f"Ошибка: {e}", show_alert=True)
+        return
+
+    if not result.get("ok"):
+        await query.answer(result.get("message") or f"Не удалось закрыть заявку CM #{request_id}", show_alert=True)
+        return
+
+    redeem_request = result.get("request") or {}
+    text = format_cm_bonus_redeem_message(redeem_request, credited=True)
+
+    try:
+        await query.edit_message_text(
+            text=text,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=None,
+        )
+    except Exception:
+        logging.exception("Не удалось обновить сообщение заявки CM #%s", request_id)
+
+    if result.get("already_done"):
+        await query.answer(f"Заявка CM #{request_id} уже была закрыта", show_alert=False)
+    else:
+        await query.answer(f"Бонусы по заявке CM #{request_id} отмечены как зачисленные", show_alert=False)
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.exception("Ошибка в админском боте:", exc_info=context.error)
 
@@ -121,6 +189,7 @@ def main():
 
     app = builder.build()
     app.add_handler(CallbackQueryHandler(prize_claim_issued_callback, pattern=r"^prize_claim_issued:\d+$"))
+    app.add_handler(CallbackQueryHandler(cm_bonus_credited_callback, pattern=r"^cm_bonus_credited:\d+$"))
     app.add_error_handler(error_handler)
 
     logging.info("Admin Telegram bot started")
