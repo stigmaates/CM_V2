@@ -35,6 +35,7 @@ def settings():
 
         try:
             update_club_info(club_id, name, lg_api_key, secret, cm_bonus_admin_chat_id)
+            session["club_name"] = name
             flash("Настройки клуба обновлены", "success")
             return redirect(url_for("owner.settings", tab="club"))
         except Exception as e:

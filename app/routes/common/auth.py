@@ -22,9 +22,17 @@ def login():
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT user_id, role, name, login, club_id, pass_hash
-                    FROM users
-                    WHERE login = %s
+                    SELECT
+                        u.user_id,
+                        u.role,
+                        u.name,
+                        u.login,
+                        u.club_id,
+                        u.pass_hash,
+                        c.name AS club_name
+                    FROM users u
+                    LEFT JOIN clubs c ON c.club_id = u.club_id
+                    WHERE u.login = %s
                     LIMIT 1
                     """,
                     (login_value,),
@@ -43,6 +51,7 @@ def login():
             session["name"] = user["name"]
             session["login"] = user["login"]
             session["club_id"] = user["club_id"]
+            session["club_name"] = user.get("club_name")
 
             if user["role"] == "admin":
                 return redirect(url_for("admin.dashboard"))

@@ -13,13 +13,33 @@
         <header class="owner-topbar">
             <div class="owner-topbar__brand">
                 <div class="logo">ClubModule</div>
+                <div class="owner-topbar__club" title="{{ header_club_name or 'Клуб не выбран' }}">
+                    {{ header_club_name or 'Клуб не выбран' }}
+                </div>
             </div>
-            <nav class="owner-topnav" aria-label="Основной раздел">
-                <a href="{{ url_for('owner.dashboard') }}" class="owner-topnav__link {% if request.endpoint == 'owner.dashboard' %}is-active{% endif %}">Дашборд</a>
-                <a href="{{ url_for('owner.crm_analytics') }}" class="owner-topnav__link {% if request.endpoint == 'owner.crm_analytics' %}is-active{% endif %}">CRM-Аналитика</a>
-                <a href="{{ url_for('owner.settings') }}" class="owner-topnav__link {% if request.endpoint in ['owner.settings', 'owner.missions', 'owner.missions_add', 'owner.missions_update', 'owner.missions_disable', 'owner.missions_delete', 'owner.wheel_settings', 'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete'] %}is-active{% endif %}">Настройки</a>
-                <a href="{{ url_for('owner.mailing_page') }}" class="owner-topnav__link {% if request.endpoint == 'owner.mailing_page' %}is-active{% endif %}">Рассылка</a>
-            </nav>
+
+            <div class="owner-topbar__right">
+                <nav class="owner-topnav" aria-label="Основной раздел">
+                    <a href="{{ url_for('owner.dashboard') }}" class="owner-topnav__link {% if request.endpoint == 'owner.dashboard' %}is-active{% endif %}">Дашборд</a>
+                    <a href="{{ url_for('owner.crm_analytics') }}" class="owner-topnav__link {% if request.endpoint == 'owner.crm_analytics' %}is-active{% endif %}">CRM-Аналитика</a>
+                    <a href="{{ url_for('owner.settings') }}" class="owner-topnav__link {% if request.endpoint in ['owner.settings', 'owner.missions', 'owner.missions_add', 'owner.missions_update', 'owner.missions_disable', 'owner.missions_delete', 'owner.wheel_settings', 'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete'] %}is-active{% endif %}">Настройки</a>
+                    <a href="{{ url_for('owner.mailing_page') }}" class="owner-topnav__link {% if request.endpoint == 'owner.mailing_page' %}is-active{% endif %}">Рассылка</a>
+                </nav>
+
+                <details class="owner-user-menu">
+                    <summary class="owner-user-menu__trigger">
+                        <span class="owner-user-menu__name">{{ header_user_name or 'Пользователь' }}</span>
+                        <span class="owner-user-menu__chevron">▾</span>
+                    </summary>
+                    <div class="owner-user-menu__panel">
+                        <div class="owner-user-menu__title">{{ header_user_name or 'Пользователь' }}</div>
+                        <div class="owner-user-menu__meta">
+                            Логин: <span>{{ header_user_login or '—' }}</span>
+                        </div>
+                        <a href="{{ url_for('auth.logout') }}" class="owner-user-menu__logout">Выйти из учётки</a>
+                    </div>
+                </details>
+            </div>
         </header>
 
         <div class="owner-page">

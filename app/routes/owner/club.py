@@ -52,6 +52,7 @@ def club_create():
 
             conn.commit()
             session["club_id"] = club_id
+            session["club_name"] = name
             flash("Клуб успешно создан", "success")
             return redirect(url_for("owner.dashboard"))
         except Exception as e:
