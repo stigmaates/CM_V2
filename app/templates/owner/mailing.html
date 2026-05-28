@@ -198,17 +198,53 @@
 
             <div class="auto-mailing-list">
                 {% for item in auto_mailings %}
-                    <div class="auto-mailing-card">
+                    <div class="auto-mailing-card" data-auto-mailing-code="{{ item.code }}">
                         <div class="auto-mailing-card__main">
                             <div class="auto-mailing-card__icon">↩</div>
-                            <div>
+                            <div class="auto-mailing-card__content">
                                 <div class="auto-mailing-card__title">{{ item.title }}</div>
                                 <div class="auto-mailing-card__desc">{{ item.description }}</div>
+
+                                <div class="auto-mailing-settings">
+                                    <label class="auto-mailing-field">
+                                        <span>Дней неактива</span>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            class="auto-mailing-days"
+                                            value="{{ item.days_inactive or 14 }}"
+                                        >
+                                    </label>
+
+                                    <label class="auto-mailing-field">
+                                        <span>Бонусов начислить</span>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            class="auto-mailing-bonus"
+                                            value="{{ item.bonus_amount or 200 }}"
+                                        >
+                                    </label>
+                                </div>
+
                                 <div class="auto-mailing-card__message">{{ item.message_text }}</div>
+
+                                <div class="auto-mailing-actions">
+                                    <button
+                                        type="button"
+                                        class="auto-mailing-save"
+                                        data-code="{{ item.code }}"
+                                    >
+                                        Сохранить настройки
+                                    </button>
+                                    <span class="auto-mailing-save-status" aria-live="polite"></span>
+                                </div>
                             </div>
                         </div>
 
-                        <label class="toggle-switch">
+                        <label class="toggle-switch" title="Включить или выключить авторассылку">
                             <input
                                 type="checkbox"
                                 class="auto-mailing-toggle"

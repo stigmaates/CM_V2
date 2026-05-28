@@ -531,9 +531,54 @@ def list_mailings(conn, club_id: int) -> List[Dict[str, Any]]:
         cur.execute(sql, (club_id,))
         return cur.fetchall()
 
+def _ensure_auto_mailing_column(cursor, column_name: str, ddl: str) -> None:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'auto_mailing_settings'
+          AND COLUMN_NAME = %s
+        """,
+        (column_name,),
+    )
+    row = cursor.fetchone() or {}
+    if int(row.get("cnt") or 0) == 0:
+        cursor.execute(f"ALTER TABLE auto_mailing_settings ADD COLUMN {column_name} {ddl}")
+
+
 def ensure_auto_mailings(conn, club_id: int) -> None:
-    """Создаёт дефолтные авторассылки для клуба, если их ещё нет."""
+    """Создаёт и обновляет настройки авторассылок для клуба лениво."""
     with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS auto_mailing_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                club_id INT NOT NULL,
+                code VARCHAR(80) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                description TEXT NULL,
+                message_text TEXT NOT NULL,
+                days_inactive INT NOT NULL DEFAULT 14,
+                bonus_amount INT NOT NULL DEFAULT 200,
+                repeat_after_days INT NOT NULL DEFAULT 30,
+                is_enabled TINYINT(1) NOT NULL DEFAULT 0,
+                last_run_at DATETIME NULL,
+                last_mailing_id INT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_auto_mailing_club_code (club_id, code),
+                KEY idx_auto_mailing_enabled (is_enabled),
+                KEY idx_auto_mailing_club (club_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """
+        )
+        _ensure_auto_mailing_column(cur, "days_inactive", "INT NOT NULL DEFAULT 14")
+        _ensure_auto_mailing_column(cur, "bonus_amount", "INT NOT NULL DEFAULT 200")
+        _ensure_auto_mailing_column(cur, "repeat_after_days", "INT NOT NULL DEFAULT 30")
+        _ensure_auto_mailing_column(cur, "last_run_at", "DATETIME NULL")
+        _ensure_auto_mailing_column(cur, "last_mailing_id", "INT NULL")
+
         for code, defaults in AUTO_MAILING_DEFAULTS.items():
             cur.execute(
                 """
@@ -567,6 +612,14 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
             )
 
 
+def _build_inactive_auto_message(bonus_amount: int) -> str:
+    bonus_amount = int(bonus_amount or 0)
+    return (
+        "Привет! Тебя давно не было в клубе 😔\n\n"
+        f"Мы начислили тебе {bonus_amount} бонусов — приходи играть, будем ждать!"
+    )
+
+
 def list_auto_mailings(conn, club_id: int):
     ensure_auto_mailings(conn, club_id)
     conn.commit()
@@ -597,20 +650,81 @@ def list_auto_mailings(conn, club_id: int):
 
 
 def update_auto_mailing_enabled(conn, club_id: int, code: str, is_enabled: bool) -> bool:
+    return update_auto_mailing_settings(conn, club_id, code, is_enabled=is_enabled) is not None
+
+
+def update_auto_mailing_settings(
+    conn,
+    club_id: int,
+    code: str,
+    is_enabled: bool | None = None,
+    days_inactive: int | None = None,
+    bonus_amount: int | None = None,
+) -> Dict[str, Any] | None:
+    """Обновляет настройки авторассылки и возвращает актуальную запись."""
     ensure_auto_mailings(conn, club_id)
+
+    fields = []
+    params = []
+
+    if is_enabled is not None:
+        fields.append("is_enabled = %s")
+        params.append(1 if is_enabled else 0)
+
+    if days_inactive is not None:
+        days_inactive = max(int(days_inactive or 0), 1)
+        fields.append("days_inactive = %s")
+        params.append(days_inactive)
+
+    if bonus_amount is not None:
+        bonus_amount = max(int(bonus_amount or 0), 1)
+        fields.append("bonus_amount = %s")
+        params.append(bonus_amount)
+        fields.append("message_text = %s")
+        params.append(_build_inactive_auto_message(bonus_amount))
+
+    if not fields:
+        fields.append("updated_at = NOW()")
+    else:
+        fields.append("updated_at = NOW()")
+
+    params.extend([club_id, code])
 
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             UPDATE auto_mailing_settings
-            SET is_enabled = %s,
-                updated_at = NOW()
+            SET {', '.join(fields)}
             WHERE club_id = %s
               AND code = %s
             """,
-            (1 if is_enabled else 0, club_id, code),
+            tuple(params),
         )
-        return cur.rowcount > 0
+        if cur.rowcount == 0:
+            return None
+
+        cur.execute(
+            """
+            SELECT
+                id,
+                code,
+                title,
+                description,
+                message_text,
+                days_inactive,
+                bonus_amount,
+                repeat_after_days,
+                is_enabled,
+                last_run_at,
+                last_mailing_id,
+                updated_at
+            FROM auto_mailing_settings
+            WHERE club_id = %s AND code = %s
+            LIMIT 1
+            """,
+            (club_id, code),
+        )
+        return cur.fetchone()
 
 
 def get_inactive_auto_mailing_recipients(

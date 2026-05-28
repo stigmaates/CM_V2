@@ -19,6 +19,7 @@ from app.services.mailing import (
     save_segment,
     save_uploaded_file,
     update_auto_mailing_enabled,
+    update_auto_mailing_settings,
 )
 
 from . import owner_bp
@@ -163,11 +164,41 @@ def api_segments_delete(segment_id):
 def api_auto_mailing_toggle(code):
     club_id = get_current_club_id()
     data = request.get_json(force=True)
+
     is_enabled = bool(data.get("is_enabled"))
+
+    days_inactive = None
+    if "days_inactive" in data:
+        try:
+            days_inactive = int(data.get("days_inactive") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Количество дней неактива должно быть числом"}), 400
+        if days_inactive < 1:
+            return jsonify({"ok": False, "error": "Количество дней неактива должно быть больше 0"}), 400
+        if days_inactive > 3650:
+            return jsonify({"ok": False, "error": "Слишком большое количество дней неактива"}), 400
+
+    bonus_amount = None
+    if "bonus_amount" in data:
+        try:
+            bonus_amount = int(data.get("bonus_amount") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Количество бонусов должно быть числом"}), 400
+        if bonus_amount < 1:
+            return jsonify({"ok": False, "error": "Количество бонусов должно быть больше 0"}), 400
+        if bonus_amount > 1000000:
+            return jsonify({"ok": False, "error": "Слишком большое количество бонусов"}), 400
 
     conn = get_db_connection()
     try:
-        updated = update_auto_mailing_enabled(conn, club_id, code, is_enabled)
+        updated = update_auto_mailing_settings(
+            conn,
+            club_id,
+            code,
+            is_enabled=is_enabled,
+            days_inactive=days_inactive,
+            bonus_amount=bonus_amount,
+        )
         conn.commit()
     finally:
         conn.close()
@@ -175,7 +206,7 @@ def api_auto_mailing_toggle(code):
     if not updated:
         return jsonify({"ok": False, "error": "Авторассылка не найдена"}), 404
 
-    return jsonify({"ok": True, "code": code, "is_enabled": is_enabled})
+    return jsonify({"ok": True, "auto_mailing": updated})
 
 
 @owner_bp.route('/api/mailings/upload', methods=['POST'])

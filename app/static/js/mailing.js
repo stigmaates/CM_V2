@@ -672,33 +672,106 @@ mailingTabs.forEach((tab) => {
     });
 });
 
-// Переключатели авторассылок
-async function toggleAutoMailing(input) {
-    const code = input.dataset.code;
-    const previousValue = !input.checked;
-    input.disabled = true;
+// Настройки авторассылок
+function getAutoMailingPayload(card) {
+    const toggle = card.querySelector(".auto-mailing-toggle");
+    const daysInput = card.querySelector(".auto-mailing-days");
+    const bonusInput = card.querySelector(".auto-mailing-bonus");
+
+    return {
+        is_enabled: Boolean(toggle && toggle.checked),
+        days_inactive: Number(daysInput ? daysInput.value : 14),
+        bonus_amount: Number(bonusInput ? bonusInput.value : 200),
+    };
+}
+
+function setAutoMailingStatus(card, text, isError = false) {
+    const status = card.querySelector(".auto-mailing-save-status");
+    if (!status) return;
+    status.textContent = text || "";
+    status.classList.toggle("is-error", Boolean(isError));
+
+    if (text && !isError) {
+        window.setTimeout(() => {
+            if (status.textContent === text) {
+                status.textContent = "";
+            }
+        }, 2200);
+    }
+}
+
+async function saveAutoMailing(card, options = {}) {
+    const code = card.dataset.autoMailingCode || (card.querySelector(".auto-mailing-toggle") || {}).dataset.code;
+    const toggle = card.querySelector(".auto-mailing-toggle");
+    const saveBtn = card.querySelector(".auto-mailing-save");
+    const daysInput = card.querySelector(".auto-mailing-days");
+    const bonusInput = card.querySelector(".auto-mailing-bonus");
+    const messageBox = card.querySelector(".auto-mailing-card__message");
+    const previousChecked = toggle ? !toggle.checked : false;
+
+    if (!code) return;
+
+    const payload = getAutoMailingPayload(card);
+    if (!Number.isFinite(payload.days_inactive) || payload.days_inactive < 1) {
+        setAutoMailingStatus(card, "Укажи дни неактива больше 0", true);
+        if (toggle && options.fromToggle) toggle.checked = previousChecked;
+        return;
+    }
+    if (!Number.isFinite(payload.bonus_amount) || payload.bonus_amount < 1) {
+        setAutoMailingStatus(card, "Укажи бонусы больше 0", true);
+        if (toggle && options.fromToggle) toggle.checked = previousChecked;
+        return;
+    }
+
+    [toggle, saveBtn, daysInput, bonusInput].forEach((el) => {
+        if (el) el.disabled = true;
+    });
+    setAutoMailingStatus(card, "Сохраняем...");
 
     try {
         const response = await fetch(`/owner/api/auto-mailings/${code}/toggle`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ is_enabled: input.checked }),
+            body: JSON.stringify(payload),
         });
         const data = await response.json();
         if (!data.ok) {
-            input.checked = previousValue;
-            alert(data.error || "Не удалось изменить авторассылку");
+            if (toggle && options.fromToggle) toggle.checked = previousChecked;
+            setAutoMailingStatus(card, data.error || "Не удалось сохранить", true);
+            return;
         }
+
+        if (data.auto_mailing) {
+            if (toggle) toggle.checked = Boolean(Number(data.auto_mailing.is_enabled));
+            if (daysInput) daysInput.value = data.auto_mailing.days_inactive || payload.days_inactive;
+            if (bonusInput) bonusInput.value = data.auto_mailing.bonus_amount || payload.bonus_amount;
+            if (messageBox && data.auto_mailing.message_text) {
+                messageBox.textContent = data.auto_mailing.message_text;
+            }
+        }
+        setAutoMailingStatus(card, "Сохранено");
     } catch (error) {
-        input.checked = previousValue;
-        alert("Не удалось изменить авторассылку");
+        if (toggle && options.fromToggle) toggle.checked = previousChecked;
+        setAutoMailingStatus(card, "Не удалось сохранить", true);
     } finally {
-        input.disabled = false;
+        [toggle, saveBtn, daysInput, bonusInput].forEach((el) => {
+            if (el) el.disabled = false;
+        });
     }
 }
 
 document.querySelectorAll(".auto-mailing-toggle").forEach((input) => {
-    input.addEventListener("change", () => toggleAutoMailing(input));
+    input.addEventListener("change", () => {
+        const card = input.closest(".auto-mailing-card");
+        if (card) saveAutoMailing(card, { fromToggle: true });
+    });
+});
+
+document.querySelectorAll(".auto-mailing-save").forEach((button) => {
+    button.addEventListener("click", () => {
+        const card = button.closest(".auto-mailing-card");
+        if (card) saveAutoMailing(card);
+    });
 });
 
 

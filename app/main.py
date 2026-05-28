@@ -5,7 +5,7 @@ from app.routes.owner import owner_bp
 from app.routes.common import auth_bp, public_bp
 
 from app.routes.admin import clubs, dashboard as admin_dashboard, users  # noqa: F401
-from app.routes.owner import club, crm, dashboard, mailing, missions, settings, sync, wheel  # noqa: F401
+from app.routes.owner import club, crm, dashboard, mailing, missions, prize_claims, settings, sync, wheel  # noqa: F401
 from app.routes.guest import main  # noqa: F401
 from app.routes.common import auth, public  # noqa: F401
 

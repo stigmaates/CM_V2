@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.core import get_db_connection
+from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.mailing import (
     create_mailing_for_recipients,
     get_inactive_auto_mailing_recipients,
@@ -19,8 +20,12 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
     club_id = setting["club_id"]
     code = setting["code"]
     days_inactive = int(setting.get("days_inactive") or 14)
+    bonus_amount = int(setting.get("bonus_amount") or 200)
     repeat_after_days = int(setting.get("repeat_after_days") or 30)
-    message_text = setting.get("message_text") or "Привет! Тебя давно не было в клубе 😔\n\nМы начислили тебе 200 бонусов — приходи играть, будем ждать!"
+    message_text = setting.get("message_text") or (
+        "Привет! Тебя давно не было в клубе 😔\n\n"
+        f"Мы начислили тебе {bonus_amount} бонусов — приходи играть, будем ждать!"
+    )
 
     recipients = get_inactive_auto_mailing_recipients(
         conn=conn,
@@ -53,12 +58,29 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
         filters_json={
             "auto_mailing": code,
             "days_inactive": days_inactive,
+            "bonus_amount": bonus_amount,
             "repeat_after_days": repeat_after_days,
         },
     )
-    conn.commit()
 
     mailing_id = mailing["mailing_id"]
+
+    with conn.cursor() as cur:
+        ensure_cm_bonus_tables(cur)
+        for row in recipients:
+            add_cm_bonus_transaction(
+                cursor=cur,
+                guest_id=int(row["guest_id"]),
+                club_id=int(club_id),
+                amount=bonus_amount,
+                source_type="auto_mailing",
+                source_id=str(mailing_id),
+                description=f"Авторассылка: {setting.get('title') or code}",
+                status="done",
+            )
+
+    conn.commit()
+
     process_one_mailing(conn, mailing_id)
 
     with conn.cursor() as cur:

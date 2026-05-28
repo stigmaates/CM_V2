@@ -617,6 +617,18 @@
 
 }
 
+
+@media (max-width: 760px) {
+    .auto-mailing-settings {
+        grid-template-columns: 1fr;
+    }
+
+    .auto-mailing-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 @media (max-width: 760px) {
     .mailing-page {
         padding-bottom: 24px;
@@ -900,6 +912,79 @@
     margin-top: 5px;
     color: rgba(220, 204, 255, 0.92);
     font-weight: 800;
+}
+
+
+.auto-mailing-card__content {
+    min-width: 0;
+}
+
+.auto-mailing-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(160px, 220px));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.auto-mailing-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.auto-mailing-field input {
+    width: 100%;
+    border: 1px solid rgba(143, 91, 255, 0.28);
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: var(--text-main);
+    background: rgba(8, 4, 18, 0.42);
+    outline: none;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.auto-mailing-field input:focus {
+    border-color: rgba(143, 91, 255, 0.76);
+    box-shadow: 0 0 0 3px rgba(143, 91, 255, 0.14);
+}
+
+.auto-mailing-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.auto-mailing-save {
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 15px;
+    color: #fff;
+    font-weight: 900;
+    cursor: pointer;
+    background: linear-gradient(135deg, rgba(143, 91, 255, 0.95), rgba(57, 213, 160, 0.72));
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.auto-mailing-save:disabled,
+.auto-mailing-field input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.auto-mailing-save-status {
+    min-height: 18px;
+    color: rgba(159, 255, 226, 0.92);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.auto-mailing-save-status.is-error {
+    color: #ffb0b0;
 }
 
 .auto-mailing-card__message {
