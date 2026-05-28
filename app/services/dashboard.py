@@ -5,6 +5,14 @@ from app.core import calc_percent_change, get_db_connection, get_period_range
 from app.services.missions import get_club_missions
 
 
+def _round_display(value):
+    """Округляет значения для отображения на дашборде без дробной части."""
+    try:
+        return int(round(float(value or 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
 def get_unique_guests_chart(club_id: int, period_days: int):
     conn = get_db_connection()
     try:
@@ -247,20 +255,20 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             )
             guests_with_telegram = cursor.fetchone()["cnt"] or 0
 
-            csi_percent = round((guests_with_telegram / total_guests) * 100, 1) if total_guests > 0 else 0.0
+            csi_percent = _round_display((guests_with_telegram / total_guests) * 100) if total_guests > 0 else 0
             mailing_count = guests_with_telegram
 
         guests_diff = guests_current - guests_previous
-        guests_diff_percent = calc_percent_change(guests_current, guests_previous)
+        guests_diff_percent = _round_display(calc_percent_change(guests_current, guests_previous))
 
-        retention_current = round((returned_guests_current / guests_current) * 100, 1) if guests_current > 0 else 0.0
-        retention_previous = round((returned_guests_previous / guests_previous) * 100, 1) if guests_previous > 0 else 0.0
-        retention_diff = round(retention_current - retention_previous, 1)
+        retention_current = _round_display((returned_guests_current / guests_current) * 100) if guests_current > 0 else 0
+        retention_previous = _round_display((returned_guests_previous / guests_previous) * 100) if guests_previous > 0 else 0
+        retention_diff = _round_display(retention_current - retention_previous)
 
-        avg_check_current = round(avg_check_current, 2)
-        avg_check_previous = round(avg_check_previous, 2)
-        avg_check_diff = round(avg_check_current - avg_check_previous, 2)
-        avg_check_diff_percent = calc_percent_change(avg_check_current, avg_check_previous)
+        avg_check_current = _round_display(avg_check_current)
+        avg_check_previous = _round_display(avg_check_previous)
+        avg_check_diff = _round_display(avg_check_current - avg_check_previous)
+        avg_check_diff_percent = _round_display(calc_percent_change(avg_check_current, avg_check_previous))
 
         chart_data = get_unique_guests_chart(club_id, period_days)
 
@@ -279,8 +287,8 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             "avg_check_diff_percent": avg_check_diff_percent,
             "operations_count_current": operations_count_current,
             "operations_count_previous": operations_count_previous,
-            "total_sum_current": round(total_sum_current, 2),
-            "total_sum_previous": round(total_sum_previous, 2),
+            "total_sum_current": _round_display(total_sum_current),
+            "total_sum_previous": _round_display(total_sum_previous),
             "csi_percent": csi_percent,
             "csi_linked_guests": guests_with_telegram,
             "csi_total_guests": total_guests,
@@ -454,7 +462,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30):
         if returned:
             wheel_returned_guests += 1
 
-    wheel_engagement_percent = round((wheel_spun_guests / total_guests) * 100, 1) if total_guests > 0 else 0.0
+    wheel_engagement_percent = _round_display((wheel_spun_guests / total_guests) * 100) if total_guests > 0 else 0
 
     # -------------------------
     # MISSIONS
@@ -483,7 +491,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30):
             if returned:
                 mission_returned_guests += 1
 
-    mission_engagement_percent = round((mission_completed_guests / total_guests) * 100, 1) if total_guests > 0 else 0.0
+    mission_engagement_percent = _round_display((mission_completed_guests / total_guests) * 100) if total_guests > 0 else 0
 
     return {
         "wheel": {

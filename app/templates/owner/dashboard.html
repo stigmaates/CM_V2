@@ -8,11 +8,7 @@
 
 {% block content %}
 <main class="content">
-    <div class="dashboard-toolbar dashboard-toolbar--with-club">
-        <div class="dashboard-club-title" title="{{ header_club_name or 'Клуб' }}">
-            {{ header_club_name or 'Клуб' }}
-        </div>
-
+    <div class="dashboard-toolbar">
         <div class="period-switcher">
             <a href="{{ url_for('owner.dashboard', period=7) }}"
                class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>

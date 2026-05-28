@@ -584,6 +584,24 @@ label {
     flex-direction: column;
     gap: 5px;
     min-width: 220px;
+    flex: 0 0 auto;
+}
+
+.owner-club-hero {
+    display: flex;
+    align-items: flex-end;
+    min-height: 56px;
+    margin: 6px 0 18px;
+}
+
+.owner-club-hero__title {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
 }
 
 .owner-topbar__right {
@@ -812,6 +830,15 @@ label {
 
     .owner-page {
         padding: 16px 16px 32px;
+    }
+
+    .owner-club-hero {
+        margin: 2px 0 14px;
+        min-height: auto;
+    }
+
+    .owner-club-hero__title {
+        font-size: 26px;
     }
 }
 
