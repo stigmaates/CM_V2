@@ -12,7 +12,7 @@ from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 logging.basicConfig(level=logging.INFO)
 
-SUM_FROM = 0
+SUM_FROM = 1
 SUM_TO = 100000
 LOOKBACK_DAYS = 2
 
@@ -58,7 +58,6 @@ def fetch_operations(secret: str, api_key: str, club_id: int, date_from: str, da
     params = {
         "date_from": date_from,
         "date_to": date_to,
-        "club_id": club_id,
         "sum_from": SUM_FROM,
         "sum_to": SUM_TO
     }
@@ -197,8 +196,8 @@ def sync_operations_incremental():
     logging.info("=== START OPERATIONS SYNC ===")
 
     today = datetime.now().date()
-    date_from = (today - timedelta(days=LOOKBACK_DAYS)).strftime("%d.%m.%Y")
-    date_to = today.strftime("%d.%m.%Y")
+    date_from = (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    date_to = today.strftime("%Y-%m-%d")
 
     clubs = get_clubs()
 
