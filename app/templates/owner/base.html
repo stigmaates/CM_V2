@@ -13,9 +13,6 @@
         <header class="owner-topbar">
             <div class="owner-topbar__brand">
                 <div class="logo">ClubModule</div>
-                <div class="owner-topbar__club" title="{{ header_club_name or 'Клуб не выбран' }}">
-                    {{ header_club_name or 'Клуб не выбран' }}
-                </div>
             </div>
 
             <div class="owner-topbar__right">
@@ -43,6 +40,12 @@
         </header>
 
         <div class="owner-page">
+            {% if header_club_name %}
+                <section class="owner-club-hero" aria-label="Текущий клуб">
+                    <div class="owner-club-hero__title">{{ header_club_name }}</div>
+                </section>
+            {% endif %}
+
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
