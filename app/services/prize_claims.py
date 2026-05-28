@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from html import escape
 
 import httpx
 
@@ -73,6 +74,62 @@ def _format_phone(phone: str | None) -> str:
 def _status_label(status: str | None) -> str:
     return STATUS_LABELS.get((status or "").strip(), status or "ожидает выдачи")
 
+
+
+
+def _html(value: Any) -> str:
+    return escape(str(value or ""), quote=False)
+
+
+def _format_dt(value: Any) -> str:
+    if not value:
+        return "не указано"
+    try:
+        return value.strftime("%d.%m.%Y %H:%M")
+    except AttributeError:
+        return str(value)
+
+
+def format_prize_claim_message(claim: dict[str, Any], issued: bool = False) -> str:
+    claim_id = claim.get("id")
+    club_id = claim.get("club_id")
+    guest_name = _html(claim.get("guest_name") or "Гость")
+    phone = _html(_format_phone(claim.get("guest_phone")))
+    guest_id = _html(claim.get("guest_id"))
+    prize_name = _html(claim.get("prize_name") or "Приз")
+    prize_description = (claim.get("prize_description") or "").strip()
+    description_line = f"Описание: <i>{_html(prize_description)}</i>\n" if prize_description else ""
+
+    status = claim.get("status") or "pending"
+    if issued or status == "issued":
+        issued_by = claim.get("issued_by_username") or "администратор"
+        issued_at = _format_dt(claim.get("issued_at"))
+        return (
+            "✅ <b>Приз выдан</b>\n\n"
+            f"ID заявки: <code>{claim_id}</code>\n\n"
+            f"Гость: <b>{guest_name}</b>\n"
+            f"Телефон: <code>{phone}</code>\n"
+            f"Guest ID: <code>{guest_id}</code>\n"
+            f"Club ID: <code>{_html(club_id)}</code>\n\n"
+            f"Приз: <b>{prize_name}</b>\n"
+            f"{description_line}"
+            "Статус: <b>выдан</b>\n"
+            f"Выдал: <b>{_html(issued_by)}</b>\n"
+            f"Дата выдачи: <b>{_html(issued_at)}</b>"
+        )
+
+    return (
+        "🎁 <b>Заявка на выдачу приза</b>\n\n"
+        f"ID заявки: <code>{claim_id}</code>\n\n"
+        f"Гость: <b>{guest_name}</b>\n"
+        f"Телефон: <code>{phone}</code>\n"
+        f"Guest ID: <code>{guest_id}</code>\n"
+        f"Club ID: <code>{_html(club_id)}</code>\n\n"
+        f"Приз: <b>{prize_name}</b>\n"
+        f"{description_line}"
+        "Статус: <b>ожидает выдачи</b>\n\n"
+        "После выдачи нажмите кнопку ниже."
+    )
 
 def create_prize_claim(cursor, guest_id: int, club_id: int, spin_id: int, prize: dict[str, Any]) -> int | None:
     """Create a manual issue task for a wheel prize. Returns claim id.
@@ -192,9 +249,9 @@ def serialize_prize_claim(claim: dict[str, Any] | None) -> dict[str, Any] | None
 
 
 def _notify_claim_admin_chat(claim: dict[str, Any]) -> tuple[bool, int | None, str | None, str | None]:
-    # Prefer the same token that is already used for operational CM-bonus requests.
-    # If it is not set, fall back to the main guest bot token.
-    token = (CM_BONUS_BOT_TOKEN or BOT_TOKEN or "").strip()
+    # Prize messages must be sent by the same bot that handles callbacks.
+    # The running bot service listens to BOT_TOKEN, so prefer it.
+    token = (BOT_TOKEN or CM_BONUS_BOT_TOKEN or "").strip()
     club_id = int(claim.get("club_id") or 0)
     chat_id = get_cm_bonus_admin_chat_id_for_club(club_id)
 
@@ -204,25 +261,7 @@ def _notify_claim_admin_chat(claim: dict[str, Any]) -> tuple[bool, int | None, s
         return False, None, "В настройках клуба не заполнен ID Telegram-беседы для заявок", chat_id
 
     claim_id = claim.get("id")
-    guest_name = claim.get("guest_name") or "Гость"
-    phone = _format_phone(claim.get("guest_phone"))
-    guest_id = claim.get("guest_id")
-    prize_name = claim.get("prize_name") or "Приз"
-    prize_description = (claim.get("prize_description") or "").strip()
-
-    description_line = f"Описание: <i>{prize_description}</i>\n" if prize_description else ""
-    text = (
-        "🎁 <b>Заявка на выдачу приза</b>\n\n"
-        f"ID заявки: <code>{claim_id}</code>\n\n"
-        f"Гость: <b>{guest_name}</b>\n"
-        f"Телефон: <code>{phone}</code>\n"
-        f"Guest ID: <code>{guest_id}</code>\n"
-        f"Club ID: <code>{club_id}</code>\n\n"
-        f"Приз: <b>{prize_name}</b>\n"
-        f"{description_line}"
-        "Статус: <b>ожидает выдачи</b>\n\n"
-        f"После выдачи напишите в этот чат:\n<code>/done {claim_id}</code>"
-    )
+    text = format_prize_claim_message(claim)
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -230,6 +269,16 @@ def _notify_claim_admin_chat(claim: dict[str, Any]) -> tuple[bool, int | None, s
         "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
+        "reply_markup": {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "✅ Приз выдан",
+                        "callback_data": f"prize_claim_issued:{claim_id}",
+                    }
+                ]
+            ]
+        },
     }
     try:
         client_kwargs: dict[str, Any] = {"timeout": 20.0}

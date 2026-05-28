@@ -14,10 +14,14 @@ from telegram.ext import (
     ContextTypes,
     filters,
     ApplicationHandlerStop,
+    CallbackQueryHandler,
 )
 
 from app.config import BOT_TOKEN, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, TG_PROXY_URL
-from app.services.prize_claims import mark_prize_claim_issued_by_telegram
+from app.services.prize_claims import (
+    mark_prize_claim_issued_by_telegram,
+    format_prize_claim_message,
+)
 
 
 logging.basicConfig(
@@ -265,6 +269,61 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def prize_claim_issued_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query:
+        return
+
+    data = query.data or ""
+    match = re.match(r"^prize_claim_issued:(\d+)$", data)
+    if not match:
+        await query.answer("Некорректная кнопка", show_alert=True)
+        return
+
+    claim_id = int(match.group(1))
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if user:
+        username = f"@{user.username}" if user.username else user.full_name
+    else:
+        username = None
+
+    try:
+        result = mark_prize_claim_issued_by_telegram(
+            claim_id=claim_id,
+            chat_id=chat.id if chat else None,
+            telegram_id=user.id if user else None,
+            username=username,
+        )
+    except Exception as e:
+        logging.exception("Ошибка при выдаче приза через кнопку #%s", claim_id)
+        await query.answer(f"Ошибка: {e}", show_alert=True)
+        return
+
+    if not result.get("ok"):
+        await query.answer(result.get("message") or f"Не удалось закрыть заявку #{claim_id}", show_alert=True)
+        return
+
+    claim = result.get("claim") or {}
+    text = format_prize_claim_message(claim, issued=True)
+
+    try:
+        await query.edit_message_text(
+            text=text,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=None,
+        )
+    except Exception:
+        logging.exception("Не удалось обновить сообщение заявки #%s", claim_id)
+
+    if result.get("already_done"):
+        await query.answer(f"Заявка #{claim_id} уже была выдана", show_alert=False)
+    else:
+        await query.answer(f"Приз #{claim_id} отмечен как выдан", show_alert=False)
+
+
 async def done_prize_claim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
@@ -303,7 +362,7 @@ async def done_prize_claim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     username = None
     if user:
-        username = user.username or user.full_name
+        username = f"@{user.username}" if user.username else user.full_name
 
     try:
         result = mark_prize_claim_issued_by_telegram(
@@ -404,6 +463,8 @@ def main():
 
     app = builder.build()
 
+    app.add_handler(CallbackQueryHandler(prize_claim_issued_callback, pattern=r"^prize_claim_issued:\d+$"), group=-2)
+
     # Hard fallback: logs all incoming text and handles /done before other handlers.
     # This helps in groups/supergroups where Telegram may deliver /done as plain text.
     app.add_handler(MessageHandler(filters.TEXT, route_done_text), group=-1)
@@ -421,6 +482,7 @@ def main():
     )
 
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+    app.add_error_handler(error_handler)
 
     app.run_polling(
         poll_interval=1.0,
