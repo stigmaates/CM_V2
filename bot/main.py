@@ -269,11 +269,29 @@ async def done_prize_claim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message:
         return
 
-    if not context.args:
+    logging.info(
+        "DONE COMMAND RECEIVED: chat_id=%s user_id=%s text=%s args=%s",
+        update.effective_chat.id if update.effective_chat else None,
+        update.effective_user.id if update.effective_user else None,
+        message.text if message else None,
+        context.args,
+    )
+
+    raw_claim_id = None
+
+    if context.args:
+        raw_claim_id = context.args[0].strip()
+    else:
+        # Fallback for group chats where CommandHandler may not parse args reliably,
+        # and for commands like /done@BotUsername 123 caught by Regex MessageHandler.
+        match = re.search(r"^/done(?:@\w+)?\s+(\d+)\s*$", message.text or "", flags=re.IGNORECASE)
+        if match:
+            raw_claim_id = match.group(1)
+
+    if not raw_claim_id:
         await message.reply_text("Укажи ID заявки: /done 123")
         return
 
-    raw_claim_id = context.args[0].strip()
     try:
         claim_id = int(raw_claim_id)
     except ValueError:
@@ -370,6 +388,16 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("done", done_prize_claim))
+
+    # Extra fallback for group chats and explicit bot mentions:
+    # /done 123 and /done@BotUsername 123
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^/done(@\w+)?\s+\d+\s*$"),
+            done_prize_claim,
+        )
+    )
+
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
 
     app.run_polling(
