@@ -249,14 +249,15 @@ def serialize_prize_claim(claim: dict[str, Any] | None) -> dict[str, Any] | None
 
 
 def _notify_claim_admin_chat(claim: dict[str, Any]) -> tuple[bool, int | None, str | None, str | None]:
-    # Prize messages must be sent by the same bot that handles callbacks.
-    # The running bot service listens to BOT_TOKEN, so prefer it.
-    token = (BOT_TOKEN or CM_BONUS_BOT_TOKEN or "").strip()
+    # Prize messages are sent by the admin bot.
+    # The same admin bot must also run as a separate polling service
+    # and handle inline button callbacks.
+    token = (CM_BONUS_BOT_TOKEN or "").strip()
     club_id = int(claim.get("club_id") or 0)
     chat_id = get_cm_bonus_admin_chat_id_for_club(club_id)
 
     if not token:
-        return False, None, "Не заполнен BOT_TOKEN/CM_BONUS_BOT_TOKEN", chat_id
+        return False, None, "Не заполнен CM_BONUS_BOT_TOKEN", chat_id
     if not chat_id:
         return False, None, "В настройках клуба не заполнен ID Telegram-беседы для заявок", chat_id
 
