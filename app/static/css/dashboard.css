@@ -735,6 +735,42 @@ body {
     margin-bottom: 22px;
 }
 
+.dashboard-toolbar--with-title {
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.dashboard-club-title {
+    margin: 0;
+    color: #f4ecff;
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+}
+
+.dashboard-toolbar--with-title .period-switcher {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+    .dashboard-toolbar--with-title {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .dashboard-club-title {
+        font-size: 26px;
+    }
+
+    .dashboard-toolbar--with-title .period-switcher {
+        margin-left: 0;
+    }
+}
+
 .crm-hero.card {
     display: block;
     grid-template-rows: none;
