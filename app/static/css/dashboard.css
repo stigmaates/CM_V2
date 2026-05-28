@@ -934,3 +934,53 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+
+/* Club title in dashboard toolbar */
+.dashboard-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 22px;
+}
+
+.dashboard-toolbar--with-club {
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.dashboard-club-title {
+    color: #f4ecff;
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    max-width: min(720px, 55vw);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.dashboard-toolbar--with-club .period-switcher {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+
+@media (max-width: 900px) {
+    .dashboard-toolbar--with-club {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .dashboard-club-title {
+        max-width: 100%;
+        font-size: 26px;
+    }
+
+    .dashboard-toolbar--with-club .period-switcher {
+        margin-left: 0;
+    }
+}
