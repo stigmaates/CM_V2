@@ -13,6 +13,7 @@ from telegram.ext import (
     MessageHandler,
     ContextTypes,
     filters,
+    ApplicationHandlerStop,
 )
 
 from app.config import BOT_TOKEN, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, TG_PROXY_URL
@@ -331,6 +332,23 @@ async def done_prize_claim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def route_done_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Hard fallback for group chats where /done is delivered as plain text."""
+    message = update.message
+    text = (message.text or "").strip() if message else ""
+
+    logging.info(
+        "TEXT UPDATE RECEIVED: chat_id=%s user_id=%s text=%s",
+        update.effective_chat.id if update.effective_chat else None,
+        update.effective_user.id if update.effective_user else None,
+        text,
+    )
+
+    if re.match(r"^/done(?:@\w+)?\s+\d+\s*$", text, flags=re.IGNORECASE):
+        await done_prize_claim(update, context)
+        raise ApplicationHandlerStop
+
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
@@ -385,6 +403,10 @@ def main():
         )
 
     app = builder.build()
+
+    # Hard fallback: logs all incoming text and handles /done before other handlers.
+    # This helps in groups/supergroups where Telegram may deliver /done as plain text.
+    app.add_handler(MessageHandler(filters.TEXT, route_done_text), group=-1)
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("done", done_prize_claim))
