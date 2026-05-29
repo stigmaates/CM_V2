@@ -28,13 +28,17 @@ def settings():
         lg_api_key = request.form.get("lg_api_key", "").strip()
         secret = request.form.get("secret", "").strip()
         cm_bonus_admin_chat_id = request.form.get("cm_bonus_admin_chat_id", "").strip()
+        instagram_url = request.form.get("instagram_url", "").strip()
+        youtube_url = request.form.get("youtube_url", "").strip()
+        vk_url = request.form.get("vk_url", "").strip()
+        telegram_channel_url = request.form.get("telegram_channel_url", "").strip()
 
         if not name or not lg_api_key or not secret:
             flash("Заполни все поля", "error")
             return redirect(url_for("owner.settings", tab="club"))
 
         try:
-            update_club_info(club_id, name, lg_api_key, secret, cm_bonus_admin_chat_id)
+            update_club_info(club_id, name, lg_api_key, secret, cm_bonus_admin_chat_id, instagram_url, youtube_url, vk_url, telegram_channel_url)
             session["club_name"] = name
             flash("Настройки клуба обновлены", "success")
             return redirect(url_for("owner.settings", tab="club"))

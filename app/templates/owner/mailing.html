@@ -206,19 +206,26 @@
                                 <div class="auto-mailing-card__desc">{{ item.description }}</div>
 
                                 <div class="auto-mailing-settings">
-                                    <label class="auto-mailing-field">
-                                        <span>Дней неактива</span>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            step="1"
-                                            class="auto-mailing-days"
-                                            value="{{ item.days_inactive or 14 }}"
-                                        >
-                                    </label>
+                                    {% if item.code == 'first_visit_survey' %}
+                                        <div class="auto-mailing-field auto-mailing-field--readonly">
+                                            <span>Когда отправлять</span>
+                                            <div class="auto-mailing-readonly-value">Через 20 минут после первой сессии</div>
+                                        </div>
+                                    {% else %}
+                                        <label class="auto-mailing-field">
+                                            <span>Дней неактива</span>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                class="auto-mailing-days"
+                                                value="{{ item.days_inactive or 14 }}"
+                                            >
+                                        </label>
+                                    {% endif %}
 
                                     <label class="auto-mailing-field">
-                                        <span>Бонусов начислить</span>
+                                        <span>{% if item.code == 'first_visit_survey' %}Бонусов за опрос{% else %}Бонусов начислить{% endif %}</span>
                                         <input
                                             type="number"
                                             min="1"

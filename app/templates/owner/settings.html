@@ -38,6 +38,27 @@
                             <div class="muted" style="margin-top:6px;">Сюда бот отправит заявку, когда гость нажмёт «Перевести на баланс». Для каждого клуба можно указать свою беседу.</div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="instagram_url">Instagram</label>
+                            <input class="form-input" type="url" id="instagram_url" name="instagram_url" value="{{ club.instagram_url if club and club.instagram_url else '' }}" placeholder="https://instagram.com/...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="youtube_url">YouTube</label>
+                            <input class="form-input" type="url" id="youtube_url" name="youtube_url" value="{{ club.youtube_url if club and club.youtube_url else '' }}" placeholder="https://youtube.com/...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="vk_url">VK</label>
+                            <input class="form-input" type="url" id="vk_url" name="vk_url" value="{{ club.vk_url if club and club.vk_url else '' }}" placeholder="https://vk.com/...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="telegram_channel_url">Telegram-канал</label>
+                            <input class="form-input" type="url" id="telegram_channel_url" name="telegram_channel_url" value="{{ club.telegram_channel_url if club and club.telegram_channel_url else '' }}" placeholder="https://t.me/...">
+                            <div class="muted" style="margin-top:6px;">Эти ссылки будут отправляться гостю после прохождения опроса первого визита.</div>
+                        </div>
+
                         <button class="btn" type="submit">Сохранить</button>
                     </form>
                 </div>

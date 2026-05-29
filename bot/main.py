@@ -6,7 +6,7 @@ from telegram.request import HTTPXRequest
 import pymysql
 from pymysql.cursors import DictCursor
 
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -21,6 +21,14 @@ from app.config import BOT_TOKEN, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAM
 from app.services.prize_claims import (
     mark_prize_claim_issued_by_telegram,
     format_prize_claim_message,
+)
+from app.services.first_visit_survey import (
+    build_social_links_message,
+    complete_survey_and_award,
+    find_waiting_survey,
+    get_survey_for_callback,
+    mark_survey_started,
+    save_survey_rating,
 )
 
 
@@ -269,6 +277,137 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+
+async def first_visit_survey_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query:
+        return
+
+    data = query.data or ""
+    match = re.match(r"^first_visit_survey_start:(\d+)$", data)
+    if not match:
+        await query.answer("Некорректная кнопка", show_alert=True)
+        return
+
+    survey_id = int(match.group(1))
+    user = update.effective_user
+    if not user:
+        await query.answer("Не удалось определить пользователя", show_alert=True)
+        return
+
+    conn = get_db_connection()
+    try:
+        survey = get_survey_for_callback(conn, survey_id, telegram_id=user.id)
+        if not survey:
+            await query.answer("Этот опрос не найден для вашего Telegram", show_alert=True)
+            return
+        if survey.get("status") == "completed":
+            await query.answer("Опрос уже пройден", show_alert=True)
+            return
+        mark_survey_started(conn, survey_id)
+    finally:
+        conn.close()
+
+    keyboard = [[
+        InlineKeyboardButton("1 😡", callback_data=f"first_visit_survey_rate:{survey_id}:1"),
+        InlineKeyboardButton("2 😕", callback_data=f"first_visit_survey_rate:{survey_id}:2"),
+        InlineKeyboardButton("3 😐", callback_data=f"first_visit_survey_rate:{survey_id}:3"),
+        InlineKeyboardButton("4 🙂", callback_data=f"first_visit_survey_rate:{survey_id}:4"),
+        InlineKeyboardButton("5 😍", callback_data=f"first_visit_survey_rate:{survey_id}:5"),
+    ]]
+
+    await query.edit_message_text(
+        "Оцените компьютерный клуб после первого визита 👇",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+    await query.answer()
+
+
+async def first_visit_survey_rate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query:
+        return
+
+    data = query.data or ""
+    match = re.match(r"^first_visit_survey_rate:(\d+):(\d+)$", data)
+    if not match:
+        await query.answer("Некорректная оценка", show_alert=True)
+        return
+
+    survey_id = int(match.group(1))
+    rating = int(match.group(2))
+    user = update.effective_user
+    if not user:
+        await query.answer("Не удалось определить пользователя", show_alert=True)
+        return
+
+    if rating < 1 or rating > 5:
+        await query.answer("Оценка должна быть от 1 до 5", show_alert=True)
+        return
+
+    conn = get_db_connection()
+    try:
+        survey = get_survey_for_callback(conn, survey_id, telegram_id=user.id)
+        if not survey:
+            await query.answer("Этот опрос не найден для вашего Telegram", show_alert=True)
+            return
+        if survey.get("status") == "completed":
+            await query.answer("Опрос уже пройден", show_alert=True)
+            return
+        save_survey_rating(conn, survey_id, rating)
+    finally:
+        conn.close()
+
+    context.user_data["first_visit_survey_id"] = survey_id
+    context.user_data["first_visit_survey_rating"] = rating
+    context.user_data["awaiting_first_visit_feedback"] = True
+
+    if rating >= 4:
+        question = "Спасибо за оценку! Что можно было бы добавить или улучшить в клубе? Напиши одним сообщением."
+    else:
+        question = "Спасибо за честную оценку. Расскажи, пожалуйста, что не понравилось? Напиши одним сообщением."
+
+    await query.edit_message_text(question)
+    await query.answer()
+
+
+async def handle_first_visit_survey_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    message = update.message
+    user = update.effective_user
+    if not message or not user or not message.text:
+        return False
+
+    survey_id = context.user_data.get("first_visit_survey_id")
+    conn = get_db_connection()
+    try:
+        survey = None
+        if survey_id:
+            survey = get_survey_for_callback(conn, int(survey_id), telegram_id=user.id)
+        if not survey:
+            survey = find_waiting_survey(conn, user.id)
+            if survey:
+                survey_id = int(survey["id"])
+
+        if not survey or survey.get("status") != "awaiting_feedback":
+            return False
+
+        result = complete_survey_and_award(conn, int(survey_id), message.text.strip())
+        if not result.get("ok"):
+            await message.reply_text(result.get("message") or "Не удалось сохранить ответ.")
+            return True
+
+        social_message = build_social_links_message(conn, int(survey["club_id"]))
+    finally:
+        conn.close()
+
+    context.user_data.pop("first_visit_survey_id", None)
+    context.user_data.pop("first_visit_survey_rating", None)
+    context.user_data.pop("awaiting_first_visit_feedback", None)
+
+    await message.reply_text(social_message, disable_web_page_preview=False)
+    return True
+
+
 async def prize_claim_issued_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if not query:
@@ -409,6 +548,9 @@ async def route_done_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await handle_first_visit_survey_feedback(update, context):
+        return
+
     message = update.message
     if not message:
         return
@@ -463,6 +605,8 @@ def main():
 
     app = builder.build()
 
+    app.add_handler(CallbackQueryHandler(first_visit_survey_start_callback, pattern=r"^first_visit_survey_start:\d+$"), group=-3)
+    app.add_handler(CallbackQueryHandler(first_visit_survey_rate_callback, pattern=r"^first_visit_survey_rate:\d+:\d+$"), group=-3)
     app.add_handler(CallbackQueryHandler(prize_claim_issued_callback, pattern=r"^prize_claim_issued:\d+$"), group=-2)
 
     # Hard fallback: logs all incoming text and handles /done before other handlers.

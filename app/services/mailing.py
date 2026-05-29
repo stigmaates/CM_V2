@@ -10,8 +10,8 @@ from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_ta
 
 AUTO_MAILING_DEFAULTS = {
     "inactive_14_bonus": {
-        "title": "Вернуть гостей 14+ дней",
-        "description": "Автоматически отправляет сообщение гостям, которых не было в клубе 14+ дней.",
+        "title": "Вернуть гостей после неактива",
+        "description": "Автоматически отправляет сообщение гостям, которых не было в клубе заданное количество дней.",
         "message_text": (
             "Привет! Тебя давно не было в клубе 😔\n\n"
             "Мы начислили тебе 200 бонусов — приходи играть, будем ждать!"
@@ -19,7 +19,18 @@ AUTO_MAILING_DEFAULTS = {
         "days_inactive": 14,
         "bonus_amount": 200,
         "repeat_after_days": 30,
-    }
+    },
+    "first_visit_survey": {
+        "title": "Опрос после первого визита",
+        "description": "Через 20 минут после завершения первой сессии предлагает гостю пройти короткий опрос и получить бонусы.",
+        "message_text": (
+            "Спасибо за первый визит! 🙌\n\n"
+            "Пожалуйста, потрать 30 секунд на быстрый опрос — за прохождение начислим 100 бонусов рубль к рублю."
+        ),
+        "days_inactive": 1,
+        "bonus_amount": 100,
+        "repeat_after_days": 3650,
+    },
 }
 
 CRM_SEGMENT_OPTIONS = [
@@ -105,15 +116,28 @@ ALLOWED_EXTENSIONS = {
 
 AUTO_MAILING_DEFAULTS = {
     "inactive_14_bonus": {
-        "title": "Вернуть гостей 14+ дней",
-        "description": "Автоматически отправляет сообщение гостям, которых не было в клубе 14+ дней.",
-        "message_text": "Привет! Тебя давно не было в клубе 😔\n\nМы начислили тебе 200 бонусов — приходи играть, будем ждать!",
+        "title": "Вернуть гостей после неактива",
+        "description": "Автоматически отправляет сообщение гостям, которых не было в клубе заданное количество дней.",
+        "message_text": (
+            "Привет! Тебя давно не было в клубе 😔\n\n"
+            "Мы начислили тебе 200 бонусов — приходи играть, будем ждать!"
+        ),
         "days_inactive": 14,
         "bonus_amount": 200,
         "repeat_after_days": 30,
-    }
+    },
+    "first_visit_survey": {
+        "title": "Опрос после первого визита",
+        "description": "Через 20 минут после завершения первой сессии предлагает гостю пройти короткий опрос и получить бонусы.",
+        "message_text": (
+            "Спасибо за первый визит! 🙌\n\n"
+            "Пожалуйста, потрать 30 секунд на быстрый опрос — за прохождение начислим 100 бонусов рубль к рублю."
+        ),
+        "days_inactive": 1,
+        "bonus_amount": 100,
+        "repeat_after_days": 3650,
+    },
 }
-
 
 def get_filter_fields() -> List[Dict[str, Any]]:
     result = []
@@ -620,6 +644,21 @@ def _build_inactive_auto_message(bonus_amount: int) -> str:
     )
 
 
+def _build_first_visit_survey_message(bonus_amount: int) -> str:
+    bonus_amount = int(bonus_amount or 0)
+    return (
+        "Спасибо за первый визит! 🙌\n\n"
+        "Пожалуйста, потрать 30 секунд на быстрый опрос — "
+        f"за прохождение начислим {bonus_amount} бонусов рубль к рублю."
+    )
+
+
+def _build_auto_mailing_message(code: str, bonus_amount: int) -> str:
+    if code == "first_visit_survey":
+        return _build_first_visit_survey_message(bonus_amount)
+    return _build_inactive_auto_message(bonus_amount)
+
+
 def list_auto_mailings(conn, club_id: int):
     ensure_auto_mailings(conn, club_id)
     conn.commit()
@@ -681,7 +720,7 @@ def update_auto_mailing_settings(
         fields.append("bonus_amount = %s")
         params.append(bonus_amount)
         fields.append("message_text = %s")
-        params.append(_build_inactive_auto_message(bonus_amount))
+        params.append(_build_auto_mailing_message(code, bonus_amount))
 
     if not fields:
         fields.append("updated_at = NOW()")

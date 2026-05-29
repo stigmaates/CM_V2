@@ -13,6 +13,11 @@ from app.services.mailing import (
     create_mailing_for_recipients,
     get_inactive_auto_mailing_recipients,
 )
+from app.services.first_visit_survey import (
+    create_first_visit_survey,
+    get_first_visit_survey_candidates,
+    send_first_visit_survey_invite,
+)
 from scripts.process_mailings import process_one_mailing
 
 
@@ -124,6 +129,57 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
     return int(mailing.get("recipients_count") or 0)
 
 
+
+def process_first_visit_survey(conn, setting: dict) -> int:
+    club_id = int(setting["club_id"])
+    bonus_amount = int(setting.get("bonus_amount") or 100)
+    message_text = setting.get("message_text") or (
+        "Спасибо за первый визит! 🙌\n\n"
+        f"Пожалуйста, потрать 30 секунд на быстрый опрос — за прохождение начислим {bonus_amount} бонусов рубль к рублю."
+    )
+
+    candidates = get_first_visit_survey_candidates(
+        conn=conn,
+        setting=setting,
+        delay_minutes=20,
+        window_hours=24,
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE auto_mailing_settings
+            SET last_run_at = NOW(), updated_at = NOW()
+            WHERE id = %s
+            """,
+            (setting["id"],),
+        )
+    conn.commit()
+
+    sent_count = 0
+    for candidate in candidates:
+        survey_id = create_first_visit_survey(conn, setting, candidate)
+        conn.commit()
+        if not survey_id:
+            continue
+        try:
+            if send_first_visit_survey_invite(conn, survey_id, message_text):
+                sent_count += 1
+        except Exception as exc:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE first_visit_surveys
+                    SET status = 'invite_failed', feedback_text = %s
+                    WHERE id = %s
+                    """,
+                    (str(exc)[:1000], survey_id),
+                )
+            conn.commit()
+
+    return sent_count
+
+
 def process_auto_mailings() -> dict:
     conn = get_db_connection()
     total_created = 0
@@ -144,6 +200,10 @@ def process_auto_mailings() -> dict:
             code = setting.get("code")
             if code == "inactive_14_bonus":
                 created = process_inactive_14_bonus(conn, setting)
+                total_created += created
+                processed.append({"club_id": setting["club_id"], "code": code, "recipients": created})
+            elif code == "first_visit_survey":
+                created = process_first_visit_survey(conn, setting)
                 total_created += created
                 processed.append({"club_id": setting["club_id"], "code": code, "recipients": created})
 
