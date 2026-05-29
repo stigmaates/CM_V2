@@ -110,19 +110,27 @@ def get_club_social_links(conn, club_id: int) -> Dict[str, str]:
 def build_social_links_message(conn, club_id: int) -> str:
     links = get_club_social_links(conn, club_id)
     rows = []
+
     if links.get("instagram_url"):
-        rows.append(f"Instagram: {escape(links['instagram_url'])}")
+        rows.append(f'📸 <a href="{escape(links["instagram_url"], quote=True)}">Instagram</a>')
+
     if links.get("youtube_url"):
-        rows.append(f"YouTube: {escape(links['youtube_url'])}")
+        rows.append(f'▶️ <a href="{escape(links["youtube_url"], quote=True)}">YouTube</a>')
+
     if links.get("vk_url"):
-        rows.append(f"VK: {escape(links['vk_url'])}")
+        rows.append(f'💬 <a href="{escape(links["vk_url"], quote=True)}">VK</a>')
+
     if links.get("telegram_channel_url"):
-        rows.append(f"Telegram-канал: {escape(links['telegram_channel_url'])}")
+        rows.append(f'📢 <a href="{escape(links["telegram_channel_url"], quote=True)}">Telegram-канал</a>')
 
     if not rows:
         return "Спасибо за ответ! Бонусы уже начислены ✅"
 
-    return "Спасибо за ответ! Бонусы уже начислены ✅\n\nСледи за нами в соцсетях:\n" + "\n".join(rows)
+    return (
+        "Спасибо за ответ! Бонусы уже начислены ✅\n\n"
+        "Следи за нами в соцсетях, чтобы не пропускать турниры, акции и новости клуба:\n\n"
+        + "\n".join(rows)
+    )
 
 
 def get_first_visit_survey_candidates(conn, setting: dict, delay_minutes: int = 20, window_hours: int = 24) -> List[Dict[str, Any]]:

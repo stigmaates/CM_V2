@@ -404,7 +404,11 @@ async def handle_first_visit_survey_feedback(update: Update, context: ContextTyp
     context.user_data.pop("first_visit_survey_rating", None)
     context.user_data.pop("awaiting_first_visit_feedback", None)
 
-    await message.reply_text(social_message, disable_web_page_preview=False)
+    await message.reply_text(
+    social_message,
+    parse_mode="HTML",
+    disable_web_page_preview=True,
+)
     return True
 
 
