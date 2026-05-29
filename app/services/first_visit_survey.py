@@ -19,6 +19,7 @@ SOCIAL_COLUMNS = {
     "youtube_url": "VARCHAR(255) NULL",
     "vk_url": "VARCHAR(255) NULL",
     "telegram_channel_url": "VARCHAR(255) NULL",
+    "yandex_maps_url": "VARCHAR(255) NULL",
 }
 
 
@@ -91,7 +92,7 @@ def get_club_social_links(conn, club_id: int) -> Dict[str, str]:
         ensure_club_social_columns(cur)
         cur.execute(
             """
-            SELECT instagram_url, youtube_url, vk_url, telegram_channel_url
+            SELECT instagram_url, youtube_url, vk_url, telegram_channel_url, yandex_maps_url
             FROM clubs
             WHERE club_id = %s
             LIMIT 1
@@ -104,10 +105,11 @@ def get_club_social_links(conn, club_id: int) -> Dict[str, str]:
         "youtube_url": (row.get("youtube_url") or "").strip(),
         "vk_url": (row.get("vk_url") or "").strip(),
         "telegram_channel_url": (row.get("telegram_channel_url") or "").strip(),
+        "yandex_maps_url": (row.get("yandex_maps_url") or "").strip(),
     }
 
 
-def build_social_links_message(conn, club_id: int) -> str:
+def build_social_links_message(conn, club_id: int, rating: int | None = None) -> str:
     links = get_club_social_links(conn, club_id)
     rows = []
 
@@ -123,14 +125,24 @@ def build_social_links_message(conn, club_id: int) -> str:
     if links.get("telegram_channel_url"):
         rows.append(f'📢 <a href="{escape(links["telegram_channel_url"], quote=True)}">Telegram-канал</a>')
 
-    if not rows:
-        return "Спасибо за ответ! Бонусы уже начислены ✅"
+    if links.get("yandex_maps_url"):
+        rows.append(f'⭐ <a href="{escape(links["yandex_maps_url"], quote=True)}">Оставить отзыв на Яндекс Картах</a>')
 
-    return (
-        "Спасибо за ответ! Бонусы уже начислены ✅\n\n"
-        "Следи за нами в соцсетях, чтобы не пропускать турниры, акции и новости клуба:\n\n"
-        + "\n".join(rows)
-    )
+    message_parts = ["Спасибо за ответ! Бонусы уже начислены ✅"]
+
+    if int(rating or 0) >= 4 and links.get("yandex_maps_url"):
+        message_parts.append(
+            "Если тебе всё понравилось, оставь, пожалуйста, отзыв на Яндекс Картах — "
+            "за отзыв можно получить дополнительные бонусы по акции ⭐"
+        )
+
+    if rows:
+        message_parts.append(
+            "Следи за нами в соцсетях, чтобы не пропускать турниры, акции и новости клуба:\n\n"
+            + "\n".join(rows)
+        )
+
+    return "\n\n".join(message_parts)
 
 
 def get_first_visit_survey_candidates(conn, setting: dict, delay_minutes: int = 20, window_hours: int = 24) -> List[Dict[str, Any]]:

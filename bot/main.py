@@ -363,7 +363,11 @@ async def first_visit_survey_rate_callback(update: Update, context: ContextTypes
     context.user_data["awaiting_first_visit_feedback"] = True
 
     if rating >= 4:
-        question = "Спасибо за оценку! Что можно было бы добавить или улучшить в клубе? Напиши одним сообщением."
+        question = (
+            "Спасибо за оценку! Что можно было бы добавить или улучшить в клубе? Напиши одним сообщением.\n\n"
+            "Если всё понравилось, после опроса можно оставить отзыв на Яндекс Картах — "
+            "за отзыв можно получить дополнительные бонусы по акции ⭐"
+        )
     else:
         question = "Спасибо за честную оценку. Расскажи, пожалуйста, что не понравилось? Напиши одним сообщением."
 
@@ -396,7 +400,11 @@ async def handle_first_visit_survey_feedback(update: Update, context: ContextTyp
             await message.reply_text(result.get("message") or "Не удалось сохранить ответ.")
             return True
 
-        social_message = build_social_links_message(conn, int(survey["club_id"]))
+        social_message = build_social_links_message(
+            conn,
+            int(survey["club_id"]),
+            rating=int(survey.get("rating") or 0),
+        )
     finally:
         conn.close()
 
@@ -405,10 +413,10 @@ async def handle_first_visit_survey_feedback(update: Update, context: ContextTyp
     context.user_data.pop("awaiting_first_visit_feedback", None)
 
     await message.reply_text(
-    social_message,
-    parse_mode="HTML",
-    disable_web_page_preview=True,
-)
+        social_message,
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
     return True
 
 

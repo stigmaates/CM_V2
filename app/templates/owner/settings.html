@@ -56,7 +56,12 @@
                         <div class="form-group">
                             <label for="telegram_channel_url">Telegram-канал</label>
                             <input class="form-input" type="url" id="telegram_channel_url" name="telegram_channel_url" value="{{ club.telegram_channel_url if club and club.telegram_channel_url else '' }}" placeholder="https://t.me/...">
-                            <div class="muted" style="margin-top:6px;">Эти ссылки будут отправляться гостю после прохождения опроса первого визита.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="yandex_maps_url">Яндекс Карты</label>
+                            <input class="form-input" type="url" id="yandex_maps_url" name="yandex_maps_url" value="{{ club.yandex_maps_url if club and club.yandex_maps_url else '' }}" placeholder="https://yandex.ru/maps/org/...">
+                            <div class="muted" style="margin-top:6px;">Эти ссылки будут отправляться гостю после прохождения опроса первого визита. Ссылка на Яндекс Карты также используется для просьбы оставить отзыв при оценке 4–5.</div>
                         </div>
 
                         <button class="btn" type="submit">Сохранить</button>
