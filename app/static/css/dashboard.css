@@ -970,3 +970,51 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Dashboard refinements */
+.card-meta .positive,
+.card-meta .negative,
+.card-meta .neutral {
+    font-weight: 800;
+}
+
+.card-meta .neutral {
+    color: #bcabd9;
+}
+
+.engagement-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 18px;
+    border: 1px solid rgba(143, 91, 255, 0.36);
+    background: rgba(18, 9, 31, 0.52);
+}
+
+.engagement-tab {
+    min-height: 44px;
+    padding: 10px 22px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: transparent;
+    color: #bcabd9;
+    font: inherit;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.engagement-tab:hover {
+    color: #f4ecff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.engagement-tab.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, #8f5bff, #6a45bf);
+    border-color: rgba(165, 114, 255, 0.68);
+    box-shadow: 0 10px 22px rgba(143, 91, 255, 0.22);
+}

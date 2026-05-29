@@ -1254,3 +1254,64 @@
     font-size: 13px;
     font-weight: 800;
 }
+
+/* Compact hint next to filter title */
+.mailing-filter-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+
+.mailing-filter-title h3 {
+    margin: 0;
+}
+
+.mailing-info-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(165, 114, 255, 0.55);
+    background: rgba(143, 91, 255, 0.18);
+    color: #f0e8ff;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: help;
+    flex: 0 0 auto;
+}
+
+.mailing-info-chip__tooltip {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 10px);
+    width: 310px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(15, 8, 28, 0.98);
+    border: 1px solid rgba(143, 91, 255, 0.38);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    color: #e8dcff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: left;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(6px);
+    transition: 0.18s ease;
+    z-index: 40;
+    pointer-events: none;
+}
+
+.mailing-info-chip:hover .mailing-info-chip__tooltip,
+.mailing-info-chip:focus .mailing-info-chip__tooltip,
+.mailing-info-chip:focus-within .mailing-info-chip__tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}

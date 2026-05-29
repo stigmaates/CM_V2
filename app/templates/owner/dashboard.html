@@ -31,9 +31,17 @@
                         {% else %}
                             <span>0</span>
                         {% endif %}
-                        к прошлому периоду
+                        к предыдущим {{ stats.period_days }} дням
                     </div>
-                    <div class="card-meta">{{ stats.guests_diff_percent }}%</div>
+                    <div class="card-meta" title="Процентное изменение количества гостей относительно предыдущих {{ stats.period_days }} дней.">
+                        {% if stats.guests_diff_percent > 0 %}
+                            <span class="positive">+{{ stats.guests_diff_percent }}%</span>
+                        {% elif stats.guests_diff_percent < 0 %}
+                            <span class="negative">{{ stats.guests_diff_percent }}%</span>
+                        {% else %}
+                            <span class="neutral">0%</span>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="card">
@@ -47,9 +55,9 @@
                         {% else %}
                             <span>0</span>
                         {% endif %}
-                        п.п. к прошлому периоду
+                        п.п. к предыдущим {{ stats.period_days }} дням
                     </div>
-                    <div class="card-meta card-meta-placeholder">—</div>
+                    <div class="card-meta card-meta-placeholder" title="Возвращаемость считается как доля гостей, у которых было 2 и более визита за выбранный период."></div>
                 </div>
 
                 <div class="card">
@@ -63,9 +71,17 @@
                         {% else %}
                             <span>0</span>
                         {% endif %}
-                        к прошлому периоду
+                        к предыдущим {{ stats.period_days }} дням
                     </div>
-                    <div class="card-meta">{{ stats.avg_check_diff_percent }}%</div>
+                    <div class="card-meta" title="Процентное изменение среднего чека относительно предыдущих {{ stats.period_days }} дней.">
+                        {% if stats.avg_check_diff_percent > 0 %}
+                            <span class="positive">+{{ stats.avg_check_diff_percent }}%</span>
+                        {% elif stats.avg_check_diff_percent < 0 %}
+                            <span class="negative">{{ stats.avg_check_diff_percent }}%</span>
+                        {% else %}
+                            <span class="neutral">0%</span>
+                        {% endif %}
+                    </div>
                 </div>
             </section>
 
@@ -112,14 +128,10 @@
 
                 <div class="left-placeholder-block">
                     <div class="engagement-header">
-                        <span id="wheelLabel" class="engagement-label active">Колесо</span>
-
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="engagementToggle">
-                            <span class="toggle-slider"></span>
-                        </label>
-
-                        <span id="missionsLabel" class="engagement-label">Задания</span>
+                        <div class="engagement-tabs" role="tablist" aria-label="Метрики вовлечения">
+                            <button type="button" class="engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
+                            <button type="button" class="engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
+                        </div>
                     </div>
 
                     <div id="wheelMetrics" class="placeholder-columns">
@@ -275,31 +287,32 @@
         window.addEventListener('resize', () => drawChart(1));
     </script>
 <script>
-        const engagementToggle = document.getElementById('engagementToggle');
         const wheelMetrics = document.getElementById('wheelMetrics');
         const missionMetrics = document.getElementById('missionMetrics');
-        const wheelLabel = document.getElementById('wheelLabel');
-        const missionsLabel = document.getElementById('missionsLabel');
+        const engagementTabs = document.querySelectorAll('[data-engagement-tab]');
 
-        function syncEngagementToggle() {
-            const missionsMode = engagementToggle.checked;
+        function setEngagementMode(mode) {
+            const missionsMode = mode === 'missions';
 
             if (missionsMode) {
                 wheelMetrics.classList.add('hidden-block');
                 missionMetrics.classList.remove('hidden-block');
-                wheelLabel.classList.remove('active');
-                missionsLabel.classList.add('active');
             } else {
                 missionMetrics.classList.add('hidden-block');
                 wheelMetrics.classList.remove('hidden-block');
-                missionsLabel.classList.remove('active');
-                wheelLabel.classList.add('active');
             }
+
+            engagementTabs.forEach((tab) => {
+                const isActive = tab.dataset.engagementTab === mode;
+                tab.classList.toggle('is-active', isActive);
+                tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
         }
 
-        if (engagementToggle) {
-            engagementToggle.addEventListener('change', syncEngagementToggle);
-            syncEngagementToggle();
-        }
+        engagementTabs.forEach((tab) => {
+            tab.addEventListener('click', () => setEngagementMode(tab.dataset.engagementTab));
+        });
+
+        setEngagementMode('wheel');
     </script>
 {% endblock %}

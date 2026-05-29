@@ -66,11 +66,15 @@
 
             <section class="mailing-box">
                 <div class="filters-header">
-                    <h3>Фильтры</h3>
+                    <div class="mailing-filter-title">
+                        <h3>Фильтры</h3>
+                        <span class="mailing-info-chip" tabindex="0" aria-label="Подсказка по фильтрам">
+                            i
+                            <span class="mailing-info-chip__tooltip">Для персональной рассылки выбери фильтр «Номер телефона» и введи несколько номеров через <b>;</b></span>
+                        </span>
+                    </div>
                     <button type="button" class="btn btn-secondary" id="addRuleBtn">Добавить фильтр</button>
                 </div>
-
-                <div class="crm-segments-hint">Для персональной рассылки выбери фильтр «Номер телефона» и введи несколько номеров через <b>;</b></div>
 
                 <div id="rulesContainer" class="rules-container"></div>
 
