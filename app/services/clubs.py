@@ -1,5 +1,4 @@
 from app.core import get_db_connection
-from app.services.first_visit_survey import ensure_club_social_columns
 
 
 _club_bonus_chat_column_ready = False
@@ -36,6 +35,7 @@ def get_club_info(club_id):
     try:
         with conn.cursor() as cursor:
             ensure_club_bonus_chat_column(cursor)
+            from app.services.first_visit_survey import ensure_club_social_columns
             ensure_club_social_columns(cursor)
             cursor.execute(
                 """
@@ -68,6 +68,7 @@ def update_club_info(club_id, name: str, lg_api_key: str, secret: str, cm_bonus_
     try:
         with conn.cursor() as cursor:
             ensure_club_bonus_chat_column(cursor)
+            from app.services.first_visit_survey import ensure_club_social_columns
             ensure_club_social_columns(cursor)
             cursor.execute(
                 """
