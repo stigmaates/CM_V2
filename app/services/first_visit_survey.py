@@ -114,7 +114,7 @@ def build_social_links_message(conn, club_id: int, rating: int | None = None) ->
     rows = []
 
     if links.get("instagram_url"):
-        rows.append(f'📸 <a href="{escape(links["instagram_url"], quote=True)}">Instagram</a>')
+        rows.append(f'📸 <a href="{escape(links["instagram_url"], quote=True)}">Instagram* (*запрещена на территории РФ)</a>')
 
     if links.get("youtube_url"):
         rows.append(f'▶️ <a href="{escape(links["youtube_url"], quote=True)}">YouTube</a>')
