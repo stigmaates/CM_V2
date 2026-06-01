@@ -253,7 +253,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not guest:
         await message.reply_text(
-            "Гость с таким номером не найден. Проверьте номер в системе клуба.",
+            "Не можем найти Ваш номер! Если вы еще не зарегистрированы в клубе, пройдите регистрацию и возвращайтесь.",
             reply_markup=ReplyKeyboardRemove()
         )
         return

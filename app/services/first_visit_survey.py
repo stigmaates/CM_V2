@@ -20,6 +20,7 @@ SOCIAL_COLUMNS = {
     "vk_url": "VARCHAR(255) NULL",
     "telegram_channel_url": "VARCHAR(255) NULL",
     "yandex_maps_url": "VARCHAR(255) NULL",
+    "two_gis_url": "VARCHAR(255) NULL",
 }
 
 
@@ -92,7 +93,7 @@ def get_club_social_links(conn, club_id: int) -> Dict[str, str]:
         ensure_club_social_columns(cur)
         cur.execute(
             """
-            SELECT instagram_url, youtube_url, vk_url, telegram_channel_url, yandex_maps_url
+            SELECT instagram_url, youtube_url, vk_url, telegram_channel_url, yandex_maps_url, two_gis_url
             FROM clubs
             WHERE club_id = %s
             LIMIT 1
@@ -106,6 +107,7 @@ def get_club_social_links(conn, club_id: int) -> Dict[str, str]:
         "vk_url": (row.get("vk_url") or "").strip(),
         "telegram_channel_url": (row.get("telegram_channel_url") or "").strip(),
         "yandex_maps_url": (row.get("yandex_maps_url") or "").strip(),
+        "two_gis_url": (row.get("two_gis_url") or "").strip(),
     }
 
 
@@ -128,11 +130,15 @@ def build_social_links_message(conn, club_id: int, rating: int | None = None) ->
     if links.get("yandex_maps_url"):
         rows.append(f'⭐ <a href="{escape(links["yandex_maps_url"], quote=True)}">Оставить отзыв на Яндекс Картах</a>')
 
+    if links.get("two_gis_url"):
+        rows.append(f'🗺 <a href="{escape(links["two_gis_url"], quote=True)}">Оставить отзыв в 2ГИС</a>')
+
     message_parts = ["Спасибо за ответ! Бонусы уже начислены ✅"]
 
-    if int(rating or 0) >= 4 and links.get("yandex_maps_url"):
+    review_links_available = bool(links.get("yandex_maps_url") or links.get("two_gis_url"))
+    if int(rating or 0) >= 4 and review_links_available:
         message_parts.append(
-            "Если тебе всё понравилось, оставь, пожалуйста, отзыв на Яндекс Картах — "
+            "Если тебе всё понравилось, оставь, пожалуйста, отзыв на картах — "
             "за отзыв можно получить дополнительные бонусы по акции ⭐"
         )
 

@@ -50,7 +50,8 @@ def get_club_info(club_id):
                     youtube_url,
                     vk_url,
                     telegram_channel_url,
-                    yandex_maps_url
+                    yandex_maps_url,
+                    two_gis_url
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
@@ -64,7 +65,7 @@ def get_club_info(club_id):
         conn.close()
 
 
-def update_club_info(club_id, name: str, lg_api_key: str, secret: str, cm_bonus_admin_chat_id: str | None = None, instagram_url: str | None = None, youtube_url: str | None = None, vk_url: str | None = None, telegram_channel_url: str | None = None, yandex_maps_url: str | None = None):
+def update_club_info(club_id, name: str, lg_api_key: str, secret: str, cm_bonus_admin_chat_id: str | None = None, instagram_url: str | None = None, youtube_url: str | None = None, vk_url: str | None = None, telegram_channel_url: str | None = None, yandex_maps_url: str | None = None, two_gis_url: str | None = None):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -82,7 +83,8 @@ def update_club_info(club_id, name: str, lg_api_key: str, secret: str, cm_bonus_
                     youtube_url = %s,
                     vk_url = %s,
                     telegram_channel_url = %s,
-                    yandex_maps_url = %s
+                    yandex_maps_url = %s,
+                    two_gis_url = %s
                 WHERE club_id = %s
                 """,
                 (
@@ -95,6 +97,7 @@ def update_club_info(club_id, name: str, lg_api_key: str, secret: str, cm_bonus_
                     (vk_url or '').strip() or None,
                     (telegram_channel_url or '').strip() or None,
                     (yandex_maps_url or '').strip() or None,
+                    (two_gis_url or '').strip() or None,
                     club_id,
                 ),
             )

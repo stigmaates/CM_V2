@@ -382,6 +382,13 @@
         openBtn.addEventListener('click', openModal);
         closeBtn.addEventListener('click', closeModal);
 
+        function missionModalStopScroll(event) {
+            event.stopPropagation();
+        }
+
+        modal.addEventListener('wheel', missionModalStopScroll, { passive: true });
+        modal.addEventListener('touchmove', missionModalStopScroll, { passive: true });
+
         modal.addEventListener('click', function (event) {
             if (event.target === modal) {
                 closeModal();
