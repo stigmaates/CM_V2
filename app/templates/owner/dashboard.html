@@ -42,9 +42,9 @@
 
         <div class="card">
             <div class="card-title">Средний чек за последние {{ stats.period_days }} дней</div>
-            <div class="card-value">{{ stats.avg_check_current }}</div>
+            <div class="card-value">{{ stats.avg_check_current }} руб.</div>
             <div class="card-sub">
-                {% if stats.avg_check_diff > 0 %}<span class="positive">+{{ stats.avg_check_diff }}</span>{% elif stats.avg_check_diff < 0 %}<span class="negative">{{ stats.avg_check_diff }}</span>{% else %}<span>0</span>{% endif %}
+                {% if stats.avg_check_diff > 0 %}<span class="positive">+{{ stats.avg_check_diff }} руб.</span>{% elif stats.avg_check_diff < 0 %}<span class="negative">{{ stats.avg_check_diff }} руб.</span>{% else %}<span>0</span>{% endif %}
                 к предыдущим {{ stats.period_days }} дням
             </div>
             <div class="card-meta" title="Процентное изменение среднего чека относительно предыдущих {{ stats.period_days }} дней.">
