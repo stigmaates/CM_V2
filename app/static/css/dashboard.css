@@ -1151,6 +1151,13 @@ body {
     font-size: 15px;
 }
 
+
+/* Fix: hidden feedback modals must not be displayed on page load */
+.feedback-modal[hidden],
+.feedback-modal-overlay[hidden] {
+    display: none !important;
+}
+
 .feedback-modal-overlay {
     position: fixed;
     inset: 0;
