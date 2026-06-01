@@ -13,6 +13,182 @@ def _round_display(value):
         return 0
 
 
+
+
+def _sparkline_path(values, width: int = 140, height: int = 56, padding: int = 6) -> str:
+    """Build compact SVG path for KPI sparklines from real dashboard data."""
+    clean_values = []
+    for value in values or []:
+        try:
+            clean_values.append(float(value or 0))
+        except (TypeError, ValueError):
+            clean_values.append(0.0)
+
+    if not clean_values:
+        clean_values = [0.0]
+    if len(clean_values) == 1:
+        clean_values = [clean_values[0], clean_values[0]]
+
+    min_value = min(clean_values)
+    max_value = max(clean_values)
+    value_range = max(max_value - min_value, 1)
+    inner_w = max(width - padding * 2, 1)
+    inner_h = max(height - padding * 2, 1)
+    step_x = inner_w / (len(clean_values) - 1)
+
+    points = []
+    for index, value in enumerate(clean_values):
+        x = padding + step_x * index
+        y = padding + inner_h - ((value - min_value) / value_range) * inner_h
+        points.append((round(x, 2), round(y, 2)))
+
+    # Polyline path is intentionally simple and robust for any number of points.
+    return "M " + " L ".join(f"{x} {y}" for x, y in points)
+
+
+def _date_labels_for_period(current_start, current_end):
+    labels = []
+    current_day = current_start.date()
+    last_day = current_end.date()
+    while current_day <= last_day:
+        labels.append(current_day)
+        current_day += timedelta(days=1)
+    return labels
+
+
+def _build_kpi_sparklines(cursor, club_id: int, current_start, current_end) -> dict:
+    labels = _date_labels_for_period(current_start, current_end)
+    guests_map = {label: 0 for label in labels}
+    retention_map = {label: 0 for label in labels}
+    avg_check_map = {label: 0 for label in labels}
+
+    cursor.execute(
+        """
+        SELECT DATE(date_start) AS d, COUNT(DISTINCT guest_id) AS cnt
+        FROM guest_sessions
+        WHERE club_id = %s
+          AND date_start >= %s
+          AND date_start < %s
+        GROUP BY DATE(date_start)
+        """,
+        (club_id, current_start, current_end),
+    )
+    for row in cursor.fetchall() or []:
+        if row.get("d") in guests_map:
+            guests_map[row["d"]] = int(row.get("cnt") or 0)
+
+    cursor.execute(
+        """
+        SELECT
+            DATE(gs.date_start) AS d,
+            COUNT(DISTINCT gs.guest_id) AS total_guests,
+            COUNT(DISTINCT CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM guest_sessions prev
+                    WHERE prev.club_id = gs.club_id
+                      AND prev.guest_id = gs.guest_id
+                      AND prev.date_start >= %s
+                      AND prev.date_start < gs.date_start
+                    LIMIT 1
+                ) THEN gs.guest_id
+            END) AS returned_guests
+        FROM guest_sessions gs
+        WHERE gs.club_id = %s
+          AND gs.date_start >= %s
+          AND gs.date_start < %s
+        GROUP BY DATE(gs.date_start)
+        """,
+        (current_start, club_id, current_start, current_end),
+    )
+    for row in cursor.fetchall() or []:
+        d = row.get("d")
+        if d in retention_map:
+            total = int(row.get("total_guests") or 0)
+            returned = int(row.get("returned_guests") or 0)
+            retention_map[d] = round((returned / total) * 100, 1) if total else 0
+
+    cursor.execute(
+        """
+        SELECT DATE(date_normal) AS d, COALESCE(AVG(`sum`), 0) AS avg_check
+        FROM operations_log
+        WHERE club_id = %s
+          AND type = 'plus'
+          AND date_normal >= %s
+          AND date_normal < %s
+        GROUP BY DATE(date_normal)
+        """,
+        (club_id, current_start, current_end),
+    )
+    for row in cursor.fetchall() or []:
+        if row.get("d") in avg_check_map:
+            avg_check_map[row["d"]] = float(row.get("avg_check") or 0)
+
+    guests_values = [guests_map[label] for label in labels]
+    retention_values = [retention_map[label] for label in labels]
+    avg_check_values = [avg_check_map[label] for label in labels]
+
+    return {
+        "guests_values": guests_values,
+        "retention_values": retention_values,
+        "avg_check_values": avg_check_values,
+        "guests_path": _sparkline_path(guests_values),
+        "retention_path": _sparkline_path(retention_values),
+        "avg_check_path": _sparkline_path(avg_check_values),
+    }
+
+
+def _visit_days_label(days: int) -> str:
+    if days % 10 == 1 and days % 100 != 11:
+        return f"{days} день"
+    if days % 10 in (2, 3, 4) and days % 100 not in (12, 13, 14):
+        return f"{days} дня"
+    return f"{days} дней"
+
+
+def _get_visit_streak_funnel(cursor, club_id: int, current_start, current_end) -> list[dict]:
+    """Return cumulative visit-day funnel for selected period: 1 day, 2+ days ... 7+ days."""
+    cursor.execute(
+        """
+        SELECT guest_id, COUNT(DISTINCT DATE(date_start)) AS visit_days
+        FROM guest_sessions
+        WHERE club_id = %s
+          AND date_start >= %s
+          AND date_start < %s
+        GROUP BY guest_id
+        HAVING visit_days > 0
+        """,
+        (club_id, current_start, current_end),
+    )
+    rows = cursor.fetchall() or []
+    visit_days_by_guest = [int(row.get("visit_days") or 0) for row in rows]
+    if not visit_days_by_guest:
+        return []
+
+    max_level = 7
+    counts = {
+        level: sum(1 for visit_days in visit_days_by_guest if visit_days >= level)
+        for level in range(1, max_level + 1)
+    }
+    max_count = max(counts.values(), default=1) or 1
+
+    def label_for_level(level: int) -> str:
+        if level == 1:
+            return "1 день"
+        return f"{level}+ дней"
+
+    return [
+        {
+            "days": level,
+            "label": label_for_level(level),
+            "short_label": "1" if level == 1 else f"{level}+",
+            "count": counts[level],
+            "height": max(8, _round_display((counts[level] / max_count) * 100)) if counts[level] else 0,
+        }
+        for level in range(1, max_level + 1)
+    ]
+
+
 def get_unique_guests_chart(club_id: int, period_days: int):
     conn = get_db_connection()
     try:
@@ -269,6 +445,9 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             csi_percent = _round_display((guests_with_telegram / total_guests) * 100) if total_guests > 0 else 0
             mailing_count = guests_with_telegram
 
+            kpi_sparklines = _build_kpi_sparklines(cursor, club_id, current_start, current_end)
+            visit_streak_funnel = _get_visit_streak_funnel(cursor, club_id, current_start, current_end)
+
         guests_diff = guests_current - guests_previous
         guests_diff_percent = _round_display(calc_percent_change(guests_current, guests_previous))
 
@@ -304,6 +483,8 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             "csi_linked_guests": guests_with_telegram,
             "csi_total_guests": total_guests,
             "mailing_count": mailing_count,
+            "kpi_sparklines": kpi_sparklines,
+            "visit_streak_funnel": visit_streak_funnel,
             "chart": chart_data,
             "debug": {
                 "club_id": club_id,

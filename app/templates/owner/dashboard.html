@@ -7,184 +7,242 @@
 {% endblock %}
 
 {% block content %}
-<main class="content">
-    <div class="dashboard-toolbar dashboard-toolbar--with-title">
-        <h1 class="dashboard-club-title">{{ header_club_name or 'Клуб' }}</h1>
-        <div class="period-switcher">
-            <a href="{{ url_for('owner.dashboard', period=7) }}" class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-            <a href="{{ url_for('owner.dashboard', period=30) }}" class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-            <a href="{{ url_for('owner.dashboard', period=90) }}" class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
+{% set engagement_data = engagement|default({
+    "wheel": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
+    "missions": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0}
+}) %}
+{% set survey = first_visit_feedback|default({
+    "avg_rating": 0,
+    "avg_rating_display": "0",
+    "total_responses": 0,
+    "positive_count": 0,
+    "negative_count": 0,
+    "positive_preview": [],
+    "negative_preview": [],
+    "positive_messages": [],
+    "negative_messages": [],
+    "period_days": selected_period
+}) %}
+{% set spark = stats.kpi_sparklines|default({"guests_path": "", "retention_path": "", "avg_check_path": ""}) %}
+{% set streak_funnel = stats.visit_streak_funnel|default([]) %}
+
+<main class="cb-dashboard content">
+    <div class="cb-dashboard-head">
+        <h1 class="cb-club-title">{{ header_club_name or 'Клуб' }}</h1>
+        <div class="cb-period-switcher period-switcher" aria-label="Период дашборда">
+            <a href="{{ url_for('owner.dashboard', period=7) }}" class="cb-period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
+            <a href="{{ url_for('owner.dashboard', period=30) }}" class="cb-period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
+            <a href="{{ url_for('owner.dashboard', period=90) }}" class="cb-period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
         </div>
     </div>
 
-    <section class="cards">
-        <div class="card">
-            <div class="card-title">Гостей за последние {{ stats.period_days }} дней</div>
-            <div class="card-value">{{ stats.guests_current }}</div>
-            <div class="card-sub">
-                {% if stats.guests_diff > 0 %}<span class="positive">+{{ stats.guests_diff }}</span>{% elif stats.guests_diff < 0 %}<span class="negative">{{ stats.guests_diff }}</span>{% else %}<span>0</span>{% endif %}
-                к предыдущим {{ stats.period_days }} дням
+    <section class="cb-kpi-grid" aria-label="Основные показатели">
+        <article class="cb-kpi-card">
+            <div class="cb-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.57 3-3.5S17.66 4 16 4s-3 1.57-3 3.5S14.34 11 16 11Zm-8 0c1.66 0 3-1.57 3-3.5S9.66 4 8 4 5 5.57 5 7.5 6.34 11 8 11Zm0 2c-2.67 0-6 1.34-6 4v1h12v-1c0-2.66-3.33-4-6-4Zm8 0c-.31 0-.65.02-1 .07 1.16.84 2 1.97 2 3.43V18h5v-1c0-2.66-3.33-4-6-4Z"/></svg>
             </div>
-            <div class="card-meta" title="Процентное изменение количества гостей относительно предыдущих {{ stats.period_days }} дней.">
-                {% if stats.guests_diff_percent > 0 %}<span class="positive">+{{ stats.guests_diff_percent }}%</span>{% elif stats.guests_diff_percent < 0 %}<span class="negative">{{ stats.guests_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
+            <div class="cb-kpi-body">
+                <div class="cb-kpi-title">Гостей за последние {{ stats.period_days }} дней</div>
+                <div class="cb-kpi-value">{{ stats.guests_current }}</div>
+                <div class="cb-kpi-diff">
+                    {% if stats.guests_diff > 0 %}<span class="positive">+{{ stats.guests_diff }}</span>{% elif stats.guests_diff < 0 %}<span class="negative">{{ stats.guests_diff }}</span>{% else %}<span>0</span>{% endif %}
+                    <span>к предыдущим {{ stats.period_days }} дням</span>
+                </div>
+                <div class="cb-kpi-percent">
+                    {% if stats.guests_diff_percent > 0 %}<span class="positive">+{{ stats.guests_diff_percent }}%</span>{% elif stats.guests_diff_percent < 0 %}<span class="negative">{{ stats.guests_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
+                </div>
             </div>
-        </div>
+            <svg class="cb-sparkline" viewBox="0 0 140 56" aria-hidden="true"><path d="{{ spark.guests_path }}"/></svg>
+        </article>
 
-        <div class="card">
-            <div class="card-title">Возвращаемость за последние {{ stats.period_days }} дней</div>
-            <div class="card-value">{{ stats.retention_current }}%</div>
-            <div class="card-sub">
-                {% if stats.retention_diff > 0 %}<span class="positive">+{{ stats.retention_diff }}</span>{% elif stats.retention_diff < 0 %}<span class="negative">{{ stats.retention_diff }}</span>{% else %}<span>0</span>{% endif %}
-                п.п. к предыдущим {{ stats.period_days }} дням
+        <article class="cb-kpi-card">
+            <div class="cb-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V8a4 4 0 1 1-3.46 6H5.18a8 8 0 1 0 12.47-7.65Z"/></svg>
             </div>
-            <div class="card-meta card-meta-placeholder" title="Возвращаемость считается как доля гостей, у которых было 2 и более визита за выбранный период."></div>
-        </div>
+            <div class="cb-kpi-body">
+                <div class="cb-kpi-title">Возвращаемость<br>за последние {{ stats.period_days }} дней</div>
+                <div class="cb-kpi-value">{{ stats.retention_current }}%</div>
+                <div class="cb-kpi-diff">
+                    {% if stats.retention_diff > 0 %}<span class="positive">+{{ stats.retention_diff }} п.п.</span>{% elif stats.retention_diff < 0 %}<span class="negative">{{ stats.retention_diff }} п.п.</span>{% else %}<span>0 п.п.</span>{% endif %}
+                    <span>к предыдущим {{ stats.period_days }} дням</span>
+                </div>
+            </div>
+            <svg class="cb-sparkline" viewBox="0 0 140 56" aria-hidden="true"><path d="{{ spark.retention_path }}"/></svg>
+        </article>
 
-        <div class="card">
-            <div class="card-title">Средний чек за последние {{ stats.period_days }} дней</div>
-            <div class="card-value">{{ stats.avg_check_current }} руб.</div>
-            <div class="card-sub">
-                {% if stats.avg_check_diff > 0 %}<span class="positive">+{{ stats.avg_check_diff }} руб.</span>{% elif stats.avg_check_diff < 0 %}<span class="negative">{{ stats.avg_check_diff }} руб.</span>{% else %}<span>0</span>{% endif %}
-                к предыдущим {{ stats.period_days }} дням
+        <article class="cb-kpi-card">
+            <div class="cb-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 4h14a2 2 0 0 1 2 2v7h-2V6H6v12h7v2H4V4Zm3 4h8v2H7V8Zm0 4h6v2H7v-2Zm12.6 3.2 1.4 1.4-5.2 5.2-3.1-3.1 1.4-1.4 1.7 1.7 3.8-3.8Z"/></svg>
             </div>
-            <div class="card-meta" title="Процентное изменение среднего чека относительно предыдущих {{ stats.period_days }} дней.">
-                {% if stats.avg_check_diff_percent > 0 %}<span class="positive">+{{ stats.avg_check_diff_percent }}%</span>{% elif stats.avg_check_diff_percent < 0 %}<span class="negative">{{ stats.avg_check_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
+            <div class="cb-kpi-body">
+                <div class="cb-kpi-title">Средний чек<br>за последние {{ stats.period_days }} дней</div>
+                <div class="cb-kpi-value">{{ stats.avg_check_current }} ₽</div>
+                <div class="cb-kpi-diff">
+                    {% if stats.avg_check_diff > 0 %}<span class="positive">+{{ stats.avg_check_diff }} ₽</span>{% elif stats.avg_check_diff < 0 %}<span class="negative">{{ stats.avg_check_diff }} ₽</span>{% else %}<span>0 ₽</span>{% endif %}
+                    <span>к предыдущим {{ stats.period_days }} дням</span>
+                </div>
+                <div class="cb-kpi-percent">
+                    {% if stats.avg_check_diff_percent > 0 %}<span class="positive">+{{ stats.avg_check_diff_percent }}%</span>{% elif stats.avg_check_diff_percent < 0 %}<span class="negative">{{ stats.avg_check_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
+                </div>
             </div>
-        </div>
+            <svg class="cb-sparkline" viewBox="0 0 140 56" aria-hidden="true"><path d="{{ spark.avg_check_path }}"/></svg>
+        </article>
     </section>
 
-    {% set engagement_data = engagement|default({
-        "wheel": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
-        "missions": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0}
-    }) %}
-    {% set survey = first_visit_feedback|default({
-        "avg_rating_display": "0",
-        "total_responses": 0,
-        "positive_count": 0,
-        "negative_count": 0,
-        "positive_preview": [],
-        "negative_preview": [],
-        "positive_messages": [],
-        "negative_messages": [],
-        "period_days": selected_period
-    }) %}
+    <section class="cb-main-grid">
+        <article class="cb-panel cb-survey-panel">
+            <div class="cb-panel-head">
+                <div>
+                    <h2>Оценка первого посещения</h2>
+                    <p>По ответам гостей после первого визита за последние {{ survey.period_days }} дней</p>
+                </div>
+                <span class="cb-info" title="Берутся завершённые ответы из формы после первого визита за выбранный период.">i</span>
+            </div>
 
-    <section class="dashboard-grid">
-        <div class="survey-insights-block">
-            <div class="survey-insights-header">
-                <div class="survey-insights-title">Оценка первого посещения</div>
-                <div class="survey-insights-subtitle">По ответам гостей после первого визита за последние {{ survey.period_days }} дней</div>
-            </div>
-            <div class="survey-insights-top">
-                <div class="survey-summary-card">
-                    <div class="survey-summary-value">{{ survey.avg_rating_display }}</div>
-                    <div class="survey-summary-label">Средняя оценка</div>
-                </div>
-                <div class="survey-summary-card">
-                    <div class="survey-summary-value">{{ survey.total_responses }}</div>
-                    <div class="survey-summary-label">Гостей оценили</div>
-                </div>
-            </div>
-            <div class="survey-feedback-grid">
-                <button type="button" class="survey-feedback-card survey-feedback-card--positive" data-feedback-modal="positive">
-                    <div class="survey-feedback-card__head">
-                        <div class="survey-feedback-title survey-feedback-title--positive">Что добавить</div>
-                        <div class="survey-feedback-count">{{ survey.positive_count }}</div>
+            <div class="cb-survey-summary">
+                <div class="cb-survey-stat">
+                    <div class="cb-survey-icon">★</div>
+                    <div>
+                        <div class="cb-survey-value">{{ survey.avg_rating_display }}</div>
+                        <div class="cb-survey-label">Средняя оценка</div>
+                        <div class="cb-stars" aria-label="Средняя оценка {{ survey.avg_rating_display }}">
+                            {% for i in range(1, 6) %}<span class="{% if survey.avg_rating|default(0) >= i %}is-filled{% endif %}">★</span>{% endfor %}
+                        </div>
                     </div>
-                    <div class="survey-feedback-preview-list">
+                </div>
+                <div class="cb-survey-stat">
+                    <div class="cb-survey-icon">👥</div>
+                    <div>
+                        <div class="cb-survey-value">{{ survey.total_responses }}</div>
+                        <div class="cb-survey-label">Гостей оценили</div>
+                        <div class="cb-survey-note">{{ survey.total_responses }} ответа за период</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cb-feedback-grid">
+                <button type="button" class="cb-feedback-card cb-feedback-card--positive" data-feedback-modal="positive">
+                    <div class="cb-feedback-head"><span>Что добавить</span><b>{{ survey.positive_count }}</b></div>
+                    <div class="cb-feedback-list">
                         {% if survey.positive_preview %}
                             {% for item in survey.positive_preview %}
-                            <div class="survey-feedback-preview-item">
-                                <div class="survey-feedback-preview-text">{{ item.short_text }}</div>
-                                <div class="survey-feedback-preview-date">{{ item.date }}</div>
+                            <div class="cb-feedback-preview">
+                                <div>{{ item.short_text }}</div>
+                                <small>{{ item.date }}</small>
                             </div>
                             {% endfor %}
                         {% else %}
-                            <div class="survey-feedback-empty">Пока нет ответов за выбранный период.</div>
+                            <div class="cb-feedback-empty">Пока нет ответов за выбранный период.</div>
                         {% endif %}
                     </div>
                 </button>
 
-                <button type="button" class="survey-feedback-card survey-feedback-card--negative" data-feedback-modal="negative">
-                    <div class="survey-feedback-card__head">
-                        <div class="survey-feedback-title survey-feedback-title--negative">Что не нравится</div>
-                        <div class="survey-feedback-count">{{ survey.negative_count }}</div>
-                    </div>
-                    <div class="survey-feedback-preview-list">
+                <button type="button" class="cb-feedback-card cb-feedback-card--negative" data-feedback-modal="negative">
+                    <div class="cb-feedback-head"><span>Что не нравится</span><b>{{ survey.negative_count }}</b></div>
+                    <div class="cb-feedback-list">
                         {% if survey.negative_preview %}
                             {% for item in survey.negative_preview %}
-                            <div class="survey-feedback-preview-item">
-                                <div class="survey-feedback-preview-text">{{ item.short_text }}</div>
-                                <div class="survey-feedback-preview-date">{{ item.date }}</div>
+                            <div class="cb-feedback-preview">
+                                <div>{{ item.short_text }}</div>
+                                <small>{{ item.date }}</small>
                             </div>
                             {% endfor %}
                         {% else %}
-                            <div class="survey-feedback-empty">Пока нет ответов за выбранный период.</div>
+                            <div class="cb-feedback-empty">Пока нет ответов за выбранный период.</div>
                         {% endif %}
                     </div>
                 </button>
             </div>
-        </div>
+        </article>
 
-        <div class="right-top-block">
-            <div class="small-card">
-                <div class="small-card-title">CSI</div>
-                <div class="small-card-value">{{ stats.csi_percent }}%</div>
-                <div class="small-card-sub">{{ stats.csi_linked_guests }} / {{ stats.csi_total_guests }} новых гостей за период</div>
-            </div>
-
-            <div class="small-card">
-                <div class="small-card-title">Людей в рассылке</div>
-                <div class="small-card-value">{{ stats.mailing_count }}</div>
-                <div class="small-card-sub">новых гостей с привязанным Telegram</div>
-            </div>
-        </div>
-
-        <div class="left-placeholder-block">
-            <div class="engagement-header">
-                <div class="engagement-tabs" role="tablist" aria-label="Метрики вовлечения">
-                    <button type="button" class="engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
-                    <button type="button" class="engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
+        <article class="cb-panel cb-side-card cb-csi-card">
+            <div class="cb-side-title">ER <span class="cb-info" title="Engagement Rate: доля новых гостей за период, у которых привязан Telegram.">i</span></div>
+            <div class="cb-side-body">
+                <div class="cb-side-icon">♡</div>
+                <div>
+                    <div class="cb-side-value">{{ stats.csi_percent }}%</div>
+                    <div class="cb-side-sub">{{ stats.csi_linked_guests }} / {{ stats.csi_total_guests }} новых гостей</div>
                 </div>
-                <button type="button" class="engagement-scope-toggle" id="engagementScopeToggle"
-                        aria-pressed="false"
-                        title="По умолчанию блок считает только гостей, зарегистрированных за выбранный период. Включи, чтобы показать всех гостей за всё время.">
-                    <span class="engagement-scope-toggle__knob"></span>
+            </div>
+        </article>
+
+        <article class="cb-panel cb-side-card cb-mailing-card">
+            <div class="cb-side-title">Людей в рассылке <span class="cb-info" title="Новые гости за период с привязанным Telegram.">i</span></div>
+            <div class="cb-side-body">
+                <div class="cb-side-icon">✉</div>
+                <div>
+                    <div class="cb-side-value">{{ stats.mailing_count }}</div>
+                    <div class="cb-side-sub">контакта с привязанным Telegram</div>
+                </div>
+            </div>
+        </article>
+
+        <article class="cb-panel cb-streak-funnel-card">
+            <div class="cb-side-title">Воронка посещений <span class="cb-info" title="Накопительная воронка: сколько гостей были минимум 1 день, 2+ дней, 3+ дней и так далее за выбранный период.">i</span></div>
+            <div class="cb-funnel-chart" aria-label="Воронка гостей по дням посещения">
+                {% if streak_funnel %}
+                    {% for item in streak_funnel %}
+                    <div class="cb-funnel-bar-item" title="{{ item.label }}: {{ item.count }} гостей">
+                        <div class="cb-funnel-bar-wrap">
+                            <div class="cb-funnel-bar-area">
+                                <div class="cb-funnel-bar-stack" style="height: {{ item.height }}%">
+                                    <div class="cb-funnel-bar-value">{{ item.count }}</div>
+                                    <span class="cb-funnel-bar"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cb-funnel-bar-label">{{ item.short_label }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="cb-funnel-empty">Пока нет посещений за выбранный период.</div>
+                {% endif %}
+            </div>
+            <div class="cb-funnel-axis-label">Минимум уникальных дней посещения</div>
+        </article>
+    </section>
+
+    <section class="cb-panel cb-engagement-panel">
+        <div class="cb-engagement-visual cb-engagement-visual--wheel" data-engagement-visual="wheel" aria-hidden="true">
+            <div class="cb-wheel-art__disc">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <b></b>
+            </div>
+        </div>
+        <div class="cb-engagement-visual cb-engagement-visual--missions hidden-block" data-engagement-visual="missions" aria-hidden="true">
+            <div class="cb-trophy-art">
+                <div class="cb-trophy-art__cup">★</div>
+                <div class="cb-trophy-art__base"></div>
+                <div class="cb-trophy-art__line cb-trophy-art__line--one"></div>
+                <div class="cb-trophy-art__line cb-trophy-art__line--two"></div>
+            </div>
+        </div>
+
+        <div class="cb-engagement-content">
+            <div class="cb-engagement-top">
+                <div class="cb-engagement-tabs" role="tablist" aria-label="Метрики вовлечения">
+                    <button type="button" class="cb-engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
+                    <button type="button" class="cb-engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
+                </div>
+                <button type="button" class="cb-scope-toggle" id="engagementScopeToggle" aria-pressed="false" title="По умолчанию блок считает только гостей, зарегистрированных за выбранный период. Включи, чтобы показать всех гостей за всё время.">
+                    <span class="cb-scope-toggle__track"><span class="cb-scope-toggle__knob"></span></span>
                     <span>За все время</span>
                 </button>
             </div>
-            <div class="engagement-scope-hint" id="engagementScopeHint">
-                Показаны гости, зарегистрированные за последние {{ stats.period_days }} дней.
+            <div class="cb-engagement-hint" id="engagementScopeHint">Показаны гости, зарегистрированные за последние {{ stats.period_days }} дней.</div>
+
+            <div id="wheelMetrics" class="cb-metric-grid">
+                <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="wheel.total_guests">{{ engagement_data.wheel.total_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">🎡</div><div><span>Крутили колесо</span><b data-engagement-value="wheel.involved_guests">{{ engagement_data.wheel.involved_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Вовлеченность</span><b><span data-engagement-value="wheel.engagement_percent">{{ engagement_data.wheel.engagement_percent }}</span>%</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">↻</div><div><span>Вернулись после прокрута</span><b data-engagement-value="wheel.returned_guests">{{ engagement_data.wheel.returned_guests }}</b></div></div>
             </div>
 
-            <div id="wheelMetrics" class="placeholder-columns">
-                <div class="placeholder-card stats-card">
-                    <div class="stats-title">Колесо фортуны</div>
-                    <div class="stats-line">Гостей в выборке: <b><span data-engagement-value="wheel.total_guests">{{ engagement_data.wheel.total_guests }}</span></b></div>
-                    <div class="stats-line">Прокрутило хотя бы 1 раз: <b><span data-engagement-value="wheel.involved_guests">{{ engagement_data.wheel.involved_guests }}</span></b></div>
-                    <div class="stats-line">Вовлеченность: <b><span data-engagement-value="wheel.engagement_percent">{{ engagement_data.wheel.engagement_percent }}</span>%</b></div>
-                </div>
-
-                <div class="placeholder-card stats-card">
-                    <div class="stats-title">Возврат после прокрута</div>
-                    <div class="stats-line">Вернулось в клуб после 1-го прокрута:</div>
-                    <div class="stats-big"><span data-engagement-value="wheel.returned_guests">{{ engagement_data.wheel.returned_guests }}</span></div>
-                </div>
-            </div>
-
-            <div id="missionMetrics" class="placeholder-columns hidden-block">
-                <div class="placeholder-card stats-card">
-                    <div class="stats-title">Задания</div>
-                    <div class="stats-line">Гостей в выборке: <b><span data-engagement-value="missions.total_guests">{{ engagement_data.missions.total_guests }}</span></b></div>
-                    <div class="stats-line">Выполнило хотя бы 1 задание: <b><span data-engagement-value="missions.involved_guests">{{ engagement_data.missions.involved_guests }}</span></b></div>
-                    <div class="stats-line">Вовлеченность: <b><span data-engagement-value="missions.engagement_percent">{{ engagement_data.missions.engagement_percent }}</span>%</b></div>
-                </div>
-
-                <div class="placeholder-card stats-card">
-                    <div class="stats-title">Возврат после выполнения</div>
-                    <div class="stats-line">Вернулось в клуб после 1-го выполненного задания:</div>
-                    <div class="stats-big"><span data-engagement-value="missions.returned_guests">{{ engagement_data.missions.returned_guests }}</span></div>
-                </div>
+            <div id="missionMetrics" class="cb-metric-grid hidden-block">
+                <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="missions.total_guests">{{ engagement_data.missions.total_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">☑</div><div><span>Выполнили задание</span><b data-engagement-value="missions.involved_guests">{{ engagement_data.missions.involved_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Вовлеченность</span><b><span data-engagement-value="missions.engagement_percent">{{ engagement_data.missions.engagement_percent }}</span>%</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">↻</div><div><span>Вернулись после выполнения</span><b data-engagement-value="missions.returned_guests">{{ engagement_data.missions.returned_guests }}</b></div></div>
             </div>
         </div>
     </section>
@@ -243,7 +301,7 @@
 {% block scripts %}
 <script>
     const engagementPeriodData = {{ engagement|tojson|safe }};
-    const engagementAllTimeData = {{ engagement_all_time_data|tojson|safe }};
+    const engagementAllTimeData = {{ engagement_all_time_data|default(engagement)|tojson|safe }};
     const engagementPeriodDays = {{ stats.period_days|tojson|safe }};
     let engagementAllTimeMode = false;
 
@@ -252,6 +310,7 @@
     const engagementTabs = document.querySelectorAll('[data-engagement-tab]');
     const engagementScopeToggle = document.getElementById('engagementScopeToggle');
     const engagementScopeHint = document.getElementById('engagementScopeHint');
+    const engagementVisuals = document.querySelectorAll('[data-engagement-visual]');
 
     function getNestedValue(source, path) {
         return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : 0), source);
@@ -262,22 +321,30 @@
         document.querySelectorAll('[data-engagement-value]').forEach((node) => {
             node.textContent = getNestedValue(source, node.dataset.engagementValue);
         });
-        engagementScopeToggle.classList.toggle('is-active', engagementAllTimeMode);
-        engagementScopeToggle.setAttribute('aria-pressed', engagementAllTimeMode ? 'true' : 'false');
-        engagementScopeHint.textContent = engagementAllTimeMode
-            ? 'Показаны все гости клуба за всё время.'
-            : `Показаны гости, зарегистрированные за последние ${engagementPeriodDays} дней.`;
+        if (engagementScopeToggle) {
+            engagementScopeToggle.classList.toggle('is-active', engagementAllTimeMode);
+            engagementScopeToggle.setAttribute('aria-pressed', engagementAllTimeMode ? 'true' : 'false');
+        }
+        if (engagementScopeHint) {
+            engagementScopeHint.textContent = engagementAllTimeMode
+                ? 'Показаны все гости клуба за всё время.'
+                : `Показаны гости, зарегистрированные за последние ${engagementPeriodDays} дней.`;
+        }
     }
 
     function setEngagementMode(mode) {
         const missionsMode = mode === 'missions';
         if (missionsMode) {
-            wheelMetrics.classList.add('hidden-block');
-            missionMetrics.classList.remove('hidden-block');
+            if (wheelMetrics) wheelMetrics.classList.add('hidden-block');
+            if (missionMetrics) missionMetrics.classList.remove('hidden-block');
         } else {
-            missionMetrics.classList.add('hidden-block');
-            wheelMetrics.classList.remove('hidden-block');
+            if (missionMetrics) missionMetrics.classList.add('hidden-block');
+            if (wheelMetrics) wheelMetrics.classList.remove('hidden-block');
         }
+
+        engagementVisuals.forEach((visual) => {
+            visual.classList.toggle('hidden-block', visual.dataset.engagementVisual !== mode);
+        });
 
         engagementTabs.forEach((tab) => {
             const isActive = tab.dataset.engagementTab === mode;
@@ -290,10 +357,12 @@
         tab.addEventListener('click', () => setEngagementMode(tab.dataset.engagementTab));
     });
     setEngagementMode('wheel');
-    engagementScopeToggle.addEventListener('click', () => {
-        engagementAllTimeMode = !engagementAllTimeMode;
-        updateEngagementValues();
-    });
+    if (engagementScopeToggle) {
+        engagementScopeToggle.addEventListener('click', () => {
+            engagementAllTimeMode = !engagementAllTimeMode;
+            updateEngagementValues();
+        });
+    }
     updateEngagementValues();
 
     const overlay = document.getElementById('feedbackModalOverlay');
