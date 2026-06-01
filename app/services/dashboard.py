@@ -494,8 +494,6 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
                 "previous_end": str(previous_end),
             },
         }
-
-        print("DASHBOARD RESULT:", result)
         return result
     finally:
         conn.close()
