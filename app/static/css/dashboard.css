@@ -1018,3 +1018,250 @@ body {
     border-color: rgba(165, 114, 255, 0.68);
     box-shadow: 0 10px 22px rgba(143, 91, 255, 0.22);
 }
+
+
+/* First visit survey insights */
+.survey-insights-block {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    min-height: 560px;
+    border: 1px solid #4b2f7e;
+    border-radius: 28px;
+    padding: 24px;
+    background: linear-gradient(180deg, rgba(43, 25, 80, 0.78), rgba(31, 18, 58, 0.9));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.survey-insights-top {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.survey-summary-card {
+    border: 1px solid #5a3a92;
+    border-radius: 24px;
+    min-height: 170px;
+    padding: 28px;
+    background: rgba(22, 12, 40, 0.82);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.survey-summary-value {
+    font-size: 78px;
+    line-height: 0.95;
+    font-weight: 700;
+    color: #f4ecff;
+}
+
+.survey-summary-label {
+    margin-top: 18px;
+    font-size: 22px;
+    color: #f4ecff;
+    text-align: right;
+}
+
+.survey-feedback-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    flex: 1;
+}
+
+.survey-feedback-card {
+    border: 1px solid #5a3a92;
+    border-radius: 24px;
+    padding: 24px;
+    background: rgba(22, 12, 40, 0.82);
+    cursor: pointer;
+    text-align: left;
+    color: #f4ecff;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.survey-feedback-card:hover {
+    transform: translateY(-2px);
+    border-color: #8f5bff;
+    box-shadow: 0 10px 24px rgba(8, 3, 18, 0.28);
+}
+
+.survey-feedback-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+}
+
+.survey-feedback-title {
+    font-size: 22px;
+    font-weight: 700;
+}
+.survey-feedback-title--positive { color: #63d67e; }
+.survey-feedback-title--negative { color: #ff6f61; }
+
+.survey-feedback-count {
+    min-width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: rgba(165, 114, 255, 0.18);
+    color: #f4ecff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.survey-feedback-preview-list {
+    display: grid;
+    gap: 12px;
+    align-content: start;
+}
+
+.survey-feedback-preview-item {
+    border: 1px solid rgba(165, 114, 255, 0.18);
+    border-radius: 16px;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.survey-feedback-preview-text {
+    font-size: 15px;
+    line-height: 1.45;
+    color: #f4ecff;
+    margin-bottom: 8px;
+}
+
+.survey-feedback-preview-date {
+    font-size: 13px;
+    color: #a48dcf;
+}
+
+.survey-feedback-empty {
+    border: 1px dashed rgba(165, 114, 255, 0.22);
+    border-radius: 16px;
+    padding: 18px;
+    color: #bcabd9;
+    font-size: 15px;
+}
+
+.feedback-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 4, 16, 0.72);
+    z-index: 90;
+}
+
+.feedback-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 91;
+}
+
+.feedback-modal__dialog {
+    width: min(880px, 100%);
+    max-height: min(80vh, 860px);
+    border-radius: 26px;
+    border: 1px solid #5a3a92;
+    background: linear-gradient(180deg, rgba(33, 19, 60, 0.98), rgba(22, 12, 40, 0.98));
+    box-shadow: 0 22px 46px rgba(0, 0, 0, 0.38);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.feedback-modal__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 24px 18px;
+    border-bottom: 1px solid rgba(165, 114, 255, 0.16);
+}
+
+.feedback-modal__title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #f4ecff;
+}
+
+.feedback-modal__subtitle {
+    margin-top: 6px;
+    font-size: 14px;
+    color: #bcabd9;
+}
+
+.feedback-modal__close {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    border: 1px solid rgba(165, 114, 255, 0.24);
+    background: rgba(255, 255, 255, 0.03);
+    color: #f4ecff;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.feedback-modal__body {
+    padding: 20px 24px 24px;
+    overflow: auto;
+    display: grid;
+    gap: 14px;
+}
+
+.feedback-modal__item {
+    border: 1px solid rgba(165, 114, 255, 0.16);
+    border-radius: 18px;
+    padding: 16px 18px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.feedback-modal__item-meta {
+    font-size: 13px;
+    color: #bcabd9;
+    margin-bottom: 8px;
+}
+
+.feedback-modal__item-text {
+    font-size: 15px;
+    line-height: 1.55;
+    color: #f4ecff;
+    white-space: pre-wrap;
+}
+
+.feedback-modal__empty {
+    color: #bcabd9;
+    font-size: 15px;
+    padding: 4px 2px 18px;
+}
+
+body.modal-open { overflow: hidden; }
+
+@media (max-width: 1200px) {
+    .survey-insights-block, .right-top-block, .left-placeholder-block {
+        grid-column: auto;
+        grid-row: auto;
+        min-height: 0;
+    }
+}
+
+@media (max-width: 860px) {
+    .survey-insights-top, .survey-feedback-grid, .right-top-block, .placeholder-columns {
+        grid-template-columns: 1fr;
+    }
+    .survey-summary-value { font-size: 56px; }
+    .survey-summary-label { text-align: left; }
+    .feedback-modal { padding: 12px; }
+    .feedback-modal__dialog { max-height: 90vh; }
+}

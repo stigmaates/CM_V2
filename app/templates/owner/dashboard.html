@@ -11,308 +11,278 @@
     <div class="dashboard-toolbar dashboard-toolbar--with-title">
         <h1 class="dashboard-club-title">{{ header_club_name or 'Клуб' }}</h1>
         <div class="period-switcher">
-            <a href="{{ url_for('owner.dashboard', period=7) }}"
-               class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-            <a href="{{ url_for('owner.dashboard', period=30) }}"
-               class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-            <a href="{{ url_for('owner.dashboard', period=90) }}"
-               class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
+            <a href="{{ url_for('owner.dashboard', period=7) }}" class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
+            <a href="{{ url_for('owner.dashboard', period=30) }}" class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
+            <a href="{{ url_for('owner.dashboard', period=90) }}" class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
         </div>
     </div>
-            <section class="cards">
-                <div class="card">
-                    <div class="card-title">Гостей за последние {{ stats.period_days }} дней</div>
-                    <div class="card-value">{{ stats.guests_current }}</div>
-                    <div class="card-sub">
-                        {% if stats.guests_diff > 0 %}
-                            <span class="positive">+{{ stats.guests_diff }}</span>
-                        {% elif stats.guests_diff < 0 %}
-                            <span class="negative">{{ stats.guests_diff }}</span>
+
+    <section class="cards">
+        <div class="card">
+            <div class="card-title">Гостей за последние {{ stats.period_days }} дней</div>
+            <div class="card-value">{{ stats.guests_current }}</div>
+            <div class="card-sub">
+                {% if stats.guests_diff > 0 %}<span class="positive">+{{ stats.guests_diff }}</span>{% elif stats.guests_diff < 0 %}<span class="negative">{{ stats.guests_diff }}</span>{% else %}<span>0</span>{% endif %}
+                к предыдущим {{ stats.period_days }} дням
+            </div>
+            <div class="card-meta" title="Процентное изменение количества гостей относительно предыдущих {{ stats.period_days }} дней.">
+                {% if stats.guests_diff_percent > 0 %}<span class="positive">+{{ stats.guests_diff_percent }}%</span>{% elif stats.guests_diff_percent < 0 %}<span class="negative">{{ stats.guests_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Возвращаемость за последние {{ stats.period_days }} дней</div>
+            <div class="card-value">{{ stats.retention_current }}%</div>
+            <div class="card-sub">
+                {% if stats.retention_diff > 0 %}<span class="positive">+{{ stats.retention_diff }}</span>{% elif stats.retention_diff < 0 %}<span class="negative">{{ stats.retention_diff }}</span>{% else %}<span>0</span>{% endif %}
+                п.п. к предыдущим {{ stats.period_days }} дням
+            </div>
+            <div class="card-meta card-meta-placeholder" title="Возвращаемость считается как доля гостей, у которых было 2 и более визита за выбранный период."></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Средний чек за последние {{ stats.period_days }} дней</div>
+            <div class="card-value">{{ stats.avg_check_current }}</div>
+            <div class="card-sub">
+                {% if stats.avg_check_diff > 0 %}<span class="positive">+{{ stats.avg_check_diff }}</span>{% elif stats.avg_check_diff < 0 %}<span class="negative">{{ stats.avg_check_diff }}</span>{% else %}<span>0</span>{% endif %}
+                к предыдущим {{ stats.period_days }} дням
+            </div>
+            <div class="card-meta" title="Процентное изменение среднего чека относительно предыдущих {{ stats.period_days }} дней.">
+                {% if stats.avg_check_diff_percent > 0 %}<span class="positive">+{{ stats.avg_check_diff_percent }}%</span>{% elif stats.avg_check_diff_percent < 0 %}<span class="negative">{{ stats.avg_check_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
+            </div>
+        </div>
+    </section>
+
+    {% set engagement_data = engagement|default({
+        "wheel": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
+        "missions": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0}
+    }) %}
+    {% set survey = first_visit_feedback|default({
+        "avg_rating_display": "0",
+        "total_responses": 0,
+        "positive_count": 0,
+        "negative_count": 0,
+        "positive_preview": [],
+        "negative_preview": [],
+        "positive_messages": [],
+        "negative_messages": [],
+        "period_days": selected_period
+    }) %}
+
+    <section class="dashboard-grid">
+        <div class="survey-insights-block">
+            <div class="survey-insights-top">
+                <div class="survey-summary-card">
+                    <div class="survey-summary-value">{{ survey.avg_rating_display }}</div>
+                    <div class="survey-summary-label">Средняя оценка</div>
+                </div>
+                <div class="survey-summary-card">
+                    <div class="survey-summary-value">{{ survey.total_responses }}</div>
+                    <div class="survey-summary-label">Гостей оценили</div>
+                </div>
+            </div>
+            <div class="survey-feedback-grid">
+                <button type="button" class="survey-feedback-card survey-feedback-card--positive" data-feedback-modal="positive">
+                    <div class="survey-feedback-card__head">
+                        <div class="survey-feedback-title survey-feedback-title--positive">Что добавить</div>
+                        <div class="survey-feedback-count">{{ survey.positive_count }}</div>
+                    </div>
+                    <div class="survey-feedback-preview-list">
+                        {% if survey.positive_preview %}
+                            {% for item in survey.positive_preview %}
+                            <div class="survey-feedback-preview-item">
+                                <div class="survey-feedback-preview-text">{{ item.short_text }}</div>
+                                <div class="survey-feedback-preview-date">{{ item.date }}</div>
+                            </div>
+                            {% endfor %}
                         {% else %}
-                            <span>0</span>
+                            <div class="survey-feedback-empty">Пока нет ответов за выбранный период.</div>
                         {% endif %}
-                        к предыдущим {{ stats.period_days }} дням
                     </div>
-                    <div class="card-meta" title="Процентное изменение количества гостей относительно предыдущих {{ stats.period_days }} дней.">
-                        {% if stats.guests_diff_percent > 0 %}
-                            <span class="positive">+{{ stats.guests_diff_percent }}%</span>
-                        {% elif stats.guests_diff_percent < 0 %}
-                            <span class="negative">{{ stats.guests_diff_percent }}%</span>
+                </button>
+
+                <button type="button" class="survey-feedback-card survey-feedback-card--negative" data-feedback-modal="negative">
+                    <div class="survey-feedback-card__head">
+                        <div class="survey-feedback-title survey-feedback-title--negative">Что не нравится</div>
+                        <div class="survey-feedback-count">{{ survey.negative_count }}</div>
+                    </div>
+                    <div class="survey-feedback-preview-list">
+                        {% if survey.negative_preview %}
+                            {% for item in survey.negative_preview %}
+                            <div class="survey-feedback-preview-item">
+                                <div class="survey-feedback-preview-text">{{ item.short_text }}</div>
+                                <div class="survey-feedback-preview-date">{{ item.date }}</div>
+                            </div>
+                            {% endfor %}
                         {% else %}
-                            <span class="neutral">0%</span>
+                            <div class="survey-feedback-empty">Пока нет ответов за выбранный период.</div>
                         {% endif %}
                     </div>
+                </button>
+            </div>
+        </div>
+
+        <div class="right-top-block">
+            <div class="small-card">
+                <div class="small-card-title">CSI</div>
+                <div class="small-card-value">{{ stats.csi_percent }}%</div>
+                <div class="small-card-sub">{{ stats.csi_linked_guests }} / {{ stats.csi_total_guests }} гостей</div>
+            </div>
+
+            <div class="small-card">
+                <div class="small-card-title">Людей в рассылке</div>
+                <div class="small-card-value">{{ stats.mailing_count }}</div>
+                <div class="small-card-sub">с привязанным Telegram</div>
+            </div>
+        </div>
+
+        <div class="left-placeholder-block">
+            <div class="engagement-header">
+                <div class="engagement-tabs" role="tablist" aria-label="Метрики вовлечения">
+                    <button type="button" class="engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
+                    <button type="button" class="engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
+                </div>
+            </div>
+
+            <div id="wheelMetrics" class="placeholder-columns">
+                <div class="placeholder-card stats-card">
+                    <div class="stats-title">Колесо фортуны</div>
+                    <div class="stats-line">Всего гостей: <b>{{ engagement_data.wheel.total_guests }}</b></div>
+                    <div class="stats-line">Прокрутило хотя бы 1 раз: <b>{{ engagement_data.wheel.involved_guests }}</b></div>
+                    <div class="stats-line">Вовлеченность: <b>{{ engagement_data.wheel.engagement_percent }}%</b></div>
                 </div>
 
-                <div class="card">
-                    <div class="card-title">Возвращаемость за последние {{ stats.period_days }} дней</div>
-                    <div class="card-value">{{ stats.retention_current }}%</div>
-                    <div class="card-sub">
-                        {% if stats.retention_diff > 0 %}
-                            <span class="positive">+{{ stats.retention_diff }}</span>
-                        {% elif stats.retention_diff < 0 %}
-                            <span class="negative">{{ stats.retention_diff }}</span>
-                        {% else %}
-                            <span>0</span>
-                        {% endif %}
-                        п.п. к предыдущим {{ stats.period_days }} дням
-                    </div>
-                    <div class="card-meta card-meta-placeholder" title="Возвращаемость считается как доля гостей, у которых было 2 и более визита за выбранный период."></div>
+                <div class="placeholder-card stats-card">
+                    <div class="stats-title">Возврат после прокрута</div>
+                    <div class="stats-line">Вернулось в клуб после 1-го прокрута:</div>
+                    <div class="stats-big">{{ engagement_data.wheel.returned_guests }}</div>
+                </div>
+            </div>
+
+            <div id="missionMetrics" class="placeholder-columns hidden-block">
+                <div class="placeholder-card stats-card">
+                    <div class="stats-title">Задания</div>
+                    <div class="stats-line">Всего гостей: <b>{{ engagement_data.missions.total_guests }}</b></div>
+                    <div class="stats-line">Выполнило хотя бы 1 задание: <b>{{ engagement_data.missions.involved_guests }}</b></div>
+                    <div class="stats-line">Вовлеченность: <b>{{ engagement_data.missions.engagement_percent }}%</b></div>
                 </div>
 
-                <div class="card">
-                    <div class="card-title">Средний чек за последние {{ stats.period_days }} дней</div>
-                    <div class="card-value">{{ stats.avg_check_current }}</div>
-                    <div class="card-sub">
-                        {% if stats.avg_check_diff > 0 %}
-                            <span class="positive">+{{ stats.avg_check_diff }}</span>
-                        {% elif stats.avg_check_diff < 0 %}
-                            <span class="negative">{{ stats.avg_check_diff }}</span>
-                        {% else %}
-                            <span>0</span>
-                        {% endif %}
-                        к предыдущим {{ stats.period_days }} дням
-                    </div>
-                    <div class="card-meta" title="Процентное изменение среднего чека относительно предыдущих {{ stats.period_days }} дней.">
-                        {% if stats.avg_check_diff_percent > 0 %}
-                            <span class="positive">+{{ stats.avg_check_diff_percent }}%</span>
-                        {% elif stats.avg_check_diff_percent < 0 %}
-                            <span class="negative">{{ stats.avg_check_diff_percent }}%</span>
-                        {% else %}
-                            <span class="neutral">0%</span>
-                        {% endif %}
-                    </div>
+                <div class="placeholder-card stats-card">
+                    <div class="stats-title">Возврат после выполнения</div>
+                    <div class="stats-line">Вернулось в клуб после 1-го выполненного задания:</div>
+                    <div class="stats-big">{{ engagement_data.missions.returned_guests }}</div>
                 </div>
-            </section>
+            </div>
+        </div>
+    </section>
+</main>
 
-            {% set engagement_data = engagement|default({
-                "wheel": {
-                    "total_guests": 0,
-                    "involved_guests": 0,
-                    "engagement_percent": 0,
-                    "returned_guests": 0
-                },
-                "missions": {
-                    "total_guests": 0,
-                    "involved_guests": 0,
-                    "engagement_percent": 0,
-                    "returned_guests": 0
-                }
-            }) %}
-
-
-
-            <section class="dashboard-grid">
-                <div class="chart-block chart-block-main">
-                    <div class="chart-title">{{ stats.chart["title"] }}</div>
-                    <canvas id="guestsChart" height="160"></canvas>
+<div class="feedback-modal-overlay" id="feedbackModalOverlay" hidden></div>
+<div class="feedback-modal" id="positiveFeedbackModal" hidden>
+    <div class="feedback-modal__dialog">
+        <div class="feedback-modal__header">
+            <div>
+                <div class="feedback-modal__title">Что добавить</div>
+                <div class="feedback-modal__subtitle">Все ответы за последние {{ survey.period_days }} дней</div>
+            </div>
+            <button type="button" class="feedback-modal__close" data-feedback-close>&times;</button>
+        </div>
+        <div class="feedback-modal__body">
+            {% if survey.positive_messages %}
+                {% for item in survey.positive_messages %}
+                <div class="feedback-modal__item">
+                    <div class="feedback-modal__item-meta">Оценка {{ item.rating }} · {{ item.date }}</div>
+                    <div class="feedback-modal__item-text">{{ item.text }}</div>
                 </div>
+                {% endfor %}
+            {% else %}
+                <div class="feedback-modal__empty">Пока нет сообщений за выбранный период.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
 
-                <div class="right-top-block">
-                    <div class="small-card">
-                        <div class="small-card-title">CSI</div>
-                        <div class="small-card-value">{{ stats.csi_percent }}%</div>
-                        <div class="small-card-sub">
-                            {{ stats.csi_linked_guests }} / {{ stats.csi_total_guests }} гостей
-                        </div>
-                    </div>
-
-                    <div class="small-card">
-                        <div class="small-card-title">Людей в рассылке</div>
-                        <div class="small-card-value">{{ stats.mailing_count }}</div>
-                        <div class="small-card-sub">
-                            с привязанным Telegram
-                        </div>
-                    </div>
+<div class="feedback-modal" id="negativeFeedbackModal" hidden>
+    <div class="feedback-modal__dialog">
+        <div class="feedback-modal__header">
+            <div>
+                <div class="feedback-modal__title">Что не нравится</div>
+                <div class="feedback-modal__subtitle">Все ответы за последние {{ survey.period_days }} дней</div>
+            </div>
+            <button type="button" class="feedback-modal__close" data-feedback-close>&times;</button>
+        </div>
+        <div class="feedback-modal__body">
+            {% if survey.negative_messages %}
+                {% for item in survey.negative_messages %}
+                <div class="feedback-modal__item">
+                    <div class="feedback-modal__item-meta">Оценка {{ item.rating }} · {{ item.date }}</div>
+                    <div class="feedback-modal__item-text">{{ item.text }}</div>
                 </div>
-
-                <div class="left-placeholder-block">
-                    <div class="engagement-header">
-                        <div class="engagement-tabs" role="tablist" aria-label="Метрики вовлечения">
-                            <button type="button" class="engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
-                            <button type="button" class="engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
-                        </div>
-                    </div>
-
-                    <div id="wheelMetrics" class="placeholder-columns">
-                        <div class="placeholder-card stats-card">
-                            <div class="stats-title">Колесо фортуны</div>
-                            <div class="stats-line">Всего гостей: <b>{{ engagement_data.wheel.total_guests }}</b></div>
-                            <div class="stats-line">Прокрутило хотя бы 1 раз: <b>{{ engagement_data.wheel.involved_guests }}</b></div>
-                            <div class="stats-line">Вовлеченность: <b>{{ engagement_data.wheel.engagement_percent }}%</b></div>
-                        </div>
-
-                        <div class="placeholder-card stats-card">
-                            <div class="stats-title">Возврат после прокрута</div>
-                            <div class="stats-line">Вернулось в клуб после 1-го прокрута:</div>
-                            <div class="stats-big">{{ engagement_data.wheel.returned_guests }}</div>
-                        </div>
-                    </div>
-
-                    <div id="missionMetrics" class="placeholder-columns hidden-block">
-                        <div class="placeholder-card stats-card">
-                            <div class="stats-title">Задания</div>
-                            <div class="stats-line">Всего гостей: <b>{{ engagement_data.missions.total_guests }}</b></div>
-                            <div class="stats-line">Выполнило хотя бы 1 задание: <b>{{ engagement_data.missions.involved_guests }}</b></div>
-                            <div class="stats-line">Вовлеченность: <b>{{ engagement_data.missions.engagement_percent }}%</b></div>
-                        </div>
-
-                        <div class="placeholder-card stats-card">
-                            <div class="stats-title">Возврат после выполнения</div>
-                            <div class="stats-line">Вернулось в клуб после 1-го выполненного задания:</div>
-                            <div class="stats-big">{{ engagement_data.missions.returned_guests }}</div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-        </main>
+                {% endfor %}
+            {% else %}
+                <div class="feedback-modal__empty">Пока нет сообщений за выбранный период.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-        const chartLabels = {{ stats.chart["labels"] | tojson | safe }};
-        const chartValues = {{ stats.chart["values"] | tojson | safe }};
-    
-        const canvas = document.getElementById('guestsChart');
-        const ctx = canvas.getContext('2d');
-    
-        function drawChart(progress = 1) {
-            const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-    
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    
-            const width = rect.width;
-            const height = rect.height;
-    
-            ctx.clearRect(0, 0, width, height);
-    
-            const padding = { top: 20, right: 20, bottom: 40, left: 40 };
-            const chartWidth = width - padding.left - padding.right;
-            const chartHeight = height - padding.top - padding.bottom;
-    
-            const animatedValues = chartValues.map((value) => value * progress);
-            const maxValue = Math.max(...chartValues, 1);
-            const stepX = chartLabels.length > 1 ? chartWidth / (chartLabels.length - 1) : chartWidth;
-    
-            ctx.strokeStyle = '#5a3a92';
-            ctx.lineWidth = 1;
-    
-            ctx.beginPath();
-            ctx.moveTo(padding.left, padding.top);
-            ctx.lineTo(padding.left, padding.top + chartHeight);
-            ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
-            ctx.stroke();
-    
-            const gridCount = 4;
-            ctx.fillStyle = '#bcabd9';
-            ctx.font = '12px Manrope, Segoe UI, Arial';
-    
-            for (let i = 0; i <= gridCount; i++) {
-                const y = padding.top + (chartHeight / gridCount) * i;
-                const value = Math.round(maxValue - (maxValue / gridCount) * i);
-    
-                ctx.strokeStyle = 'rgba(188, 171, 217, 0.22)';
-                ctx.beginPath();
-                ctx.moveTo(padding.left, y);
-                ctx.lineTo(padding.left + chartWidth, y);
-                ctx.stroke();
-    
-                ctx.fillStyle = '#bcabd9';
-                ctx.fillText(value, 8, y + 4);
-            }
-    
-            ctx.strokeStyle = '#a572ff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-    
-            animatedValues.forEach((value, index) => {
-                const x = padding.left + stepX * index;
-                const y = padding.top + chartHeight - (value / maxValue) * chartHeight;
-    
-                if (index === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            });
-    
-            ctx.stroke();
-    
-            ctx.fillStyle = '#a572ff';
-            animatedValues.forEach((value, index) => {
-                const x = padding.left + stepX * index;
-                const y = padding.top + chartHeight - (value / maxValue) * chartHeight;
-    
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fill();
-            });
-    
-            ctx.fillStyle = '#bcabd9';
-            ctx.font = '12px Manrope, Segoe UI, Arial';
-            ctx.textAlign = 'center';
-    
-            chartLabels.forEach((label, index) => {
-                const x = padding.left + stepX * index;
-                const y = padding.top + chartHeight + 20;
-                ctx.fillText(label, x, y);
-            });
-    
-            ctx.textAlign = 'start';
-        }
-    
-        function animateChart() {
-            const duration = 460;
-            const start = performance.now();
+    const wheelMetrics = document.getElementById('wheelMetrics');
+    const missionMetrics = document.getElementById('missionMetrics');
+    const engagementTabs = document.querySelectorAll('[data-engagement-tab]');
 
-            function frame(now) {
-                const elapsed = now - start;
-                const t = Math.min(elapsed / duration, 1);
-                const eased = 1 - Math.pow(1 - t, 3);
-                drawChart(eased);
-
-                if (t < 1) {
-                    requestAnimationFrame(frame);
-                }
-            }
-
-            requestAnimationFrame(frame);
-        }
-
-        window.addEventListener('load', animateChart);
-        window.addEventListener('resize', () => drawChart(1));
-    </script>
-<script>
-        const wheelMetrics = document.getElementById('wheelMetrics');
-        const missionMetrics = document.getElementById('missionMetrics');
-        const engagementTabs = document.querySelectorAll('[data-engagement-tab]');
-
-        function setEngagementMode(mode) {
-            const missionsMode = mode === 'missions';
-
-            if (missionsMode) {
-                wheelMetrics.classList.add('hidden-block');
-                missionMetrics.classList.remove('hidden-block');
-            } else {
-                missionMetrics.classList.add('hidden-block');
-                wheelMetrics.classList.remove('hidden-block');
-            }
-
-            engagementTabs.forEach((tab) => {
-                const isActive = tab.dataset.engagementTab === mode;
-                tab.classList.toggle('is-active', isActive);
-                tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-            });
+    function setEngagementMode(mode) {
+        const missionsMode = mode === 'missions';
+        if (missionsMode) {
+            wheelMetrics.classList.add('hidden-block');
+            missionMetrics.classList.remove('hidden-block');
+        } else {
+            missionMetrics.classList.add('hidden-block');
+            wheelMetrics.classList.remove('hidden-block');
         }
 
         engagementTabs.forEach((tab) => {
-            tab.addEventListener('click', () => setEngagementMode(tab.dataset.engagementTab));
+            const isActive = tab.dataset.engagementTab === mode;
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
         });
+    }
 
-        setEngagementMode('wheel');
-    </script>
+    engagementTabs.forEach((tab) => {
+        tab.addEventListener('click', () => setEngagementMode(tab.dataset.engagementTab));
+    });
+    setEngagementMode('wheel');
+
+    const overlay = document.getElementById('feedbackModalOverlay');
+    const modals = {
+        positive: document.getElementById('positiveFeedbackModal'),
+        negative: document.getElementById('negativeFeedbackModal')
+    };
+
+    function openFeedbackModal(type) {
+        if (!modals[type]) return;
+        overlay.hidden = false;
+        modals[type].hidden = false;
+        document.body.classList.add('modal-open');
+    }
+
+    function closeFeedbackModal() {
+        overlay.hidden = true;
+        Object.values(modals).forEach((modal) => { modal.hidden = true; });
+        document.body.classList.remove('modal-open');
+    }
+
+    document.querySelectorAll('[data-feedback-modal]').forEach((button) => {
+        button.addEventListener('click', () => openFeedbackModal(button.dataset.feedbackModal));
+    });
+    document.querySelectorAll('[data-feedback-close]').forEach((button) => {
+        button.addEventListener('click', closeFeedbackModal);
+    });
+    overlay.addEventListener('click', closeFeedbackModal);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeFeedbackModal();
+    });
+</script>
 {% endblock %}

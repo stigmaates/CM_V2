@@ -309,6 +309,78 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
         conn.close()
 
 
+
+def get_first_visit_feedback_stats(club_id: int, period_days: int = 30) -> dict:
+    """Analytics for first-visit survey responses within selected period."""
+    now = datetime.now()
+    current_end = now
+    current_start = now - timedelta(days=period_days)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            from app.services.first_visit_survey import ensure_first_visit_survey_tables
+            ensure_first_visit_survey_tables(cursor)
+            cursor.execute(
+                """
+                SELECT
+                    guest_id,
+                    rating,
+                    feedback_text,
+                    COALESCE(completed_at, updated_at, created_at) AS feedback_at
+                FROM first_visit_surveys
+                WHERE club_id = %s
+                  AND status = 'completed'
+                  AND rating IS NOT NULL
+                  AND COALESCE(completed_at, updated_at, created_at) >= %s
+                  AND COALESCE(completed_at, updated_at, created_at) < %s
+                ORDER BY feedback_at DESC, id DESC
+                """,
+                (club_id, current_start, current_end),
+            )
+            rows = cursor.fetchall() or []
+
+        def normalize_text(value):
+            return ' '.join(str(value or '').split())
+
+        total_responses = len(rows)
+        avg_rating = 0.0
+        if total_responses:
+            avg_rating = round(sum(float(row.get('rating') or 0) for row in rows) / total_responses, 1)
+
+        positive_messages = []
+        negative_messages = []
+        for row in rows:
+            feedback_text = normalize_text(row.get('feedback_text'))
+            if not feedback_text:
+                continue
+            item = {
+                'guest_id': row.get('guest_id'),
+                'rating': int(row.get('rating') or 0),
+                'text': feedback_text,
+                'short_text': feedback_text[:140] + ('…' if len(feedback_text) > 140 else ''),
+                'date': row.get('feedback_at').strftime('%d.%m.%Y %H:%M') if row.get('feedback_at') else '',
+            }
+            if item['rating'] >= 4:
+                positive_messages.append(item)
+            else:
+                negative_messages.append(item)
+
+        return {
+            'avg_rating': avg_rating,
+            'avg_rating_display': str(avg_rating).replace('.', ','),
+            'total_responses': total_responses,
+            'positive_count': len(positive_messages),
+            'negative_count': len(negative_messages),
+            'positive_preview': positive_messages[:3],
+            'negative_preview': negative_messages[:3],
+            'positive_messages': positive_messages,
+            'negative_messages': negative_messages,
+            'period_days': period_days,
+        }
+    finally:
+        conn.close()
+
 def _get_total_club_guests(club_id: int):
     conn = get_db_connection()
     try:

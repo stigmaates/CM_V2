@@ -5,6 +5,7 @@ from app.services.clubs import get_club_info
 from app.services.dashboard import (
     get_dashboard_engagement_stats,
     get_dashboard_stats,
+    get_first_visit_feedback_stats,
 )
 
 from . import owner_bp
@@ -29,11 +30,13 @@ def dashboard():
     club = get_club_info(club_id)
     stats = get_dashboard_stats(int(club_id), period)
     engagement = get_dashboard_engagement_stats(int(club_id), period)
+    first_visit_feedback = get_first_visit_feedback_stats(int(club_id), period)
 
     return render_template(
         "owner/dashboard.html",
         club=club,
         stats=stats,
         engagement=engagement,
+        first_visit_feedback=first_visit_feedback,
         selected_period=period,
     )
