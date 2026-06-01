@@ -96,7 +96,7 @@
                     <h2>Оценка первого посещения</h2>
                     <p>По ответам гостей после первого визита за последние {{ survey.period_days }} дней</p>
                 </div>
-                <span class="cb-info" title="Берутся завершённые ответы из формы после первого визита за выбранный период.">i</span>
+                <span class="cb-info-tooltip"><span class="cb-info" tabindex="0" role="button" aria-label="Подсказка">i</span><span class="cb-tooltip-content" role="tooltip">Берутся завершённые ответы из формы после первого визита за выбранный период.</span></span>
             </div>
 
             <div class="cb-survey-summary">
@@ -156,7 +156,7 @@
         </article>
 
         <article class="cb-panel cb-side-card cb-csi-card">
-            <div class="cb-side-title">ER <span class="cb-info" title="Engagement Rate: доля новых гостей за период, у которых привязан Telegram.">i</span></div>
+            <div class="cb-side-title">ER <span class="cb-info-tooltip"><span class="cb-info" tabindex="0" role="button" aria-label="Подсказка">i</span><span class="cb-tooltip-content" role="tooltip">Engagement Rate: доля новых гостей за период, у которых привязан Telegram.</span></span></div>
             <div class="cb-side-body">
                 <div class="cb-side-icon">♡</div>
                 <div>
@@ -167,7 +167,7 @@
         </article>
 
         <article class="cb-panel cb-side-card cb-mailing-card">
-            <div class="cb-side-title">Людей в рассылке <span class="cb-info" title="Новые гости за период с привязанным Telegram.">i</span></div>
+            <div class="cb-side-title">Людей в рассылке <span class="cb-info-tooltip"><span class="cb-info" tabindex="0" role="button" aria-label="Подсказка">i</span><span class="cb-tooltip-content" role="tooltip">Новые гости за период с привязанным Telegram.</span></span></div>
             <div class="cb-side-body">
                 <div class="cb-side-icon">✉</div>
                 <div>
@@ -178,7 +178,7 @@
         </article>
 
         <article class="cb-panel cb-streak-funnel-card">
-            <div class="cb-side-title">Воронка посещений <span class="cb-info" title="Накопительная воронка: сколько гостей были минимум 1 день, 2+ дней, 3+ дней и так далее за выбранный период.">i</span></div>
+            <div class="cb-side-title">Воронка посещений <span class="cb-info-tooltip"><span class="cb-info" tabindex="0" role="button" aria-label="Подсказка">i</span><span class="cb-tooltip-content" role="tooltip">Накопительная воронка: сколько гостей были минимум 1 день, 2+ дней, 3+ дней и так далее за выбранный период.</span></span></div>
             <div class="cb-funnel-chart" aria-label="Воронка гостей по дням посещения">
                 {% if streak_funnel %}
                     {% for item in streak_funnel %}
@@ -392,7 +392,26 @@
     });
     overlay.addEventListener('click', closeFeedbackModal);
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeFeedbackModal();
+        if (event.key === 'Escape') {
+            closeFeedbackModal();
+            document.querySelectorAll('.cb-info-tooltip.is-open').forEach((item) => item.classList.remove('is-open'));
+        }
     });
+
+    document.querySelectorAll('.cb-info-tooltip .cb-info').forEach((trigger) => {
+        trigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const tooltip = trigger.closest('.cb-info-tooltip');
+            const isOpen = tooltip.classList.contains('is-open');
+            document.querySelectorAll('.cb-info-tooltip.is-open').forEach((item) => item.classList.remove('is-open'));
+            if (!isOpen) tooltip.classList.add('is-open');
+        });
+    });
+
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.cb-info-tooltip.is-open').forEach((item) => item.classList.remove('is-open'));
+    });
+
 </script>
 {% endblock %}

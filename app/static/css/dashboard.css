@@ -2461,3 +2461,80 @@ body.modal-open { overflow: hidden; }
         gap: 8px;
     }
 }
+
+
+/* Custom dashboard info tooltips */
+.cb-info-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    z-index: 5;
+}
+
+.cb-info-tooltip .cb-info {
+    user-select: none;
+}
+
+.cb-tooltip-content {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 12px);
+    width: min(280px, calc(100vw - 48px));
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(165, 114, 255, 0.42);
+    background: rgba(24, 13, 44, 0.98);
+    color: #f4ecff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: left;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    z-index: 80;
+}
+
+.cb-tooltip-content::after {
+    content: "";
+    position: absolute;
+    right: 8px;
+    bottom: -6px;
+    width: 10px;
+    height: 10px;
+    transform: rotate(45deg);
+    border-right: 1px solid rgba(165, 114, 255, 0.42);
+    border-bottom: 1px solid rgba(165, 114, 255, 0.42);
+    background: rgba(24, 13, 44, 0.98);
+}
+
+.cb-info-tooltip:hover .cb-tooltip-content,
+.cb-info-tooltip:focus-within .cb-tooltip-content,
+.cb-info-tooltip.is-open .cb-tooltip-content {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+@media (max-width: 760px) {
+    .cb-tooltip-content {
+        right: auto;
+        left: 50%;
+        transform: translate(-50%, 6px);
+    }
+
+    .cb-info-tooltip:hover .cb-tooltip-content,
+    .cb-info-tooltip:focus-within .cb-tooltip-content,
+    .cb-info-tooltip.is-open .cb-tooltip-content {
+        transform: translate(-50%, 0);
+    }
+
+    .cb-tooltip-content::after {
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%) rotate(45deg);
+    }
+}
