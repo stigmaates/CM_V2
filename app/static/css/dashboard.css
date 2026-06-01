@@ -1034,6 +1034,29 @@ body {
     gap: 24px;
 }
 
+
+.survey-insights-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.survey-insights-title {
+    color: #f4ecff;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.survey-insights-subtitle {
+    max-width: 360px;
+    color: #bcabd9;
+    font-size: 14px;
+    line-height: 1.45;
+    text-align: right;
+}
+
 .survey-insights-top {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
