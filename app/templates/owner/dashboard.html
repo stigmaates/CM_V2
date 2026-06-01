@@ -130,13 +130,13 @@
             <div class="small-card">
                 <div class="small-card-title">CSI</div>
                 <div class="small-card-value">{{ stats.csi_percent }}%</div>
-                <div class="small-card-sub">{{ stats.csi_linked_guests }} / {{ stats.csi_total_guests }} гостей</div>
+                <div class="small-card-sub">{{ stats.csi_linked_guests }} / {{ stats.csi_total_guests }} новых гостей за период</div>
             </div>
 
             <div class="small-card">
                 <div class="small-card-title">Людей в рассылке</div>
                 <div class="small-card-value">{{ stats.mailing_count }}</div>
-                <div class="small-card-sub">с привязанным Telegram</div>
+                <div class="small-card-sub">новых гостей с привязанным Telegram</div>
             </div>
         </div>
 
@@ -146,12 +146,25 @@
                     <button type="button" class="engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
                     <button type="button" class="engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
                 </div>
+                <a class="engagement-scope-toggle {% if engagement_all_time %}is-active{% endif %}"
+                   href="{{ url_for('owner.dashboard', period=selected_period, engagement_scope='period' if engagement_all_time else 'all_time') }}"
+                   title="По умолчанию блок считает только гостей, зарегистрированных за выбранный период. Включи, чтобы показать всех гостей за всё время.">
+                    <span class="engagement-scope-toggle__knob"></span>
+                    <span>За все время</span>
+                </a>
+            </div>
+            <div class="engagement-scope-hint">
+                {% if engagement_all_time %}
+                    Показаны все гости клуба за всё время.
+                {% else %}
+                    Показаны гости, зарегистрированные за последние {{ stats.period_days }} дней.
+                {% endif %}
             </div>
 
             <div id="wheelMetrics" class="placeholder-columns">
                 <div class="placeholder-card stats-card">
                     <div class="stats-title">Колесо фортуны</div>
-                    <div class="stats-line">Всего гостей: <b>{{ engagement_data.wheel.total_guests }}</b></div>
+                    <div class="stats-line">Гостей в выборке: <b>{{ engagement_data.wheel.total_guests }}</b></div>
                     <div class="stats-line">Прокрутило хотя бы 1 раз: <b>{{ engagement_data.wheel.involved_guests }}</b></div>
                     <div class="stats-line">Вовлеченность: <b>{{ engagement_data.wheel.engagement_percent }}%</b></div>
                 </div>
@@ -166,7 +179,7 @@
             <div id="missionMetrics" class="placeholder-columns hidden-block">
                 <div class="placeholder-card stats-card">
                     <div class="stats-title">Задания</div>
-                    <div class="stats-line">Всего гостей: <b>{{ engagement_data.missions.total_guests }}</b></div>
+                    <div class="stats-line">Гостей в выборке: <b>{{ engagement_data.missions.total_guests }}</b></div>
                     <div class="stats-line">Выполнило хотя бы 1 задание: <b>{{ engagement_data.missions.involved_guests }}</b></div>
                     <div class="stats-line">Вовлеченность: <b>{{ engagement_data.missions.engagement_percent }}%</b></div>
                 </div>

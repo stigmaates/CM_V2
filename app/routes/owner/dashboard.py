@@ -27,9 +27,12 @@ def dashboard():
     if period not in (7, 30, 90):
         period = 30
 
+    engagement_scope = request.args.get("engagement_scope", "period").strip()
+    engagement_all_time = engagement_scope == "all_time"
+
     club = get_club_info(club_id)
     stats = get_dashboard_stats(int(club_id), period)
-    engagement = get_dashboard_engagement_stats(int(club_id), period)
+    engagement = get_dashboard_engagement_stats(int(club_id), period, all_time=engagement_all_time)
     first_visit_feedback = get_first_visit_feedback_stats(int(club_id), period)
 
     return render_template(
@@ -39,4 +42,5 @@ def dashboard():
         engagement=engagement,
         first_visit_feedback=first_visit_feedback,
         selected_period=period,
+        engagement_all_time=engagement_all_time,
     )

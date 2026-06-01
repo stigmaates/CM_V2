@@ -240,7 +240,16 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             total_sum_previous = float(avg_check_previous_row["total_sum"] or 0)
             avg_check_previous = float(avg_check_previous_row["avg_check"] or 0)
 
-            cursor.execute("SELECT COUNT(*) AS cnt FROM guests WHERE club_id = %s", (club_id,))
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM guests
+                WHERE club_id = %s
+                  AND COALESCE(date_insert, created_at) >= %s
+                  AND COALESCE(date_insert, created_at) < %s
+                """,
+                (club_id, current_start, current_end),
+            )
             total_guests = cursor.fetchone()["cnt"] or 0
 
             cursor.execute(
@@ -248,10 +257,12 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
                 SELECT COUNT(*) AS cnt
                 FROM guests
                 WHERE club_id = %s
+                  AND COALESCE(date_insert, created_at) >= %s
+                  AND COALESCE(date_insert, created_at) < %s
                   AND telegram_id IS NOT NULL
                   AND TRIM(CAST(telegram_id AS CHAR)) <> ''
                 """,
-                (club_id,),
+                (club_id, current_start, current_end),
             )
             guests_with_telegram = cursor.fetchone()["cnt"] or 0
 
@@ -381,6 +392,7 @@ def get_first_visit_feedback_stats(club_id: int, period_days: int = 30) -> dict:
     finally:
         conn.close()
 
+
 def _get_total_club_guests(club_id: int):
     conn = get_db_connection()
     try:
@@ -398,6 +410,97 @@ def _get_total_club_guests(club_id: int):
         conn.close()
 
 
+def _get_guest_ids_for_engagement_scope(club_id: int, current_start=None, current_end=None, all_time: bool = False):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if all_time:
+                cursor.execute(
+                    """
+                    SELECT guest_id
+                    FROM guests
+                    WHERE club_id = %s
+                    """,
+                    (club_id,),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT guest_id
+                    FROM guests
+                    WHERE club_id = %s
+                      AND COALESCE(date_insert, created_at) >= %s
+                      AND COALESCE(date_insert, created_at) < %s
+                    """,
+                    (club_id, current_start, current_end),
+                )
+            rows = cursor.fetchall() or []
+            return [row["guest_id"] for row in rows]
+    finally:
+        conn.close()
+
+
+def _build_guest_filter_sql(guest_ids):
+    if not guest_ids:
+        return " AND 1 = 0", []
+    placeholders = ",".join(["%s"] * len(guest_ids))
+    return f" AND guest_id IN ({placeholders})", list(guest_ids)
+
+
+def _get_sessions_by_guest(club_id: int, guest_ids=None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            guest_filter_sql, guest_filter_params = _build_guest_filter_sql(guest_ids)
+            cursor.execute(
+                f"""
+                SELECT guest_id, date_start, date_stop
+                FROM guest_sessions
+                WHERE club_id = %s
+                  AND date_start IS NOT NULL
+                  {guest_filter_sql}
+                ORDER BY guest_id, date_start
+                """,
+                [club_id] + guest_filter_params,
+            )
+            rows = cursor.fetchall()
+
+        sessions_by_guest = defaultdict(list)
+        for row in rows:
+            sessions_by_guest[row["guest_id"]].append(row)
+
+        return sessions_by_guest
+    finally:
+        conn.close()
+
+
+def _get_first_spin_by_guest(club_id: int, guest_ids=None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            guest_filter_sql, guest_filter_params = _build_guest_filter_sql(guest_ids)
+            cursor.execute(
+                f"""
+                SELECT guest_id, MIN(created_at) AS first_spin_at
+                FROM guest_wheel_spins
+                WHERE club_id = %s
+                  {guest_filter_sql}
+                GROUP BY guest_id
+                """,
+                [club_id] + guest_filter_params,
+            )
+            rows = cursor.fetchall()
+
+        return {
+            row["guest_id"]: row["first_spin_at"]
+            for row in rows
+            if row["first_spin_at"] is not None
+        }
+    finally:
+        conn.close()
+
+
+# Backward-compatible wrappers used by older code paths.
 def _get_sessions_by_guest_for_period(club_id: int, current_start, current_end):
     conn = get_db_connection()
     try:
@@ -509,18 +612,24 @@ def _get_mission_completion_at_from_sessions(guest_sessions, mission):
     return None
 
 
-def get_dashboard_engagement_stats(club_id: int, period_days: int = 30):
+def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time: bool = False):
     ranges = get_period_range(period_days)
     current_start = ranges["current_start"]
     current_end = ranges["current_end"]
 
-    total_guests = _get_total_club_guests(club_id)
-    sessions_by_guest = _get_sessions_by_guest_for_period(club_id, current_start, current_end)
+    guest_ids = _get_guest_ids_for_engagement_scope(
+        club_id,
+        current_start=current_start,
+        current_end=current_end,
+        all_time=all_time,
+    )
+    total_guests = len(guest_ids)
+    sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
 
     # -------------------------
     # WHEEL
     # -------------------------
-    first_spin_by_guest = _get_first_spin_by_guest_for_period(club_id, current_start, current_end)
+    first_spin_by_guest = _get_first_spin_by_guest(club_id, guest_ids)
 
     wheel_spun_guests = len(first_spin_by_guest)
     wheel_returned_guests = 0
@@ -566,6 +675,8 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30):
     mission_engagement_percent = _round_display((mission_completed_guests / total_guests) * 100) if total_guests > 0 else 0
 
     return {
+        "scope": "all_time" if all_time else "period",
+        "period_days": period_days,
         "wheel": {
             "total_guests": total_guests,
             "involved_guests": wheel_spun_guests,
