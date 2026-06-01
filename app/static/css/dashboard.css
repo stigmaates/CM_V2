@@ -1386,3 +1386,49 @@ body.modal-open { overflow: hidden; }
     font-size: 13px;
     line-height: 1.35;
 }
+
+
+/* Fix engagement block sizing and seamless all-time toggle */
+.left-placeholder-block {
+    overflow: hidden;
+}
+
+.left-placeholder-block .placeholder-columns {
+    height: auto;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.left-placeholder-block .placeholder-card {
+    height: auto;
+    min-height: 260px;
+}
+
+.engagement-scope-toggle {
+    border: 1px solid rgba(143, 91, 255, 0.42);
+    font-family: var(--font-main);
+}
+
+.engagement-scope-toggle:focus-visible {
+    outline: 2px solid rgba(165, 114, 255, 0.7);
+    outline-offset: 3px;
+}
+
+@media (max-width: 1500px) {
+    .left-placeholder-block .placeholder-columns {
+        gap: 18px;
+    }
+
+    .left-placeholder-block .placeholder-card {
+        padding: 20px;
+        min-height: 230px;
+    }
+
+    .left-placeholder-block .stats-title {
+        font-size: 18px;
+    }
+
+    .left-placeholder-block .stats-line {
+        font-size: 15px;
+    }
+}

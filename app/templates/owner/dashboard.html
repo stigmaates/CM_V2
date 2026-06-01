@@ -146,48 +146,44 @@
                     <button type="button" class="engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
                     <button type="button" class="engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
                 </div>
-                <a class="engagement-scope-toggle {% if engagement_all_time %}is-active{% endif %}"
-                   href="{{ url_for('owner.dashboard', period=selected_period, engagement_scope='period' if engagement_all_time else 'all_time') }}"
-                   title="По умолчанию блок считает только гостей, зарегистрированных за выбранный период. Включи, чтобы показать всех гостей за всё время.">
+                <button type="button" class="engagement-scope-toggle" id="engagementScopeToggle"
+                        aria-pressed="false"
+                        title="По умолчанию блок считает только гостей, зарегистрированных за выбранный период. Включи, чтобы показать всех гостей за всё время.">
                     <span class="engagement-scope-toggle__knob"></span>
                     <span>За все время</span>
-                </a>
+                </button>
             </div>
-            <div class="engagement-scope-hint">
-                {% if engagement_all_time %}
-                    Показаны все гости клуба за всё время.
-                {% else %}
-                    Показаны гости, зарегистрированные за последние {{ stats.period_days }} дней.
-                {% endif %}
+            <div class="engagement-scope-hint" id="engagementScopeHint">
+                Показаны гости, зарегистрированные за последние {{ stats.period_days }} дней.
             </div>
 
             <div id="wheelMetrics" class="placeholder-columns">
                 <div class="placeholder-card stats-card">
                     <div class="stats-title">Колесо фортуны</div>
-                    <div class="stats-line">Гостей в выборке: <b>{{ engagement_data.wheel.total_guests }}</b></div>
-                    <div class="stats-line">Прокрутило хотя бы 1 раз: <b>{{ engagement_data.wheel.involved_guests }}</b></div>
-                    <div class="stats-line">Вовлеченность: <b>{{ engagement_data.wheel.engagement_percent }}%</b></div>
+                    <div class="stats-line">Гостей в выборке: <b><span data-engagement-value="wheel.total_guests">{{ engagement_data.wheel.total_guests }}</span></b></div>
+                    <div class="stats-line">Прокрутило хотя бы 1 раз: <b><span data-engagement-value="wheel.involved_guests">{{ engagement_data.wheel.involved_guests }}</span></b></div>
+                    <div class="stats-line">Вовлеченность: <b><span data-engagement-value="wheel.engagement_percent">{{ engagement_data.wheel.engagement_percent }}</span>%</b></div>
                 </div>
 
                 <div class="placeholder-card stats-card">
                     <div class="stats-title">Возврат после прокрута</div>
                     <div class="stats-line">Вернулось в клуб после 1-го прокрута:</div>
-                    <div class="stats-big">{{ engagement_data.wheel.returned_guests }}</div>
+                    <div class="stats-big"><span data-engagement-value="wheel.returned_guests">{{ engagement_data.wheel.returned_guests }}</span></div>
                 </div>
             </div>
 
             <div id="missionMetrics" class="placeholder-columns hidden-block">
                 <div class="placeholder-card stats-card">
                     <div class="stats-title">Задания</div>
-                    <div class="stats-line">Гостей в выборке: <b>{{ engagement_data.missions.total_guests }}</b></div>
-                    <div class="stats-line">Выполнило хотя бы 1 задание: <b>{{ engagement_data.missions.involved_guests }}</b></div>
-                    <div class="stats-line">Вовлеченность: <b>{{ engagement_data.missions.engagement_percent }}%</b></div>
+                    <div class="stats-line">Гостей в выборке: <b><span data-engagement-value="missions.total_guests">{{ engagement_data.missions.total_guests }}</span></b></div>
+                    <div class="stats-line">Выполнило хотя бы 1 задание: <b><span data-engagement-value="missions.involved_guests">{{ engagement_data.missions.involved_guests }}</span></b></div>
+                    <div class="stats-line">Вовлеченность: <b><span data-engagement-value="missions.engagement_percent">{{ engagement_data.missions.engagement_percent }}</span>%</b></div>
                 </div>
 
                 <div class="placeholder-card stats-card">
                     <div class="stats-title">Возврат после выполнения</div>
                     <div class="stats-line">Вернулось в клуб после 1-го выполненного задания:</div>
-                    <div class="stats-big">{{ engagement_data.missions.returned_guests }}</div>
+                    <div class="stats-big"><span data-engagement-value="missions.returned_guests">{{ engagement_data.missions.returned_guests }}</span></div>
                 </div>
             </div>
         </div>
@@ -246,9 +242,32 @@
 
 {% block scripts %}
 <script>
+    const engagementPeriodData = {{ engagement|tojson|safe }};
+    const engagementAllTimeData = {{ engagement_all_time_data|tojson|safe }};
+    const engagementPeriodDays = {{ stats.period_days|tojson|safe }};
+    let engagementAllTimeMode = false;
+
     const wheelMetrics = document.getElementById('wheelMetrics');
     const missionMetrics = document.getElementById('missionMetrics');
     const engagementTabs = document.querySelectorAll('[data-engagement-tab]');
+    const engagementScopeToggle = document.getElementById('engagementScopeToggle');
+    const engagementScopeHint = document.getElementById('engagementScopeHint');
+
+    function getNestedValue(source, path) {
+        return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : 0), source);
+    }
+
+    function updateEngagementValues() {
+        const source = engagementAllTimeMode ? engagementAllTimeData : engagementPeriodData;
+        document.querySelectorAll('[data-engagement-value]').forEach((node) => {
+            node.textContent = getNestedValue(source, node.dataset.engagementValue);
+        });
+        engagementScopeToggle.classList.toggle('is-active', engagementAllTimeMode);
+        engagementScopeToggle.setAttribute('aria-pressed', engagementAllTimeMode ? 'true' : 'false');
+        engagementScopeHint.textContent = engagementAllTimeMode
+            ? 'Показаны все гости клуба за всё время.'
+            : `Показаны гости, зарегистрированные за последние ${engagementPeriodDays} дней.`;
+    }
 
     function setEngagementMode(mode) {
         const missionsMode = mode === 'missions';
@@ -271,6 +290,11 @@
         tab.addEventListener('click', () => setEngagementMode(tab.dataset.engagementTab));
     });
     setEngagementMode('wheel');
+    engagementScopeToggle.addEventListener('click', () => {
+        engagementAllTimeMode = !engagementAllTimeMode;
+        updateEngagementValues();
+    });
+    updateEngagementValues();
 
     const overlay = document.getElementById('feedbackModalOverlay');
     const modals = {
