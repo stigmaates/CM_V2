@@ -1272,3 +1272,25 @@ body.modal-open { overflow: hidden; }
     .feedback-modal { padding: 12px; }
     .feedback-modal__dialog { max-height: 90vh; }
 }
+
+
+/* Compact numbers for first visit survey block */
+.survey-summary-value {
+    font-size: 56px;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.survey-summary-label {
+    font-size: 20px;
+}
+
+.survey-summary-card {
+    min-height: 150px;
+}
+
+@media (max-width: 860px) {
+    .survey-summary-value {
+        font-size: 44px;
+    }
+}

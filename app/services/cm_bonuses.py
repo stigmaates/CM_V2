@@ -31,7 +31,7 @@ def _ensure_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
 
 
 def ensure_cm_bonus_tables(cursor) -> None:
-    """Create ClubModule bonus balance, ledger and redeem request tables lazily."""
+    """Create Cyber Bonus bonus balance, ledger and redeem request tables lazily."""
     global _cm_bonus_tables_ready
     if _cm_bonus_tables_ready:
         return
@@ -380,7 +380,7 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
         f"Guest ID: <code>{guest_id}</code>\n"
         f"Club ID: <code>{club_id}</code>\n"
         f"Сумма к зачислению в Langame: <b>{amount}</b> бонусов\n\n"
-        "Бонусы уже списаны с кошелька гостя в ClubModule.\n"
+        "Бонусы уже списаны с кошелька гостя в Cyber Bonus.\n"
         "После зачисления в Langame нажмите кнопку ниже."
     )
 

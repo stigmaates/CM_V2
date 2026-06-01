@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ClubModule{% endblock %}</title>
+    <title>{% block title %}Cyber Bonus{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 </head>
 <body>
     <div class="page">
         <div class="topbar">
-            <div class="logo">ClubModule</div>
+            <div class="logo">Cyber Bonus</div>
 
             <div class="nav">
                 <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Дашборд</a>
