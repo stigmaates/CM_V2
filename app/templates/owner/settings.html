@@ -84,6 +84,41 @@
                         club_id: <strong>{{ club.club_id if club else '-' }}</strong>
                     </div>
                 </div>
+
+                <div class="card settings-card settings-card--pc-names" id="pc-names">
+                    <div class="section-title">Названия ПК</div>
+                    <div class="muted pc-names-note">
+                        Здесь показаны все UUID, по которым за последний год начинались сессии. Назови ПК так, как удобно клубу, и расставь порядок — в этом же порядке они будут отображаться в тепловой карте по ПК.
+                    </div>
+
+                    <form method="POST" action="{{ url_for('owner.settings_pc_names_save') }}" class="pc-names-form">
+                        {% if pc_name_settings %}
+                            <div class="pc-names-list" id="pcNamesList">
+                                {% for pc in pc_name_settings %}
+                                    <div class="pc-name-row" data-pc-row>
+                                        <div class="pc-name-row__sort">
+                                            <button type="button" class="pc-order-btn" data-pc-up title="Поднять выше">↑</button>
+                                            <button type="button" class="pc-order-btn" data-pc-down title="Опустить ниже">↓</button>
+                                        </div>
+                                        <div class="pc-name-row__uuid" title="{{ pc.uuid }}">
+                                            <span>UUID</span>
+                                            <code>{{ pc.uuid }}</code>
+                                        </div>
+                                        <div class="pc-name-row__name">
+                                            <label>Название ПК</label>
+                                            <input class="form-input" type="text" name="pc_name" value="{{ pc.display_name }}" placeholder="Например: ПК 1 / VIP 2 / Bootcamp 5">
+                                            <input type="hidden" name="pc_uuid" value="{{ pc.uuid }}">
+                                            <input type="hidden" name="pc_sort_order" value="{{ pc.sort_order }}" data-pc-sort-order>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <button class="btn" type="submit">Сохранить названия ПК</button>
+                        {% else %}
+                            <div class="empty-state">Пока не найдено ни одного UUID сессий за последний год. Запусти синхронизацию сессий и вернись сюда.</div>
+                        {% endif %}
+                    </form>
+                </div>
             </div>
         {% elif active_tab == 'missions' %}
             {% include "owner/_settings_missions.html" %}
@@ -93,3 +128,39 @@
     </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const list = document.getElementById('pcNamesList');
+    if (!list) return;
+
+    function refreshOrderInputs() {
+        list.querySelectorAll('[data-pc-row]').forEach((row, index) => {
+            const input = row.querySelector('[data-pc-sort-order]');
+            if (input) input.value = String((index + 1) * 10);
+        });
+    }
+
+    list.addEventListener('click', (event) => {
+        const up = event.target.closest('[data-pc-up]');
+        const down = event.target.closest('[data-pc-down]');
+        if (!up && !down) return;
+
+        const row = event.target.closest('[data-pc-row]');
+        if (!row) return;
+
+        if (up && row.previousElementSibling) {
+            list.insertBefore(row, row.previousElementSibling);
+        }
+        if (down && row.nextElementSibling) {
+            list.insertBefore(row.nextElementSibling, row);
+        }
+        refreshOrderInputs();
+    });
+
+    refreshOrderInputs();
+})();
+</script>
+{% endblock %}
+

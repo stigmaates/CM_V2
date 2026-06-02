@@ -2,6 +2,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import owner_required
 from app.services.dashboard import get_dashboard_audience_stats, get_visit_heatmap_stats
+from app.services.pc_heatmap import get_pc_hours_heatmap_stats
 
 from . import owner_bp
 
@@ -24,10 +25,12 @@ def crm_analytics():
 
     audience = get_dashboard_audience_stats(int(club_id))
     heatmap = get_visit_heatmap_stats(int(club_id), selected_period)
+    pc_heatmap = get_pc_hours_heatmap_stats(int(club_id), selected_period)
 
     return render_template(
         "owner/crm_analytics.html",
         audience=audience,
         heatmap=heatmap,
+        pc_heatmap=pc_heatmap,
         selected_period=selected_period,
     )

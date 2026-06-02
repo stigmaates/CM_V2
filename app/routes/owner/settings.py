@@ -4,11 +4,41 @@ from app.core import owner_required
 from app.services.clubs import get_club_info, update_club_info
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
+from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 
 from . import owner_bp
 
 
 SETTINGS_TABS = {"club", "missions", "wheel"}
+
+
+@owner_bp.route("/settings/pc-names", methods=["POST"])
+@owner_required
+def settings_pc_names_save():
+    club_id = session.get("club_id")
+    if not club_id:
+        flash("Сначала создайте клуб", "error")
+        return redirect(url_for("owner.club_create"))
+
+    uuids = request.form.getlist("pc_uuid")
+    names = request.form.getlist("pc_name")
+    orders = request.form.getlist("pc_sort_order")
+
+    items = []
+    for idx, uuid in enumerate(uuids):
+        items.append({
+            "uuid": uuid,
+            "display_name": names[idx] if idx < len(names) else "",
+            "sort_order": orders[idx] if idx < len(orders) else (idx + 1) * 10,
+        })
+
+    try:
+        save_pc_name_settings(int(club_id), items)
+        flash("Названия ПК сохранены", "success")
+    except Exception as exc:
+        flash(f"Ошибка сохранения ПК: {exc}", "error")
+
+    return redirect(url_for("owner.settings", tab="club") + "#pc-names")
 
 
 @owner_bp.route("/settings", methods=["GET", "POST"])
@@ -53,6 +83,11 @@ def settings():
         "club": get_club_info(club_id),
         "active_tab": active_tab,
     }
+
+    if active_tab == "club":
+        context.update({
+            "pc_name_settings": get_pc_name_settings(club_id_int),
+        })
 
     if active_tab == "missions":
         context.update({

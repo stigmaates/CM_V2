@@ -78,5 +78,54 @@
             <span>Больше</span>
         </div>
     </section>
+    <section class="heatmap-section card pc-heatmap-section">
+        <div class="heatmap-head">
+            <div>
+                <div class="section-title">Тепловая карта по ПК</div>
+                <div class="muted crm-hero-text">Показывает, сколько часов провели за каждым ПК за выбранный период. Порядок и названия ПК задаются в настройках клуба.</div>
+            </div>
+            <a class="period-option pc-settings-link" href="{{ url_for('owner.settings', tab='club') }}#pc-names">Настроить ПК</a>
+        </div>
+
+        <div class="heatmap-summary pc-heatmap-summary">
+            <div class="heatmap-summary-item">
+                <span>Часов за период</span>
+                <strong>{{ pc_heatmap.total_hours_display }}</strong>
+            </div>
+            <div class="heatmap-summary-item">
+                <span>Сессий по ПК</span>
+                <strong>{{ pc_heatmap.total_sessions }}</strong>
+            </div>
+            <div class="heatmap-summary-item">
+                <span>Самый загруженный ПК</span>
+                <strong>{{ pc_heatmap.peak.name }} · {{ pc_heatmap.peak.hours_display }} ч</strong>
+            </div>
+        </div>
+
+        {% if pc_heatmap.pcs %}
+            <div class="pc-heatmap-grid">
+                {% for pc in pc_heatmap.pcs %}
+                    <div class="pc-heatmap-cell heatmap-level-{{ pc.level }}" title="{{ pc.name }} — {{ pc.hours_display }} ч, {{ pc.sessions_count }} сессий. UUID: {{ pc.uuid }}">
+                        <div class="pc-heatmap-cell__name">{{ pc.name }}</div>
+                        <div class="pc-heatmap-cell__hours">{{ pc.hours_display }} ч</div>
+                        <div class="pc-heatmap-cell__sessions">{{ pc.sessions_count }} сесс.</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">Пока нет данных по UUID ПК за выбранный период. Проверь синхронизацию сессий.</div>
+        {% endif %}
+
+        <div class="heatmap-legend">
+            <span>Меньше часов</span>
+            <i class="heatmap-level-1"></i>
+            <i class="heatmap-level-2"></i>
+            <i class="heatmap-level-3"></i>
+            <i class="heatmap-level-4"></i>
+            <i class="heatmap-level-5"></i>
+            <span>Больше часов</span>
+        </div>
+    </section>
+
 </main>
 {% endblock %}
