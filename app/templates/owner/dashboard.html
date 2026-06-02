@@ -114,8 +114,18 @@
                     <div class="cb-survey-icon">👥</div>
                     <div>
                         <div class="cb-survey-value">{{ survey.total_responses }}</div>
-                        <div class="cb-survey-label">Гостей оценили</div>
-                        <div class="cb-survey-note">{{ survey.total_responses }} ответа за период</div>
+                        <div class="cb-survey-label">Ответов получено</div>
+                        <div class="cb-survey-note">
+                            {% set n = survey.total_responses %}
+                            {{ n }}
+                            {% if n % 10 == 1 and n % 100 != 11 %}
+                                ответ за период
+                            {% elif n % 10 in [2, 3, 4] and n % 100 not in [12, 13, 14] %}
+                                ответа за период
+                            {% else %}
+                                ответов за период
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
