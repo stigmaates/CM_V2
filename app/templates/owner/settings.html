@@ -72,19 +72,6 @@
                     </form>
                 </div>
 
-                <div class="card settings-card settings-card--sync">
-                    <div class="section-title">Синхронизация</div>
-
-                    <div class="stack">
-                        <a class="btn" href="{{ url_for('owner.sync_guests_route') }}">Синхронизировать гостей</a>
-                        <a class="btn" href="{{ url_for('owner.sync_sessions_route') }}">Синхронизировать сессии</a>
-                    </div>
-
-                    <div class="muted">
-                        club_id: <strong>{{ club.club_id if club else '-' }}</strong>
-                    </div>
-                </div>
-
                 <div class="card settings-card settings-card--pc-names" id="pc-names">
                     <div class="section-title">Названия ПК</div>
                     <div class="muted pc-names-note">
@@ -115,7 +102,7 @@
                             </div>
                             <button class="btn" type="submit">Сохранить названия ПК</button>
                         {% else %}
-                            <div class="empty-state">Пока не найдено ни одного UUID сессий за последний год. Запусти синхронизацию сессий и вернись сюда.</div>
+                            <div class="empty-state">Пока не найдено ни одного UUID сессий за последний год. Они появятся здесь после автоматической синхронизации сессий.</div>
                         {% endif %}
                     </form>
                 </div>

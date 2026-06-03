@@ -2699,3 +2699,70 @@ body.modal-open { overflow: hidden; }
         grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
     }
 }
+
+
+/* Owner settings: PC names moved to the former sync-card position */
+.settings-card--pc-names {
+    grid-column: auto;
+    min-height: 0;
+}
+
+.settings-card--pc-names .section-title {
+    margin-bottom: 8px;
+}
+
+.settings-card--pc-names .pc-names-note {
+    margin: 0 0 16px;
+    max-width: none;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.settings-card--pc-names .pc-names-list {
+    max-height: 620px;
+    overflow: auto;
+    padding-right: 6px;
+}
+
+.settings-card--pc-names .pc-name-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+}
+
+.settings-card--pc-names .pc-name-row__sort {
+    align-self: center;
+}
+
+.settings-card--pc-names .pc-name-row__uuid,
+.settings-card--pc-names .pc-name-row__name {
+    grid-column: 2;
+}
+
+.settings-card--pc-names .pc-name-row__uuid {
+    min-width: 0;
+}
+
+.settings-card--pc-names .pc-name-row__uuid code {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-card--pc-names .pc-name-row__name label {
+    display: block;
+    margin: 8px 0 6px;
+}
+
+.settings-card--pc-names .btn[type="submit"] {
+    width: 100%;
+    justify-content: center;
+}
+
+@media (max-width: 900px) {
+    .settings-card--pc-names {
+        grid-column: auto;
+    }
+}
