@@ -326,6 +326,30 @@ def add_guest_tokens(guest_id: int, club_id: int, amount: int, source_type: str 
         conn.close()
 
 
+def award_first_authorization_token(guest_id: int, club_id: int, amount: int = 1) -> bool:
+    """Give a one-time welcome wheel token after the guest's first successful bot authorization.
+
+    Returns True only when the token was actually added. The unique transaction source
+    protects the guest from repeated welcome credits on later logins.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            inserted = _add_token_transaction(
+                cursor=cursor,
+                guest_id=guest_id,
+                club_id=club_id,
+                amount=int(amount),
+                source_type="first_authorization",
+                source_id="welcome_token",
+                description="Welcome-бонус за первую авторизацию в Cyber Bonus",
+            )
+        conn.commit()
+        return bool(inserted)
+    finally:
+        conn.close()
+
+
 def _to_date(value: Any) -> date | None:
     if value is None:
         return None

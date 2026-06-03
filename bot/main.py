@@ -30,6 +30,7 @@ from app.services.first_visit_survey import (
     mark_survey_started,
     save_survey_rating,
 )
+from app.services.wheel import award_first_authorization_token
 
 
 logging.basicConfig(
@@ -271,8 +272,37 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     guest_name = guest.get("fio") or f"ID {guest['guest_id']}"
 
+    welcome_token_added = False
+    try:
+        welcome_token_added = award_first_authorization_token(
+            guest_id=int(guest["guest_id"]),
+            club_id=int(guest["club_id"]),
+            amount=1,
+        )
+    except Exception:
+        logging.exception(
+            "Failed to award first authorization token: guest_id=%s club_id=%s",
+            guest.get("guest_id"),
+            guest.get("club_id"),
+        )
+
+    if welcome_token_added:
+        login_text = (
+            f"Готово! Вход подтвержден.\n"
+            f"Гость: {guest_name}\n\n"
+            "Дарим 1 жетон за первый вход в Cyber Bonus 🪙\n"
+            "Возвращайтесь на страницу сайта — вход выполнится автоматически. "
+            "Откройте колесо фортуны и попробуйте первый прокрут."
+        )
+    else:
+        login_text = (
+            f"Готово! Вход подтвержден.\n"
+            f"Гость: {guest_name}\n"
+            "Вернитесь на страницу сайта — вход выполнится автоматически."
+        )
+
     await message.reply_text(
-        f"Готово! Вход подтвержден.\nГость: {guest_name}\nВернитесь на страницу сайта — вход выполнится автоматически.",
+        login_text,
         reply_markup=ReplyKeyboardRemove()
     )
 
