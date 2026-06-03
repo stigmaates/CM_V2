@@ -32,6 +32,17 @@ AUTO_MAILING_DEFAULTS = {
         "bonus_amount": 100,
         "repeat_after_days": 3650,
     },
+    "streak_expiring_reminder": {
+        "title": "Напоминание о стрике",
+        "description": "За 3 дня до сгорания стрика 2+ дней напоминает гостю прийти ещё раз и получить жетоны для колеса.",
+        "message_text": (
+            "Привет! У тебя в {club_name} стрик из дней — {streak_days}. "
+            "Приди еще раз до {date} и получи {next_reward} жетонов для колеса фортуны!"
+        ),
+        "days_inactive": 3,
+        "bonus_amount": 1,
+        "repeat_after_days": 7,
+    },
 }
 
 CRM_SEGMENT_OPTIONS = [
@@ -138,6 +149,17 @@ AUTO_MAILING_DEFAULTS = {
         "days_inactive": 1,
         "bonus_amount": 100,
         "repeat_after_days": 3650,
+    },
+    "streak_expiring_reminder": {
+        "title": "Напоминание о стрике",
+        "description": "За 3 дня до сгорания стрика 2+ дней напоминает гостю прийти ещё раз и получить жетоны для колеса.",
+        "message_text": (
+            "Привет! У тебя в {club_name} стрик из дней — {streak_days}. "
+            "Приди еще раз до {date} и получи {next_reward} жетонов для колеса фортуны!"
+        ),
+        "days_inactive": 3,
+        "bonus_amount": 1,
+        "repeat_after_days": 7,
     },
 }
 
@@ -655,9 +677,18 @@ def _build_first_visit_survey_message(bonus_amount: int) -> str:
     )
 
 
+def _build_streak_expiring_message(_: int = 0) -> str:
+    return (
+        "Привет! У тебя в {club_name} стрик из дней — {streak_days}. "
+        "Приди еще раз до {date} и получи {next_reward} жетонов для колеса фортуны!"
+    )
+
+
 def _build_auto_mailing_message(code: str, bonus_amount: int) -> str:
     if code == "first_visit_survey":
         return _build_first_visit_survey_message(bonus_amount)
+    if code == "streak_expiring_reminder":
+        return _build_streak_expiring_message(bonus_amount)
     return _build_inactive_auto_message(bonus_amount)
 
 

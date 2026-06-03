@@ -681,8 +681,8 @@ function getAutoMailingPayload(card) {
     const code = card.dataset.autoMailingCode || "";
     return {
         is_enabled: Boolean(toggle && toggle.checked),
-        days_inactive: Number(daysInput ? daysInput.value : (code === "first_visit_survey" ? 1 : 14)),
-        bonus_amount: Number(bonusInput ? bonusInput.value : 200),
+        days_inactive: Number(daysInput ? daysInput.value : ((code === "first_visit_survey" || code === "streak_expiring_reminder") ? 1 : 14)),
+        bonus_amount: Number(bonusInput ? bonusInput.value : (code === "streak_expiring_reminder" ? 1 : 200)),
     };
 }
 
@@ -713,7 +713,7 @@ async function saveAutoMailing(card, options = {}) {
     if (!code) return;
 
     const payload = getAutoMailingPayload(card);
-    if (code !== "first_visit_survey" && (!Number.isFinite(payload.days_inactive) || payload.days_inactive < 1)) {
+    if (code !== "first_visit_survey" && code !== "streak_expiring_reminder" && (!Number.isFinite(payload.days_inactive) || payload.days_inactive < 1)) {
         setAutoMailingStatus(card, "Укажи дни неактива больше 0", true);
         if (toggle && options.fromToggle) toggle.checked = previousChecked;
         return;

@@ -13,3 +13,5 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
 TG_PROXY_URL = os.getenv("TG_PROXY_URL")
 CM_BONUS_BOT_TOKEN = os.getenv("CM_BONUS_BOT_TOKEN", "")
 CM_BONUS_ADMIN_CHAT_ID = os.getenv("CM_BONUS_ADMIN_CHAT_ID", "")
+
+AUTO_MAILING_TIMEZONE = os.getenv("AUTO_MAILING_TIMEZONE", "Europe/Moscow")
