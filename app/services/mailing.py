@@ -679,8 +679,8 @@ def _build_first_visit_survey_message(bonus_amount: int) -> str:
 
 def _build_streak_expiring_message(_: int = 0) -> str:
     return (
-        "Привет! У тебя в {club_name} стрик из дней — {streak_days}. "
-        "Приди еще раз до {date} и получи {next_reward} жетонов для колеса фортуны!"
+        "Привет! У тебя в {club_name} стрик из дней — {streak_days}. 🔥\n\n"
+        "Приди еще раз до {date} и получи {next_reward} 🪙 жетонов для колеса фортуны!"
     )
 
 
