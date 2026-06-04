@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
 from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
@@ -28,6 +28,90 @@ def ensure_admin_sync_logs_table():
             )
         db.commit()
 
+
+
+
+def ensure_admin_impersonation_logs_table():
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS admin_impersonation_logs (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    admin_user_id INT NOT NULL,
+                    admin_login VARCHAR(120) NULL,
+                    club_id INT NOT NULL,
+                    club_name VARCHAR(255) NULL,
+                    started_at DATETIME NOT NULL,
+                    ended_at DATETIME NULL,
+                    ip VARCHAR(80) NULL,
+                    user_agent TEXT NULL,
+                    INDEX idx_admin_impersonation_admin (admin_user_id),
+                    INDEX idx_admin_impersonation_club (club_id),
+                    INDEX idx_admin_impersonation_started (started_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """
+            )
+        db.commit()
+
+
+def get_club_by_id(club_id: int):
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                SELECT club_id, name
+                FROM clubs
+                WHERE club_id = %s
+                LIMIT 1
+                """,
+                (club_id,),
+            )
+            return cur.fetchone()
+
+
+def create_impersonation_log(club_id: int, club_name: str | None):
+    ensure_admin_impersonation_logs_table()
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO admin_impersonation_logs (
+                    admin_user_id, admin_login, club_id, club_name, started_at, ip, user_agent
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    session.get("user_id"),
+                    session.get("login"),
+                    club_id,
+                    club_name,
+                    datetime.utcnow(),
+                    request.headers.get("X-Forwarded-For", request.remote_addr),
+                    request.headers.get("User-Agent"),
+                ),
+            )
+            log_id = cur.lastrowid
+        db.commit()
+    return log_id
+
+
+def finish_impersonation_log(log_id):
+    if not log_id:
+        return
+    ensure_admin_impersonation_logs_table()
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE admin_impersonation_logs
+                SET ended_at = %s
+                WHERE id = %s
+                  AND ended_at IS NULL
+                """,
+                (datetime.utcnow(), log_id),
+            )
+        db.commit()
 
 def table_has_column(table_name: str, column_name: str) -> bool:
     with get_db_connection() as db:
@@ -247,6 +331,7 @@ def admin_index():
 @admin_required
 def dashboard():
     ensure_admin_sync_logs_table()
+    ensure_admin_impersonation_logs_table()
     return render_template(
         "admin/dashboard.html",
         metrics=get_admin_metrics(),
@@ -259,6 +344,7 @@ def dashboard():
 @admin_required
 def clubs_list():
     ensure_admin_sync_logs_table()
+    ensure_admin_impersonation_logs_table()
     return render_template(
         "admin/clubs.html",
         clubs=get_clubs_for_admin(),
@@ -306,3 +392,55 @@ def club_sync(club_id: int, sync_type: str):
     except Exception as e:
         finish_sync_log(log_id, "error", str(e))
         return jsonify({"status": False, "message": str(e)}), 500
+
+
+@admin_bp.route("/clubs/<int:club_id>/impersonate", methods=["POST"])
+@admin_required
+def start_owner_impersonation(club_id: int):
+    club = get_club_by_id(club_id)
+    if not club:
+        flash("Клуб не найден", "error")
+        return redirect(url_for("admin.clubs_list"))
+
+    # Finish previous unfinished impersonation session for this browser session, if any.
+    finish_impersonation_log(session.get("impersonation_log_id"))
+
+    if "original_club_id" not in session:
+        session["original_club_id"] = session.get("club_id")
+    if "original_club_name" not in session:
+        session["original_club_name"] = session.get("club_name")
+
+    log_id = create_impersonation_log(int(club["club_id"]), club.get("name"))
+
+    session["impersonating_owner"] = True
+    session["impersonated_club_id"] = int(club["club_id"])
+    session["impersonated_club_name"] = club.get("name")
+    session["impersonation_log_id"] = log_id
+    session["club_id"] = int(club["club_id"])
+    session["club_name"] = club.get("name")
+
+    flash(f"Открыт режим владельца для клуба «{club.get('name') or club_id}»", "success")
+    return redirect(url_for("owner.dashboard"))
+
+
+@admin_bp.route("/impersonation/stop")
+@admin_required
+def stop_owner_impersonation():
+    finish_impersonation_log(session.get("impersonation_log_id"))
+
+    original_club_id = session.pop("original_club_id", None)
+    original_club_name = session.pop("original_club_name", None)
+
+    for key in (
+        "impersonating_owner",
+        "impersonated_club_id",
+        "impersonated_club_name",
+        "impersonation_log_id",
+    ):
+        session.pop(key, None)
+
+    session["club_id"] = original_club_id
+    session["club_name"] = original_club_name
+
+    flash("Режим просмотра клуба как владелец завершён", "success")
+    return redirect(url_for("admin.clubs_list"))

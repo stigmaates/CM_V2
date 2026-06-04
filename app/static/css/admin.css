@@ -403,3 +403,47 @@
     .admin-page-head,
     .admin-section-head { flex-direction: column; }
 }
+
+/* Admin: club owner impersonation */
+.modal-owner-access {
+    margin: 18px 0 16px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(143, 91, 255, 0.35);
+    background: linear-gradient(135deg, rgba(143, 91, 255, 0.16), rgba(99, 214, 126, 0.08));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.modal-owner-access__title {
+    font-weight: 900;
+    color: #f4ecff;
+    margin-bottom: 5px;
+}
+
+.modal-owner-access__text {
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.admin-btn--accent {
+    background: linear-gradient(135deg, #8f5bff, #63d67e);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #120b20;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+    .modal-owner-access {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .modal-owner-access .admin-btn {
+        width: 100%;
+    }
+}

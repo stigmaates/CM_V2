@@ -71,8 +71,29 @@ def admin_required(func):
     return role_required("admin")(func)
 
 
+def is_owner_access_session():
+    """Allow real owners and admins who opened a club in owner-impersonation mode."""
+    if session.get("role") == "owner":
+        return True
+    return (
+        session.get("role") == "admin"
+        and bool(session.get("impersonating_owner"))
+        and session.get("impersonated_club_id") is not None
+        and session.get("club_id") is not None
+    )
+
+
 def owner_required(func):
-    return role_required("owner")(func)
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("auth.login"))
+        if not is_owner_access_session():
+            target = "admin.clubs_list" if session.get("role") == "admin" else "auth.login"
+            return redirect(url_for(target))
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 def guest_required(func):

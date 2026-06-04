@@ -40,6 +40,15 @@
         </header>
 
         <div class="owner-page">
+            {% if is_owner_impersonation %}
+                <div class="owner-impersonation-banner">
+                    <div>
+                        <strong>Режим администратора</strong>
+                        <span>Вы просматриваете клуб «{{ impersonated_club_name or header_club_name or 'Клуб' }}» как владелец.</span>
+                    </div>
+                    <a href="{{ url_for('admin.stop_owner_impersonation') }}">Выйти из режима</a>
+                </div>
+            {% endif %}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}

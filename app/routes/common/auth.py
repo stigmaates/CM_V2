@@ -96,7 +96,14 @@ def owner_required(view_func):
     def wrapper(*args, **kwargs):
         if "user_id" not in session:
             return redirect("/login")
-        if session.get("role") != "owner":
+        is_owner = session.get("role") == "owner"
+        is_admin_impersonation = (
+            session.get("role") == "admin"
+            and bool(session.get("impersonating_owner"))
+            and session.get("impersonated_club_id") is not None
+            and session.get("club_id") is not None
+        )
+        if not (is_owner or is_admin_impersonation):
             return "Доступ запрещён", 403
         return view_func(*args, **kwargs)
     return wrapper

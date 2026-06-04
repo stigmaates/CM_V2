@@ -41,6 +41,16 @@
             </div>
         </div>
 
+        <div class="modal-owner-access">
+            <div>
+                <div class="modal-owner-access__title">Режим владельца</div>
+                <div class="modal-owner-access__text">Открыть панель выбранного клуба с полным доступом как у владельца.</div>
+            </div>
+            <form id="impersonateForm" method="post" action="#">
+                <button type="submit" class="admin-btn admin-btn--accent">Открыть как владелец</button>
+            </form>
+        </div>
+
         <div class="modal-actions sync-groups">
             <div class="sync-group">
                 <div class="sync-group-title">Гости</div>
@@ -111,6 +121,7 @@ async function openClubModal(clubId) {
     const club = data.club;
     document.getElementById('modalClubName').textContent = club.name || 'Клуб';
     document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Создан: ${formatValue(club.created_at)}`;
+    document.getElementById('impersonateForm').action = `/admin/clubs/${club.club_id}/impersonate`;
     renderLogs(data.logs);
     modal.hidden = false;
 }

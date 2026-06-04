@@ -878,3 +878,58 @@ select {
         right: auto;
     }
 }
+
+/* Owner impersonation banner */
+.owner-impersonation-banner {
+    margin: 0 0 18px;
+    padding: 14px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    background: linear-gradient(135deg, rgba(250, 204, 21, 0.16), rgba(143, 91, 255, 0.12));
+    color: #f4ecff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    box-shadow: 0 16px 34px rgba(8, 3, 18, 0.24);
+}
+
+.owner-impersonation-banner strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 14px;
+    font-weight: 900;
+    color: #ffe08a;
+}
+
+.owner-impersonation-banner span {
+    color: #d9c8f3;
+    font-size: 14px;
+}
+
+.owner-impersonation-banner a {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #f4ecff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.owner-impersonation-banner a:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+@media (max-width: 720px) {
+    .owner-impersonation-banner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .owner-impersonation-banner a {
+        text-align: center;
+    }
+}

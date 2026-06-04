@@ -46,6 +46,8 @@ def inject_header_context():
         "header_club_name": club_name,
         "header_user_name": session.get("name"),
         "header_user_login": session.get("login"),
+        "is_owner_impersonation": bool(session.get("impersonating_owner")),
+        "impersonated_club_name": session.get("impersonated_club_name") or club_name,
     }
 
 
