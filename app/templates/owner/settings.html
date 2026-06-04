@@ -26,44 +26,84 @@
 
 .settings-status-card {
     min-height: 0;
-    padding: 18px 20px;
+    padding: 30px 32px;
 }
 
 .settings-status-card__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 12px;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .settings-status-card__head .section-title {
     margin: 0;
-    font-size: 24px;
+    font-size: 28px;
     line-height: 1.1;
 }
 
-.settings-status-card__tz {
+.settings-status-info {
+    position: relative;
     flex: 0 0 auto;
-    padding: 5px 10px;
-    border-radius: 999px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 2px solid rgba(205, 189, 232, 0.55);
+    color: #cdbde8;
+    font-size: 15px;
+    line-height: 1;
+    font-weight: 900;
+    font-style: normal;
+    cursor: help;
+    user-select: none;
+    background: rgba(143, 91, 255, 0.12);
+}
+
+.settings-status-info::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    width: 300px;
+    max-width: min(300px, 70vw);
+    padding: 12px 14px;
+    border-radius: 14px;
     border: 1px solid rgba(165, 114, 255, 0.35);
-    background: rgba(143, 91, 255, 0.16);
-    color: var(--text-muted);
-    font-size: 12px;
-    font-weight: 800;
+    background: rgba(18, 9, 34, 0.98);
+    color: #f4ecff;
+    font-size: 13px;
+    line-height: 1.35;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38);
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: opacity .16s ease, transform .16s ease;
+    z-index: 30;
+}
+
+.settings-status-info:hover::after,
+.settings-status-info:focus::after {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .settings-status-section + .settings-status-section {
-    margin-top: 12px;
-    padding-top: 12px;
+    margin-top: 20px;
+    padding-top: 18px;
     border-top: 1px solid rgba(165, 114, 255, 0.16);
 }
 
 .settings-status-section__title {
-    margin-bottom: 7px;
+    margin-bottom: 12px;
     color: #a66cff;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.1;
     font-weight: 900;
     letter-spacing: 0.08em;
@@ -73,16 +113,16 @@
 .settings-status-list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 9px;
 }
 
 .settings-status-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 8px;
-    padding: 7px 9px;
-    border-radius: 10px;
+    gap: 12px;
+    padding: 11px 13px;
+    border-radius: 13px;
     background: rgba(12, 6, 24, 0.18);
     border: 1px solid rgba(165, 114, 255, 0.10);
 }
@@ -93,7 +133,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: #f4ecff;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.2;
     font-weight: 750;
 }
@@ -102,8 +142,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 72px;
-    padding: 4px 8px;
+    min-width: 82px;
+    padding: 6px 10px;
     border-radius: 999px;
     font-size: 11px;
     line-height: 1;
@@ -131,7 +171,7 @@
 
 .settings-status-time {
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.1;
     font-weight: 700;
     white-space: nowrap;
@@ -139,12 +179,12 @@
 
 .settings-card--pc-names {
     min-height: 0;
-    padding: 18px 20px;
+    padding: 26px 28px;
 }
 
 .settings-card--pc-names > .section-title {
-    margin: 0 0 8px;
-    font-size: 24px;
+    margin: 0 0 10px;
+    font-size: 28px;
     line-height: 1.1;
 }
 
