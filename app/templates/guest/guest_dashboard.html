@@ -191,9 +191,32 @@
             cursor: not-allowed;
             filter: grayscale(.25);
         }
+        .cm-bonus-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: stretch;
+        }
+        .cm-bonus-history-btn {
+            border: 1px solid rgba(255, 212, 105, 0.28);
+            border-radius: 12px;
+            padding: 11px 14px;
+            background: rgba(255, 212, 105, 0.08);
+            color: #ffd469;
+            font-weight: 900;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+        }
+        .cm-bonus-history-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 212, 105, 0.14);
+            border-color: rgba(255, 212, 105, 0.48);
+            box-shadow: 0 10px 24px rgba(255, 212, 105, .16);
+        }
         @media (max-width: 560px) {
             .cm-bonus-wallet { grid-template-columns: 1fr; }
-            .cm-bonus-transfer-btn { width: 100%; }
+            .cm-bonus-transfer-btn, .cm-bonus-history-btn { width: 100%; }
         }
 
         .profile-name { font-size: 28px; font-weight: 800; margin-bottom: 4px; line-height: 1.15; }
@@ -686,8 +709,11 @@
         .modal-title { margin: 0 0 16px; font-size: 24px; font-weight: 800; }
         .app-modal--streak {
             width: min(560px, 100%);
+            max-height: min(780px, calc(100vh - 36px));
             padding: 0;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
             border: 1px solid rgba(165, 114, 255, 0.45);
             box-shadow: var(--shadow), 0 0 0 1px rgba(255, 212, 105, 0.12), 0 24px 64px rgba(0, 0, 0, 0.55);
         }
@@ -712,7 +738,14 @@
         }
         .streak-modal-kicker span { font-size: 18px; line-height: 1; }
         .streak-modal-title { margin: 0; font-size: 26px; font-weight: 900; line-height: 1.2; letter-spacing: -0.02em; }
-        .streak-modal-body { padding: 20px 22px 24px; }
+        .streak-modal-body {
+            padding: 20px 22px 24px;
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+        }
+        .streak-modal-body::-webkit-scrollbar { width: 8px; }
+        .streak-modal-body::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 999px; }
+        .streak-modal-body::-webkit-scrollbar-thumb { background: rgba(165, 114, 255, .55); border-radius: 999px; }
         .streak-callout {
             border-radius: 14px;
             padding: 14px 16px;
@@ -733,7 +766,10 @@
             margin-bottom: 6px;
         }
         .streak-modal-foot {
-            padding: 0 22px 22px;
+            padding: 14px 22px 22px;
+            flex-shrink: 0;
+            background: linear-gradient(180deg, rgba(22, 12, 40, 0.72), rgba(22, 12, 40, 0.97));
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
         .streak-modal-ok {
             width: 100%;
@@ -817,6 +853,24 @@
         .history-status--issued { color: #d8ffe6; background: rgba(73, 207, 130, .13); border-color: rgba(120, 238, 170, .26); }
         .history-status--pending { color: #fff2c8; background: rgba(255, 202, 92, .12); border-color: rgba(255, 218, 132, .28); }
         .history-status--cancelled { color: #ffd6dc; background: rgba(255, 92, 125, .13); border-color: rgba(255, 132, 158, .28); }
+        .redeem-history-list { display: grid; gap: 10px; max-height: 460px; overflow: auto; padding-right: 4px; }
+        .redeem-history-list::-webkit-scrollbar { width: 8px; }
+        .redeem-history-list::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 999px; }
+        .redeem-history-list::-webkit-scrollbar-thumb { background: rgba(165, 114, 255, .55); border-radius: 999px; }
+        .redeem-history-item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px 12px;
+            align-items: center;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,.04);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .redeem-history-title { font-weight: 900; }
+        .redeem-history-meta { color: var(--text-muted); font-size: 12px; line-height: 1.35; }
+        .redeem-history-amount { color: #ffd469; font-weight: 900; white-space: nowrap; }
+        .redeem-history-error { grid-column: 1 / -1; color: #ffd6dc; font-size: 12px; line-height: 1.35; }
 
         @media (max-width: 1180px) { .layout { grid-template-columns: 1fr; } }
         @media (max-width: 760px) {
@@ -907,7 +961,10 @@
                                 <div class="cm-bonus-wallet-value"><span id="cmBonusBalance">{{ cm_balance }}</span> бонусов</div>
                                 <div class="cm-bonus-wallet-hint">Бонусы из призов колеса. Их можно перевести на игровой аккаунт Langame через администратора.</div>
                             </div>
-                            <button class="cm-bonus-transfer-btn" id="cmBonusTransferBtn" type="button" {% if cm_balance|int <= 0 %}disabled{% endif %}>Перевести на баланс</button>
+                            <div class="cm-bonus-actions">
+                                <button class="cm-bonus-transfer-btn" id="cmBonusTransferBtn" type="button" {% if cm_balance|int <= 0 %}disabled{% endif %}>Перевести на баланс</button>
+                                <button class="cm-bonus-history-btn" id="openCmBonusRedeemHistoryBtn" type="button">История переводов</button>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1002,6 +1059,37 @@
         </div>
     </div>
 
+
+    <div class="modal-backdrop" id="cmBonusRedeemHistoryModal">
+        <div class="app-modal">
+            <button class="modal-close" onclick="closeModal('cmBonusRedeemHistoryModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">История переводов</h2>
+            {% if cm_bonus_redeem_history %}
+                <div class="redeem-history-list" id="cmBonusRedeemHistoryList">
+                    {% for item in cm_bonus_redeem_history %}
+                        <div class="redeem-history-item">
+                            <div>
+                                <div class="redeem-history-title">Заявка #{{ item.id }}</div>
+                                <div class="redeem-history-meta">
+                                    Создана: {{ item.requested_at.strftime('%d.%m.%Y %H:%M') if item.requested_at else '—' }}
+                                    {% if item.processed_at %}<br>Обновлена: {{ item.processed_at.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+                                </div>
+                                <div class="history-status history-status--{{ item.status_class }}">{{ item.status_label }}</div>
+                            </div>
+                            <div class="redeem-history-amount">{{ item.amount }} бонусов</div>
+                            {% if item.error_text %}
+                                <div class="redeem-history-error">Ошибка: {{ item.error_text }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty" id="cmBonusRedeemHistoryEmpty">Пока нет переводов. Когда ты отправишь заявку на перевод CM-бонусов, она появится здесь.</div>
+                <div class="redeem-history-list" id="cmBonusRedeemHistoryList"></div>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="modal-backdrop" id="streakRulesModal">
         <div class="app-modal app-modal--streak">
             <div class="streak-modal-head">
@@ -1081,6 +1169,7 @@
         const cmBonusTop = document.getElementById('cmBonusTop');
         const cmBonusBalance = document.getElementById('cmBonusBalance');
         const cmBonusTransferBtn = document.getElementById('cmBonusTransferBtn');
+        const openCmBonusRedeemHistoryBtn = document.getElementById('openCmBonusRedeemHistoryBtn');
         const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
         const cmBonusModalText = document.getElementById('cmBonusModalText');
         const winImage = document.getElementById('winImage');
@@ -1794,6 +1883,10 @@
 
         if (openMyHistoryBtn) {
             openMyHistoryBtn.addEventListener('click', () => openModal('myHistoryModal'));
+        }
+
+        if (openCmBonusRedeemHistoryBtn) {
+            openCmBonusRedeemHistoryBtn.addEventListener('click', () => openModal('cmBonusRedeemHistoryModal'));
         }
 
         document.querySelectorAll('.modal-backdrop').forEach((modal) => {

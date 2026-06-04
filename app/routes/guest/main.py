@@ -5,7 +5,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 from app.core import guest_required
 from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_token
 from app.services.missions import get_guest_missions_with_progress
-from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, redeem_cm_bonuses
+from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, get_cm_bonus_redeem_history, redeem_cm_bonuses
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.wheel import (
     choose_wheel_prize,
@@ -45,6 +45,7 @@ def dashboard():
     streak_info = get_guest_streak_info(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_balance = get_cm_bonus_balance(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_history = get_cm_bonus_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=10)
+    cm_bonus_redeem_history = get_cm_bonus_redeem_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=30)
 
     return render_template(
         "guest/guest_dashboard.html",
@@ -60,6 +61,7 @@ def dashboard():
         streak_info=streak_info,
         cm_bonus_balance=cm_bonus_balance,
         cm_bonus_history=cm_bonus_history,
+        cm_bonus_redeem_history=cm_bonus_redeem_history,
     )
 
 
@@ -200,6 +202,7 @@ def api_cm_bonuses():
     return {
         "balance": get_cm_bonus_balance(guest["guest_id"], guest["club_id"]),
         "history": get_cm_bonus_history(guest["guest_id"], guest["club_id"], limit=10),
+        "redeem_history": get_cm_bonus_redeem_history(guest["guest_id"], guest["club_id"], limit=30),
     }
 
 

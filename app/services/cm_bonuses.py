@@ -515,6 +515,49 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
 
 
 
+def get_cm_bonus_redeem_history(guest_id: int, club_id: int, limit: int = 30):
+    """Return guest CM-bonus transfer requests with user-friendly status labels."""
+    status_labels = {
+        "created": "создана",
+        "notified": "ожидает зачисления",
+        "notify_failed": "ошибка уведомления",
+        "credited": "зачислено",
+        "cancelled": "отменена",
+        "failed": "ошибка",
+    }
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                SELECT id, amount, status, error_text, requested_at, processed_at
+                FROM cm_bonus_redeem_requests
+                WHERE club_id = %s AND guest_id = %s
+                ORDER BY requested_at DESC, id DESC
+                LIMIT %s
+                """,
+                (club_id, guest_id, limit),
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        status = str(item.get("status") or "created")
+        item["status_label"] = status_labels.get(status, status)
+        if status == "credited":
+            item["status_class"] = "issued"
+        elif status in {"notify_failed", "failed", "cancelled"}:
+            item["status_class"] = "cancelled"
+        else:
+            item["status_class"] = "pending"
+        result.append(item)
+    return result
+
+
 def mark_cm_bonus_redeem_credited_by_telegram(
     request_id: int,
     chat_id: str | int | None,
