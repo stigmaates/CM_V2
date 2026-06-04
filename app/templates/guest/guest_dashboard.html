@@ -1407,7 +1407,7 @@
 
                 const iconPos = polar(textR - 78, mid);
                 // Иконки разворачиваются единообразно: верх иконки смотрит к центру колеса.
-                const iconRotate = mid - 90;
+                const iconRotate = mid + 90;
 
                 const iconLabel = document.createElementNS(ns, 'text');
                 iconLabel.setAttribute('x', String(iconPos.x));
