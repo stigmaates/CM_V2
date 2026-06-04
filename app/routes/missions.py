@@ -40,6 +40,7 @@ def api_create_mission():
         config=data.get("config"),
         reward_text=data.get("reward_text"),
         custom_name=data.get("custom_name"),
+        custom_description=data.get("custom_description"),
         token_reward=int(data.get("token_reward") or 0),
         cm_bonus_reward=int(data.get("cm_bonus_reward") or 0),
     )
@@ -63,6 +64,7 @@ def api_update_mission(mission_id):
         is_enabled=data.get("is_enabled", 1),
         reward_text=data.get("reward_text"),
         custom_name=data.get("custom_name"),
+        custom_description=data.get("custom_description"),
         token_reward=int(data.get("token_reward") or 0),
         cm_bonus_reward=int(data.get("cm_bonus_reward") or 0),
     )
@@ -100,6 +102,7 @@ def missions_add():
     start_at_raw = request.form.get("start_at", "").strip()
     end_at_raw = request.form.get("end_at", "").strip()
     custom_name = request.form.get("custom_name", "").strip()
+    custom_description = request.form.get("custom_description", "").strip()
     reward_text = request.form.get("reward_text", "").strip()
     token_reward_raw = request.form.get("token_reward", "0").strip() or "0"
     cm_bonus_reward_raw = request.form.get("cm_bonus_reward", "0").strip() or "0"
@@ -154,6 +157,7 @@ def missions_add():
             config=config,
             reward_text=reward_text,
             custom_name=custom_name,
+            custom_description=custom_description,
             token_reward=token_reward,
             cm_bonus_reward=cm_bonus_reward,
         )
@@ -175,6 +179,7 @@ def missions_update(mission_id):
     start_at_raw = request.form.get("start_at", "").strip()
     end_at_raw = request.form.get("end_at", "").strip()
     custom_name = request.form.get("custom_name", "").strip()
+    custom_description = request.form.get("custom_description", "").strip()
     reward_text = request.form.get("reward_text", "").strip()
     token_reward_raw = request.form.get("token_reward", "0").strip() or "0"
     cm_bonus_reward_raw = request.form.get("cm_bonus_reward", "0").strip() or "0"
@@ -231,6 +236,7 @@ def missions_update(mission_id):
             is_enabled=is_enabled,
             reward_text=reward_text,
             custom_name=custom_name,
+            custom_description=custom_description,
             token_reward=token_reward,
             cm_bonus_reward=cm_bonus_reward,
         )

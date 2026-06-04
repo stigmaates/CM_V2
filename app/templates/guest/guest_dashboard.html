@@ -992,7 +992,7 @@
                                     <div class="mission-main">
                                         <div class="mission-head">
                                             <div class="mission-title">{{ mission.name }}</div>
-                                            <div class="mission-desc">{{ mission.description }}</div>
+                                            {% if mission.description %}<div class="mission-desc">{{ mission.description }}</div>{% endif %}
                                         </div>
                                         <div class="mission-progress-stack">
                                             <div class="progress-line"><div class="progress-fill" style="width: {{ mission.progress_percent }}%;"></div></div>

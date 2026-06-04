@@ -102,6 +102,11 @@
         line-height: 1.45;
     }
 
+    .mission-text--empty {
+        opacity: .72;
+        font-style: italic;
+    }
+
     .mission-period-slot {
         margin-bottom: 14px;
         min-height: 34px;
@@ -222,7 +227,7 @@
                     {% for m in missions %}
                         <div class="card mission-card">
                             <h3 class="mission-title">{{ m.display_name or m.name }}</h3>
-                            <p class="mission-text">{{ m.short_description }}</p>
+                            {% if m.custom_description %}<p class="mission-text">{{ m.custom_description }}</p>{% else %}<p class="mission-text mission-text--empty">Описание для гостя не задано.</p>{% endif %}
                             {% if m.custom_name %}<p class="mission-text" style="font-size: 12px; margin-top: -8px;">Шаблон: {{ m.name }}</p>{% endif %}
 
                             <div class="mission-period-slot">
@@ -244,6 +249,12 @@
                                         <label for="custom_name_{{ m.id }}">Название задания</label>
                                         <input class="form-input" type="text" id="custom_name_{{ m.id }}" name="custom_name" value="{{ m.custom_name or '' }}" placeholder="Например: Майский марафон или Ночная лига">
                                         <span class="mission-field-hint">Это название увидит гость. Если оставить пустым, будет использовано название шаблона.</span>
+                                    </div>
+
+                                    <div class="form-group full">
+                                        <label for="custom_description_{{ m.id }}">Описание для гостя</label>
+                                        <textarea class="form-input" id="custom_description_{{ m.id }}" name="custom_description" rows="3" placeholder="Например: Сделай 4 визита в выходные и забери бонусы">{{ m.custom_description or '' }}</textarea>
+                                        <span class="mission-field-hint">Показывается в гостевом кабинете вместо автоматического описания шаблона.</span>
                                     </div>
 
                                     <div class="form-group">
@@ -325,6 +336,12 @@
                     <label for="custom_name">Название задания</label>
                     <input class="form-input" type="text" id="custom_name" name="custom_name" placeholder="Например: Майский марафон или Ночная лига">
                     <span class="mission-field-hint">Кастомное название для гостевого кабинета. Можно оставить пустым.</span>
+                </div>
+
+                <div class="form-group full">
+                    <label for="custom_description">Описание для гостя</label>
+                    <textarea class="form-input" id="custom_description" name="custom_description" rows="3" placeholder="Например: Сделай 4 визита в выходные и забери бонусы"></textarea>
+                    <span class="mission-field-hint">Показывается в гостевом кабинете вместо автоматического описания шаблона.</span>
                 </div>
 
                 <div class="form-group">

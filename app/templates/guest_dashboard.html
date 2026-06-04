@@ -284,7 +284,9 @@
                             {% for mission in missions_list %}
                                 <div class="card">
                                     <h3 style="margin:0 0 10px;">{{ mission.name }}</h3>
-                                    <p style="margin:0 0 16px; color: var(--text-muted);">{{ mission.description }}</p>
+                                    {% if mission.description %}
+                                        <p style="margin:0 0 16px; color: var(--text-muted);">{{ mission.description }}</p>
+                                    {% endif %}
 
                                     {% if mission.start_at or mission.end_at %}
                                         <div class="period">

@@ -246,6 +246,13 @@ def ensure_mission_reward_columns(cursor):
             "ADD COLUMN custom_name VARCHAR(255) NULL AFTER mission_template_id"
         )
 
+    cursor.execute("SHOW COLUMNS FROM club_missions LIKE 'custom_description'")
+    if not cursor.fetchone():
+        cursor.execute(
+            "ALTER TABLE club_missions "
+            "ADD COLUMN custom_description TEXT NULL AFTER custom_name"
+        )
+
     _mission_reward_columns_ready = True
 
 
@@ -393,6 +400,7 @@ def get_club_missions(club_id: int):
                        cm.club_id,
                        cm.mission_template_id,
                        cm.custom_name,
+                       cm.custom_description,
                        cm.target_amount,
                        cm.reward_text,
                        cm.token_reward,
@@ -435,6 +443,7 @@ def get_club_missions_all(club_id: int):
                        cm.club_id,
                        cm.mission_template_id,
                        cm.custom_name,
+                       cm.custom_description,
                        cm.target_amount,
                        cm.reward_text,
                        cm.token_reward,
@@ -505,7 +514,7 @@ def build_mission_config_from_form(template, form):
     return config or None
 
 
-def create_club_mission(club_id: int, mission_template_id: int, target_amount: int, start_at=None, end_at=None, config=None, reward_text=None, token_reward: int = 0, cm_bonus_reward: int = 0, custom_name=None):
+def create_club_mission(club_id: int, mission_template_id: int, target_amount: int, start_at=None, end_at=None, config=None, reward_text=None, token_reward: int = 0, cm_bonus_reward: int = 0, custom_name=None, custom_description=None):
     if start_at and end_at and end_at < start_at:
         raise ValueError("Дата окончания не может быть раньше даты начала")
 
@@ -519,6 +528,7 @@ def create_club_mission(club_id: int, mission_template_id: int, target_amount: i
                     club_id,
                     mission_template_id,
                     custom_name,
+                    custom_description,
                     is_enabled,
                     target_amount,
                     reward_text,
@@ -529,12 +539,13 @@ def create_club_mission(club_id: int, mission_template_id: int, target_amount: i
                     config,
                     sort_order
                 )
-                VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, 0)
+                VALUES (%s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, 0)
                 """,
                 (
                     club_id,
                     mission_template_id,
                     custom_name.strip() if isinstance(custom_name, str) and custom_name.strip() else None,
+                    custom_description.strip() if isinstance(custom_description, str) and custom_description.strip() else None,
                     target_amount,
                     reward_text.strip() if isinstance(reward_text, str) and reward_text.strip() else None,
                     max(int(token_reward or 0), 0),
@@ -549,7 +560,7 @@ def create_club_mission(club_id: int, mission_template_id: int, target_amount: i
         conn.close()
 
 
-def update_club_mission(mission_id: int, club_id: int, target_amount: int, start_at=None, end_at=None, config=None, is_enabled=1, reward_text=None, token_reward: int = 0, cm_bonus_reward: int = 0, custom_name=None):
+def update_club_mission(mission_id: int, club_id: int, target_amount: int, start_at=None, end_at=None, config=None, is_enabled=1, reward_text=None, token_reward: int = 0, cm_bonus_reward: int = 0, custom_name=None, custom_description=None):
     if start_at and end_at and end_at < start_at:
         raise ValueError("Дата окончания не может быть раньше даты начала")
 
@@ -561,6 +572,7 @@ def update_club_mission(mission_id: int, club_id: int, target_amount: int, start
                 """
                 UPDATE club_missions
                 SET custom_name = %s,
+                    custom_description = %s,
                     target_amount = %s,
                     reward_text = %s,
                     token_reward = %s,
@@ -574,6 +586,7 @@ def update_club_mission(mission_id: int, club_id: int, target_amount: int, start
                 """,
                 (
                     custom_name.strip() if isinstance(custom_name, str) and custom_name.strip() else None,
+                    custom_description.strip() if isinstance(custom_description, str) and custom_description.strip() else None,
                     target_amount,
                     reward_text.strip() if isinstance(reward_text, str) and reward_text.strip() else None,
                     max(int(token_reward or 0), 0),
@@ -873,7 +886,7 @@ def get_guest_missions_with_progress(guest_id: int, club_id: int):
                 "id": mission["id"],
                 "name": mission.get("display_name") or mission["name"],
                 "template_name": mission["name"],
-                "description": mission["short_description"],
+                "description": (mission.get("custom_description") or "").strip(),
                 "target": target,
                 "reward_text": reward_text,
                 "token_reward": token_reward,
