@@ -52,6 +52,8 @@ def wheel_settings():
             return redirect(url_for("owner.settings", tab="wheel"))
 
         try:
+            if is_enabled:
+                assert_active_wheel_probabilities_sum_is_100(club_id_int)
             save_wheel_settings(
                 club_id=club_id_int,
                 tokens_start_date=tokens_start_date,
@@ -104,7 +106,6 @@ def wheel_prize_add():
     icon_emoji = _parse_prize_icon(request.form.get("icon_emoji", ""))
     bonus_amount_raw = request.form.get("bonus_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
-    sort_order_raw = request.form.get("sort_order", "").strip()
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
     if not name:
@@ -128,12 +129,7 @@ def wheel_prize_add():
         return redirect(url_for("owner.settings", tab="wheel"))
 
     try:
-        sort_order = int(sort_order_raw) if sort_order_raw else 0
-    except ValueError:
-        flash("Порядок должен быть числом", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
-
-    try:
+        sort_order = len(get_wheel_prizes_for_admin(club_id_int)) + 1
         new_id = create_wheel_prize(
             club_id=club_id_int,
             name=name,
@@ -145,15 +141,6 @@ def wheel_prize_add():
             is_active=is_active,
             sort_order=sort_order,
         )
-        try:
-            assert_active_wheel_probabilities_sum_is_100(club_id_int)
-        except ValueError as ve:
-            try:
-                delete_wheel_prize(new_id, club_id_int)
-            except Exception:
-                pass
-            flash(str(ve), "error")
-            return redirect(url_for("owner.settings", tab="wheel"))
         flash("Приз добавлен", "success")
     except Exception as e:
         flash(f"Ошибка добавления приза: {e}", "error")
@@ -182,7 +169,6 @@ def wheel_prize_update(prize_id):
     icon_emoji = _parse_prize_icon(request.form.get("icon_emoji", ""))
     bonus_amount_raw = request.form.get("bonus_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
-    sort_order_raw = request.form.get("sort_order", "").strip()
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
     if not name:
@@ -206,12 +192,7 @@ def wheel_prize_update(prize_id):
         return redirect(url_for("owner.settings", tab="wheel"))
 
     try:
-        sort_order = int(sort_order_raw) if sort_order_raw else 0
-    except ValueError:
-        flash("Порядок должен быть числом", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
-
-    try:
+        sort_order = int(prize.get("sort_order") or 0)
         update_wheel_prize(
             prize_id=prize_id,
             club_id=club_id_int,
@@ -224,23 +205,6 @@ def wheel_prize_update(prize_id):
             is_active=is_active,
             sort_order=sort_order,
         )
-        try:
-            assert_active_wheel_probabilities_sum_is_100(club_id_int)
-        except ValueError as ve:
-            update_wheel_prize(
-                prize_id=prize_id,
-                club_id=club_id_int,
-                name=prize.get("name") or "",
-                description=prize.get("description"),
-                image_url=prize.get("image_url"),
-                icon_emoji=prize.get("icon_emoji") or "🎁",
-                bonus_amount=int(prize.get("bonus_amount") or 0),
-                probability=float(prize.get("probability") or 0),
-                is_active=int(prize.get("is_active") or 0),
-                sort_order=int(prize.get("sort_order") or 0),
-            )
-            flash(str(ve), "error")
-            return redirect(url_for("owner.settings", tab="wheel"))
         flash("Приз обновлён", "success")
     except Exception as e:
         flash(f"Ошибка обновления приза: {e}", "error")

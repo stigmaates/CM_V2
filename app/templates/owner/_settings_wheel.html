@@ -1,8 +1,7 @@
-{% set prize_icon_choices = ['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕'] %}
+{% set prize_icon_choices = prize_icon_choices|default(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']) %}
+{% set prob_ok = (wheel_active_prob_sum|float - 100)|abs < 0.06 %}
 <style>
     .wheel-page {
-        max-width: 1200px;
-        margin: 0 auto;
         width: 100%;
     }
 
@@ -11,49 +10,17 @@
         gap: 20px;
     }
 
-    .wheel-prizes-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 22px;
-    }
-
-    .wheel-prizes-head .section-title {
-        margin-bottom: 0;
-        flex: 1;
-        min-width: 0;
-    }
-
-    .wheel-add-trigger {
-        flex-shrink: 0;
-        white-space: nowrap;
-        font-size: 18px;
-        font-weight: 700;
-        line-height: 1;
-        padding: 0;
-        border: none;
-        background: none;
-        color: var(--accent-strong);
-        cursor: pointer;
-    }
-
-    .wheel-add-trigger:hover {
-        color: var(--text-main);
-    }
-
     .wheel-section {
-        padding: 28px;
+        padding: 24px;
     }
 
     .wheel-subtitle {
         color: var(--text-muted);
         line-height: 1.5;
-        margin-top: -10px;
+        margin-top: -8px;
         margin-bottom: 18px;
     }
 
-    /* Одинаковая визуальная высота полей даты и числа (min-height в теме не всегда совпадает с рендером браузера) */
     .wheel-main-form #tokens_start_date.form-input,
     .wheel-main-form #spin_cost.form-input {
         height: 48px;
@@ -64,133 +31,159 @@
         padding-bottom: 11px;
     }
 
-    .form-grid {
+    .wheel-form-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(240px, 1fr));
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
         gap: 16px;
         align-items: start;
     }
 
-    .form-group.full {
+    .wheel-form-grid .full {
         grid-column: 1 / -1;
     }
 
-    .prize-card .form-grid .form-group {
-        margin-bottom: 0;
+    .wheel-prize-workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+        gap: 20px;
+        align-items: start;
+    }
+
+    .wheel-prizes-panel,
+    .wheel-probability-panel {
+        min-width: 0;
+    }
+
+    .wheel-prizes-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+
+    .wheel-prizes-head .section-title {
+        margin: 0;
+    }
+
+    .wheel-add-trigger {
+        flex-shrink: 0;
+        white-space: nowrap;
+        font-size: 16px;
+        font-weight: 800;
+        line-height: 1;
+        padding: 11px 14px;
+        border: 1px solid rgba(165, 114, 255, 0.32);
+        border-radius: 14px;
+        background: rgba(143, 91, 255, 0.12);
+        color: var(--accent-strong);
+        cursor: pointer;
+        transition: background .16s ease, color .16s ease, border-color .16s ease;
+    }
+
+    .wheel-add-trigger:hover {
+        color: var(--text-main);
+        border-color: rgba(165, 114, 255, 0.55);
+        background: rgba(143, 91, 255, 0.2);
     }
 
     .prize-list {
         display: grid;
-        gap: 22px;
+        grid-template-columns: repeat(2, minmax(280px, 1fr));
+        gap: 14px;
     }
 
     .prize-card {
-        border: 1px solid rgba(165, 114, 255, 0.45);
+        border: 1px solid var(--border);
         border-radius: 18px;
-        padding: 20px 20px 18px;
-        background: linear-gradient(165deg, rgba(34, 20, 62, 0.92), rgba(18, 10, 34, 0.88));
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .prize-card::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 4px;
-        border-radius: 18px 0 0 18px;
-        background: linear-gradient(180deg, #c997ff, #6a45bf);
-        opacity: 0.85;
-    }
-
-    .prize-card:nth-child(6n + 2)::before { background: linear-gradient(180deg, #7ee8a8, #2d9d6b); }
-    .prize-card:nth-child(6n + 3)::before { background: linear-gradient(180deg, #7ecbff, #3b6fd9); }
-    .prize-card:nth-child(6n + 4)::before { background: linear-gradient(180deg, #ffd469, #e8a93a); }
-    .prize-card:nth-child(6n + 5)::before { background: linear-gradient(180deg, #ff9bb2, #d94d7a); }
-    .prize-card:nth-child(6n)::before { background: linear-gradient(180deg, #b8a4ff, #6f52c6); }
-
-    .wheel-prob-banner {
-        margin: 0 0 18px;
-        padding: 12px 16px;
-        border-radius: 14px;
-        font-size: 14px;
-        font-weight: 700;
-        border: 1px solid rgba(143, 91, 255, 0.35);
-        background: rgba(255, 255, 255, 0.05);
-        color: var(--text-muted);
-    }
-
-    .wheel-prob-banner strong {
-        color: #fff;
-        font-weight: 900;
-    }
-
-    .wheel-prob-banner--ok {
-        border-color: rgba(74, 222, 128, 0.45);
-        background: rgba(34, 197, 94, 0.12);
-        color: #bbf7d0;
-    }
-
-    .wheel-prob-banner--warn {
-        border-color: rgba(251, 191, 36, 0.55);
-        background: rgba(251, 191, 36, 0.1);
-        color: #fef3c7;
-    }
-
-    .prize-card-title {
-        margin: 0 0 12px;
-        font-size: 19px;
-        font-weight: 700;
-    }
-
-    .actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 8px;
-    }
-
-    .prize-card-actions {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        gap: 12px;
-        margin-top: 18px;
-        align-items: stretch;
-        width: 100%;
-    }
-
-    .prize-card-actions > .btn,
-    .prize-card-actions > form {
-        flex: 1 1 0;
+        padding: 16px;
+        background: rgba(20, 12, 36, 0.56);
         min-width: 0;
     }
 
-    .prize-card-actions > form {
+    .prize-card-head {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .prize-card-title {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
         margin: 0;
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.2;
+        color: var(--text-main);
     }
 
-    .prize-card-actions .btn {
-        width: 100%;
-        box-sizing: border-box;
-        text-align: center;
+    .prize-card-title-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    .btn-danger {
-        background: #7a2a46;
-        border-color: #9f4464;
+    .prize-card-title-icon,
+    .probability-prize-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        font-size: 18px;
+    }
+
+    .prize-active-badge {
+        flex-shrink: 0;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 6px 9px;
+        border-radius: 999px;
+        color: #caffd6;
+        background: rgba(99, 214, 126, 0.12);
+        border: 1px solid rgba(99, 214, 126, 0.24);
+    }
+
+    .prize-active-badge--off {
+        color: var(--text-muted);
+        background: rgba(255,255,255,0.05);
+        border-color: rgba(255,255,255,0.10);
+    }
+
+    .prize-compact-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(92px, .7fr) minmax(100px, .8fr);
+        gap: 12px;
+        align-items: start;
+    }
+
+    .prize-compact-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .prize-card .form-group {
+        margin-bottom: 0;
+    }
+
+    .prize-card textarea.form-input {
+        min-height: 82px;
+        resize: vertical;
     }
 
     .prize-icon-picker {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
-        gap: 8px;
-        padding: 10px;
-        border: 1px solid rgba(165, 114, 255, 0.28);
+        grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+        gap: 7px;
+        padding: 9px;
+        border: 1px solid rgba(165, 114, 255, 0.24);
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.035);
     }
@@ -199,9 +192,9 @@
         position: relative;
         display: grid;
         place-items: center;
-        min-height: 44px;
+        min-height: 38px;
         border: 1px solid rgba(255, 255, 255, 0.10);
-        border-radius: 12px;
+        border-radius: 11px;
         background: rgba(16, 9, 30, 0.72);
         cursor: pointer;
         transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
@@ -214,7 +207,7 @@
     }
 
     .prize-icon-choice span {
-        font-size: 24px;
+        font-size: 21px;
         line-height: 1;
         filter: drop-shadow(0 2px 8px rgba(0,0,0,.28));
     }
@@ -231,22 +224,145 @@
         box-shadow: 0 0 0 2px rgba(255, 212, 105, 0.10), 0 12px 28px rgba(143, 91, 255, 0.16);
     }
 
-    .prize-card-title-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        margin-right: 8px;
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        font-size: 18px;
-        vertical-align: middle;
+    .prize-card-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+        align-items: stretch;
     }
 
-    @media (max-width: 900px) {
-        .form-grid {
+    .prize-card-actions > form {
+        display: flex;
+        margin: 0;
+    }
+
+    .prize-card-actions .btn {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+        min-height: 44px;
+    }
+
+    .btn-danger {
+        background: #7a2a46;
+        border-color: #9f4464;
+    }
+
+    .probability-card {
+        position: sticky;
+        top: 18px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        background: rgba(20, 12, 36, 0.62);
+    }
+
+    .probability-total {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .probability-total-title {
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+    }
+
+    .probability-total-value {
+        font-size: 34px;
+        line-height: 1;
+        font-weight: 900;
+        color: {% if prob_ok %}#63d67e{% else %}#ff6f61{% endif %};
+    }
+
+    .probability-state {
+        border-radius: 14px;
+        padding: 11px 12px;
+        margin-bottom: 14px;
+        font-size: 13px;
+        line-height: 1.35;
+        color: {% if prob_ok %}#d8ffe1{% else %}#ffdcd8{% endif %};
+        border: 1px solid {% if prob_ok %}rgba(99, 214, 126, 0.24){% else %}rgba(255, 111, 97, 0.30){% endif %};
+        background: {% if prob_ok %}rgba(99, 214, 126, 0.10){% else %}rgba(255, 111, 97, 0.10){% endif %};
+    }
+
+    .probability-list-title {
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 800;
+        margin: 14px 0 10px;
+    }
+
+    .probability-prize-list {
+        display: grid;
+        gap: 8px;
+        max-height: 430px;
+        overflow: auto;
+        padding-right: 4px;
+    }
+
+    .probability-prize-row {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        padding: 9px;
+        border-radius: 13px;
+        background: rgba(255,255,255,0.035);
+        border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .probability-prize-row.is-off {
+        opacity: .58;
+    }
+
+    .probability-prize-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 800;
+        color: var(--text-main);
+        font-size: 13px;
+    }
+
+    .probability-prize-desc {
+        color: var(--text-muted);
+        font-size: 12px;
+        margin-top: 2px;
+    }
+
+    .probability-prize-value {
+        font-weight: 900;
+        color: var(--text-main);
+        font-size: 14px;
+    }
+
+    .modal-panel--prize {
+        width: min(760px, calc(100vw - 28px));
+    }
+
+    @media (max-width: 1180px) {
+        .wheel-prize-workspace {
+            grid-template-columns: 1fr;
+        }
+        .probability-card {
+            position: static;
+        }
+    }
+
+    @media (max-width: 920px) {
+        .prize-list,
+        .wheel-form-grid {
+            grid-template-columns: 1fr;
+        }
+        .prize-compact-grid {
             grid-template-columns: 1fr;
         }
     }
@@ -258,12 +374,11 @@
         <div class="section-title">Настройки колеса</div>
         <p class="wheel-subtitle">
             Здесь задается дата начала начисления жетонов, стоимость прокрута и состояние колеса.
-            Жетоны начисляются по недельной серии: 1-й день — 1 жетон, 2-й — 2, и так до 7. Дополнительные задания могут давать жетоны сверх серии.
-            Если у приза указать CM-бонусы, они автоматически начислятся гостю после выпадения приза.
+            Жетоны считаются по уникальным дням посещения после выбранной даты.
         </p>
 
-        <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}">
-            <div class="form-grid">
+        <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm">
+            <div class="wheel-form-grid">
                 <div class="form-group">
                     <label for="tokens_start_date">Дата начала начисления жетонов</label>
                     <input
@@ -285,7 +400,7 @@
                         name="spin_cost"
                         min="1"
                         step="1"
-                        value="{{ wheel_settings.spin_cost or 2 }}"
+                        value="{{ wheel_settings.spin_cost or 1 }}"
                         required
                     >
                 </div>
@@ -307,137 +422,158 @@
             </div>
 
             <div class="actions">
-                <button type="submit" class="btn">Сохранить настройки</button>
+                <button type="submit" class="btn" id="wheelSettingsSubmit">Сохранить настройки</button>
             </div>
         </form>
     </section>
 
-    <section class="card wheel-section">
-        <div class="wheel-prizes-head">
-            <div class="section-title">Список призов</div>
-            <button class="wheel-add-trigger" type="button" id="openPrizeAddModal">+ Добавить приз</button>
+    <section class="wheel-prize-workspace">
+        <div class="card wheel-section wheel-prizes-panel">
+            <div class="wheel-prizes-head">
+                <div class="section-title">Призы колеса</div>
+                <button class="wheel-add-trigger" type="button" id="openPrizeAddModal">+ Добавить приз</button>
+            </div>
+
+            {% if prizes %}
+                <div class="prize-list">
+                    {% for prize in prizes %}
+                        <div class="prize-card">
+                            <div class="prize-card-head">
+                                <div class="prize-card-title">
+                                    <span class="prize-card-title-icon">{{ prize.icon_emoji or '🎁' }}</span>
+                                    <span class="prize-card-title-text">{{ prize.name }}</span>
+                                </div>
+                                <span class="prize-active-badge {% if not prize.is_active %}prize-active-badge--off{% endif %}">
+                                    {% if prize.is_active %}активен{% else %}выключен{% endif %}
+                                </span>
+                            </div>
+
+                            <form id="prize-update-{{ prize.id }}" method="POST" action="{{ url_for('owner.wheel_prize_update', prize_id=prize.id) }}">
+                                <div class="prize-compact-grid">
+                                    <div class="form-group">
+                                        <label for="name_{{ prize.id }}">Название</label>
+                                        <input class="form-input" type="text" id="name_{{ prize.id }}" name="name" value="{{ prize.name }}" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="probability_{{ prize.id }}">Вероятность</label>
+                                        <input class="form-input" type="number" id="probability_{{ prize.id }}" name="probability" min="0.0001" step="0.0001" value="{{ prize.probability }}" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="bonus_amount_{{ prize.id }}">Бонусы</label>
+                                        <input class="form-input" type="number" id="bonus_amount_{{ prize.id }}" name="bonus_amount" min="0" step="1" value="{{ prize.bonus_amount or 0 }}">
+                                    </div>
+
+                                    <div class="form-group full">
+                                        <label>Иконка</label>
+                                        <div class="prize-icon-picker" role="radiogroup" aria-label="Иконка приза">
+                                            {% for icon in prize_icon_choices %}
+                                                <label class="prize-icon-choice" title="{{ icon }}">
+                                                    <input type="radio" name="icon_emoji" value="{{ icon }}" {% if (prize.icon_emoji or '🎁') == icon %}checked{% endif %}>
+                                                    <span>{{ icon }}</span>
+                                                </label>
+                                            {% endfor %}
+                                        </div>
+                                        <input type="hidden" name="image_url" value="{{ prize.image_url or '' }}">
+                                    </div>
+
+                                    <div class="form-group full">
+                                        <label for="description_{{ prize.id }}">Описание</label>
+                                        <textarea class="form-input" id="description_{{ prize.id }}" name="description" rows="3">{{ prize.description or '' }}</textarea>
+                                    </div>
+
+                                    <div class="form-group full">
+                                        <label class="form-check" for="active_{{ prize.id }}">
+                                            <input
+                                                type="checkbox"
+                                                class="form-check-input"
+                                                id="active_{{ prize.id }}"
+                                                name="is_active"
+                                                value="1"
+                                                {% if prize.is_active %}checked{% endif %}
+                                            >
+                                            <span class="form-check-box" aria-hidden="true"></span>
+                                            <span class="form-check-text">Приз активен</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <div class="prize-card-actions">
+                                <button type="submit" class="btn" form="prize-update-{{ prize.id }}">Сохранить приз</button>
+                                <form method="POST" action="{{ url_for('owner.wheel_prize_delete', prize_id=prize.id) }}">
+                                    <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот приз?')">Удалить</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="muted">Для этого клуба пока не добавлено ни одного приза.</div>
+            {% endif %}
         </div>
 
-        {% if prizes %}
-            <p class="wheel-prob-banner {% if (wheel_active_prob_sum - 100)|abs < 0.06 %}wheel-prob-banner--ok{% else %}wheel-prob-banner--warn{% endif %}">
-                Сумма вероятностей <strong>активных</strong> призов:
-                <strong>{{ '%.2f'|format(wheel_active_prob_sum|float) }}%</strong>
-                — нужно ровно <strong>100%</strong> (иначе сохранение призов будет отклонено).
-            </p>
-            <div class="prize-list">
-                {% for prize in prizes %}
-                    <div class="prize-card">
-                        <div class="prize-card-title">
-                            <span class="prize-card-title-icon">{{ prize.icon_emoji or "🎁" }}</span>{{ prize.name }}
-                            {% if not prize.is_active %}
-                                <span style="font-size: 13px; color: var(--text-muted);">(выключен)</span>
-                            {% endif %}
-                        </div>
-
-                        <form id="prize-update-{{ prize.id }}" method="POST" action="{{ url_for('owner.wheel_prize_update', prize_id=prize.id) }}">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label for="name_{{ prize.id }}">Название</label>
-                                    <input class="form-input" type="text" id="name_{{ prize.id }}" name="name" value="{{ prize.name }}" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="probability_{{ prize.id }}">Вероятность / вес</label>
-                                    <input class="form-input" type="number" id="probability_{{ prize.id }}" name="probability" min="0.0001" step="0.0001" value="{{ prize.probability }}" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="bonus_amount_{{ prize.id }}">CM-бонусы за этот приз</label>
-                                    <input class="form-input" type="number" id="bonus_amount_{{ prize.id }}" name="bonus_amount" min="0" step="1" value="{{ prize.bonus_amount or 0 }}">
-                                </div>
-
-                                <div class="form-group full">
-                                    <label for="description_{{ prize.id }}">Описание</label>
-                                    <textarea class="form-input" id="description_{{ prize.id }}" name="description" rows="3">{{ prize.description or '' }}</textarea>
-                                </div>
-
-                                <div class="form-group full">
-                                    <label>Иконка приза</label>
-                                    <div class="prize-icon-picker" role="radiogroup" aria-label="Иконка приза">
-                                        {% for icon in prize_icon_choices %}
-                                            <label class="prize-icon-choice" title="{{ icon }}">
-                                                <input type="radio" name="icon_emoji" value="{{ icon }}" {% if (prize.icon_emoji or '🎁') == icon %}checked{% endif %}>
-                                                <span>{{ icon }}</span>
-                                            </label>
-                                        {% endfor %}
-                                    </div>
-                                    <input type="hidden" name="image_url" value="{{ prize.image_url or '' }}">
-                                </div>
-
-                                <div class="form-group full">
-                                    <label for="order_{{ prize.id }}">Порядок</label>
-                                    <input class="form-input" type="number" id="order_{{ prize.id }}" name="sort_order" min="0" step="1" value="{{ prize.sort_order or 0 }}">
-                                </div>
-
-                                <div class="form-group full">
-                                    <label class="form-check" for="active_{{ prize.id }}">
-                                        <input
-                                            type="checkbox"
-                                            class="form-check-input"
-                                            id="active_{{ prize.id }}"
-                                            name="is_active"
-                                            value="1"
-                                            {% if prize.is_active %}checked{% endif %}
-                                        >
-                                        <span class="form-check-box" aria-hidden="true"></span>
-                                        <span class="form-check-text">Приз активен</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </form>
-
-                        <div class="prize-card-actions">
-                            <button type="submit" class="btn" form="prize-update-{{ prize.id }}">Сохранить</button>
-                            <form method="POST" action="{{ url_for('owner.wheel_prize_delete', prize_id=prize.id) }}">
-                                <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот приз?')">Удалить приз</button>
-                            </form>
-                        </div>
-                    </div>
-                {% endfor %}
+        <aside class="probability-card">
+            <div class="probability-total">
+                <div class="probability-total-title">Сумма вероятностей</div>
+                <div class="probability-total-value">{{ '%.2f'|format(wheel_active_prob_sum|float) }}%</div>
             </div>
-        {% else %}
-            <div class="muted">Для этого клуба пока не добавлено ни одного приза.</div>
-        {% endif %}
+            <div class="probability-state">
+                {% if prob_ok %}
+                    Всё ок: сумма активных призов равна 100%. Колесо можно включать.
+                {% else %}
+                    Сейчас сумма активных призов не равна 100%. Призы можно добавлять и править, но включить/сохранить активное колесо нельзя.
+                {% endif %}
+            </div>
+            <div class="probability-list-title">Сохранённые призы</div>
+            {% if prizes %}
+                <div class="probability-prize-list">
+                    {% for prize in prizes %}
+                        <div class="probability-prize-row {% if not prize.is_active %}is-off{% endif %}">
+                            <span class="probability-prize-icon">{{ prize.icon_emoji or '🎁' }}</span>
+                            <div>
+                                <div class="probability-prize-name">{{ prize.name }}</div>
+                                <div class="probability-prize-desc">{% if prize.is_active %}активен{% else %}выключен{% endif %}</div>
+                            </div>
+                            <div class="probability-prize-value">{{ '%.2f'|format(prize.probability|float) }}%</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="muted">Добавь призы, чтобы собрать вероятность 100%.</div>
+            {% endif %}
+        </aside>
     </section>
 </div>
 </div>
 
 <div class="modal-overlay" id="prizeAddModal" aria-hidden="true">
-    <div class="modal-panel modal-panel--wide" role="dialog" aria-modal="true" aria-labelledby="prizeAddModalTitle">
+    <div class="modal-panel modal-panel--prize" role="dialog" aria-modal="true" aria-labelledby="prizeAddModalTitle">
         <div class="modal-header">
             <h2 class="modal-title" id="prizeAddModalTitle">Добавить приз</h2>
             <button type="button" class="modal-close" id="closePrizeAddModal" aria-label="Закрыть">×</button>
         </div>
 
         <form method="POST" action="{{ url_for('owner.wheel_prize_add') }}">
-            <div class="form-grid">
+            <div class="prize-compact-grid">
                 <div class="form-group">
-                    <label for="add_name">Название приза</label>
+                    <label for="add_name">Название</label>
                     <input class="form-input" type="text" id="add_name" name="name" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="add_probability">Вероятность / вес</label>
+                    <label for="add_probability">Вероятность</label>
                     <input class="form-input" type="number" id="add_probability" name="probability" min="0.0001" step="0.0001" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="add_bonus_amount">CM-бонусы за этот приз</label>
+                    <label for="add_bonus_amount">Бонусы</label>
                     <input class="form-input" type="number" id="add_bonus_amount" name="bonus_amount" min="0" step="1" value="0">
                 </div>
 
                 <div class="form-group full">
-                    <label for="add_description">Описание</label>
-                    <textarea class="form-input" id="add_description" name="description" rows="3"></textarea>
-                </div>
-
-                <div class="form-group full">
-                    <label>Иконка приза</label>
+                    <label>Иконка</label>
                     <div class="prize-icon-picker" role="radiogroup" aria-label="Иконка приза">
                         {% for icon in prize_icon_choices %}
                             <label class="prize-icon-choice" title="{{ icon }}">
@@ -450,8 +586,8 @@
                 </div>
 
                 <div class="form-group full">
-                    <label for="add_sort_order">Порядок</label>
-                    <input class="form-input" type="number" id="add_sort_order" name="sort_order" min="0" step="1" value="0">
+                    <label for="add_description">Описание</label>
+                    <textarea class="form-input" id="add_description" name="description" rows="3"></textarea>
                 </div>
 
                 <div class="form-group full">
@@ -475,6 +611,18 @@
         const modal = document.getElementById('prizeAddModal');
         const openBtn = document.getElementById('openPrizeAddModal');
         const closeBtn = document.getElementById('closePrizeAddModal');
+        const wheelSettingsForm = document.getElementById('wheelSettingsForm');
+        const wheelEnabled = document.getElementById('is_enabled');
+        const probabilityOk = {{ 'true' if prob_ok else 'false' }};
+
+        if (wheelSettingsForm && wheelEnabled) {
+            wheelSettingsForm.addEventListener('submit', function (event) {
+                if (wheelEnabled.checked && !probabilityOk) {
+                    event.preventDefault();
+                    alert('Сумма вероятностей активных призов должна быть ровно 100%. Исправь призы и попробуй снова.');
+                }
+            });
+        }
 
         if (!modal || !openBtn || !closeBtn) return;
 

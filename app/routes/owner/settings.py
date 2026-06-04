@@ -105,6 +105,7 @@ def settings():
             "wheel_settings": get_wheel_settings_for_admin(club_id_int),
             "prizes": prizes,
             "wheel_active_prob_sum": wheel_active_prob_sum,
+            "prize_icon_choices": ['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕'],
         })
 
     return render_template("owner/settings.html", **context)

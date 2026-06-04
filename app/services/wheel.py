@@ -19,7 +19,7 @@ _wheel_prize_bonus_columns_ready = False
 
 
 def ensure_wheel_prize_bonus_columns(cursor):
-    """Add prize metadata columns to club_wheel_prizes for older installations."""
+    """Add CM bonus prize columns to club_wheel_prizes for older installations."""
     global _wheel_prize_bonus_columns_ready
     if _wheel_prize_bonus_columns_ready:
         return
@@ -900,7 +900,7 @@ def create_wheel_prize(
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (club_id, name, description, image_url, icon_emoji, int(bonus_amount or 0), probability, is_active, sort_order),
+                (club_id, name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), probability, is_active, sort_order),
             )
             new_id = int(cursor.lastrowid)
         conn.commit()
@@ -939,7 +939,7 @@ def update_wheel_prize(
                 WHERE id = %s
                   AND club_id = %s
                 """,
-                (name, description, image_url, icon_emoji, int(bonus_amount or 0), probability, is_active, sort_order, prize_id, club_id),
+                (name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), probability, is_active, sort_order, prize_id, club_id),
             )
         conn.commit()
     finally:
