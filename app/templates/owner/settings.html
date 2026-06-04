@@ -72,95 +72,74 @@
                     </form>
                 </div>
 
-                <div class="settings-side-column">
-                    <div class="card settings-card settings-card--system-status" id="system-status">
-                        <div class="settings-status-header">
-                            <div>
-                                <div class="section-title">Статус обновлений</div>
-                                <div class="muted settings-status-note">Последние запуски синхронизаций, пересборки данных и авторассылок.</div>
-                            </div>
-                            {% set overall = system_status.overall_status if system_status else 'warning' %}
-                            <span class="status-pill status-pill--{{ overall }}">{{ system_status.overall_text if system_status else 'нет данных' }}</span>
+                <div class="settings-side-stack">
+                    <div class="card settings-card settings-status-card">
+                        <div class="settings-status-card__head">
+                            <div class="section-title">Статусы</div>
+                            <span class="settings-status-card__tz">{{ system_status.timezone_label }}</span>
                         </div>
 
-                        <div class="settings-status-summary">
-                            <div class="status-summary-item">
-                                <span>Последнее обновление</span>
-                                <b>{{ system_status.last_update if system_status else '—' }}</b>
-                            </div>
-                            <div class="status-summary-item">
-                                <span>Авторассылок</span>
-                                <b>{{ system_status.automailings|length if system_status else 0 }}</b>
-                            </div>
-                        </div>
-
-                        <div class="settings-status-section-title">Обновления и фоновые задачи</div>
-                        <div class="settings-status-list">
-                            {% for item in system_status.scripts %}
-                                <div class="status-row status-row--{{ item.status }}">
-                                    <div class="status-dot status-dot--{{ item.status }}"></div>
-                                    <div class="status-row__body">
-                                        <div class="status-row__top">
-                                            <b>{{ item.title }}</b>
-                                            <span>{{ item.status_text }}</span>
-                                        </div>
-                                        <div class="status-row__meta">{{ item.last_update }} · {{ item.description }}</div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="settings-status-section-title">Авторассылки</div>
-                        <div class="settings-status-list settings-status-list--compact">
-                            {% for item in system_status.automailings %}
-                                <div class="status-row status-row--{{ item.status }}">
-                                    <div class="status-dot status-dot--{{ item.status }}"></div>
-                                    <div class="status-row__body">
-                                        <div class="status-row__top">
-                                            <b>{{ item.title }}</b>
-                                            <span>{{ item.status_text }}</span>
-                                        </div>
-                                        <div class="status-row__meta">Последний запуск: {{ item.last_run }} · отправок за 7 дней: {{ item.sent_7d }}</div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                <div class="card settings-card settings-card--pc-names" id="pc-names">
-                    <div class="section-title">Названия ПК</div>
-                    <div class="muted pc-names-note">
-                        Здесь показаны все UUID, по которым за последний год начинались сессии. Назови ПК так, как удобно клубу, и расставь порядок — в этом же порядке они будут отображаться в тепловой карте по ПК.
-                    </div>
-
-                    <form method="POST" action="{{ url_for('owner.settings_pc_names_save') }}" class="pc-names-form">
-                        {% if pc_name_settings %}
-                            <div class="pc-names-list" id="pcNamesList">
-                                {% for pc in pc_name_settings %}
-                                    <div class="pc-name-row" data-pc-row>
-                                        <div class="pc-name-row__sort">
-                                            <button type="button" class="pc-order-btn" data-pc-up title="Поднять выше">↑</button>
-                                            <button type="button" class="pc-order-btn" data-pc-down title="Опустить ниже">↓</button>
-                                        </div>
-                                        <div class="pc-name-row__uuid" title="{{ pc.uuid }}">
-                                            <span>UUID</span>
-                                            <code>{{ pc.uuid }}</code>
-                                        </div>
-                                        <div class="pc-name-row__name">
-                                            <label>Название ПК</label>
-                                            <input class="form-input" type="text" name="pc_name" value="{{ pc.display_name }}" placeholder="Например: ПК 1 / VIP 2 / Bootcamp 5">
-                                            <input type="hidden" name="pc_uuid" value="{{ pc.uuid }}">
-                                            <input type="hidden" name="pc_sort_order" value="{{ pc.sort_order }}" data-pc-sort-order>
-                                        </div>
+                        <div class="settings-status-section">
+                            <div class="settings-status-section__title">Обновления</div>
+                            <div class="settings-status-list">
+                                {% for item in system_status.updates %}
+                                    <div class="settings-status-row">
+                                        <span class="settings-status-name">{{ item.title }}</span>
+                                        <span class="settings-status-pill settings-status-pill--{{ item.status_class }}">{{ item.status }}</span>
+                                        <span class="settings-status-time">{{ item.last_run }}</span>
                                     </div>
                                 {% endfor %}
                             </div>
-                            <button class="btn" type="submit">Сохранить названия ПК</button>
-                        {% else %}
-                            <div class="empty-state">Пока не найдено ни одного UUID сессий за последний год. Они появятся здесь после автоматической синхронизации сессий.</div>
-                        {% endif %}
-                    </form>
-                </div>
+                        </div>
+
+                        <div class="settings-status-section">
+                            <div class="settings-status-section__title">Авторассылки</div>
+                            <div class="settings-status-list">
+                                {% for item in system_status.auto_mailings %}
+                                    <div class="settings-status-row">
+                                        <span class="settings-status-name">{{ item.title }}</span>
+                                        <span class="settings-status-pill settings-status-pill--{{ item.status_class }}">{{ item.status }}</span>
+                                        <span class="settings-status-time">{{ item.last_run }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card settings-card settings-card--pc-names" id="pc-names">
+                        <div class="section-title">Названия ПК</div>
+                        <div class="muted pc-names-note">
+                            Назови компьютеры так, как удобно клубу. Порядок используется в тепловой карте по ПК.
+                        </div>
+
+                        <form method="POST" action="{{ url_for('owner.settings_pc_names_save') }}" class="pc-names-form">
+                            {% if pc_name_settings %}
+                                <div class="pc-names-list" id="pcNamesList">
+                                    {% for pc in pc_name_settings %}
+                                        <div class="pc-name-row" data-pc-row>
+                                            <div class="pc-name-row__sort">
+                                                <button type="button" class="pc-order-btn" data-pc-up title="Поднять выше">↑</button>
+                                                <button type="button" class="pc-order-btn" data-pc-down title="Опустить ниже">↓</button>
+                                            </div>
+                                            <div class="pc-name-row__uuid" title="{{ pc.uuid }}">
+                                                <span>UUID</span>
+                                                <code>{{ pc.uuid }}</code>
+                                            </div>
+                                            <div class="pc-name-row__name">
+                                                <label>Название ПК</label>
+                                                <input class="form-input" type="text" name="pc_name" value="{{ pc.display_name }}" placeholder="ПК 1 / VIP 2">
+                                                <input type="hidden" name="pc_uuid" value="{{ pc.uuid }}">
+                                                <input type="hidden" name="pc_sort_order" value="{{ pc.sort_order }}" data-pc-sort-order>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <button class="btn" type="submit">Сохранить названия ПК</button>
+                            {% else %}
+                                <div class="empty-state">Пока не найдено ни одного UUID сессий за последний год. Они появятся здесь после автоматической синхронизации сессий.</div>
+                            {% endif %}
+                        </form>
+                    </div>
                 </div>
             </div>
         {% elif active_tab == 'missions' %}
