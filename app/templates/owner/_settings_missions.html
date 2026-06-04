@@ -280,7 +280,7 @@
                             {% if m.custom_description %}<p class="mission-text">{{ m.custom_description }}</p>{% else %}<p class="mission-text mission-text--empty">Описание для гостя не задано.</p>{% endif %}
                             {% if m.custom_name %}<p class="mission-text" style="font-size: 12px; margin-top: -8px;">Шаблон: {{ m.name }}</p>{% endif %}
 
-                            <div class="mission-reward-preview">🏆 {{ m.reward_text or '+ приз' }}{% if m.token_reward %} • 🪙 +{{ m.token_reward }} жет.{% endif %}{% if m.cm_bonus_reward %} • 🎁 +{{ m.cm_bonus_reward }} CM-бонусов{% endif %}</div>
+                            <div class="mission-reward-preview">🏆 {{ m.reward_text or '+ приз' }}{% if m.token_reward %} • 🪙 +{{ m.token_reward }} жет.{% endif %}{% if m.cm_bonus_reward %} • 🎁 +{{ m.cm_bonus_reward }} КБ{% endif %}</div>
 
                             <div class="mission-period-slot">
                                 {% if m.start_at or m.end_at %}
@@ -334,7 +334,7 @@
                                     </div>
 
                                     <div class="form-group">
-                                        <label for="cm_bonus_reward_{{ m.id }}">CM-бонусов за выполнение</label>
+                                        <label for="cm_bonus_reward_{{ m.id }}">КБ за выполнение</label>
                                         <input class="form-input" type="number" id="cm_bonus_reward_{{ m.id }}" name="cm_bonus_reward" min="0" step="1" value="{{ m.cm_bonus_reward or 0 }}">
                                     </div>
 
@@ -442,7 +442,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="cm_bonus_reward">CM-бонусов за выполнение</label>
+                    <label for="cm_bonus_reward">КБ за выполнение</label>
                     <input class="form-input" type="number" id="cm_bonus_reward" name="cm_bonus_reward" min="0" step="1" value="0">
                 </div>
 

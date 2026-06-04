@@ -916,7 +916,7 @@
         <header class="guest-topbar">
             <div class="guest-logo">Cyber Bonus</div>
             <div class="top-actions">
-                <div class="token-pill">💎 <span id="cmBonusTop">{{ cm_balance }}</span> CM</div>
+                <div class="token-pill">💎 <span id="cmBonusTop">{{ cm_balance }}</span> КБ</div>
                 <div class="token-pill">🪙 <span id="tokensCount">{{ tokens_balance }}</span> жет.</div>
                 <a class="logout-link" href="{{ url_for('guest.logout') }}">Выйти</a>
             </div>
@@ -968,7 +968,7 @@
 
                         <div class="cm-bonus-wallet">
                             <div>
-                                <div class="cm-bonus-wallet-title">CM-бонусы</div>
+                                <div class="cm-bonus-wallet-title">КБ</div>
                                 <div class="cm-bonus-wallet-value"><span id="cmBonusBalance">{{ cm_balance }}</span> бонусов</div>
                                 <div class="cm-bonus-wallet-hint">Бонусы из призов колеса. Их можно перевести на игровой аккаунт Langame через администратора.</div>
                             </div>
@@ -1026,7 +1026,7 @@
                             <div class="wheel" id="wheel">
                                 <svg id="wheelSvg" class="wheel-svg" viewBox="0 0 1000 1000" aria-label="Колесо фортуны"></svg>
                             </div>
-                            <div class="wheel-axle" aria-hidden="true"><span class="wheel-axle__mark">CM</span></div>
+                            <div class="wheel-axle" aria-hidden="true"><span class="wheel-axle__mark">КБ</span></div>
                         </div>
                     </div>
                 </div>
@@ -1064,7 +1064,7 @@
     <div class="modal-backdrop" id="cmBonusModal">
         <div class="app-modal">
             <button class="modal-close" onclick="closeModal('cmBonusModal')" aria-label="Закрыть">×</button>
-            <h2 class="modal-title" id="cmBonusModalTitle">CM-бонусы</h2>
+            <h2 class="modal-title" id="cmBonusModalTitle">КБ</h2>
             <div class="win-desc" id="cmBonusModalText">В ближайшее время администратор зачислит бонусы на ваш игровой аккаунт Langame.</div>
             <button class="claim-btn" onclick="closeModal('cmBonusModal')">Понятно</button>
         </div>
@@ -1095,7 +1095,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <div class="empty" id="cmBonusRedeemHistoryEmpty">Пока нет переводов. Когда ты отправишь заявку на перевод CM-бонусов, она появится здесь.</div>
+                <div class="empty" id="cmBonusRedeemHistoryEmpty">Пока нет переводов. Когда ты отправишь заявку на перевод КБ, она появится здесь.</div>
                 <div class="redeem-history-list" id="cmBonusRedeemHistoryList"></div>
             {% endif %}
         </div>

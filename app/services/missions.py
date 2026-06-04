@@ -171,7 +171,7 @@ DEFAULT_MISSION_TEMPLATES = [
 
 
 def build_guest_mission_reward_display(reward_text, token_reward: int, cm_bonus_reward: int = 0) -> str:
-    """Одна строка награды для гостя: текстовый приз + жетоны + CM-бонусы без дублей."""
+    """Одна строка награды для гостя: текстовый приз + жетоны + КБ без дублей."""
     rt = (reward_text or "").strip()
     tr = max(int(token_reward or 0), 0)
     br = max(int(cm_bonus_reward or 0), 0)
@@ -187,7 +187,7 @@ def build_guest_mission_reward_display(reward_text, token_reward: int, cm_bonus_
             parts.append(token_line)
 
     if br > 0:
-        bonus_line = f"🎁 +{br} CM-бонусов"
+        bonus_line = f"🎁 +{br} КБ"
         if not (("cm" in lowered or "см" in lowered or "бонус" in lowered) and re.search(rf"(?:^|\D){br}(?!\d)", rt)):
             parts.append(bonus_line)
 
@@ -201,7 +201,7 @@ _BONUS_QUANTITY_IN_REWARD_TEXT = re.compile(
 
 
 def reward_text_contains_bonus_quantity(reward_text: str | None) -> bool:
-    """True, если в поле «Приз» указано количество бонусов — это дублирует CM-бонусы."""
+    """True, если в поле «Приз» указано количество бонусов — это дублирует КБ."""
     if not reward_text or not str(reward_text).strip():
         return False
     t = str(reward_text).lower().replace("ё", "е")

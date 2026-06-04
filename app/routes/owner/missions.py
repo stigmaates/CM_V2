@@ -38,7 +38,7 @@ def api_create_mission():
     data = request.json or {}
     rt = (data.get("reward_text") or "").strip()
     if reward_text_contains_bonus_quantity(rt):
-        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле CM-бонусов."}), 400
+        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}), 400
 
     create_club_mission(
         club_id=int(club_id),
@@ -63,7 +63,7 @@ def api_update_mission(mission_id):
     data = request.json or {}
     rt = (data.get("reward_text") or "").strip()
     if reward_text_contains_bonus_quantity(rt):
-        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле CM-бонусов."}), 400
+        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}), 400
 
     update_club_mission(
         mission_id=mission_id,
@@ -138,12 +138,12 @@ def missions_add():
         return redirect(url_for("owner.settings", tab="missions"))
 
     if cm_bonus_reward < 0:
-        flash("Количество CM-бонусов не может быть отрицательным", "error")
+        flash("Количество КБ не может быть отрицательным", "error")
         return redirect(url_for("owner.settings", tab="missions"))
 
     if reward_text_contains_bonus_quantity(reward_text):
         flash(
-            "В поле «Приз» нельзя указывать количество бонусов: для CM-бонусов есть отдельное поле ниже.",
+            "В поле «Приз» нельзя указывать количество бонусов: для КБ есть отдельное поле ниже.",
             "error",
         )
         return redirect(url_for("owner.settings", tab="missions"))
@@ -218,12 +218,12 @@ def missions_update(mission_id):
         return redirect(url_for("owner.settings", tab="missions"))
 
     if cm_bonus_reward < 0:
-        flash("Количество CM-бонусов не может быть отрицательным", "error")
+        flash("Количество КБ не может быть отрицательным", "error")
         return redirect(url_for("owner.settings", tab="missions"))
 
     if reward_text_contains_bonus_quantity(reward_text):
         flash(
-            "В поле «Приз» нельзя указывать количество бонусов: для CM-бонусов есть отдельное поле ниже.",
+            "В поле «Приз» нельзя указывать количество бонусов: для КБ есть отдельное поле ниже.",
             "error",
         )
         return redirect(url_for("owner.settings", tab="missions"))
