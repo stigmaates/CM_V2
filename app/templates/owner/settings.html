@@ -166,9 +166,30 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     max-height: 560px;
-    overflow-y: auto;
+    overflow-y: scroll;
     overflow-x: hidden;
-    padding-right: 4px;
+    scrollbar-gutter: stable;
+    padding-right: 6px;
+}
+
+.settings-card--pc-names .pc-names-list::-webkit-scrollbar {
+    width: 9px;
+}
+
+.settings-card--pc-names .pc-names-list::-webkit-scrollbar-track {
+    border-radius: 999px;
+    background: rgba(12, 6, 24, 0.34);
+}
+
+.settings-card--pc-names .pc-names-list::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(165, 114, 255, 0.48);
+    border: 2px solid rgba(12, 6, 24, 0.34);
+}
+
+.settings-card--pc-names .pc-names-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(165, 114, 255, 0.58) rgba(12, 6, 24, 0.34);
 }
 
 .settings-card--pc-names .pc-name-row {
@@ -361,7 +382,7 @@
                     <div class="card settings-card settings-status-card">
                         <div class="settings-status-card__head">
                             <div class="section-title">Статусы</div>
-                            <span class="settings-status-card__tz">{{ system_status.timezone_label }}</span>
+                            <span class="settings-status-info" tabindex="0" data-tooltip="Время обновления указано в формате Moscow (GMT +3)" aria-label="Время обновления указано в формате Moscow (GMT +3)">i</span>
                         </div>
 
                         <div class="settings-status-section">
