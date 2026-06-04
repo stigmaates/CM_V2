@@ -38,7 +38,7 @@ def dashboard():
     missions = get_guest_missions_with_progress(guest_id=guest["guest_id"], club_id=guest["club_id"])
     profile_stats = get_guest_profile_stats(guest_id=guest["guest_id"], club_id=guest["club_id"])
     wheel_settings = get_wheel_settings(guest["club_id"])
-    wheel_prizes = get_wheel_prizes(guest["club_id"])
+    wheel_prizes = [serialize_wheel_prize(p) for p in get_wheel_prizes(guest["club_id"])]
     wheel_history = get_guest_wheel_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=8)
     token_balance = get_guest_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
     token_history = get_guest_token_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=20)

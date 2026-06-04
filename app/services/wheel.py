@@ -798,6 +798,12 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
 
 
 def serialize_wheel_prize(prize):
+    """Public prize payload for guest UI/API.
+
+    Probability and other internal fields must not be exposed to guests:
+    the backend still uses full prize rows for weighted selection, while
+    the frontend only receives data needed to render the wheel and result.
+    """
     if not prize:
         return None
 
@@ -809,7 +815,6 @@ def serialize_wheel_prize(prize):
         "icon_emoji": prize.get("icon_emoji") or "🎁",
         "bonus_amount": int(prize.get("bonus_amount") or 0),
         "token_amount": int(prize.get("token_amount") or 0),
-        "probability": float(prize.get("probability") or 0),
     }
 
 
