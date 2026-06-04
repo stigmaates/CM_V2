@@ -3,7 +3,288 @@
 {% block title %}Cyber Bonus — Настройки{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=settings-status-20260604">
+<style>
+/* Isolated settings page styles: do not import dashboard.css here, it breaks settings layout. */
+.settings-page--wide .settings-shell {
+    max-width: 1320px;
+}
+
+.settings-page--wide .settings-grid--club-centered {
+    width: 100%;
+    max-width: none;
+    grid-template-columns: minmax(460px, 0.95fr) minmax(520px, 1.05fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.settings-side-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+
+.settings-status-card {
+    min-height: 0;
+    padding: 18px 20px;
+}
+
+.settings-status-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+
+.settings-status-card__head .section-title {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.1;
+}
+
+.settings-status-card__tz {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(165, 114, 255, 0.35);
+    background: rgba(143, 91, 255, 0.16);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.settings-status-section + .settings-status-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(165, 114, 255, 0.16);
+}
+
+.settings-status-section__title {
+    margin-bottom: 7px;
+    color: #a66cff;
+    font-size: 12px;
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.settings-status-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 10px;
+    background: rgba(12, 6, 24, 0.18);
+    border: 1px solid rgba(165, 114, 255, 0.10);
+}
+
+.settings-status-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #f4ecff;
+    font-size: 13px;
+    line-height: 1.2;
+    font-weight: 750;
+}
+
+.settings-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.settings-status-pill--ok {
+    color: #59f0a8;
+    background: rgba(89, 240, 168, 0.14);
+    border: 1px solid rgba(89, 240, 168, 0.28);
+}
+
+.settings-status-pill--bad {
+    color: #ff6f91;
+    background: rgba(255, 111, 145, 0.14);
+    border: 1px solid rgba(255, 111, 145, 0.30);
+}
+
+.settings-status-pill--off {
+    color: #b9a8d8;
+    background: rgba(185, 168, 216, 0.12);
+    border: 1px solid rgba(185, 168, 216, 0.22);
+}
+
+.settings-status-time {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.1;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.settings-card--pc-names {
+    min-height: 0;
+    padding: 18px 20px;
+}
+
+.settings-card--pc-names > .section-title {
+    margin: 0 0 8px;
+    font-size: 24px;
+    line-height: 1.1;
+}
+
+.settings-card--pc-names .pc-names-note {
+    margin: 0 0 12px !important;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.settings-card--pc-names .pc-names-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.settings-card--pc-names .pc-names-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 560px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+}
+
+.settings-card--pc-names .pc-name-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+        "sort uuid"
+        "sort name";
+    gap: 8px 10px;
+    align-items: stretch;
+    min-width: 0;
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(12, 6, 24, 0.20);
+    border: 1px solid rgba(165, 114, 255, 0.20);
+}
+
+.settings-card--pc-names .pc-name-row__sort {
+    grid-area: sort;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+.settings-card--pc-names .pc-name-row__uuid {
+    grid-area: uuid;
+    min-width: 0;
+}
+
+.settings-card--pc-names .pc-name-row__name {
+    grid-area: name;
+    min-width: 0;
+}
+
+.settings-card--pc-names .pc-name-row__uuid span,
+.settings-card--pc-names .pc-name-row__name label {
+    display: block;
+    margin: 0 0 5px;
+    color: var(--text-muted);
+    font-size: 10px;
+    line-height: 1.1;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.settings-card--pc-names .pc-name-row__uuid code {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 7px 8px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+    color: #d9c7ff;
+    font-size: 11px;
+}
+
+.settings-card--pc-names .pc-name-row__name .form-input {
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 13px;
+}
+
+.settings-card--pc-names .pc-order-btn {
+    width: 28px;
+    height: 26px;
+    border: 1px solid rgba(165, 114, 255, 0.28);
+    border-radius: 8px;
+    background: rgba(143, 91, 255, 0.22);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.settings-card--pc-names .pc-order-btn:hover {
+    background: rgba(143, 91, 255, 0.36);
+}
+
+.settings-card--pc-names .btn[type="submit"] {
+    width: 100%;
+    justify-content: center;
+}
+
+@media (min-width: 1500px) {
+    .settings-page--wide .settings-grid--club-centered {
+        grid-template-columns: minmax(480px, 0.9fr) minmax(680px, 1.1fr);
+    }
+    .settings-card--pc-names .pc-names-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1180px) {
+    .settings-page--wide .settings-grid--club-centered {
+        grid-template-columns: 1fr;
+        max-width: 820px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 720px) {
+    .settings-card--pc-names .pc-names-list {
+        grid-template-columns: 1fr;
+    }
+    .settings-status-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .settings-status-time {
+        grid-column: 1 / -1;
+    }
+}
+</style>
 {% endblock %}
 
 {% block content %}
