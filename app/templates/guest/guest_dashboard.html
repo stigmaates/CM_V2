@@ -792,6 +792,7 @@
         .win-modal-grid { display: grid; grid-template-columns: 210px 1fr; gap: 18px; align-items: center; }
         .win-image-box { border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.04); display: grid; place-items: center; min-height: 176px; }
         .win-image { max-width: 100%; max-height: 168px; object-fit: contain; }
+        .win-prize-emoji { font-size: 86px; line-height: 1; filter: drop-shadow(0 10px 24px rgba(0,0,0,.35)); }
         .win-name { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
         .win-desc { color: var(--text-muted); line-height: 1.45; margin-bottom: 18px; }
         .claim-btn {
@@ -1035,7 +1036,7 @@
             <div class="win-modal-grid">
                 <div class="win-image-box">
                     <img class="win-image" id="winImage" src="" alt="Приз" style="display:none;">
-                    <div id="winFallback" style="font-size:70px;">🎁</div>
+                    <div class="win-prize-emoji" id="winFallback">🎁</div>
                 </div>
                 <div>
                     <div class="win-name" id="winName">Приз</div>
@@ -1132,7 +1133,11 @@
                 <div class="history-list" id="historyList">
                     {% for item in history_list %}
                         <div class="history-item">
-                            {% if item.image_url %}
+                            {% if item.icon_emoji %}
+                                <div class="history-thumb" aria-hidden="true">
+                                    <span class="history-thumb-placeholder">{{ item.icon_emoji }}</span>
+                                </div>
+                            {% elif item.image_url %}
                                 <div class="history-thumb">
                                     <img class="history-thumb-img" src="{{ item.image_url }}" alt="{{ item.name }}">
                                 </div>
@@ -1186,6 +1191,30 @@
         const initialTokens = Number({{ tokens_balance|default(0) }});
         const initialCmBonusBalance = Number({{ cm_balance|default(0) }});
         const prizes = {{ prizes_list|tojson }};
+        const prizeIconChoices = new Set(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']);
+
+        function getPrizeIcon(prize) {
+            const icon = String((prize && prize.icon_emoji) || '').trim();
+            if (prizeIconChoices.has(icon)) return icon;
+            const name = String((prize && prize.name) || '').toLowerCase();
+            if (name.includes('игр') || name.includes('game')) return '🎮';
+            if (name.includes('куб') || name.includes('турнир') || name.includes('побед')) return '🏆';
+            if (name.includes('напит') || name.includes('кол') || name.includes('энерг')) return '🥤';
+            if (name.includes('пиц')) return '🍕';
+            if (name.includes('бургер')) return '🍔';
+            if (name.includes('бонус') || Number((prize && prize.bonus_amount) || 0) > 0) return '🪙';
+            return '🎁';
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         let currentRotation = 0;
         let isSpinning = false;
         let pointerTickRaf = null;
@@ -1223,8 +1252,9 @@
             const cy = 500;
             const outerR = 470;
             const innerR = 195;
-            const textR = 332;
-            const safePrizes = prizes.length ? prizes : [{ name: 'Призы скоро', image_url: null }];
+            const iconR = 285;
+            const textR = 365;
+            const safePrizes = prizes.length ? prizes : [{ name: 'Призы скоро', image_url: null, icon_emoji: '🎁' }];
             const step = 360 / safePrizes.length;
 
             const defs = document.createElementNS(ns, 'defs');
@@ -1404,6 +1434,19 @@
                 path.style.transition = 'filter 720ms ease-in-out, stroke 720ms ease-in-out, stroke-width 720ms ease-in-out, opacity 720ms ease-in-out';
                 svg.appendChild(path);
 
+                const iconPos = polar(iconR, mid);
+                const iconLabel = document.createElementNS(ns, 'text');
+                iconLabel.setAttribute('x', String(iconPos.x));
+                iconLabel.setAttribute('y', String(iconPos.y));
+                iconLabel.setAttribute('text-anchor', 'middle');
+                iconLabel.setAttribute('dominant-baseline', 'middle');
+                iconLabel.setAttribute('font-size', '46');
+                iconLabel.setAttribute('font-family', '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif');
+                iconLabel.setAttribute('filter', 'url(#textGlow)');
+                iconLabel.setAttribute('data-segment-icon', String(index));
+                iconLabel.textContent = getPrizeIcon(prize);
+                svg.appendChild(iconLabel);
+
                 const textPos = polar(textR, mid);
                 let labelRotate = mid;
                 if (labelRotate > 90 || labelRotate < -90) {
@@ -1417,12 +1460,12 @@
                 label.setAttribute('dominant-baseline', 'middle');
                 label.setAttribute('transform', `rotate(${labelRotate} ${textPos.x} ${textPos.y})`);
                 label.setAttribute('fill', '#f6eeff');
-                label.setAttribute('font-size', '28');
-                label.setAttribute('font-weight', '700');
+                label.setAttribute('font-size', '22');
+                label.setAttribute('font-weight', '800');
                 label.setAttribute('font-family', '"Trebuchet MS", "Segoe UI", Arial, sans-serif');
-                label.setAttribute('letter-spacing', '0.9');
+                label.setAttribute('letter-spacing', '0.7');
                 label.setAttribute('filter', 'url(#textGlow)');
-                label.textContent = (prize.name || 'Приз').toUpperCase().slice(0, 16);
+                label.textContent = (prize.name || 'Приз').toUpperCase().slice(0, 13);
                 label.setAttribute('data-segment-label', String(index));
                 svg.appendChild(label);
             });
@@ -1775,13 +1818,20 @@
                     winClaimStatus.textContent = '';
                 }
             }
-            if (prize.image_url) {
+            const prizeIcon = getPrizeIcon(prize);
+            if (prize.icon_emoji) {
+                winImage.removeAttribute('src');
+                winImage.style.display = 'none';
+                winFallback.textContent = prizeIcon;
+                winFallback.style.display = 'block';
+            } else if (prize.image_url) {
                 winImage.src = prize.image_url;
                 winImage.style.display = 'block';
                 winFallback.style.display = 'none';
             } else {
                 winImage.removeAttribute('src');
                 winImage.style.display = 'none';
+                winFallback.textContent = prizeIcon;
                 winFallback.style.display = 'block';
             }
             openModal('winModal');
@@ -1792,9 +1842,11 @@
             if (historyEmpty) historyEmpty.style.display = 'none';
             const row = document.createElement('div');
             row.className = 'history-item';
-            const imageHtml = prize.image_url
-                ? `<div class="history-thumb"><img class="history-thumb-img" src="${prize.image_url}" alt="${(prize.name || 'Приз').replace(/"/g, '&quot;')}"></div>`
-                : `<div class="history-thumb" aria-hidden="true"><span class="history-thumb-placeholder">🎁</span></div>`;
+            const imageHtml = prize.icon_emoji
+                ? `<div class="history-thumb" aria-hidden="true"><span class="history-thumb-placeholder">${escapeHtml(getPrizeIcon(prize))}</span></div>`
+                : (prize.image_url
+                    ? `<div class="history-thumb"><img class="history-thumb-img" src="${escapeHtml(prize.image_url)}" alt="${escapeHtml(prize.name || 'Приз')}"></div>`
+                    : `<div class="history-thumb" aria-hidden="true"><span class="history-thumb-placeholder">${escapeHtml(getPrizeIcon(prize))}</span></div>`);
             row.innerHTML = `
                 ${imageHtml}
                 <div>

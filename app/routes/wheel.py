@@ -68,6 +68,14 @@ def wheel_settings():
     )
 
 
+
+PRIZE_ICON_CHOICES = {"🎮", "🏆", "🥤", "🍕", "🍔", "🔥", "💎", "🪙", "🍰", "🍪", "⚽️", "🚗", "🔮", "🎉", "🕓", "🎰", "👕"}
+
+
+def _parse_prize_icon(raw_value: str) -> str:
+    icon = (raw_value or "").strip()
+    return icon if icon in PRIZE_ICON_CHOICES else "🎁"
+
 def _parse_bonus_amount(raw_value: str) -> int:
     raw_value = (raw_value or "").strip()
     if not raw_value:
@@ -92,6 +100,7 @@ def wheel_prize_add():
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
     image_url = request.form.get("image_url", "").strip()
+    icon_emoji = _parse_prize_icon(request.form.get("icon_emoji", ""))
     bonus_amount_raw = request.form.get("bonus_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
     sort_order_raw = request.form.get("sort_order", "").strip()
@@ -129,6 +138,7 @@ def wheel_prize_add():
             name=name,
             description=description or None,
             image_url=image_url or None,
+            icon_emoji=icon_emoji,
             bonus_amount=bonus_amount,
             probability=probability,
             is_active=is_active,
@@ -166,6 +176,7 @@ def wheel_prize_update(prize_id):
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
     image_url = request.form.get("image_url", "").strip()
+    icon_emoji = _parse_prize_icon(request.form.get("icon_emoji", ""))
     bonus_amount_raw = request.form.get("bonus_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
     sort_order_raw = request.form.get("sort_order", "").strip()
@@ -204,6 +215,7 @@ def wheel_prize_update(prize_id):
             name=name,
             description=description or None,
             image_url=image_url or None,
+            icon_emoji=icon_emoji,
             bonus_amount=bonus_amount,
             probability=probability,
             is_active=is_active,
@@ -218,6 +230,7 @@ def wheel_prize_update(prize_id):
                 name=prize.get("name") or "",
                 description=prize.get("description"),
                 image_url=prize.get("image_url"),
+                icon_emoji=prize.get("icon_emoji") or "🎁",
                 bonus_amount=int(prize.get("bonus_amount") or 0),
                 probability=float(prize.get("probability") or 0),
                 is_active=int(prize.get("is_active") or 0),

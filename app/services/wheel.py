@@ -19,7 +19,7 @@ _wheel_prize_bonus_columns_ready = False
 
 
 def ensure_wheel_prize_bonus_columns(cursor):
-    """Add CM bonus prize columns to club_wheel_prizes for older installations."""
+    """Add prize metadata columns to club_wheel_prizes for older installations."""
     global _wheel_prize_bonus_columns_ready
     if _wheel_prize_bonus_columns_ready:
         return
@@ -30,7 +30,7 @@ def ensure_wheel_prize_bonus_columns(cursor):
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'club_wheel_prizes'
-          AND COLUMN_NAME IN ('bonus_amount')
+          AND COLUMN_NAME IN ('bonus_amount', 'icon_emoji')
         """
     )
     existing = {row.get("COLUMN_NAME") for row in cursor.fetchall()}
@@ -39,6 +39,13 @@ def ensure_wheel_prize_bonus_columns(cursor):
             """
             ALTER TABLE club_wheel_prizes
             ADD COLUMN bonus_amount INT NOT NULL DEFAULT 0 AFTER image_url
+            """
+        )
+    if "icon_emoji" not in existing:
+        cursor.execute(
+            """
+            ALTER TABLE club_wheel_prizes
+            ADD COLUMN icon_emoji VARCHAR(16) NULL AFTER image_url
             """
         )
 
@@ -151,6 +158,7 @@ def get_wheel_prizes(club_id: int):
                        name,
                        description,
                        image_url,
+                       icon_emoji,
                        bonus_amount,
                        probability,
                        is_active,
@@ -180,6 +188,7 @@ def get_wheel_prizes_for_admin(club_id: int):
                        name,
                        description,
                        image_url,
+                       icon_emoji,
                        bonus_amount,
                        probability,
                        is_active,
@@ -607,6 +616,7 @@ def get_guest_wheel_history(guest_id: int, club_id: int, limit: int = 8):
                     p.name,
                     p.description,
                     p.image_url,
+                    p.icon_emoji,
                     p.bonus_amount,
                     c.id AS claim_id,
                     c.status AS claim_status,
@@ -723,7 +733,7 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
             ensure_wheel_prize_bonus_columns(cursor)
             cursor.execute(
                 """
-                SELECT id, name, description, image_url, bonus_amount
+                SELECT id, name, description, image_url, icon_emoji, bonus_amount
                 FROM club_wheel_prizes
                 WHERE id = %s AND club_id = %s
                 LIMIT 1
@@ -766,6 +776,7 @@ def serialize_wheel_prize(prize):
         "name": prize.get("name"),
         "description": prize.get("description"),
         "image_url": prize.get("image_url"),
+        "icon_emoji": prize.get("icon_emoji") or "🎁",
         "bonus_amount": int(prize.get("bonus_amount") or 0),
         "probability": float(prize.get("probability") or 0),
     }
@@ -783,6 +794,7 @@ def get_wheel_prize_by_id(prize_id: int, club_id: int):
                        name,
                        description,
                        image_url,
+                       icon_emoji,
                        bonus_amount,
                        probability,
                        is_active,
@@ -863,6 +875,7 @@ def create_wheel_prize(
     name: str,
     description: str | None,
     image_url: str | None,
+    icon_emoji: str | None,
     bonus_amount: int,
     probability: float,
     is_active: int = 1,
@@ -879,14 +892,15 @@ def create_wheel_prize(
                     name,
                     description,
                     image_url,
+                    icon_emoji,
                     bonus_amount,
                     probability,
                     is_active,
                     sort_order
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (club_id, name, description, image_url, int(bonus_amount or 0), probability, is_active, sort_order),
+                (club_id, name, description, image_url, icon_emoji, int(bonus_amount or 0), probability, is_active, sort_order),
             )
             new_id = int(cursor.lastrowid)
         conn.commit()
@@ -901,6 +915,7 @@ def update_wheel_prize(
     name: str,
     description: str | None,
     image_url: str | None,
+    icon_emoji: str | None,
     bonus_amount: int,
     probability: float,
     is_active: int = 1,
@@ -916,6 +931,7 @@ def update_wheel_prize(
                 SET name = %s,
                     description = %s,
                     image_url = %s,
+                    icon_emoji = %s,
                     bonus_amount = %s,
                     probability = %s,
                     is_active = %s,
@@ -923,7 +939,7 @@ def update_wheel_prize(
                 WHERE id = %s
                   AND club_id = %s
                 """,
-                (name, description, image_url, int(bonus_amount or 0), probability, is_active, sort_order, prize_id, club_id),
+                (name, description, image_url, icon_emoji, int(bonus_amount or 0), probability, is_active, sort_order, prize_id, club_id),
             )
         conn.commit()
     finally:

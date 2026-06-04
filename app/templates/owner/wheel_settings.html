@@ -3,6 +3,7 @@
 {% block title %}WALLZ - Колесо фортуны{% endblock %}
 
 {% block content %}
+{% set prize_icon_choices = ['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕'] %}
 <style>
     .wheel-page {
         max-width: 1200px;
@@ -140,6 +141,66 @@
         border-color: #9f4464;
     }
 
+    .prize-icon-picker {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid rgba(165, 114, 255, 0.28);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .prize-icon-choice {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 44px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 12px;
+        background: rgba(16, 9, 30, 0.72);
+        cursor: pointer;
+        transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+
+    .prize-icon-choice input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .prize-icon-choice span {
+        font-size: 24px;
+        line-height: 1;
+        filter: drop-shadow(0 2px 8px rgba(0,0,0,.28));
+    }
+
+    .prize-icon-choice:hover {
+        transform: translateY(-1px);
+        border-color: rgba(165, 114, 255, 0.54);
+        background: rgba(143, 91, 255, 0.16);
+    }
+
+    .prize-icon-choice:has(input:checked) {
+        border-color: rgba(255, 212, 105, 0.75);
+        background: linear-gradient(135deg, rgba(255, 212, 105, 0.18), rgba(143, 91, 255, 0.20));
+        box-shadow: 0 0 0 2px rgba(255, 212, 105, 0.10), 0 12px 28px rgba(143, 91, 255, 0.16);
+    }
+
+    .prize-card-title-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        margin-right: 8px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        font-size: 18px;
+        vertical-align: middle;
+    }
+
     @media (max-width: 900px) {
         .form-grid {
             grid-template-columns: 1fr;
@@ -217,7 +278,7 @@
                 {% for prize in prizes %}
                     <div class="prize-card">
                         <div class="prize-card-title">
-                            {{ prize.name }}
+                            <span class="prize-card-title-icon">{{ prize.icon_emoji or "🎁" }}</span>{{ prize.name }}
                             {% if not prize.is_active %}
                                 <span style="font-size: 13px; color: var(--text-muted);">(выключен)</span>
                             {% endif %}
@@ -241,8 +302,16 @@
                                 </div>
 
                                 <div class="form-group full">
-                                    <label for="image_{{ prize.id }}">Ссылка на картинку</label>
-                                    <input class="form-input" type="text" id="image_{{ prize.id }}" name="image_url" value="{{ prize.image_url or '' }}">
+                                    <label>Иконка приза</label>
+                                    <div class="prize-icon-picker" role="radiogroup" aria-label="Иконка приза">
+                                        {% for icon in prize_icon_choices %}
+                                            <label class="prize-icon-choice" title="{{ icon }}">
+                                                <input type="radio" name="icon_emoji" value="{{ icon }}" {% if (prize.icon_emoji or '🎁') == icon %}checked{% endif %}>
+                                                <span>{{ icon }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" name="image_url" value="{{ prize.image_url or '' }}">
                                 </div>
 
                                 <div class="form-group full">
@@ -308,8 +377,16 @@
                 </div>
 
                 <div class="form-group full">
-                    <label for="add_image_url">Ссылка на картинку</label>
-                    <input class="form-input" type="text" id="add_image_url" name="image_url">
+                    <label>Иконка приза</label>
+                    <div class="prize-icon-picker" role="radiogroup" aria-label="Иконка приза">
+                        {% for icon in prize_icon_choices %}
+                            <label class="prize-icon-choice" title="{{ icon }}">
+                                <input type="radio" name="icon_emoji" value="{{ icon }}" {% if loop.first %}checked{% endif %}>
+                                <span>{{ icon }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" name="image_url" value="">
                 </div>
 
                 <div class="form-group full">
