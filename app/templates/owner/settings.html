@@ -1,6 +1,10 @@
 {% extends "owner/base.html" %}
 
-{% block title %}WALLZ — Настройки{% endblock %}
+{% block title %}Cyber Bonus — Настройки{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=settings-status-20260604">
+{% endblock %}
 
 {% block content %}
 <div class="settings-page settings-page--wide">
