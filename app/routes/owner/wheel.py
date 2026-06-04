@@ -90,6 +90,19 @@ def _parse_bonus_amount(raw_value: str) -> int:
     return amount
 
 
+def _parse_token_amount(raw_value: str) -> int:
+    raw_value = (raw_value or "").strip()
+    if not raw_value:
+        return 0
+    try:
+        amount = int(raw_value)
+    except ValueError:
+        raise ValueError("Количество жетонов должно быть целым числом")
+    if amount < 0:
+        raise ValueError("Количество жетонов не может быть отрицательным")
+    return amount
+
+
 @owner_bp.route('/wheel/prizes/add', methods=['POST'])
 @owner_required
 def wheel_prize_add():
@@ -105,6 +118,7 @@ def wheel_prize_add():
     image_url = request.form.get("image_url", "").strip()
     icon_emoji = _parse_prize_icon(request.form.get("icon_emoji", ""))
     bonus_amount_raw = request.form.get("bonus_amount", "").strip()
+    token_amount_raw = request.form.get("token_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
@@ -124,6 +138,7 @@ def wheel_prize_add():
 
     try:
         bonus_amount = _parse_bonus_amount(bonus_amount_raw)
+        token_amount = _parse_token_amount(token_amount_raw)
     except ValueError as e:
         flash(str(e), "error")
         return redirect(url_for("owner.settings", tab="wheel"))
@@ -137,6 +152,7 @@ def wheel_prize_add():
             image_url=image_url or None,
             icon_emoji=icon_emoji,
             bonus_amount=bonus_amount,
+            token_amount=token_amount,
             probability=probability,
             is_active=is_active,
             sort_order=sort_order,
@@ -168,6 +184,7 @@ def wheel_prize_update(prize_id):
     image_url = request.form.get("image_url", "").strip()
     icon_emoji = _parse_prize_icon(request.form.get("icon_emoji", ""))
     bonus_amount_raw = request.form.get("bonus_amount", "").strip()
+    token_amount_raw = request.form.get("token_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
@@ -187,6 +204,7 @@ def wheel_prize_update(prize_id):
 
     try:
         bonus_amount = _parse_bonus_amount(bonus_amount_raw)
+        token_amount = _parse_token_amount(token_amount_raw)
     except ValueError as e:
         flash(str(e), "error")
         return redirect(url_for("owner.settings", tab="wheel"))
@@ -201,6 +219,7 @@ def wheel_prize_update(prize_id):
             image_url=image_url or None,
             icon_emoji=icon_emoji,
             bonus_amount=bonus_amount,
+            token_amount=token_amount,
             probability=probability,
             is_active=is_active,
             sort_order=sort_order,

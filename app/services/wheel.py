@@ -30,7 +30,7 @@ def ensure_wheel_prize_bonus_columns(cursor):
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'club_wheel_prizes'
-          AND COLUMN_NAME IN ('bonus_amount', 'icon_emoji')
+          AND COLUMN_NAME IN ('bonus_amount', 'icon_emoji', 'token_amount')
         """
     )
     existing = {row.get("COLUMN_NAME") for row in cursor.fetchall()}
@@ -46,6 +46,13 @@ def ensure_wheel_prize_bonus_columns(cursor):
             """
             ALTER TABLE club_wheel_prizes
             ADD COLUMN icon_emoji VARCHAR(16) NULL AFTER image_url
+            """
+        )
+    if "token_amount" not in existing:
+        cursor.execute(
+            """
+            ALTER TABLE club_wheel_prizes
+            ADD COLUMN token_amount INT NOT NULL DEFAULT 0 AFTER bonus_amount
             """
         )
 
@@ -160,6 +167,7 @@ def get_wheel_prizes(club_id: int):
                        image_url,
                        icon_emoji,
                        bonus_amount,
+                       token_amount,
                        probability,
                        is_active,
                        sort_order
@@ -190,6 +198,7 @@ def get_wheel_prizes_for_admin(club_id: int):
                        image_url,
                        icon_emoji,
                        bonus_amount,
+                       token_amount,
                        probability,
                        is_active,
                        sort_order
@@ -618,6 +627,7 @@ def get_guest_wheel_history(guest_id: int, club_id: int, limit: int = 8):
                     p.image_url,
                     p.icon_emoji,
                     p.bonus_amount,
+                    p.token_amount,
                     c.id AS claim_id,
                     c.status AS claim_status,
                     c.issued_at AS claim_issued_at,
@@ -636,8 +646,9 @@ def get_guest_wheel_history(guest_id: int, club_id: int, limit: int = 8):
             rows = cursor.fetchall()
             for row in rows:
                 bonus_amount = int(row.get("bonus_amount") or 0)
+                token_amount = int(row.get("token_amount") or 0)
                 claim_status = row.get("claim_status")
-                if bonus_amount > 0:
+                if bonus_amount > 0 or token_amount > 0:
                     row["prize_status_label"] = "начислено автоматически"
                 elif claim_status == "issued":
                     row["prize_status_label"] = "выдан"
@@ -733,7 +744,7 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
             ensure_wheel_prize_bonus_columns(cursor)
             cursor.execute(
                 """
-                SELECT id, name, description, image_url, icon_emoji, bonus_amount
+                SELECT id, name, description, image_url, icon_emoji, bonus_amount, token_amount
                 FROM club_wheel_prizes
                 WHERE id = %s AND club_id = %s
                 LIMIT 1
@@ -748,8 +759,20 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
                 spin_id=spin_id,
                 prize=prize,
             )
+            token_amount = int((prize or {}).get("token_amount") or 0)
+            token_awarded = False
+            if token_amount > 0:
+                token_awarded = _add_token_transaction(
+                    cursor=cursor,
+                    guest_id=guest_id,
+                    club_id=club_id,
+                    amount=token_amount,
+                    source_type="wheel_prize",
+                    source_id=str(spin_id),
+                    description=f"Приз колеса: +{token_amount} жет.",
+                )
             claim_id = None
-            if not bonus_awarded:
+            if not bonus_awarded and not token_awarded:
                 claim_id = create_prize_claim(
                     cursor=cursor,
                     guest_id=guest_id,
@@ -778,6 +801,7 @@ def serialize_wheel_prize(prize):
         "image_url": prize.get("image_url"),
         "icon_emoji": prize.get("icon_emoji") or "🎁",
         "bonus_amount": int(prize.get("bonus_amount") or 0),
+        "token_amount": int(prize.get("token_amount") or 0),
         "probability": float(prize.get("probability") or 0),
     }
 
@@ -796,6 +820,7 @@ def get_wheel_prize_by_id(prize_id: int, club_id: int):
                        image_url,
                        icon_emoji,
                        bonus_amount,
+                       token_amount,
                        probability,
                        is_active,
                        sort_order
@@ -877,6 +902,7 @@ def create_wheel_prize(
     image_url: str | None,
     icon_emoji: str | None,
     bonus_amount: int,
+    token_amount: int,
     probability: float,
     is_active: int = 1,
     sort_order: int = 0,
@@ -894,13 +920,14 @@ def create_wheel_prize(
                     image_url,
                     icon_emoji,
                     bonus_amount,
+                    token_amount,
                     probability,
                     is_active,
                     sort_order
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (club_id, name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), probability, is_active, sort_order),
+                (club_id, name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), int(token_amount or 0), probability, is_active, sort_order),
             )
             new_id = int(cursor.lastrowid)
         conn.commit()
@@ -917,6 +944,7 @@ def update_wheel_prize(
     image_url: str | None,
     icon_emoji: str | None,
     bonus_amount: int,
+    token_amount: int,
     probability: float,
     is_active: int = 1,
     sort_order: int = 0,
@@ -933,13 +961,14 @@ def update_wheel_prize(
                     image_url = %s,
                     icon_emoji = %s,
                     bonus_amount = %s,
+                    token_amount = %s,
                     probability = %s,
                     is_active = %s,
                     sort_order = %s
                 WHERE id = %s
                   AND club_id = %s
                 """,
-                (name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), probability, is_active, sort_order, prize_id, club_id),
+                (name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), int(token_amount or 0), probability, is_active, sort_order, prize_id, club_id),
             )
         conn.commit()
     finally:

@@ -1139,7 +1139,7 @@
                                 <div class="history-title">{{ item.name }}</div>
                                 <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
                                 {% if item.prize_status_label %}
-                                    {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
+                                    {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 or item.token_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
                                     <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
                                 {% endif %}
                             </div>
@@ -1398,11 +1398,10 @@
                 path.style.transition = 'filter 720ms ease-in-out, stroke 720ms ease-in-out, stroke-width 720ms ease-in-out, opacity 720ms ease-in-out';
                 svg.appendChild(path);
 
-                const textPos = polar(textR, mid);
-                const iconPos = polar(textR - 64, mid);
-                let labelRotate = mid;
-                if (labelRotate > 90 || labelRotate < -90) {
-                    labelRotate += 180;
+                const iconPos = polar(textR - 84, mid);
+                let iconRotate = mid;
+                if (iconRotate > 90 || iconRotate < -90) {
+                    iconRotate += 180;
                 }
 
                 const iconLabel = document.createElementNS(ns, 'text');
@@ -1410,27 +1409,41 @@
                 iconLabel.setAttribute('y', String(iconPos.y));
                 iconLabel.setAttribute('text-anchor', 'middle');
                 iconLabel.setAttribute('dominant-baseline', 'middle');
-                iconLabel.setAttribute('transform', `rotate(${labelRotate} ${iconPos.x} ${iconPos.y})`);
-                iconLabel.setAttribute('font-size', '42');
+                iconLabel.setAttribute('transform', `rotate(${iconRotate} ${iconPos.x} ${iconPos.y})`);
+                iconLabel.setAttribute('font-size', safePrizes.length > 10 ? '34' : '39');
                 iconLabel.setAttribute('filter', 'url(#textGlow)');
                 iconLabel.textContent = String(prize.icon_emoji || '🎁');
-                iconLabel.setAttribute('data-segment-label', String(index));
+                iconLabel.setAttribute('data-segment-icon', String(index));
                 svg.appendChild(iconLabel);
 
+                const labelPathId = `segmentLabelArc${index}`;
+                const labelRadius = textR + 20;
+                const labelStart = start + Math.min(step * 0.18, 8);
+                const labelEnd = end - Math.min(step * 0.18, 8);
+                const labelP1 = polar(labelRadius, labelStart);
+                const labelP2 = polar(labelRadius, labelEnd);
+                const labelPath = document.createElementNS(ns, 'path');
+                labelPath.setAttribute('id', labelPathId);
+                labelPath.setAttribute('d', `M ${labelP1.x} ${labelP1.y} A ${labelRadius} ${labelRadius} 0 0 1 ${labelP2.x} ${labelP2.y}`);
+                labelPath.setAttribute('fill', 'none');
+                labelPath.setAttribute('stroke', 'none');
+                defs.appendChild(labelPath);
+
                 const label = document.createElementNS(ns, 'text');
-                label.setAttribute('x', String(textPos.x));
-                label.setAttribute('y', String(textPos.y));
-                label.setAttribute('text-anchor', 'middle');
-                label.setAttribute('dominant-baseline', 'middle');
-                label.setAttribute('transform', `rotate(${labelRotate} ${textPos.x} ${textPos.y})`);
                 label.setAttribute('fill', '#f6eeff');
-                label.setAttribute('font-size', safePrizes.length > 8 ? '21' : '24');
-                label.setAttribute('font-weight', '700');
+                label.setAttribute('font-size', safePrizes.length > 10 ? '15' : (safePrizes.length > 8 ? '17' : '19'));
+                label.setAttribute('font-weight', '800');
                 label.setAttribute('font-family', '"Trebuchet MS", "Segoe UI", Arial, sans-serif');
-                label.setAttribute('letter-spacing', '0.9');
+                label.setAttribute('letter-spacing', '0.5');
                 label.setAttribute('filter', 'url(#textGlow)');
-                label.textContent = (prize.name || 'Приз').toUpperCase().slice(0, safePrizes.length > 8 ? 11 : 14);
                 label.setAttribute('data-segment-label', String(index));
+
+                const textPath = document.createElementNS(ns, 'textPath');
+                textPath.setAttribute('href', `#${labelPathId}`);
+                textPath.setAttribute('startOffset', '50%');
+                textPath.setAttribute('text-anchor', 'middle');
+                textPath.textContent = (prize.name || 'Приз').toUpperCase().slice(0, safePrizes.length > 10 ? 10 : 13);
+                label.appendChild(textPath);
                 svg.appendChild(label);
             });
 
@@ -1764,16 +1777,19 @@
             const bonusText = Number(prize.bonus_amount || 0) > 0 ? `
 
 +${prize.bonus_amount} CM-бонусов уже начислены в твой кошелёк.` : '';
+            const tokenText = Number(prize.token_amount || 0) > 0 ? `
+
++${prize.token_amount} жетонов уже начислены на баланс колеса.` : '';
             const manualText = claim ? `
 
 Статус: ${claim.status_label || 'ожидает выдачи'}. Подойди к администратору и назови ID заявки #${claim.id}.` : '';
-            winDescription.textContent = (prize.description || 'Поздравляем! Твой приз сохранён за тобой.') + bonusText + manualText;
+            winDescription.textContent = (prize.description || 'Поздравляем! Твой приз сохранён за тобой.') + bonusText + tokenText + manualText;
             if (winClaimStatus) {
                 if (claim) {
                     winClaimStatus.style.display = 'inline-flex';
                     winClaimStatus.className = `history-status ${claimStatusClass(claim.status)}`;
                     winClaimStatus.textContent = `Заявка #${claim.id}: ${claim.status_label || 'ожидает выдачи'}`;
-                } else if (Number(prize.bonus_amount || 0) > 0) {
+                } else if (Number(prize.bonus_amount || 0) > 0 || Number(prize.token_amount || 0) > 0) {
                     winClaimStatus.style.display = 'inline-flex';
                     winClaimStatus.className = 'history-status history-status--issued';
                     winClaimStatus.textContent = 'Начислено автоматически';
@@ -1812,7 +1828,7 @@
                     statusBadge.style.display = 'inline-flex';
                     statusBadge.className = `history-status ${claimStatusClass(claim.status)}`;
                     statusBadge.textContent = claim.status_label || 'ожидает выдачи';
-                } else if (Number(prize.bonus_amount || 0) > 0) {
+                } else if (Number(prize.bonus_amount || 0) > 0 || Number(prize.token_amount || 0) > 0) {
                     statusBadge.style.display = 'inline-flex';
                     statusBadge.className = 'history-status history-status--issued';
                     statusBadge.textContent = 'начислено автоматически';

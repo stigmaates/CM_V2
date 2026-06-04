@@ -465,6 +465,11 @@
                                         <input class="form-input" type="number" id="bonus_amount_{{ prize.id }}" name="bonus_amount" min="0" step="1" value="{{ prize.bonus_amount or 0 }}">
                                     </div>
 
+                                    <div class="form-group">
+                                        <label for="token_amount_{{ prize.id }}">Жетоны</label>
+                                        <input class="form-input" type="number" id="token_amount_{{ prize.id }}" name="token_amount" min="0" step="1" value="{{ prize.token_amount or 0 }}">
+                                    </div>
+
                                     <div class="form-group full">
                                         <label>Иконка</label>
                                         <div class="prize-icon-picker" role="radiogroup" aria-label="Иконка приза">
@@ -534,7 +539,7 @@
                             <span class="probability-prize-icon">{{ prize.icon_emoji or '🎁' }}</span>
                             <div>
                                 <div class="probability-prize-name">{{ prize.name }}</div>
-                                <div class="probability-prize-desc">{% if prize.is_active %}активен{% else %}выключен{% endif %}</div>
+                                <div class="probability-prize-desc">{% if prize.is_active %}активен{% else %}выключен{% endif %}{% if prize.bonus_amount|int > 0 %} · {{ prize.bonus_amount }} CM{% endif %}{% if prize.token_amount|int > 0 %} · {{ prize.token_amount }} жет.{% endif %}</div>
                             </div>
                             <div class="probability-prize-value">{{ '%.2f'|format(prize.probability|float) }}%</div>
                         </div>
@@ -570,6 +575,11 @@
                 <div class="form-group">
                     <label for="add_bonus_amount">Бонусы</label>
                     <input class="form-input" type="number" id="add_bonus_amount" name="bonus_amount" min="0" step="1" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="add_token_amount">Жетоны</label>
+                    <input class="form-input" type="number" id="add_token_amount" name="token_amount" min="0" step="1" value="0">
                 </div>
 
                 <div class="form-group full">
