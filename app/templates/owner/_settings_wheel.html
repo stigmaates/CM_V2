@@ -344,8 +344,33 @@
         font-size: 14px;
     }
 
+    .modal-overlay.is-open {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 24px 14px;
+        box-sizing: border-box;
+    }
+
     .modal-panel--prize {
         width: min(760px, calc(100vw - 28px));
+        max-height: calc(100vh - 48px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal-panel--prize::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .modal-panel--prize::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 999px;
+    }
+
+    .modal-panel--prize::-webkit-scrollbar-thumb {
+        background: rgba(165, 114, 255, 0.55);
+        border-radius: 999px;
     }
 
     @media (max-width: 1180px) {
@@ -636,6 +661,15 @@
 
         if (!modal || !openBtn || !closeBtn) return;
 
+        function stopPrizeModalScroll(event) {
+            const panel = event.target.closest('.modal-panel--prize');
+            if (!panel) {
+                event.preventDefault();
+                return;
+            }
+            event.stopPropagation();
+        }
+
         function openModal() {
             modal.classList.add('is-open');
             modal.setAttribute('aria-hidden', 'false');
@@ -659,6 +693,9 @@
                 closeModal();
             }
         });
+
+        modal.addEventListener('wheel', stopPrizeModalScroll, { passive: false });
+        modal.addEventListener('touchmove', stopPrizeModalScroll, { passive: false });
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && modal.classList.contains('is-open')) {
