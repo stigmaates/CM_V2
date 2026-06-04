@@ -443,7 +443,20 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             guests_with_telegram = cursor.fetchone()["cnt"] or 0
 
             csi_percent = _round_display((guests_with_telegram / total_guests) * 100) if total_guests > 0 else 0
-            mailing_count = guests_with_telegram
+
+            # Карточка «Людей в рассылке» должна показывать всю доступную Telegram-базу клуба,
+            # а не только новых гостей за выбранный период. ER выше остается периодной метрикой.
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM guests
+                WHERE club_id = %s
+                  AND telegram_id IS NOT NULL
+                  AND TRIM(CAST(telegram_id AS CHAR)) <> ''
+                """,
+                (club_id,),
+            )
+            mailing_count = cursor.fetchone()["cnt"] or 0
 
             kpi_sparklines = _build_kpi_sparklines(cursor, club_id, current_start, current_end)
             visit_streak_funnel = _get_visit_streak_funnel(cursor, club_id, current_start, current_end)
