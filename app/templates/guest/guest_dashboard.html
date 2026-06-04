@@ -900,6 +900,165 @@
             .wheel-axle { width: 86px; height: 86px; }
             .wheel-axle__mark { font-size: 24px; }
         }
+
+        /* Mobile-only mission layout: keep desktop intact, but stack mission content on phones */
+        @media (max-width: 760px) {
+            .missions-panel {
+                padding: 20px 16px;
+                margin-top: 26px;
+                flex: 0 0 auto;
+            }
+
+            .missions-panel .section-title {
+                font-size: 32px;
+                line-height: 1.15;
+                margin-bottom: 22px;
+                align-items: center;
+            }
+
+            .missions-list,
+            .missions-list[data-count="1"],
+            .missions-list[data-overflow="1"] {
+                height: auto;
+                min-height: 0;
+                max-height: none;
+                overflow: visible;
+                padding-right: 0;
+                gap: 14px;
+            }
+
+            .missions-list .mission-card,
+            .missions-list[data-count="1"] .mission-card,
+            .missions-list[data-overflow="1"] .mission-card {
+                display: grid;
+                grid-template-columns: 1fr !important;
+                gap: 14px;
+                flex: 0 0 auto;
+                height: auto;
+                min-height: 0;
+                max-height: none;
+                padding: 18px 16px 20px;
+                border-radius: 18px;
+            }
+
+            .mission-main {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                width: 100%;
+                min-width: 0;
+            }
+
+            .mission-head {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .mission-title,
+            .missions-list[data-count="1"] .mission-title,
+            .missions-list[data-count="2"] .mission-title {
+                font-size: 20px;
+                line-height: 1.22;
+                margin: 0;
+                overflow-wrap: anywhere;
+            }
+
+            .mission-desc,
+            .missions-list[data-count="1"] .mission-desc,
+            .missions-list[data-count="2"] .mission-desc,
+            .missions-list[data-count="3"] .mission-desc {
+                font-size: 15px;
+                line-height: 1.35;
+                margin: 0;
+                overflow-wrap: anywhere;
+            }
+
+            .mission-progress-stack {
+                flex: 0 0 auto;
+                justify-content: flex-start;
+                gap: 8px;
+                width: 100%;
+            }
+
+            .mission-progress-stack .progress-line,
+            .progress-line {
+                width: 100%;
+                max-width: none;
+                height: 8px;
+                margin: 0;
+            }
+
+            .progress-text,
+            .missions-list[data-count="1"] .progress-text,
+            .missions-list[data-count="2"] .progress-text,
+            .missions-list[data-count="3"] .progress-text {
+                width: 100%;
+                margin-top: 0;
+                text-align: center;
+                font-size: 14px;
+                line-height: 1.25;
+            }
+
+            .mission-reward-col {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                padding: 0;
+                margin: 2px 0 0;
+                text-align: center;
+            }
+
+            .mission-reward,
+            .missions-list[data-count="1"] .mission-reward,
+            .missions-list[data-count="2"] .mission-reward {
+                font-size: 20px;
+                line-height: 1.25;
+                max-width: 100%;
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .guest-page {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .missions-panel {
+                padding: 18px 14px;
+            }
+
+            .missions-panel .section-title {
+                font-size: 28px;
+            }
+
+            .missions-list .mission-card,
+            .missions-list[data-count="1"] .mission-card,
+            .missions-list[data-overflow="1"] .mission-card {
+                padding: 16px 14px 18px;
+            }
+
+            .mission-title,
+            .missions-list[data-count="1"] .mission-title,
+            .missions-list[data-count="2"] .mission-title {
+                font-size: 18px;
+            }
+
+            .mission-desc,
+            .missions-list[data-count="1"] .mission-desc,
+            .missions-list[data-count="2"] .mission-desc {
+                font-size: 14px;
+            }
+
+            .mission-reward,
+            .missions-list[data-count="1"] .mission-reward,
+            .missions-list[data-count="2"] .mission-reward {
+                font-size: 18px;
+            }
+        }
+
     </style>
 </head>
 <body>
