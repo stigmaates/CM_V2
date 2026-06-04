@@ -958,7 +958,7 @@
                         <div class="profile-streak-row">
                             <button class="help-btn help-btn--rail" type="button" onclick="openModal('streakRulesModal')" title="Как работает серия и жетоны" aria-label="Подробнее о серии и жетонах">?</button>
                             <div class="streak-row-caption">
-                                <span class="streak-row-plus">+{{ streak.next_reward|default(1) }} жет.</span>
+                                <span class="streak-row-plus">+{{ streak.next_reward|default(1) }} 🔥 жет.</span>
                                 за следующий день серии
                             </div>
                             <div class="reward-progress streak-row-bar" role="progressbar" aria-valuenow="{{ (streak.progress_percent|default(0))|round|int }}" aria-valuemin="0" aria-valuemax="100">
