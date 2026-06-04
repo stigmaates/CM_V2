@@ -793,7 +793,14 @@
         .win-image-box { border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.04); display: grid; place-items: center; min-height: 176px; }
         .win-image { max-width: 100%; max-height: 168px; object-fit: contain; }
         .win-name { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
-        .win-desc { color: var(--text-muted); line-height: 1.45; margin-bottom: 18px; }
+        .win-desc { color: var(--text-muted); line-height: 1.45; margin-bottom: 12px; }
+        #winClaimStatus {
+            margin: 0 0 14px;
+            width: fit-content;
+            max-width: 100%;
+            white-space: normal;
+            line-height: 1.25;
+        }
         .claim-btn {
             width: 100%; border: 0; border-radius: 12px; padding: 13px 16px; color: #fff; font-weight: 800;
             background: linear-gradient(135deg, var(--accent), #6a45bf); cursor: pointer;
@@ -1139,7 +1146,7 @@
                                 <div class="history-title">{{ item.name }}</div>
                                 <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
                                 {% if item.prize_status_label %}
-                                    {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 or item.token_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
+                                    {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
                                     <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
                                 {% endif %}
                             </div>
@@ -1398,11 +1405,9 @@
                 path.style.transition = 'filter 720ms ease-in-out, stroke 720ms ease-in-out, stroke-width 720ms ease-in-out, opacity 720ms ease-in-out';
                 svg.appendChild(path);
 
-                const iconPos = polar(textR - 84, mid);
-                let iconRotate = mid;
-                if (iconRotate > 90 || iconRotate < -90) {
-                    iconRotate += 180;
-                }
+                const iconPos = polar(textR - 78, mid);
+                // Иконки разворачиваются единообразно: верх иконки смотрит к центру колеса.
+                const iconRotate = mid - 90;
 
                 const iconLabel = document.createElementNS(ns, 'text');
                 iconLabel.setAttribute('x', String(iconPos.x));
@@ -1410,16 +1415,17 @@
                 iconLabel.setAttribute('text-anchor', 'middle');
                 iconLabel.setAttribute('dominant-baseline', 'middle');
                 iconLabel.setAttribute('transform', `rotate(${iconRotate} ${iconPos.x} ${iconPos.y})`);
-                iconLabel.setAttribute('font-size', safePrizes.length > 10 ? '34' : '39');
+                iconLabel.setAttribute('font-size', safePrizes.length > 10 ? '31' : '35');
                 iconLabel.setAttribute('filter', 'url(#textGlow)');
                 iconLabel.textContent = String(prize.icon_emoji || '🎁');
                 iconLabel.setAttribute('data-segment-icon', String(index));
                 svg.appendChild(iconLabel);
 
                 const labelPathId = `segmentLabelArc${index}`;
-                const labelRadius = textR + 20;
-                const labelStart = start + Math.min(step * 0.18, 8);
-                const labelEnd = end - Math.min(step * 0.18, 8);
+                const labelRadius = textR + 22;
+                const insetAngle = Math.min(step * 0.2, 8);
+                const labelStart = start + insetAngle;
+                const labelEnd = end - insetAngle;
                 const labelP1 = polar(labelRadius, labelStart);
                 const labelP2 = polar(labelRadius, labelEnd);
                 const labelPath = document.createElementNS(ns, 'path');
@@ -1429,12 +1435,17 @@
                 labelPath.setAttribute('stroke', 'none');
                 defs.appendChild(labelPath);
 
+                const labelText = String(prize.name || 'Приз').toUpperCase();
+                const availableArc = Math.max((Math.PI * labelRadius * Math.max(labelEnd - labelStart, 1)) / 180, 40);
+                const baseFontSize = safePrizes.length > 10 ? 13 : (safePrizes.length > 8 ? 15 : 17);
+                const fittedFontSize = Math.max(9, Math.min(baseFontSize, Math.floor(availableArc / Math.max(labelText.length * 0.62, 1))));
+
                 const label = document.createElementNS(ns, 'text');
                 label.setAttribute('fill', '#f6eeff');
-                label.setAttribute('font-size', safePrizes.length > 10 ? '15' : (safePrizes.length > 8 ? '17' : '19'));
+                label.setAttribute('font-size', String(fittedFontSize));
                 label.setAttribute('font-weight', '800');
                 label.setAttribute('font-family', '"Trebuchet MS", "Segoe UI", Arial, sans-serif');
-                label.setAttribute('letter-spacing', '0.5');
+                label.setAttribute('letter-spacing', fittedFontSize <= 11 ? '0.05' : '0.35');
                 label.setAttribute('filter', 'url(#textGlow)');
                 label.setAttribute('data-segment-label', String(index));
 
@@ -1442,7 +1453,7 @@
                 textPath.setAttribute('href', `#${labelPathId}`);
                 textPath.setAttribute('startOffset', '50%');
                 textPath.setAttribute('text-anchor', 'middle');
-                textPath.textContent = (prize.name || 'Приз').toUpperCase().slice(0, safePrizes.length > 10 ? 10 : 13);
+                textPath.textContent = labelText;
                 label.appendChild(textPath);
                 svg.appendChild(label);
             });
@@ -1774,16 +1785,7 @@
 
         function showWinModal(prize, claim = null) {
             winName.textContent = prize.name || 'Приз получен';
-            const bonusText = Number(prize.bonus_amount || 0) > 0 ? `
-
-+${prize.bonus_amount} CM-бонусов уже начислены в твой кошелёк.` : '';
-            const tokenText = Number(prize.token_amount || 0) > 0 ? `
-
-+${prize.token_amount} жетонов уже начислены на баланс колеса.` : '';
-            const manualText = claim ? `
-
-Статус: ${claim.status_label || 'ожидает выдачи'}. Подойди к администратору и назови ID заявки #${claim.id}.` : '';
-            winDescription.textContent = (prize.description || 'Поздравляем! Твой приз сохранён за тобой.') + bonusText + tokenText + manualText;
+            winDescription.textContent = prize.description || 'Поздравляем! Твой приз сохранён за тобой.';
             if (winClaimStatus) {
                 if (claim) {
                     winClaimStatus.style.display = 'inline-flex';
@@ -1828,7 +1830,7 @@
                     statusBadge.style.display = 'inline-flex';
                     statusBadge.className = `history-status ${claimStatusClass(claim.status)}`;
                     statusBadge.textContent = claim.status_label || 'ожидает выдачи';
-                } else if (Number(prize.bonus_amount || 0) > 0 || Number(prize.token_amount || 0) > 0) {
+                } else if (Number(prize.bonus_amount || 0) > 0) {
                     statusBadge.style.display = 'inline-flex';
                     statusBadge.className = 'history-status history-status--issued';
                     statusBadge.textContent = 'начислено автоматически';

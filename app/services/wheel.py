@@ -41,18 +41,25 @@ def ensure_wheel_prize_bonus_columns(cursor):
             ADD COLUMN bonus_amount INT NOT NULL DEFAULT 0 AFTER image_url
             """
         )
-    if "icon_emoji" not in existing:
-        cursor.execute(
-            """
-            ALTER TABLE club_wheel_prizes
-            ADD COLUMN icon_emoji VARCHAR(16) NULL AFTER image_url
-            """
-        )
     if "token_amount" not in existing:
         cursor.execute(
             """
             ALTER TABLE club_wheel_prizes
             ADD COLUMN token_amount INT NOT NULL DEFAULT 0 AFTER bonus_amount
+            """
+        )
+    if "icon_emoji" not in existing:
+        cursor.execute(
+            """
+            ALTER TABLE club_wheel_prizes
+            ADD COLUMN icon_emoji VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL AFTER image_url
+            """
+        )
+    else:
+        cursor.execute(
+            """
+            ALTER TABLE club_wheel_prizes
+            MODIFY icon_emoji VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL
             """
         )
 
@@ -769,7 +776,7 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
                     amount=token_amount,
                     source_type="wheel_prize",
                     source_id=str(spin_id),
-                    description=f"Приз колеса: +{token_amount} жет.",
+                    description=f"Приз колеса: {(prize or {}).get('name') or 'приз'}",
                 )
             claim_id = None
             if not bonus_awarded and not token_awarded:
