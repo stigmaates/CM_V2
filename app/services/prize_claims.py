@@ -134,7 +134,7 @@ def format_prize_claim_message(claim: dict[str, Any], issued: bool = False) -> s
 def create_prize_claim(cursor, guest_id: int, club_id: int, spin_id: int, prize: dict[str, Any]) -> int | None:
     """Create a manual issue task for a wheel prize. Returns claim id.
 
-    CM-bonus prizes are credited automatically and should not create claims.
+    КБ-prizes are credited automatically and should not create claims.
     """
     if not prize:
         return None

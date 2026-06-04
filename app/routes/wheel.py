@@ -87,9 +87,9 @@ def _parse_bonus_amount(raw_value: str) -> int:
     try:
         amount = int(raw_value)
     except ValueError:
-        raise ValueError("Количество CM-бонусов должно быть целым числом")
+        raise ValueError("Количество КБ должно быть целым числом")
     if amount < 0:
-        raise ValueError("Количество CM-бонусов не может быть отрицательным")
+        raise ValueError("Количество КБ не может быть отрицательным")
     return amount
 
 

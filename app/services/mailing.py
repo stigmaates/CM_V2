@@ -895,7 +895,7 @@ def create_mailing_for_recipients(
 def ensure_bonus_giveaway_tables(conn) -> None:
     """Создаёт таблицы раздач бонусов лениво.
 
-    Раздача — это массовое начисление CM-бонусов выбранной аудитории + Telegram-уведомление.
+    Раздача — это массовое начисление КБ выбранной аудитории + Telegram-уведомление.
     """
     with conn.cursor() as cur:
         ensure_cm_bonus_tables(cur)
@@ -975,7 +975,7 @@ def create_bonus_giveaway(
     message_text: str,
     parse_mode: str = "HTML",
 ) -> Dict[str, Any]:
-    """Начисляет CM-бонусы выбранной аудитории и создаёт Telegram-рассылку.
+    """Начисляет КБ выбранной аудитории и создаёт Telegram-рассылку.
 
     Фильтры используются ровно те же, что и в сегментах/ручной рассылке.
     Возвращает id раздачи, id рассылки и количество получателей.

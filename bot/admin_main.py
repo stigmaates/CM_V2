@@ -123,12 +123,12 @@ async def cm_bonus_credited_callback(update: Update, context: ContextTypes.DEFAU
             username=username,
         )
     except Exception as e:
-        logging.exception("Ошибка при закрытии заявки CM-бонусов через кнопку #%s", request_id)
+        logging.exception("Ошибка при закрытии заявки КБ через кнопку #%s", request_id)
         await query.answer(f"Ошибка: {e}", show_alert=True)
         return
 
     if not result.get("ok"):
-        await query.answer(result.get("message") or f"Не удалось закрыть заявку CM #{request_id}", show_alert=True)
+        await query.answer(result.get("message") or f"Не удалось закрыть заявку КБ #{request_id}", show_alert=True)
         return
 
     redeem_request = result.get("request") or {}
@@ -142,12 +142,12 @@ async def cm_bonus_credited_callback(update: Update, context: ContextTypes.DEFAU
             reply_markup=None,
         )
     except Exception:
-        logging.exception("Не удалось обновить сообщение заявки CM #%s", request_id)
+        logging.exception("Не удалось обновить сообщение заявки КБ #%s", request_id)
 
     if result.get("already_done"):
-        await query.answer(f"Заявка CM #{request_id} уже была закрыта", show_alert=False)
+        await query.answer(f"Заявка КБ #{request_id} уже была закрыта", show_alert=False)
     else:
-        await query.answer(f"Бонусы по заявке CM #{request_id} отмечены как зачисленные", show_alert=False)
+        await query.answer(f"КБ по заявке #{request_id} отмечены как зачисленные", show_alert=False)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):

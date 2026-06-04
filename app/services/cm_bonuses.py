@@ -147,7 +147,7 @@ def add_cm_bonus_transaction(
     description: str | None = None,
     status: str = "done",
 ) -> bool:
-    """Change CM bonus balance and write a ledger row. Returns False for duplicate idempotent sources."""
+    """Change КБ balance and write a ledger row. Returns False for duplicate idempotent sources."""
     amount = int(amount or 0)
     if amount == 0:
         return False
@@ -278,7 +278,7 @@ def _format_phone(phone: str | None) -> str:
 
 
 def get_cm_bonus_admin_chat_id_for_club(club_id: int) -> str | None:
-    """Return per-club Telegram chat id for CM-bonus redeem requests.
+    """Return per-club Telegram chat id for КБ redeem requests.
 
     CM_BONUS_ADMIN_CHAT_ID from .env is kept as optional fallback for old setups,
     but the main source is clubs.cm_bonus_admin_chat_id.
@@ -360,8 +360,8 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
         processed_by = request.get("processed_by_username") or "администратор"
         processed_at = _format_dt(request.get("processed_at"))
         return (
-            "✅ <b>CM-бонусы зачислены в Langame</b>\n\n"
-            f"Заявка CM: <code>{request_id}</code>\n\n"
+            "✅ <b>КБ зачислены в Langame</b>\n\n"
+            f"Заявка КБ: <code>{request_id}</code>\n\n"
             f"Гость: <b>{guest_name}</b>\n"
             f"Телефон: <code>{phone}</code>\n"
             f"Guest ID: <code>{guest_id}</code>\n"
@@ -373,8 +373,8 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
         )
 
     return (
-        "💎 <b>Заявка на перевод CM-бонусов</b>\n\n"
-        f"Заявка CM: <code>{request_id}</code>\n\n"
+        "💎 <b>Заявка на перевод КБ</b>\n\n"
+        f"Заявка КБ: <code>{request_id}</code>\n\n"
         f"Гость: <b>{guest_name}</b>\n"
         f"Телефон: <code>{phone}</code>\n"
         f"Guest ID: <code>{guest_id}</code>\n"
@@ -391,7 +391,7 @@ def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: in
     if not token:
         return False, None, "CM_BONUS_BOT_TOKEN не заполнен", chat_id
     if not chat_id:
-        return False, None, "В настройках клуба не заполнен ID Telegram-беседы для CM-бонусов", chat_id
+        return False, None, "В настройках клуба не заполнен ID Telegram-беседы для КБ", chat_id
 
     request = {
         "id": redeem_request_id,
@@ -437,7 +437,7 @@ def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: in
 
 
 def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[str, Any]:
-    """Withdraw guest CM bonuses and notify admin chat for manual Langame credit."""
+    """Withdraw guest КБ and notify admin chat for manual Langame credit."""
     guest_id = int(guest["guest_id"])
     club_id = int(guest["club_id"])
 
@@ -468,7 +468,7 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
                 amount=-redeem_amount,
                 source_type="redeem_request",
                 source_id=str(redeem_request_id),
-                description="Перевод CM-бонусов на игровой баланс Langame",
+                description="Перевод КБ на игровой баланс Langame",
                 status="pending_admin_credit",
             )
         conn.commit()
@@ -516,7 +516,7 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
 
 
 def get_cm_bonus_redeem_history(guest_id: int, club_id: int, limit: int = 30):
-    """Return guest CM-bonus transfer requests with user-friendly status labels."""
+    """Return guest КБ transfer requests with user-friendly status labels."""
     status_labels = {
         "created": "создана",
         "notified": "ожидает зачисления",
@@ -587,7 +587,7 @@ def mark_cm_bonus_redeem_credited_by_telegram(
             )
             request = cursor.fetchone()
             if not request:
-                return {"ok": False, "error": "not_found", "message": f"Заявка CM #{request_id} не найдена."}
+                return {"ok": False, "error": "not_found", "message": f"Заявка КБ #{request_id} не найдена."}
 
             stored_chat_id = str(request.get("admin_chat_id") or "").strip()
             if stored_chat_id and chat_id_str and stored_chat_id != chat_id_str:
@@ -603,7 +603,7 @@ def mark_cm_bonus_redeem_credited_by_telegram(
                     "ok": True,
                     "already_done": True,
                     "request": request,
-                    "message": f"Заявка CM #{request_id} уже была отмечена как зачисленная.",
+                    "message": f"Заявка КБ #{request_id} уже была отмечена как зачисленная.",
                 }
 
             if status in {"cancelled", "failed"}:
@@ -611,7 +611,7 @@ def mark_cm_bonus_redeem_credited_by_telegram(
                     "ok": False,
                     "error": "invalid_status",
                     "request": request,
-                    "message": f"Заявку CM #{request_id} нельзя закрыть в статусе {status}.",
+                    "message": f"Заявку КБ #{request_id} нельзя закрыть в статусе {status}.",
                 }
 
             processed_at = datetime.utcnow()
@@ -646,5 +646,5 @@ def mark_cm_bonus_redeem_credited_by_telegram(
     return {
         "ok": True,
         "request": updated_request,
-        "message": f"CM-бонусы по заявке #{request_id} отмечены как зачисленные.",
+        "message": f"КБ по заявке #{request_id} отмечены как зачисленные.",
     }

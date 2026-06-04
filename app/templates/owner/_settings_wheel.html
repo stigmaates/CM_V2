@@ -486,7 +486,7 @@
                                     </div>
 
                                     <div class="form-group">
-                                        <label for="bonus_amount_{{ prize.id }}">CM-бонусы</label>
+                                        <label for="bonus_amount_{{ prize.id }}">КБ</label>
                                         <input class="form-input" type="number" id="bonus_amount_{{ prize.id }}" name="bonus_amount" min="0" step="1" value="{{ prize.bonus_amount or 0 }}">
                                     </div>
 
@@ -564,7 +564,7 @@
                             <span class="probability-prize-icon">{{ prize.icon_emoji or '🎁' }}</span>
                             <div>
                                 <div class="probability-prize-name">{{ prize.name }}</div>
-                                <div class="probability-prize-desc">{% if prize.is_active %}активен{% else %}выключен{% endif %}{% if prize.bonus_amount %} · {{ prize.bonus_amount }} CM{% endif %}{% if prize.token_amount %} · {{ prize.token_amount }} жет.{% endif %}</div>
+                                <div class="probability-prize-desc">{% if prize.is_active %}активен{% else %}выключен{% endif %}{% if prize.bonus_amount %} · {{ prize.bonus_amount }} КБ{% endif %}{% if prize.token_amount %} · {{ prize.token_amount }} жет.{% endif %}</div>
                             </div>
                             <div class="probability-prize-value">{{ '%.2f'|format(prize.probability|float) }}%</div>
                         </div>
@@ -598,7 +598,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="add_bonus_amount">CM-бонусы</label>
+                    <label for="add_bonus_amount">КБ</label>
                     <input class="form-input" type="number" id="add_bonus_amount" name="bonus_amount" min="0" step="1" value="0">
                 </div>
 

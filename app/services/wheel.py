@@ -19,7 +19,7 @@ _wheel_prize_bonus_columns_ready = False
 
 
 def ensure_wheel_prize_bonus_columns(cursor):
-    """Add CM bonus prize columns to club_wheel_prizes for older installations."""
+    """Add КБ prize columns to club_wheel_prizes for older installations."""
     global _wheel_prize_bonus_columns_ready
     if _wheel_prize_bonus_columns_ready:
         return
@@ -522,7 +522,7 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
     """Synchronize streak wheel tokens and completed mission rewards.
 
     Mission rewards are intentionally independent from wheel settings: even if the wheel is disabled
-    or tokens_start_date is not set, completed missions can still credit CM-bonuses.
+    or tokens_start_date is not set, completed missions can still credit КБ.
     """
     settings = get_wheel_settings(club_id)
 

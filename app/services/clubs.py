@@ -5,7 +5,7 @@ _club_bonus_chat_column_ready = False
 
 
 def ensure_club_bonus_chat_column(cursor) -> None:
-    """Add per-club Telegram chat id for CM-bonus transfer notifications."""
+    """Add per-club Telegram chat id for КБ transfer notifications."""
     global _club_bonus_chat_column_ready
     if _club_bonus_chat_column_ready:
         return
