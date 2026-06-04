@@ -72,6 +72,61 @@
                     </form>
                 </div>
 
+                <div class="settings-side-column">
+                    <div class="card settings-card settings-card--system-status" id="system-status">
+                        <div class="settings-status-header">
+                            <div>
+                                <div class="section-title">Статус обновлений</div>
+                                <div class="muted settings-status-note">Последние запуски синхронизаций, пересборки данных и авторассылок.</div>
+                            </div>
+                            {% set overall = system_status.overall_status if system_status else 'warning' %}
+                            <span class="status-pill status-pill--{{ overall }}">{{ system_status.overall_text if system_status else 'нет данных' }}</span>
+                        </div>
+
+                        <div class="settings-status-summary">
+                            <div class="status-summary-item">
+                                <span>Последнее обновление</span>
+                                <b>{{ system_status.last_update if system_status else '—' }}</b>
+                            </div>
+                            <div class="status-summary-item">
+                                <span>Авторассылок</span>
+                                <b>{{ system_status.automailings|length if system_status else 0 }}</b>
+                            </div>
+                        </div>
+
+                        <div class="settings-status-section-title">Обновления и фоновые задачи</div>
+                        <div class="settings-status-list">
+                            {% for item in system_status.scripts %}
+                                <div class="status-row status-row--{{ item.status }}">
+                                    <div class="status-dot status-dot--{{ item.status }}"></div>
+                                    <div class="status-row__body">
+                                        <div class="status-row__top">
+                                            <b>{{ item.title }}</b>
+                                            <span>{{ item.status_text }}</span>
+                                        </div>
+                                        <div class="status-row__meta">{{ item.last_update }} · {{ item.description }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="settings-status-section-title">Авторассылки</div>
+                        <div class="settings-status-list settings-status-list--compact">
+                            {% for item in system_status.automailings %}
+                                <div class="status-row status-row--{{ item.status }}">
+                                    <div class="status-dot status-dot--{{ item.status }}"></div>
+                                    <div class="status-row__body">
+                                        <div class="status-row__top">
+                                            <b>{{ item.title }}</b>
+                                            <span>{{ item.status_text }}</span>
+                                        </div>
+                                        <div class="status-row__meta">Последний запуск: {{ item.last_run }} · отправок за 7 дней: {{ item.sent_7d }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
                 <div class="card settings-card settings-card--pc-names" id="pc-names">
                     <div class="section-title">Названия ПК</div>
                     <div class="muted pc-names-note">
@@ -105,6 +160,7 @@
                             <div class="empty-state">Пока не найдено ни одного UUID сессий за последний год. Они появятся здесь после автоматической синхронизации сессий.</div>
                         {% endif %}
                     </form>
+                </div>
                 </div>
             </div>
         {% elif active_tab == 'missions' %}

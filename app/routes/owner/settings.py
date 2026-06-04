@@ -5,6 +5,7 @@ from app.services.clubs import get_club_info, update_club_info
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
+from app.services.system_status import get_settings_system_status
 
 from . import owner_bp
 
@@ -87,6 +88,7 @@ def settings():
     if active_tab == "club":
         context.update({
             "pc_name_settings": get_pc_name_settings(club_id_int),
+            "system_status": get_settings_system_status(club_id_int),
         })
 
     if active_tab == "missions":
