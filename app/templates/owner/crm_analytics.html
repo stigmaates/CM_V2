@@ -18,11 +18,11 @@
             </div>
 
             <div class="period-switcher heatmap-switcher">
-                <a href="{{ url_for('owner.crm_analytics', period=7) }}"
+                <a href="{{ url_for('owner.crm_analytics', period=7, telegram_only=1 if telegram_only else 0) }}"
                    class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', period=30) }}"
+                <a href="{{ url_for('owner.crm_analytics', period=30, telegram_only=1 if telegram_only else 0) }}"
                    class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', period=90) }}"
+                <a href="{{ url_for('owner.crm_analytics', period=90, telegram_only=1 if telegram_only else 0) }}"
                    class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
             </div>
         </div>

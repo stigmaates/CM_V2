@@ -884,18 +884,25 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     }
 
 
-def get_dashboard_audience_stats(club_id: int) -> dict:
+def get_dashboard_audience_stats(club_id: int, telegram_only: bool = False) -> dict:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            where_sql = "WHERE club_id = %s"
+            params = [club_id]
+            if telegram_only:
+                # user_portrait пересобирается из guests.telegram_id и хранит признак has_telegram.
+                # Так фильтр совпадает с CRM-сегментами и не зависит от выбранного периода heatmap.
+                where_sql += " AND COALESCE(has_telegram, 0) = 1"
+
             cursor.execute(
-                """
+                f"""
                 SELECT crm_type, COUNT(*) AS cnt
                 FROM user_portrait
-                WHERE club_id = %s
+                {where_sql}
                 GROUP BY crm_type
                 """,
-                (club_id,),
+                tuple(params),
             )
             rows = cursor.fetchall()
 
@@ -908,6 +915,7 @@ def get_dashboard_audience_stats(club_id: int) -> dict:
             "dead": 0,
             "no_visits": 0,
             "total": 0,
+            "telegram_only": bool(telegram_only),
         }
 
         for row in rows:

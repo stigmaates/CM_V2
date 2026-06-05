@@ -6,6 +6,7 @@
                             <span class="info-chip__icon">i</span>
                             <div class="info-chip__tooltip info-chip__tooltip--wide">
                                 Блок считает сегменты из таблицы <b>user_portrait</b> по текущему клубу.<br>
+                                Переключатель <b>«С привязанным Telegram»</b> оставляет только гостей, которым можно отправлять Telegram-коммуникации.<br>
                                 <b>TOP</b> — 15+ визитов за 90 дней.<br>
                                 <b>BASE</b> — 10–14 визитов за 90 дней.<br>
                                 <b>RARE</b> — 1–9 визитов за 90 дней и последний визит меньше 14 дней назад.<br>
@@ -16,7 +17,18 @@
                             </div>
                         </div>
                     </div>
-                    <div class="audience-total">Всего гостей: {{ audience.total }}</div>
+                    <div class="audience-header-actions">
+                        <a class="audience-tg-toggle {% if telegram_only %}is-active{% endif %}"
+                           href="{{ url_for('owner.crm_analytics', period=selected_period, telegram_only=0 if telegram_only else 1) }}"
+                           role="switch"
+                           aria-checked="{{ 'true' if telegram_only else 'false' }}">
+                            <span class="audience-tg-toggle__track"><span class="audience-tg-toggle__dot"></span></span>
+                            <span class="audience-tg-toggle__label">С привязанным Telegram</span>
+                        </a>
+                        <div class="audience-total">
+                            {% if telegram_only %}С Telegram: {{ audience.total }}{% else %}Всего гостей: {{ audience.total }}{% endif %}
+                        </div>
+                    </div>
                 </div>
 
                 <div class="audience-grid">
