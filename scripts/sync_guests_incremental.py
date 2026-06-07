@@ -11,6 +11,8 @@ from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 logging.basicConfig(level=logging.INFO)
 
+PAGE_LIMIT = 500
+
 
 def get_db_connection():
     return pymysql.connect(
@@ -66,6 +68,12 @@ def get_existing_guest_ids(club_id):
 
 
 def fetch_guests(secret, api_key):
+    """Fetch all guest pages from Langame.
+
+    Important: /guests/list returns only 10 rows by default if page_limit is not
+    passed, so we must explicitly paginate.
+    """
+
     url = f"https://{secret}.langame.ru/public_api/guests/list"
 
     headers = {
@@ -73,17 +81,49 @@ def fetch_guests(secret, api_key):
         "X-API-KEY": api_key.strip()
     }
 
-    response = httpx.get(url, headers=headers, timeout=60)
+    all_guests = []
+    page = 1
 
-    if response.status_code != 200:
-        raise Exception(f"Ошибка API: {response.status_code} {response.text}")
+    while True:
+        params = {
+            "page": page,
+            "page_limit": PAGE_LIMIT,
+        }
 
-    data = response.json()
+        response = httpx.get(url, headers=headers, params=params, timeout=120)
 
-    if not data.get("status"):
-        raise Exception("API status = false")
+        if response.status_code != 200:
+            raise Exception(f"Ошибка API: {response.status_code} {response.text}")
 
-    return data.get("data", [])
+        json_data = response.json()
+
+        if not json_data.get("status"):
+            raise Exception("API status = false")
+
+        guests = json_data.get("data", []) or []
+        total_pages = int(json_data.get("total_pages") or 0)
+
+        logging.info(
+            f"Langame secret={secret} | guests page {page}"
+            + (f"/{total_pages}" if total_pages else "")
+            + f": {len(guests)}"
+        )
+
+        all_guests.extend(guests)
+
+        if total_pages:
+            if page >= total_pages:
+                break
+        else:
+            if len(guests) < PAGE_LIMIT:
+                break
+
+        if not guests:
+            break
+
+        page += 1
+
+    return all_guests
 
 
 def parse_date(value):
