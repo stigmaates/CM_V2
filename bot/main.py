@@ -52,6 +52,31 @@ def get_db_connection():
     )
 
 
+
+
+_guest_login_tokens_club_column_ready = False
+
+
+def ensure_guest_login_tokens_club_column(cursor):
+    global _guest_login_tokens_club_column_ready
+    if _guest_login_tokens_club_column_ready:
+        return
+
+    cursor.execute("""
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'guest_login_tokens'
+          AND COLUMN_NAME = 'club_id'
+    """)
+    if not cursor.fetchone():
+        cursor.execute("""
+            ALTER TABLE guest_login_tokens
+            ADD COLUMN club_id INT NULL AFTER guest_id
+        """)
+    _guest_login_tokens_club_column_ready = True
+
+
 def normalize_phone(phone: str):
     if not phone:
         return None
@@ -99,15 +124,16 @@ def find_guest_by_phone(phone: str):
         conn.close()
 
 
-def bind_telegram_to_guest(guest_id: int, telegram_id: int):
+def bind_telegram_to_guest(guest_id: int, club_id: int, telegram_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
                 UPDATE guests
                 SET telegram_id = %s
-                WHERE guest_id = %s
-            """, (telegram_id, guest_id))
+                WHERE club_id = %s
+                  AND guest_id = %s
+            """, (telegram_id, club_id, guest_id))
         conn.commit()
     finally:
         conn.close()
@@ -117,8 +143,9 @@ def get_login_token_row(token: str):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            ensure_guest_login_tokens_club_column(cursor)
             cursor.execute("""
-                SELECT token, guest_id, telegram_id, is_confirmed, created_at, expires_at
+                SELECT token, guest_id, club_id, telegram_id, is_confirmed, created_at, expires_at
                 FROM guest_login_tokens
                 WHERE token = %s
                 LIMIT 1
@@ -128,17 +155,19 @@ def get_login_token_row(token: str):
         conn.close()
 
 
-def confirm_login_token(token: str, guest_id: int, telegram_id: int):
+def confirm_login_token(token: str, guest_id: int, club_id: int, telegram_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            ensure_guest_login_tokens_club_column(cursor)
             cursor.execute("""
                 UPDATE guest_login_tokens
                 SET guest_id = %s,
+                    club_id = %s,
                     telegram_id = %s,
                     is_confirmed = 1
                 WHERE token = %s
-            """, (guest_id, telegram_id, token))
+            """, (guest_id, club_id, telegram_id, token))
         conn.commit()
     finally:
         conn.close()
@@ -261,12 +290,14 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     bind_telegram_to_guest(
         guest_id=guest["guest_id"],
+        club_id=guest["club_id"],
         telegram_id=user.id
     )
 
     confirm_login_token(
         token=token,
         guest_id=guest["guest_id"],
+        club_id=guest["club_id"],
         telegram_id=user.id
     )
 

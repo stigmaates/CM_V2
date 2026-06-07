@@ -934,12 +934,30 @@ def ensure_bonus_giveaway_tables(conn) -> None:
                 error_text TEXT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 awarded_at DATETIME NULL,
-                UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, guest_id),
+                UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, club_id, guest_id),
                 KEY idx_bonus_giveaway_recipients_guest (club_id, guest_id),
                 KEY idx_bonus_giveaway_recipients_status (transaction_status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
+        cur.execute(
+            """
+            SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'bonus_giveaway_recipients'
+              AND INDEX_NAME = 'uq_bonus_giveaway_guest'
+            """
+        )
+        idx = cur.fetchone() or {}
+        if (idx.get("cols") or "") == "giveaway_id,guest_id":
+            cur.execute(
+                """
+                ALTER TABLE bonus_giveaway_recipients
+                DROP INDEX uq_bonus_giveaway_guest,
+                ADD UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, club_id, guest_id)
+                """
+            )
 
 
 def list_bonus_giveaways(conn, club_id: int) -> List[Dict[str, Any]]:

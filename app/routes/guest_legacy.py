@@ -12,7 +12,7 @@ def guest_dashboard():
         return redirect(url_for("guest_login"))
 
     guest_id = session.get("guest_id")
-    guest = get_guest_by_id(guest_id)
+    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
     if not guest:
         flash("Гость не найден", "error")
         return redirect(url_for("guest_login"))
@@ -57,11 +57,12 @@ def guest_check_login():
     if not guest_id:
         return {"ok": False, "error": "guest_not_set"}, 500
 
-    guest = get_guest_by_id(guest_id)
+    guest = get_guest_by_id(guest_id, token_row.get("club_id"))
     if not guest:
         return {"ok": False, "error": "guest_not_found"}, 404
 
     session["guest_id"] = guest["guest_id"]
+    session["guest_club_id"] = guest["club_id"]
     session["guest_name"] = guest.get("fio")
     session["guest_telegram_id"] = guest.get("telegram_id")
     session["guest_logged_in"] = True
@@ -81,7 +82,7 @@ def api_guest_tokens():
         return {"error": "unauthorized"}, 401
 
     guest_id = session.get("guest_id")
-    guest = get_guest_by_id(guest_id)
+    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
     if not guest:
         return {"error": "guest_not_found"}, 404
 
@@ -111,7 +112,7 @@ def api_wheel_spin():
         return {"error": "unauthorized"}, 401
 
     guest_id = session.get("guest_id")
-    guest = get_guest_by_id(guest_id)
+    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
     if not guest:
         return {"error": "guest_not_found"}, 404
 
@@ -159,6 +160,7 @@ def api_wheel_spin():
 
 def guest_logout():
     session.pop("guest_id", None)
+    session.pop("guest_club_id", None)
     session.pop("guest_name", None)
     session.pop("guest_telegram_id", None)
     session.pop("guest_logged_in", None)
@@ -171,7 +173,7 @@ def api_guest_missions():
         return {"error": "unauthorized"}, 401
 
     guest_id = session.get("guest_id")
-    guest = get_guest_by_id(guest_id)
+    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
     if not guest:
         return {"error": "guest_not_found"}, 404
     
