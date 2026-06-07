@@ -112,7 +112,7 @@ def fetch_guests(conn) -> Dict[int, Dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(sql)
         rows = cur.fetchall()
-    return {int(row["guest_id"]): row for row in rows}
+    return {(int(row["club_id"]), int(row["guest_id"])): row for row in rows}
 
 
 def fetch_sessions_agg(conn, now: datetime) -> Dict[int, Dict[str, Any]]:
