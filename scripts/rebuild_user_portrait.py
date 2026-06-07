@@ -5,7 +5,7 @@ sys.path.insert(0, BASE_DIR)
 
 from datetime import datetime, timedelta, date
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pymysql
 from pymysql.cursors import DictCursor
@@ -97,7 +97,7 @@ def calc_crm_type(
     return "base"
 
 
-def fetch_guests(conn) -> Dict[int, Dict[str, Any]]:
+def fetch_guests(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
         SELECT
             guest_id,
@@ -115,19 +115,22 @@ def fetch_guests(conn) -> Dict[int, Dict[str, Any]]:
     return {(int(row["club_id"]), int(row["guest_id"])): row for row in rows}
 
 
-def fetch_sessions_agg(conn, now: datetime) -> Dict[int, Dict[str, Any]]:
+def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
         SELECT
+            club_id,
             guest_id,
             date_start,
             date_stop
         FROM guest_sessions
-        WHERE date_start IS NOT NULL
+        WHERE club_id IS NOT NULL
+          AND guest_id IS NOT NULL
+          AND date_start IS NOT NULL
           AND date_stop IS NOT NULL
-        ORDER BY guest_id, date_start
+        ORDER BY club_id, guest_id, date_start
     """
 
-    result: Dict[int, Dict[str, Any]] = defaultdict(lambda: {
+    result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(lambda: {
         "first_visit_date": None,
         "last_visit_date": None,
         "visits_7d": 0,
@@ -153,16 +156,16 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[int, Dict[str, Any]]:
         cur.execute(sql)
         rows = cur.fetchall()
 
-    grouped_starts: Dict[int, List[datetime]] = defaultdict(list)
-    session_minutes_sum: Dict[int, float] = defaultdict(float)
-    night_count: Dict[int, int] = defaultdict(int)
-    weekend_count: Dict[int, int] = defaultdict(int)
-    day_period_count: Dict[int, int] = defaultdict(int)
-    evening_period_count: Dict[int, int] = defaultdict(int)
-    night_period_count: Dict[int, int] = defaultdict(int)
+    grouped_starts: Dict[Tuple[int, int], List[datetime]] = defaultdict(list)
+    session_minutes_sum: Dict[Tuple[int, int], float] = defaultdict(float)
+    night_count: Dict[Tuple[int, int], int] = defaultdict(int)
+    weekend_count: Dict[Tuple[int, int], int] = defaultdict(int)
+    day_period_count: Dict[Tuple[int, int], int] = defaultdict(int)
+    evening_period_count: Dict[Tuple[int, int], int] = defaultdict(int)
+    night_period_count: Dict[Tuple[int, int], int] = defaultdict(int)
 
     for row in rows:
-        guest_id = int(row["guest_id"])
+        key = (int(row["club_id"]), int(row["guest_id"]))
         date_start = row["date_start"]
         date_stop = row["date_stop"]
 
@@ -170,11 +173,11 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[int, Dict[str, Any]]:
             continue
 
         duration_minutes = max((date_stop - date_start).total_seconds() / 60.0, 0.0)
-        grouped_starts[guest_id].append(date_start)
+        grouped_starts[key].append(date_start)
 
-        agg = result[guest_id]
+        agg = result[key]
         agg["total_visits"] += 1
-        session_minutes_sum[guest_id] += duration_minutes
+        session_minutes_sum[key] += duration_minutes
         agg["max_session_minutes"] = max(agg["max_session_minutes"], int(duration_minutes))
         agg["total_hours_all"] += duration_minutes / 60.0
 
@@ -197,30 +200,30 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[int, Dict[str, Any]]:
         weekday = date_start.weekday()  # 0=Mon ... 6=Sun
 
         if hour >= 22 or hour < 8:
-            night_count[guest_id] += 1
-            night_period_count[guest_id] += 1
+            night_count[key] += 1
+            night_period_count[key] += 1
         elif 8 <= hour <= 16:
-            day_period_count[guest_id] += 1
+            day_period_count[key] += 1
         else:
-            evening_period_count[guest_id] += 1
+            evening_period_count[key] += 1
 
         if weekday >= 5:
-            weekend_count[guest_id] += 1
+            weekend_count[key] += 1
 
-    for guest_id, agg in result.items():
+    for key, agg in result.items():
         total_visits = agg["total_visits"]
 
         if total_visits > 0:
-            agg["avg_session_minutes"] = session_minutes_sum[guest_id] / total_visits
-            agg["night_share"] = night_count[guest_id] / total_visits
-            agg["weekend_share"] = weekend_count[guest_id] / total_visits
+            agg["avg_session_minutes"] = session_minutes_sum[key] / total_visits
+            agg["night_share"] = night_count[key] / total_visits
+            agg["weekend_share"] = weekend_count[key] / total_visits
             agg["favorite_period"] = calc_favorite_period(
-                day_period_count[guest_id],
-                evening_period_count[guest_id],
-                night_period_count[guest_id],
+                day_period_count[key],
+                evening_period_count[key],
+                night_period_count[key],
             )
 
-        starts = grouped_starts[guest_id]
+        starts = grouped_starts[key]
         if starts:
             agg["days_since_last_visit"] = (now.date() - starts[-1].date()).days
             agg["lifetime_days"] = max((now.date() - starts[0].date()).days, 0)
@@ -247,26 +250,28 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
     return digits or None
 
 
-def fetch_operations_agg(conn, now: datetime) -> Dict[str, Dict[str, Any]]:
+def fetch_operations_agg(conn, now: datetime) -> Dict[Tuple[int, str], Dict[str, Any]]:
     sql = """
         SELECT
+            club_id,
             phone,
             type,
             sum,
             date_normal
         FROM operations_log
-        WHERE phone IS NOT NULL
+        WHERE club_id IS NOT NULL
+          AND phone IS NOT NULL
     """
 
-    result: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
+    result: Dict[Tuple[int, str], Dict[str, Any]] = defaultdict(lambda: {
         "avg_check_all": None,
         "avg_check_30d": None,
         "last_payment_date": None,
     })
 
-    minus_all: Dict[str, List[float]] = defaultdict(list)
-    minus_30d: Dict[str, List[float]] = defaultdict(list)
-    plus_dates: Dict[str, List[datetime]] = defaultdict(list)
+    minus_all: Dict[Tuple[int, str], List[float]] = defaultdict(list)
+    minus_30d: Dict[Tuple[int, str], List[float]] = defaultdict(list)
+    plus_dates: Dict[Tuple[int, str], List[datetime]] = defaultdict(list)
 
     with conn.cursor() as cur:
         cur.execute(sql)
@@ -277,48 +282,54 @@ def fetch_operations_agg(conn, now: datetime) -> Dict[str, Dict[str, Any]]:
         if not phone_key:
             continue
 
+        key = (int(row["club_id"]), phone_key)
+
         op_type = (row["type"] or "").strip().lower()
         amount = float(row["sum"]) if row["sum"] is not None else None
         dt = row["date_normal"]
 
         if op_type == "minus" and amount is not None:
-            minus_all[phone_key].append(amount)
+            minus_all[key].append(amount)
             if dt and dt >= now - timedelta(days=30):
-                minus_30d[phone_key].append(amount)
+                minus_30d[key].append(amount)
 
         if op_type == "plus" and dt:
-            plus_dates[phone_key].append(dt)
+            plus_dates[key].append(dt)
 
-    all_phones = set(minus_all) | set(minus_30d) | set(plus_dates)
+    all_keys = set(minus_all) | set(minus_30d) | set(plus_dates)
 
-    for phone_key in all_phones:
-        agg = result[phone_key]
-        if minus_all[phone_key]:
-            agg["avg_check_all"] = sum(minus_all[phone_key]) / len(minus_all[phone_key])
-        if minus_30d[phone_key]:
-            agg["avg_check_30d"] = sum(minus_30d[phone_key]) / len(minus_30d[phone_key])
-        if plus_dates[phone_key]:
-            agg["last_payment_date"] = max(plus_dates[phone_key])
+    for key in all_keys:
+        agg = result[key]
+        if minus_all[key]:
+            agg["avg_check_all"] = sum(minus_all[key]) / len(minus_all[key])
+        if minus_30d[key]:
+            agg["avg_check_30d"] = sum(minus_30d[key]) / len(minus_30d[key])
+        if plus_dates[key]:
+            agg["last_payment_date"] = max(plus_dates[key])
 
     return result
 
 
-def fetch_spins_agg(conn) -> Dict[int, Dict[str, Any]]:
+def fetch_spins_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
         SELECT
+            club_id,
             guest_id,
             COUNT(*) AS spins_count,
             MAX(created_at) AS last_spin_date
         FROM guest_wheel_spins
-        GROUP BY guest_id
+        WHERE club_id IS NOT NULL
+          AND guest_id IS NOT NULL
+        GROUP BY club_id, guest_id
     """
     with conn.cursor() as cur:
         cur.execute(sql)
         rows = cur.fetchall()
 
-    result: Dict[int, Dict[str, Any]] = {}
+    result: Dict[Tuple[int, int], Dict[str, Any]] = {}
     for row in rows:
-        result[int(row["guest_id"])] = {
+        key = (int(row["club_id"]), int(row["guest_id"]))
+        result[key] = {
             "spins_count": int(row["spins_count"] or 0),
             "last_spin_date": row["last_spin_date"],
         }
@@ -342,10 +353,11 @@ def build_records(conn) -> List[Dict[str, Any]]:
             club_id = int(g.get("club_id"))
             guest_id = int(guest_key)
 
+        key = (club_id, guest_id)
         phone_key = normalize_phone(g.get("phone"))
-        sess = sessions.get(guest_id, {})
-        ops = operations.get(phone_key, {})
-        spn = spins.get(guest_id, {})
+        sess = sessions.get(key, {})
+        ops = operations.get((club_id, phone_key), {}) if phone_key else {}
+        spn = spins.get(key, {})
 
         birth_date = g.get("birth_date")
         age = calc_age(birth_date, now)
@@ -523,7 +535,9 @@ def cleanup_deleted_guests(conn) -> None:
     sql = """
         DELETE up
         FROM user_portrait up
-        LEFT JOIN guests g ON g.guest_id = up.guest_id
+        LEFT JOIN guests g
+          ON g.club_id = up.club_id
+         AND g.guest_id = up.guest_id
         WHERE g.guest_id IS NULL
     """
     with conn.cursor() as cur:
