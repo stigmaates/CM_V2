@@ -335,7 +335,13 @@ def build_records(conn) -> List[Dict[str, Any]]:
 
     records: List[Dict[str, Any]] = []
 
-    for guest_id, g in guests.items():
+    for guest_key, g in guests.items():
+        if isinstance(guest_key, tuple):
+            club_id, guest_id = guest_key
+        else:
+            club_id = int(g.get("club_id"))
+            guest_id = int(guest_key)
+
         phone_key = normalize_phone(g.get("phone"))
         sess = sessions.get(guest_id, {})
         ops = operations.get(phone_key, {})
@@ -356,7 +362,7 @@ def build_records(conn) -> List[Dict[str, Any]]:
 
         record = {
             "guest_id": guest_id,
-            "club_id": g.get("club_id"),
+            "club_id": club_id,
             "gender": gender_to_int(g.get("gender")),
             "age": age,
             "registration_date": g.get("date_insert"),
