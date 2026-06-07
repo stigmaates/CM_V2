@@ -1,3 +1,4 @@
+import argparse
 import logging
 from datetime import datetime, timedelta
 
@@ -28,14 +29,23 @@ def get_db_connection():
     )
 
 
-def get_clubs():
+def get_clubs(club_id=None):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT club_id, lg_api_key, secret
-                FROM clubs
-            """)
+            if club_id is None:
+                cursor.execute("""
+                    SELECT club_id, lg_api_key, secret
+                    FROM clubs
+                    ORDER BY club_id
+                """)
+            else:
+                cursor.execute("""
+                    SELECT club_id, lg_api_key, secret
+                    FROM clubs
+                    WHERE club_id = %s
+                    ORDER BY club_id
+                """, (club_id,))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -65,6 +75,9 @@ def fetch_guests(secret, api_key):
 
     response = httpx.get(url, headers=headers, timeout=60)
 
+    if response.status_code != 200:
+        raise Exception(f"Ошибка API: {response.status_code} {response.text}")
+
     data = response.json()
 
     if not data.get("status"):
@@ -78,7 +91,7 @@ def parse_date(value):
         return None
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
-    except:
+    except Exception:
         return None
 
 
@@ -87,13 +100,12 @@ def parse_datetime(value):
         return None
     try:
         return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-    except:
+    except Exception:
         return None
 
 
 def filter_new_guests(guests, existing_ids):
     result = []
-
     threshold = datetime.now() - timedelta(days=1)
 
     for g in guests:
@@ -103,10 +115,7 @@ def filter_new_guests(guests, existing_ids):
             result.append(g)
             continue
 
-        # если уже есть — можно пропустить
-        # либо обновлять только свежих
         date_insert = parse_datetime(g.get("date_insert"))
-
         if date_insert and date_insert >= threshold:
             result.append(g)
 
@@ -132,7 +141,7 @@ def prepare_rows(club_id, guests):
 
 def save_guests(club_id, guests):
     if not guests:
-        return
+        return 0
 
     rows = prepare_rows(club_id, guests)
 
@@ -161,34 +170,41 @@ def save_guests(club_id, guests):
         with conn.cursor() as cursor:
             cursor.executemany(sql, rows)
         conn.commit()
+        return len(rows)
     finally:
         conn.close()
 
 
-def sync_guests_incremental():
+def sync_guests_incremental(club_id=None):
     logging.info("=== START GUEST SYNC ===")
 
-    clubs = get_clubs()
+    clubs = get_clubs(club_id)
+    if club_id is not None and not clubs:
+        raise Exception(f"Клуб {club_id} не найден")
+
+    summary = []
 
     for club in clubs:
-        club_id = club["club_id"]
+        current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
 
-        logging.info(f"Клуб {club_id}")
+        logging.info(f"Клуб {current_club_id} | Langame secret={secret}")
 
-        existing_ids = get_existing_guest_ids(club_id)
-
+        existing_ids = get_existing_guest_ids(current_club_id)
         guests = fetch_guests(secret, api_key)
-
         filtered = filter_new_guests(guests, existing_ids)
+        saved = save_guests(current_club_id, filtered)
 
-        logging.info(f"Получено: {len(guests)} | к обновлению: {len(filtered)}")
+        logging.info(f"Клуб {current_club_id} | получено: {len(guests)} | к обновлению: {len(filtered)} | сохранено: {saved}")
+        summary.append({"club_id": current_club_id, "received": len(guests), "filtered": len(filtered), "saved": saved})
 
-        save_guests(club_id, filtered)
-
-    logging.info("=== END ===")
+    logging.info("=== END GUEST SYNC ===")
+    return summary
 
 
 if __name__ == "__main__":
-    sync_guests_incremental()
+    parser = argparse.ArgumentParser(description="Incremental sync guests from Langame")
+    parser.add_argument("--club-id", type=int, help="Sync only one internal club_id. If omitted, sync all clubs.")
+    args = parser.parse_args()
+    sync_guests_incremental(args.club_id)

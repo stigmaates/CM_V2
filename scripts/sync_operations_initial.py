@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import logging
 import re
@@ -15,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 SUM_FROM = 1
 SUM_TO = 100000
 CHUNK_DAYS = 7
+DEFAULT_START_DATE = "2026-01-01"
 
 
 def get_db_connection():
@@ -45,6 +47,20 @@ def get_club_data(club_id: int):
                 LIMIT 1
             """, (club_id,))
             return cursor.fetchone()
+    finally:
+        conn.close()
+
+
+def get_clubs():
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT club_id, lg_api_key, secret
+                FROM clubs
+                ORDER BY club_id
+            """)
+            return cursor.fetchall()
     finally:
         conn.close()
 
@@ -116,6 +132,7 @@ def build_operation_uid(club_id: int, operation: dict) -> str:
 def prepare_rows(club_id: int, operations: list):
     rows = []
 
+    now = datetime.utcnow()
     for op in operations:
         rows.append((
             build_operation_uid(club_id, op),
@@ -133,8 +150,8 @@ def prepare_rows(club_id: int, operations: list):
             parse_datetime(op.get("date_fiscal")),
             op.get("fn_number"),
             op.get("fiscal_number"),
-            datetime.utcnow(),
-            datetime.utcnow(),
+            now,
+            now,
         ))
 
     return rows
@@ -142,7 +159,7 @@ def prepare_rows(club_id: int, operations: list):
 
 def save_operations(club_id: int, operations: list):
     if not operations:
-        return
+        return 0
 
     rows = prepare_rows(club_id, operations)
 
@@ -190,6 +207,7 @@ def save_operations(club_id: int, operations: list):
             cursor.executemany(sql, rows)
         conn.commit()
         logging.info(f"Сохранено операций: {len(rows)}")
+        return len(rows)
     finally:
         conn.close()
 
@@ -208,13 +226,17 @@ def sync_operations_initial(club_id: int, date_from: str, date_to: str):
 
     club = get_club_data(club_id)
     if not club:
-        raise Exception("Клуб не найден")
+        raise Exception(f"Клуб {club_id} не найден")
 
     api_key = club["lg_api_key"]
     secret = club["secret"]
 
+    logging.info(f"Клуб {club_id} | Langame secret={secret}")
+
     start_date = datetime.strptime(date_from, "%Y-%m-%d").date()
     end_date = datetime.strptime(date_to, "%Y-%m-%d").date()
+
+    total_saved = 0
 
     for chunk_start, chunk_end in daterange_chunks(start_date, end_date, CHUNK_DAYS):
         chunk_from = chunk_start.strftime("%Y-%m-%d")
@@ -225,15 +247,30 @@ def sync_operations_initial(club_id: int, date_from: str, date_to: str):
         operations = fetch_operations(secret, api_key, club_id, chunk_from, chunk_to)
         logging.info(f"Получено операций: {len(operations)}")
 
-        save_operations(club_id, operations)
+        total_saved += save_operations(club_id, operations)
 
-    logging.info("Initial sync операций завершен")
+    logging.info(f"Initial sync операций клуба {club_id} завершен. Сохранено: {total_saved}")
+    return {"club_id": club_id, "saved": total_saved, "date_from": date_from, "date_to": date_to}
+
+
+def sync_all_operations_initial(date_from: str, date_to: str):
+    logging.info("=== START INITIAL OPERATIONS SYNC FOR ALL CLUBS ===")
+    summary = []
+    for club in get_clubs():
+        summary.append(sync_operations_initial(int(club["club_id"]), date_from=date_from, date_to=date_to))
+    logging.info("=== END INITIAL OPERATIONS SYNC FOR ALL CLUBS ===")
+    return summary
+
 
 if __name__ == "__main__":
-    today = datetime.now().date()
+    today = datetime.now().date().strftime("%Y-%m-%d")
+    parser = argparse.ArgumentParser(description="Initial sync operations from Langame")
+    parser.add_argument("--club-id", type=int, help="Sync only one internal club_id. If omitted, sync all clubs.")
+    parser.add_argument("--date-from", default=DEFAULT_START_DATE, help="Start date YYYY-MM-DD")
+    parser.add_argument("--date-to", default=today, help="End date YYYY-MM-DD")
+    args = parser.parse_args()
 
-    sync_operations_initial(
-        club_id=1,
-        date_from="2026-01-01",
-        date_to=today.strftime("%Y-%m-%d")
-)
+    if args.club_id:
+        sync_operations_initial(args.club_id, date_from=args.date_from, date_to=args.date_to)
+    else:
+        sync_all_operations_initial(date_from=args.date_from, date_to=args.date_to)

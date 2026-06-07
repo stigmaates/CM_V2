@@ -1,3 +1,4 @@
+import argparse
 import logging
 from datetime import datetime, timedelta
 
@@ -30,14 +31,23 @@ def get_db_connection():
     )
 
 
-def get_clubs():
+def get_clubs(club_id=None):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT club_id, lg_api_key, secret
-                FROM clubs
-            """)
+            if club_id is None:
+                cursor.execute("""
+                    SELECT club_id, lg_api_key, secret
+                    FROM clubs
+                    ORDER BY club_id
+                """)
+            else:
+                cursor.execute("""
+                    SELECT club_id, lg_api_key, secret
+                    FROM clubs
+                    WHERE club_id = %s
+                    ORDER BY club_id
+                """, (club_id,))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -61,7 +71,7 @@ def fetch_sessions(secret, api_key, page, date_from, date_to):
     response = httpx.get(url, headers=headers, params=params, timeout=60)
 
     if response.status_code != 200:
-        raise Exception(f"Ошибка API: {response.status_code}")
+        raise Exception(f"Ошибка API: {response.status_code} {response.text}")
 
     data = response.json()
 
@@ -76,7 +86,7 @@ def parse_datetime(value):
         return None
     try:
         return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-    except:
+    except Exception:
         return None
 
 
@@ -98,7 +108,7 @@ def prepare_rows(club_id, sessions):
 
 def save_sessions(club_id, sessions):
     if not sessions:
-        return
+        return 0
 
     rows = prepare_rows(club_id, sessions)
 
@@ -124,27 +134,33 @@ def save_sessions(club_id, sessions):
         with conn.cursor() as cursor:
             cursor.executemany(sql, rows)
         conn.commit()
+        return len(rows)
     finally:
         conn.close()
 
 
-def sync_sessions_incremental():
+def sync_sessions_incremental(club_id=None):
     logging.info("=== START DATE SYNC ===")
 
     today = datetime.now().date()
     date_from = (today - timedelta(days=2)).strftime("%Y-%m-%d")
     date_to = today.strftime("%Y-%m-%d")
 
-    clubs = get_clubs()
+    clubs = get_clubs(club_id)
+    if club_id is not None and not clubs:
+        raise Exception(f"Клуб {club_id} не найден")
+
+    summary = []
 
     for club in clubs:
-        club_id = club["club_id"]
+        current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
 
-        logging.info(f"Клуб {club_id} | {date_from} → {date_to}")
+        logging.info(f"Клуб {current_club_id} | Langame secret={secret} | {date_from} → {date_to}")
 
         page = 1
+        total_saved = 0
 
         while True:
             data = fetch_sessions(secret, api_key, page, date_from, date_to)
@@ -155,17 +171,24 @@ def sync_sessions_incremental():
             if not sessions:
                 break
 
-            save_sessions(club_id, sessions)
+            saved = save_sessions(current_club_id, sessions)
+            total_saved += saved
 
-            logging.info(f"page {page}/{total_pages}: {len(sessions)}")
+            logging.info(f"Клуб {current_club_id} | page {page}/{total_pages}: {len(sessions)} | сохранено: {saved}")
 
             if page >= total_pages:
                 break
 
             page += 1
 
+        summary.append({"club_id": current_club_id, "saved": total_saved, "date_from": date_from, "date_to": date_to})
+
     logging.info("=== END SYNC ===")
+    return summary
 
 
 if __name__ == "__main__":
-    sync_sessions_incremental()
+    parser = argparse.ArgumentParser(description="Incremental sync sessions from Langame")
+    parser.add_argument("--club-id", type=int, help="Sync only one internal club_id. If omitted, sync all clubs.")
+    args = parser.parse_args()
+    sync_sessions_incremental(args.club_id)

@@ -1,3 +1,4 @@
+import argparse
 import logging
 from datetime import datetime
 
@@ -45,7 +46,20 @@ def get_club_data(club_id: int):
         conn.close()
 
 
-# 🔥 получаем ВСЕ guest_id один раз
+def get_clubs():
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT club_id, lg_api_key, secret
+                FROM clubs
+                ORDER BY club_id
+            """)
+            return cursor.fetchall()
+    finally:
+        conn.close()
+
+
 def get_existing_guest_ids(club_id: int):
     conn = get_db_connection()
     try:
@@ -91,7 +105,7 @@ def parse_datetime(value):
         return None
     try:
         return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-    except:
+    except Exception:
         return None
 
 
@@ -126,7 +140,7 @@ def prepare_sessions_rows(club_id: int, sessions: list):
 
 def save_sessions(club_id: int, sessions: list):
     if not sessions:
-        return
+        return 0
 
     rows = prepare_sessions_rows(club_id, sessions)
 
@@ -153,6 +167,7 @@ def save_sessions(club_id: int, sessions: list):
             cursor.executemany(sql, rows)
         conn.commit()
         logging.info(f"Сохранено: {len(rows)}")
+        return len(rows)
     finally:
         conn.close()
 
@@ -162,12 +177,13 @@ def sync_sessions_initial(club_id: int):
 
     club = get_club_data(club_id)
     if not club:
-        raise Exception("Клуб не найден")
+        raise Exception(f"Клуб {club_id} не найден")
 
     api_key = club["lg_api_key"]
     secret = club["secret"]
 
-    # 🔥 загружаем всех гостей ОДИН РАЗ
+    logging.info(f"Клуб {club_id} | Langame secret={secret}")
+
     existing_guest_ids = get_existing_guest_ids(club_id)
     logging.info(f"Загружено гостей: {len(existing_guest_ids)}")
 
@@ -178,26 +194,43 @@ def sync_sessions_initial(club_id: int):
 
     logging.info(f"Всего страниц: {total_pages}")
 
+    total_saved = 0
+    total_skipped = 0
+
     filtered, skipped = filter_sessions(sessions, existing_guest_ids)
-
+    total_skipped += skipped
     logging.info(f"Страница 1: {len(filtered)} сохранено, {skipped} пропущено")
-
-    save_sessions(club_id, filtered)
+    total_saved += save_sessions(club_id, filtered)
 
     for page in range(2, total_pages + 1):
         data = fetch_sessions_page(secret, api_key, page=page)
         sessions = data.get("data", [])
 
         filtered, skipped = filter_sessions(sessions, existing_guest_ids)
+        total_skipped += skipped
 
-        logging.info(
-            f"Страница {page}/{total_pages}: {len(filtered)} сохранено, {skipped} пропущено"
-        )
+        logging.info(f"Страница {page}/{total_pages}: {len(filtered)} сохранено, {skipped} пропущено")
+        total_saved += save_sessions(club_id, filtered)
 
-        save_sessions(club_id, filtered)
+    logging.info(f"Initial sync сессий клуба {club_id} завершен. Сохранено: {total_saved}, пропущено: {total_skipped}")
+    return {"club_id": club_id, "saved": total_saved, "skipped": total_skipped}
 
-    logging.info("Initial sync завершен")
+
+def sync_all_sessions_initial():
+    logging.info("=== START INITIAL SESSIONS SYNC FOR ALL CLUBS ===")
+    summary = []
+    for club in get_clubs():
+        summary.append(sync_sessions_initial(int(club["club_id"])))
+    logging.info("=== END INITIAL SESSIONS SYNC FOR ALL CLUBS ===")
+    return summary
 
 
 if __name__ == "__main__":
-    sync_sessions_initial(1)
+    parser = argparse.ArgumentParser(description="Initial sync sessions from Langame")
+    parser.add_argument("--club-id", type=int, help="Sync only one internal club_id. If omitted, sync all clubs.")
+    args = parser.parse_args()
+
+    if args.club_id:
+        sync_sessions_initial(args.club_id)
+    else:
+        sync_all_sessions_initial()

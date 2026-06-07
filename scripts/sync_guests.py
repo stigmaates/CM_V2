@@ -1,3 +1,4 @@
+import argparse
 import logging
 from datetime import datetime
 
@@ -39,6 +40,20 @@ def get_club_data(club_id: int):
                 LIMIT 1
             """, (club_id,))
             return cursor.fetchone()
+    finally:
+        conn.close()
+
+
+def get_clubs():
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT club_id, lg_api_key, secret
+                FROM clubs
+                ORDER BY club_id
+            """)
+            return cursor.fetchall()
     finally:
         conn.close()
 
@@ -143,10 +158,12 @@ def sync_guests(club_id: int):
     club = get_club_data(club_id)
 
     if not club:
-        raise Exception("Клуб не найден")
+        raise Exception(f"Клуб {club_id} не найден")
 
     api_key = club["lg_api_key"]
     secret = club["secret"]
+
+    logging.info(f"Клуб {club_id} | Langame secret={secret}")
 
     guests = fetch_guests(secret, api_key)
 
@@ -154,8 +171,23 @@ def sync_guests(club_id: int):
 
     save_guests(club_id, guests)
 
-    logging.info("Синхронизация завершена")
+    logging.info(f"Синхронизация гостей клуба {club_id} завершена")
+
+
+def sync_all_guests():
+    logging.info("=== START INITIAL GUEST SYNC FOR ALL CLUBS ===")
+    clubs = get_clubs()
+    for club in clubs:
+        sync_guests(int(club["club_id"]))
+    logging.info("=== END INITIAL GUEST SYNC FOR ALL CLUBS ===")
 
 
 if __name__ == "__main__":
-    sync_guests(2)
+    parser = argparse.ArgumentParser(description="Initial sync guests from Langame")
+    parser.add_argument("--club-id", type=int, help="Sync only one internal club_id. If omitted, sync all clubs.")
+    args = parser.parse_args()
+
+    if args.club_id:
+        sync_guests(args.club_id)
+    else:
+        sync_all_guests()

@@ -245,80 +245,27 @@ def run_operations_initial(club_id: int):
 
 
 def run_guests_incremental_for_club(club_id: int):
-    from scripts import sync_guests_incremental as sgi
+    from scripts.sync_guests_incremental import sync_guests_incremental
 
-    club = None
-    for item in sgi.get_clubs():
-        if int(item["club_id"]) == int(club_id):
-            club = item
-            break
-
-    if not club:
-        raise Exception("Клуб не найден")
-
-    existing_ids = sgi.get_existing_guest_ids(club_id)
-    guests = sgi.fetch_guests(club["secret"], club["lg_api_key"])
-    filtered = sgi.filter_new_guests(guests, existing_ids)
-    sgi.save_guests(club_id, filtered)
-    return f"Получено гостей: {len(guests)}. К обновлению: {len(filtered)}."
+    result = sync_guests_incremental(club_id)
+    item = result[0] if result else {"received": 0, "filtered": 0, "saved": 0}
+    return f"Получено гостей: {item.get('received', 0)}. К обновлению: {item.get('filtered', 0)}. Сохранено: {item.get('saved', 0)}."
 
 
 def run_sessions_incremental_for_club(club_id: int):
-    from scripts import sync_sessions_incremental as ssi
+    from scripts.sync_sessions_incremental import sync_sessions_incremental
 
-    club = None
-    for item in ssi.get_clubs():
-        if int(item["club_id"]) == int(club_id):
-            club = item
-            break
-
-    if not club:
-        raise Exception("Клуб не найден")
-
-    today = datetime.now().date()
-    date_from = (today - timedelta(days=2)).strftime("%Y-%m-%d")
-    date_to = today.strftime("%Y-%m-%d")
-
-    page = 1
-    total_saved = 0
-    while True:
-        data = ssi.fetch_sessions(club["secret"], club["lg_api_key"], page, date_from, date_to)
-        sessions = data.get("data", [])
-        total_pages = data.get("total_pages", 1)
-
-        if not sessions:
-            break
-
-        ssi.save_sessions(club_id, sessions)
-        total_saved += len(sessions)
-
-        if page >= total_pages:
-            break
-        page += 1
-
-    return f"Период: {date_from} — {date_to}. Обработано сессий: {total_saved}."
+    result = sync_sessions_incremental(club_id)
+    item = result[0] if result else {"saved": 0, "date_from": "", "date_to": ""}
+    return f"Период: {item.get('date_from')} — {item.get('date_to')}. Обработано сессий: {item.get('saved', 0)}."
 
 
 def run_operations_incremental_for_club(club_id: int):
-    from scripts import sync_operations_incremental as soi
+    from scripts.sync_operations_incremental import sync_operations_incremental
 
-    club = None
-    for item in soi.get_clubs():
-        if int(item["club_id"]) == int(club_id):
-            club = item
-            break
-
-    if not club:
-        raise Exception("Клуб не найден")
-
-    today = datetime.now().date()
-    date_from = (today - timedelta(days=soi.LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-    date_to = today.strftime("%Y-%m-%d")
-
-    operations = soi.fetch_operations(club["secret"], club["lg_api_key"], club_id, date_from, date_to)
-    soi.save_operations(club_id, operations)
-
-    return f"Период: {date_from} — {date_to}. Обработано операций: {len(operations)}."
+    result = sync_operations_incremental(club_id)
+    item = result[0] if result else {"received": 0, "saved": 0, "date_from": "", "date_to": ""}
+    return f"Период: {item.get('date_from')} — {item.get('date_to')}. Получено операций: {item.get('received', 0)}. Сохранено: {item.get('saved', 0)}."
 
 
 @admin_bp.route("/")

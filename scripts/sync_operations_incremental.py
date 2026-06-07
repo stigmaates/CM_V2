@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import logging
 import re
@@ -34,14 +35,23 @@ def get_db_connection():
     )
 
 
-def get_clubs():
+def get_clubs(club_id=None):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT club_id, lg_api_key, secret
-                FROM clubs
-            """)
+            if club_id is None:
+                cursor.execute("""
+                    SELECT club_id, lg_api_key, secret
+                    FROM clubs
+                    ORDER BY club_id
+                """)
+            else:
+                cursor.execute("""
+                    SELECT club_id, lg_api_key, secret
+                    FROM clubs
+                    WHERE club_id = %s
+                    ORDER BY club_id
+                """, (club_id,))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -113,6 +123,7 @@ def build_operation_uid(club_id: int, operation: dict) -> str:
 
 def prepare_rows(club_id: int, operations: list):
     rows = []
+    now = datetime.utcnow()
 
     for op in operations:
         rows.append((
@@ -131,8 +142,8 @@ def prepare_rows(club_id: int, operations: list):
             parse_datetime(op.get("date_fiscal")),
             op.get("fn_number"),
             op.get("fiscal_number"),
-            datetime.utcnow(),
-            datetime.utcnow(),
+            now,
+            now,
         ))
 
     return rows
@@ -140,7 +151,7 @@ def prepare_rows(club_id: int, operations: list):
 
 def save_operations(club_id: int, operations: list):
     if not operations:
-        return
+        return 0
 
     rows = prepare_rows(club_id, operations)
 
@@ -188,33 +199,43 @@ def save_operations(club_id: int, operations: list):
             cursor.executemany(sql, rows)
         conn.commit()
         logging.info(f"Сохранено операций: {len(rows)}")
+        return len(rows)
     finally:
         conn.close()
 
 
-def sync_operations_incremental():
+def sync_operations_incremental(club_id=None):
     logging.info("=== START OPERATIONS SYNC ===")
 
     today = datetime.now().date()
     date_from = (today - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     date_to = today.strftime("%Y-%m-%d")
 
-    clubs = get_clubs()
+    clubs = get_clubs(club_id)
+    if club_id is not None and not clubs:
+        raise Exception(f"Клуб {club_id} не найден")
+
+    summary = []
 
     for club in clubs:
-        club_id = club["club_id"]
+        current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
 
-        logging.info(f"Клуб {club_id} | {date_from} → {date_to}")
+        logging.info(f"Клуб {current_club_id} | Langame secret={secret} | {date_from} → {date_to}")
 
-        operations = fetch_operations(secret, api_key, club_id, date_from, date_to)
+        operations = fetch_operations(secret, api_key, current_club_id, date_from, date_to)
         logging.info(f"Получено операций: {len(operations)}")
 
-        save_operations(club_id, operations)
+        saved = save_operations(current_club_id, operations)
+        summary.append({"club_id": current_club_id, "received": len(operations), "saved": saved, "date_from": date_from, "date_to": date_to})
 
     logging.info("=== END OPERATIONS SYNC ===")
+    return summary
 
 
 if __name__ == "__main__":
-    sync_operations_incremental()
+    parser = argparse.ArgumentParser(description="Incremental sync operations from Langame")
+    parser.add_argument("--club-id", type=int, help="Sync only one internal club_id. If omitted, sync all clubs.")
+    args = parser.parse_args()
+    sync_operations_incremental(args.club_id)
