@@ -2,7 +2,12 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from app.core import calc_percent_change, get_db_connection, get_period_range
-from app.services.missions import get_club_missions
+from app.services.missions import (
+    get_club_missions,
+    _day_overlap_hours,
+    _max_consecutive_day_streak,
+    _night_overlap_hours,
+)
 
 
 def _round_display(value):
@@ -616,15 +621,43 @@ def _get_guest_ids_for_engagement_scope(club_id: int, current_start=None, curren
                     (club_id,),
                 )
             else:
+                # Для плашки вовлеченности период должен включать не только новых
+                # зарегистрированных гостей, но и гостей, которые реально были
+                # активны в выбранном периоде. Иначе задания/колесо могли
+                # показывать 0, если гости зарегистрированы давно, но выполняли
+                # активности сейчас.
                 cursor.execute(
                     """
-                    SELECT guest_id
-                    FROM guests
-                    WHERE club_id = %s
-                      AND COALESCE(date_insert, created_at) >= %s
-                      AND COALESCE(date_insert, created_at) < %s
+                    SELECT DISTINCT guest_id
+                    FROM (
+                        SELECT guest_id
+                        FROM guests
+                        WHERE club_id = %s
+                          AND COALESCE(date_insert, created_at) >= %s
+                          AND COALESCE(date_insert, created_at) < %s
+
+                        UNION
+
+                        SELECT guest_id
+                        FROM guest_sessions
+                        WHERE club_id = %s
+                          AND date_start >= %s
+                          AND date_start < %s
+
+                        UNION
+
+                        SELECT guest_id
+                        FROM guest_wheel_spins
+                        WHERE club_id = %s
+                          AND created_at >= %s
+                          AND created_at < %s
+                    ) scope_guests
                     """,
-                    (club_id, current_start, current_end),
+                    (
+                        club_id, current_start, current_end,
+                        club_id, current_start, current_end,
+                        club_id, current_start, current_end,
+                    ),
                 )
             rows = cursor.fetchall() or []
             return [row["guest_id"] for row in rows]
@@ -745,10 +778,27 @@ def _get_first_spin_by_guest_for_period(club_id: int, current_start, current_end
         conn.close()
 
 
-def _session_matches_mission(session_row, mission):
+
+def _get_min_hours_from_mission(mission) -> int:
+    config = mission.get("config") or {}
+    if isinstance(config, dict):
+        try:
+            return int(config.get("min_hours", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
+def _session_duration_hours(session_row) -> float:
     date_start = session_row.get("date_start")
     date_stop = session_row.get("date_stop")
+    if not date_start or not date_stop or date_stop <= date_start:
+        return 0.0
+    return (date_stop - date_start).total_seconds() / 3600
 
+
+def _session_allowed_by_mission_period(session_row, mission) -> bool:
+    date_start = session_row.get("date_start")
     if not date_start:
         return False
 
@@ -759,49 +809,201 @@ def _session_matches_mission(session_row, mission):
         return False
     if mission_end and date_start > mission_end:
         return False
+    return True
 
+
+def _event_allowed_by_mission_period(event_at, mission) -> bool:
+    if not event_at:
+        return False
+
+    mission_start = mission.get("start_at")
+    mission_end = mission.get("end_at")
+
+    if mission_start and event_at < mission_start:
+        return False
+    if mission_end and event_at > mission_end:
+        return False
+    return True
+
+
+def _mission_matching_session_dates(guest_sessions, mission) -> list:
+    """Return dates of session-based mission units that count toward target."""
     metric = mission.get("target_metric")
+    min_hours = _get_min_hours_from_mission(mission)
+    matched_dates = []
 
-    if metric == "visits_count":
-        return True
+    for session_row in guest_sessions:
+        if not _session_allowed_by_mission_period(session_row, mission):
+            continue
 
-    if metric == "night_visits_count":
-        return date_start.hour >= 22 or date_start.hour < 8
+        date_start = session_row.get("date_start")
+        if not date_start:
+            continue
 
-    if metric == "weekend_visits_count":
-        # 6 = Saturday, 7 = Sunday
-        return date_start.isoweekday() in (6, 7)
+        duration_hours = _session_duration_hours(session_row)
 
-    if metric == "long_visits_count":
-        if not date_stop:
-            return False
+        if metric == "visits_count":
+            matched_dates.append(date_start)
+        elif metric == "night_visits_count" and (date_start.hour >= 22 or date_start.hour < 8):
+            matched_dates.append(date_start)
+        elif metric == "weekend_visits_count" and date_start.isoweekday() in (6, 7):
+            matched_dates.append(date_start)
+        elif metric in ("long_visits_count", "visits_min_hours_count") and duration_hours >= min_hours:
+            matched_dates.append(date_start)
+        elif metric == "weekday_visits_min_hours_count" and date_start.weekday() <= 4 and duration_hours >= min_hours:
+            matched_dates.append(date_start)
+        elif metric == "weekend_visits_min_hours_count" and date_start.weekday() in (5, 6) and duration_hours >= min_hours:
+            matched_dates.append(date_start)
 
-        config = mission.get("config") or {}
-        min_hours = 0
-        if isinstance(config, dict):
-            min_hours = int(config.get("min_hours", 0) or 0)
-
-        duration_hours = (date_stop - date_start).total_seconds() / 3600
-        return duration_hours >= min_hours
-
-    return False
+    return sorted(matched_dates)
 
 
-def _get_mission_completion_at_from_sessions(guest_sessions, mission):
+def _get_wheel_spins_by_guest(club_id: int, guest_ids=None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            guest_filter_sql, guest_filter_params = _build_guest_filter_sql(guest_ids)
+            cursor.execute(
+                f"""
+                SELECT guest_id, created_at
+                FROM guest_wheel_spins
+                WHERE club_id = %s
+                  AND created_at IS NOT NULL
+                  {guest_filter_sql}
+                ORDER BY guest_id, created_at
+                """,
+                [club_id] + guest_filter_params,
+            )
+            rows = cursor.fetchall() or []
+
+        spins_by_guest = defaultdict(list)
+        for row in rows:
+            spins_by_guest[row["guest_id"]].append(row["created_at"])
+        return spins_by_guest
+    finally:
+        conn.close()
+
+
+def _get_mission_completion_at_from_preloaded(
+    guest_id,
+    club_id,
+    mission,
+    guest_sessions,
+    guest_spins,
+    active_missions,
+    completion_cache,
+    stack=None,
+):
+    """
+    Calculate mission completion date for owner dashboard using the same mission metrics
+    as guest dashboard, but on preloaded sessions/spins to avoid mixing clubs and to
+    support all current mission types.
+    """
     target = int(mission.get("target_amount") or 0)
     if target <= 0:
         return None
 
-    matched_dates = []
+    mission_id = mission.get("id")
+    cache_key = (guest_id, mission_id)
+    if cache_key in completion_cache:
+        return completion_cache[cache_key]
 
-    for session_row in guest_sessions:
-        if _session_matches_mission(session_row, mission):
-            matched_dates.append(session_row["date_start"])
+    stack = set(stack or set())
+    if mission_id in stack:
+        return None
+    stack.add(mission_id)
 
-    if len(matched_dates) >= target:
-        return matched_dates[target - 1]
+    metric = mission.get("target_metric")
+    completed_at = None
 
-    return None
+    # Count-based session missions.
+    if metric in {
+        "visits_count",
+        "night_visits_count",
+        "weekend_visits_count",
+        "long_visits_count",
+        "visits_min_hours_count",
+        "weekday_visits_min_hours_count",
+        "weekend_visits_min_hours_count",
+    }:
+        matched_dates = _mission_matching_session_dates(guest_sessions, mission)
+        if len(matched_dates) >= target:
+            completed_at = matched_dates[target - 1]
+
+    # Total hours missions.
+    elif metric in {"total_hours", "night_hours_total", "day_hours_total"}:
+        total_hours = 0.0
+        for session_row in sorted(guest_sessions, key=lambda row: row.get("date_start")):
+            if not _session_allowed_by_mission_period(session_row, mission):
+                continue
+            date_start = session_row.get("date_start")
+            date_stop = session_row.get("date_stop")
+            if not date_start or not date_stop:
+                continue
+
+            if metric == "total_hours":
+                total_hours += _session_duration_hours(session_row)
+            elif metric == "night_hours_total":
+                total_hours += _night_overlap_hours(date_start, date_stop)
+            elif metric == "day_hours_total":
+                total_hours += _day_overlap_hours(date_start, date_stop)
+
+            if int(total_hours) >= target:
+                completed_at = date_start
+                break
+
+    # Consecutive visit days.
+    elif metric == "consecutive_days_count":
+        sorted_sessions = sorted(
+            [row for row in guest_sessions if _session_allowed_by_mission_period(row, mission)],
+            key=lambda row: row.get("date_start"),
+        )
+        days_seen = []
+        for session_row in sorted_sessions:
+            date_start = session_row.get("date_start")
+            if not date_start:
+                continue
+            days_seen.append(date_start.date())
+            if _max_consecutive_day_streak(days_seen) >= target:
+                completed_at = date_start
+                break
+
+    # Wheel spins.
+    elif metric == "wheel_spins_count":
+        spin_dates = sorted(
+            spin_at for spin_at in guest_spins
+            if _event_allowed_by_mission_period(spin_at, mission)
+        )
+        if len(spin_dates) >= target:
+            completed_at = spin_dates[target - 1]
+
+    # Meta-mission: complete N other missions.
+    elif metric == "completed_missions_count":
+        other_completion_dates = []
+        for other_mission in active_missions:
+            if other_mission.get("id") == mission_id:
+                continue
+            if other_mission.get("target_metric") == "completed_missions_count":
+                continue
+            other_completed_at = _get_mission_completion_at_from_preloaded(
+                guest_id,
+                club_id,
+                other_mission,
+                guest_sessions,
+                guest_spins,
+                active_missions,
+                completion_cache,
+                stack=stack,
+            )
+            if other_completed_at:
+                other_completion_dates.append(other_completed_at)
+
+        other_completion_dates.sort()
+        if len(other_completion_dates) >= target:
+            completed_at = other_completion_dates[target - 1]
+
+    completion_cache[cache_key] = completed_at
+    return completed_at
 
 
 def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time: bool = False):
@@ -817,11 +1019,16 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     )
     total_guests = len(guest_ids)
     sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
+    spins_by_guest = _get_wheel_spins_by_guest(club_id, guest_ids)
 
     # -------------------------
     # WHEEL
     # -------------------------
-    first_spin_by_guest = _get_first_spin_by_guest(club_id, guest_ids)
+    first_spin_by_guest = {
+        guest_id: min(spin_dates)
+        for guest_id, spin_dates in spins_by_guest.items()
+        if spin_dates
+    }
 
     wheel_spun_guests = len(first_spin_by_guest)
     wheel_returned_guests = 0
@@ -845,11 +1052,23 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     mission_completed_guests = 0
     mission_returned_guests = 0
 
-    for guest_id, guest_sessions in sessions_by_guest.items():
+    completion_cache = {}
+
+    for guest_id in guest_ids:
+        guest_sessions = sessions_by_guest.get(guest_id, [])
+        guest_spins = spins_by_guest.get(guest_id, [])
         completion_dates = []
 
         for mission in active_missions:
-            completion_at = _get_mission_completion_at_from_sessions(guest_sessions, mission)
+            completion_at = _get_mission_completion_at_from_preloaded(
+                guest_id,
+                club_id,
+                mission,
+                guest_sessions,
+                guest_spins,
+                active_missions,
+                completion_cache,
+            )
             if completion_at:
                 completion_dates.append(completion_at)
 
