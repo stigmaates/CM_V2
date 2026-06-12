@@ -488,7 +488,7 @@
             align-self: stretch;
             padding: 26px 28px 24px;
             height: 100%;
-            min-height: 720px;
+            min-height: 760px;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -503,9 +503,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: center;
             min-height: 0;
-            padding: 18px 0 14px;
+            padding: 10px 0 14px;
         }
         .wheel-panel::before {
             content: "";
@@ -542,10 +542,10 @@
             transform: translateY(-1px);
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
         }
-        .wheel-area { display: flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 auto; }
+        .wheel-area { display: flex; align-items: center; justify-content: center; padding: 0; flex: 1 1 auto; width: 100%; min-height: 0; }
         .wheel-wrap {
             position: relative;
-            width: min(680px, 100%);
+            width: min(860px, 96%);
             aspect-ratio: 1;
             display: grid;
             place-items: center;
@@ -698,7 +698,7 @@
             pointer-events: auto;
         }
         .app-modal {
-            width: min(680px, 100%); border: 1px solid var(--border); border-radius: 20px;
+            width: min(860px, 96%); border: 1px solid var(--border); border-radius: 20px;
             background: linear-gradient(180deg, rgba(43, 25, 80, 0.97), rgba(22, 12, 40, 0.97));
             box-shadow: var(--shadow); padding: 22px; position: relative;
             transform: translateY(20px) scale(0.94);
@@ -718,7 +718,7 @@
         }
         .modal-title { margin: 0 0 16px; font-size: 24px; font-weight: 800; }
         .app-modal--streak {
-            width: min(560px, 100%);
+            width: min(860px, 96%);
             max-height: min(780px, calc(100vh - 36px));
             padding: 0;
             overflow: hidden;
@@ -1168,6 +1168,7 @@
             </div>
         </header>
 
+        <!-- guest-layout-v20260612-wheel-big-strict -->
         <main class="layout">
             <div class="left-column">
                 <section class="panel profile-panel">
