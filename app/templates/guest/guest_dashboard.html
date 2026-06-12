@@ -48,11 +48,11 @@
             display: grid;
             grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
             gap: 24px;
-            align-items: stretch;
+            align-items: start;
             justify-content: center;
             min-height: min(920px, calc(100vh - 140px));
         }
-        .left-column { min-height: 0; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+        .left-column { min-height: 0; display: flex; flex-direction: column; gap: 16px; flex: 1; align-self: start; }
         .panel {
             border: 1px solid var(--border);
             border-radius: 18px;
@@ -340,7 +340,7 @@
         .missions-panel {
             padding: 22px;
             margin-top: 0;
-            flex: 1;
+            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -481,8 +481,9 @@
 
         .wheel-panel {
             padding: 28px;
-            height: 100%;
-            min-height: 0;
+            height: auto;
+            min-height: min(820px, calc(100vh - 140px));
+            align-self: start;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -1022,13 +1023,13 @@
 
 
         .referral-box {
-            margin-top: 18px;
-            padding: 18px;
-            border-radius: 22px;
+            margin-top: 0;
+            padding: 16px;
+            border-radius: 20px;
             background: linear-gradient(135deg, rgba(103, 71, 255, .20), rgba(255, 212, 105, .10));
             border: 1px solid rgba(165, 114, 255, .28);
             display: grid;
-            gap: 14px;
+            gap: 12px;
         }
         .referral-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
         .referral-title { font-weight: 950; font-size: 20px; color: #fff; }
@@ -1043,8 +1044,8 @@
         .referral-btn.secondary:hover { background:rgba(255,255,255,.14); }
         .referral-status { padding: 12px 14px; border-radius: 16px; background: rgba(0,0,0,.18); color:#f4ecff; font-size: 13px; line-height:1.35; }
         .referral-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }
-        .referral-mini { padding:20px 16px 14px; border-radius:20px; background:rgba(255,255,255,.07); min-height:120px; display:flex; flex-direction:column; justify-content:space-between; }
-        .referral-mini b { display:block; font-size:44px; line-height:1; color:#ffd469; margin-bottom: 10px; }
+        .referral-mini { padding:14px 14px 12px; border-radius:18px; background:rgba(255,255,255,.07); min-height:84px; display:flex; flex-direction:column; justify-content:space-between; }
+        .referral-mini b { display:block; font-size:30px; line-height:1; color:#ffd469; margin-bottom: 8px; }
         .referral-mini span { color:var(--text-muted); font-size:12px; }
         .referral-hint { padding: 14px 16px; border-radius: 18px; background: rgba(0,0,0,.16); color: var(--text-main); font-size: 14px; line-height: 1.4; }
         .referral-pending { display:grid; gap:10px; }
