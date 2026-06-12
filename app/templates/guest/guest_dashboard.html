@@ -48,11 +48,12 @@
             display: grid;
             grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
             gap: 24px;
-            align-items: stretch;
+            align-items: start;
             justify-content: center;
             min-height: min(920px, calc(100vh - 140px));
         }
-        .left-column { min-height: 0; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+        .left-column { min-height: 0; display: flex; flex-direction: column; gap: 16px; flex: 1; align-self: start; }
+        .right-column { min-height: 0; display: flex; flex-direction: column; gap: 16px; align-self: start; }
         .panel {
             border: 1px solid var(--border);
             border-radius: 18px;
@@ -480,8 +481,8 @@
         }
 
         .wheel-panel {
-            padding: 28px;
-            height: 100%;
+            padding: 26px 28px 24px;
+            height: auto;
             min-height: 0;
             display: flex;
             flex-direction: column;
@@ -493,13 +494,13 @@
                 linear-gradient(180deg, rgba(30, 17, 52, 0.96), rgba(15, 10, 28, 0.98));
         }
         .wheel-center-stage {
-            flex: 1 1 auto;
+            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             min-height: 0;
-            padding: 20px 0 32px;
+            padding: 12px 0 18px;
         }
         .wheel-panel::before {
             content: "";
@@ -539,7 +540,7 @@
         .wheel-area { display: flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 auto; }
         .wheel-wrap {
             position: relative;
-            width: min(620px, 92vw);
+            width: min(560px, 100%);
             aspect-ratio: 1;
             display: grid;
             place-items: center;
@@ -864,6 +865,15 @@
         .history-status--issued { color: #d8ffe6; background: rgba(73, 207, 130, .13); border-color: rgba(120, 238, 170, .26); }
         .history-status--pending { color: #fff2c8; background: rgba(255, 202, 92, .12); border-color: rgba(255, 218, 132, .28); }
         .history-status--cancelled { color: #ffd6dc; background: rgba(255, 92, 125, .13); border-color: rgba(255, 132, 158, .28); }
+        .wheel-history-panel {
+            padding: 22px;
+            display: grid;
+            gap: 14px;
+            background: linear-gradient(180deg, rgba(43, 25, 80, 0.78), rgba(31, 18, 58, 0.9));
+        }
+        .wheel-history-panel .section-title { margin: 0; }
+        .wheel-history-panel .history-list { max-height: 280px; }
+        .wheel-history-panel .empty { min-height: auto; padding: 18px; }
         .redeem-history-list { display: grid; gap: 10px; max-height: 460px; overflow: auto; padding-right: 4px; }
         .redeem-history-list::-webkit-scrollbar { width: 8px; }
         .redeem-history-list::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 999px; }
@@ -1109,6 +1119,12 @@
             }
         }
 
+
+        @media (max-width: 1180px) {
+            .layout { grid-template-columns: 1fr; }
+            .right-column { width: 100%; }
+            .wheel-wrap { width: min(560px, 86vw); }
+        }
     </style>
 </head>
 <body>
@@ -1298,29 +1314,59 @@
 
             </div>
 
-            <section class="panel wheel-panel">
-                <div class="wheel-head">
-                    <div class="section-title" style="margin:0;">Колесо фортуны</div>
-                    <button type="button" class="wheel-history-btn" id="openMyHistoryBtn" title="Открыть историю выпадений" aria-label="История выпадений">История выпадений</button>
-                </div>
+            <div class="right-column">
+                <section class="panel wheel-panel">
+                    <div class="wheel-head">
+                        <div class="section-title" style="margin:0;">Колесо фортуны</div>
+                    </div>
 
-                <div class="wheel-center-stage">
-                    <div class="wheel-area">
-                        <div class="wheel-wrap">
-                            <div class="wheel-pointer"></div>
-                            <div class="wheel" id="wheel">
-                                <svg id="wheelSvg" class="wheel-svg" viewBox="0 0 1000 1000" aria-label="Колесо фортуны"></svg>
+                    <div class="wheel-center-stage">
+                        <div class="wheel-area">
+                            <div class="wheel-wrap">
+                                <div class="wheel-pointer"></div>
+                                <div class="wheel" id="wheel">
+                                    <svg id="wheelSvg" class="wheel-svg" viewBox="0 0 1000 1000" aria-label="Колесо фортуны"></svg>
+                                </div>
+                                <div class="wheel-axle" aria-hidden="true"><span class="wheel-axle__mark">КБ</span></div>
                             </div>
-                            <div class="wheel-axle" aria-hidden="true"><span class="wheel-axle__mark">КБ</span></div>
                         </div>
                     </div>
-                </div>
 
-                <div class="spin-controls">
-                    <button class="spin-btn" id="spinBtn" onclick="spinWheel()">Крутить</button>
-                </div>
-                <div class="wheel-footnote">Крутка стоит {{ spin_cost }} жетонов • недельная серия даёт от 1 до 7 жетонов • приз сохраняется сразу</div>
-            </section>
+                    <div class="spin-controls">
+                        <button class="spin-btn" id="spinBtn" onclick="spinWheel()">Крутить</button>
+                    </div>
+                    <div class="wheel-footnote">Крутка стоит {{ spin_cost }} жетонов • недельная серия даёт от 1 до 7 жетонов • приз сохраняется сразу</div>
+                </section>
+
+                <section class="panel wheel-history-panel">
+                    <div class="section-title">
+                        <span>История выпадений</span>
+                    </div>
+                    {% if history_list %}
+                        <div class="history-list" id="historyList">
+                            {% for item in history_list %}
+                                <div class="history-item">
+                                    <div class="history-thumb" aria-hidden="true">
+                                        <span class="history-thumb-placeholder">{{ item.icon_emoji or '🎁' }}</span>
+                                    </div>
+                                    <div>
+                                        <div class="history-title">{{ item.name }}</div>
+                                        <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
+                                        {% if item.prize_status_label %}
+                                            {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
+                                            <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty" id="historyEmpty">Пока нет побед. Крути колесо и получай призы!</div>
+                        <div class="history-list" id="historyList"></div>
+                    {% endif %}
+                </section>
+            </div>
         </main>
     </div>
 
@@ -1491,36 +1537,6 @@
             <div class="streak-modal-foot">
                 <button type="button" class="streak-modal-ok" onclick="closeModal('streakRulesModal')">Понятно</button>
             </div>
-        </div>
-    </div>
-
-    <div class="modal-backdrop" id="myHistoryModal">
-        <div class="app-modal">
-            <button class="modal-close" onclick="closeModal('myHistoryModal')" aria-label="Закрыть">×</button>
-            <h2 class="modal-title">Моя история выпадений</h2>
-            {% if history_list %}
-                <div class="history-list" id="historyList">
-                    {% for item in history_list %}
-                        <div class="history-item">
-                            <div class="history-thumb" aria-hidden="true">
-                                <span class="history-thumb-placeholder">{{ item.icon_emoji or '🎁' }}</span>
-                            </div>
-                            <div>
-                                <div class="history-title">{{ item.name }}</div>
-                                <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
-                                {% if item.prize_status_label %}
-                                    {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
-                                    <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="empty" id="historyEmpty">Пока нет побед. Крути колесо и получай призы!</div>
-                <div class="history-list" id="historyList"></div>
-            {% endif %}
         </div>
     </div>
 
@@ -2316,9 +2332,6 @@
             });
         });
 
-        if (openMyHistoryBtn) {
-            openMyHistoryBtn.addEventListener('click', () => openModal('myHistoryModal'));
-        }
 
         if (openCmBonusRedeemHistoryBtn) {
             openCmBonusRedeemHistoryBtn.addEventListener('click', () => openModal('cmBonusRedeemHistoryModal'));
