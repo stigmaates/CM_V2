@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import guest_required
+from app.config import BOT_USERNAME
 from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_token
 from app.services.missions import get_guest_missions_with_progress
 from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, get_cm_bonus_redeem_history, redeem_cm_bonuses
@@ -105,7 +106,7 @@ def check_login():
 
 @guest_bp.route('/login')
 def login():
-    bot_username = "club_module_bot"
+    bot_username = BOT_USERNAME
     token = create_guest_login_token()
     bot_link = f"https://t.me/{bot_username}?start=login_{token}"
     return render_template("guest/guest_login.html", bot_link=bot_link, token=token)

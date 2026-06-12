@@ -1,3 +1,4 @@
+from app.config import BOT_USERNAME
 from datetime import datetime
 
 from flask import flash, redirect, render_template, request, session, url_for
@@ -71,7 +72,7 @@ def guest_check_login():
 
 
 def guest_login():
-    bot_username = "club_module_bot"
+    bot_username = BOT_USERNAME
     token = create_guest_login_token()
     bot_link = f"https://t.me/{bot_username}?start=login_{token}"
     return render_template("guest_login.html", bot_link=bot_link, token=token)
