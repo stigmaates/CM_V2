@@ -229,6 +229,9 @@
     </style>
 </head>
 <body>
+    {% if request.host.startswith('stage.') %}
+    <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
+    {% endif %}
     {% set profile = profile_stats|default({
         "total_hours": 0,
         "bonus_balance_placeholder": "-",

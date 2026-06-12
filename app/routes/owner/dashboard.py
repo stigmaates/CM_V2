@@ -7,6 +7,7 @@ from app.services.dashboard import (
     get_dashboard_stats,
     get_first_visit_feedback_stats,
 )
+from app.services.referrals import get_dashboard_referral_stats
 
 from . import owner_bp
 
@@ -32,6 +33,7 @@ def dashboard():
     engagement = get_dashboard_engagement_stats(int(club_id), period, all_time=False)
     engagement_all_time_data = get_dashboard_engagement_stats(int(club_id), period, all_time=True)
     first_visit_feedback = get_first_visit_feedback_stats(int(club_id), period)
+    referral_stats = get_dashboard_referral_stats(int(club_id), period)
 
     return render_template(
         "owner/dashboard.html",
@@ -40,5 +42,6 @@ def dashboard():
         engagement=engagement,
         engagement_all_time_data=engagement_all_time_data,
         first_visit_feedback=first_visit_feedback,
+        referral_stats=referral_stats,
         selected_period=period,
     )
