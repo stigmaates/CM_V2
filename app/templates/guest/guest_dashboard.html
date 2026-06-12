@@ -1034,21 +1034,41 @@
         .referral-title { font-weight: 950; font-size: 20px; color: #fff; }
         .referral-subtitle { color: var(--text-muted); font-size: 13px; line-height: 1.35; margin-top: 4px; }
         .referral-actions { display:flex; flex-wrap:wrap; gap:10px; }
+        .referral-primary-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
         .referral-input-row { display:flex; gap:10px; flex-wrap:wrap; }
         .referral-input-row input { flex: 1 1 220px; }
-        .referral-btn { border:0; border-radius: 14px; padding: 12px 16px; cursor:pointer; font-weight: 900; color:#170a2d; background:#ffd469; }
-        .referral-btn.secondary { color:#f4ecff; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.16); }
+        .referral-btn { border:0; border-radius: 14px; padding: 12px 16px; cursor:pointer; font-weight: 900; color:#170a2d; background:#ffd469; transition: transform .16s ease, box-shadow .16s ease, filter .16s ease; }
+        .referral-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(255, 212, 105, .18); }
+        .referral-btn.secondary { color:#f4ecff; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.16); box-shadow:none; }
+        .referral-btn.secondary:hover { background:rgba(255,255,255,.14); }
         .referral-status { padding: 12px 14px; border-radius: 16px; background: rgba(0,0,0,.18); color:#f4ecff; font-size: 13px; line-height:1.35; }
         .referral-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }
-        .referral-mini { padding:12px; border-radius:16px; background:rgba(255,255,255,.07); }
-        .referral-mini b { display:block; font-size:22px; color:#ffd469; }
+        .referral-mini { padding:20px 16px 14px; border-radius:20px; background:rgba(255,255,255,.07); min-height:120px; display:flex; flex-direction:column; justify-content:space-between; }
+        .referral-mini b { display:block; font-size:44px; line-height:1; color:#ffd469; margin-bottom: 10px; }
         .referral-mini span { color:var(--text-muted); font-size:12px; }
+        .referral-hint { padding: 14px 16px; border-radius: 18px; background: rgba(0,0,0,.16); color: var(--text-main); font-size: 14px; line-height: 1.4; }
         .referral-pending { display:grid; gap:10px; }
         .referral-pending-item { padding:12px; border-radius:16px; background:rgba(255,255,255,.07); display:grid; gap:10px; }
-        .referral-leaderboard { display:grid; gap:8px; }
-        .referral-leader { display:grid; grid-template-columns: auto 1fr auto; gap:10px; align-items:center; padding:9px 11px; border-radius:14px; background:rgba(0,0,0,.16); font-size:13px; }
+        .referral-leaderboard-card { display:grid; gap:10px; }
+        .referral-leaderboard-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+        .referral-leaderboard-list { display:grid; gap:8px; }
+        .referral-leader { display:grid; grid-template-columns: auto 1fr auto; gap:10px; align-items:center; padding:12px 14px; border-radius:18px; background:rgba(0,0,0,.16); font-size:14px; }
+        .referral-rank { font-weight:900; color:#fff; }
+        .referral-leader-name { font-weight:700; color:#fff; }
+        .referral-leader-meta { font-weight:800; color:#f4ecff; }
+        .referral-note { color: var(--text-muted); font-size: 12px; }
+        .referral-modal-list { display:grid; gap:10px; margin-top: 14px; max-height: 420px; overflow:auto; padding-right: 4px; }
+        .referral-modal-empty { color: var(--text-muted); font-size: 14px; line-height: 1.45; margin-top: 10px; }
         .referral-message { font-size:13px; line-height:1.35; color:#ffd469; min-height:18px; }
-        @media (max-width: 760px) { .referral-grid { grid-template-columns: 1fr; } .referral-head { flex-direction:column; } }
+        @media (max-width: 760px) {
+            .referral-grid { grid-template-columns: 1fr; }
+            .referral-head { flex-direction:column; }
+            .referral-leaderboard-head { flex-direction:column; align-items:flex-start; }
+            .referral-primary-actions { width:100%; }
+            .referral-primary-actions .referral-btn { width:100%; }
+            .referral-leader { grid-template-columns: auto 1fr; }
+            .referral-leader-meta { grid-column: 1 / -1; padding-left: 34px; }
+        }
 
         @media (max-width: 420px) {
             .guest-page {
@@ -1189,21 +1209,16 @@
                                     <div class="referral-mini"><b>{{ ref.own_stats.bonus_earned|default(0) }}</b><span>КБ заработано</span></div>
                                 </div>
 
-                                {% if ref.can_submit %}
-                                    <div class="referral-status">Ты новый гость: можешь указать телефон друга, который пригласил тебя в клуб.</div>
-                                    <div class="referral-input-row">
-                                        <input class="form-input" id="referrerPhoneInput" type="tel" placeholder="Телефон друга">
-                                        <button class="referral-btn" id="submitReferralBtn" type="button">Указать друга</button>
-                                    </div>
-                                {% elif ref.outgoing %}
-                                    <div class="referral-status">
-                                        Ты указал друга: <b>{{ ref.outgoing.referrer_name or 'гость' }}</b>.<br>
-                                        Статус: <b>{{ ref.outgoing.status_label }}</b>.<br>
-                                        Отыгранные часы после заявки: <b>{{ ref.outgoing.hours_played }}</b> / {{ ref.settings.required_hours }}.
-                                        {% if ref.outgoing.hours_left > 0 %}Осталось: <b>{{ ref.outgoing.hours_left }}</b> ч.{% endif %}
-                                    </div>
-                                {% else %}
-                                    <div class="referral-status">Указать пригласившего друга можно только до первого визита и только один раз.</div>
+                                <div class="referral-primary-actions">
+                                    {% if ref.can_submit %}
+                                        <button class="referral-btn" type="button" onclick="openModal('referralSubmitModal')">Ввести номер</button>
+                                    {% elif ref.outgoing %}
+                                        <button class="referral-btn" type="button" onclick="openModal('referralStatusModal')">Бонус получен</button>
+                                    {% endif %}
+                                </div>
+
+                                {% if not ref.can_submit and not ref.outgoing %}
+                                    <div class="referral-hint">Указать пригласившего друга можно только до первого визита и только один раз.</div>
                                 {% endif %}
 
                                 {% if ref.pending_incoming %}
@@ -1221,14 +1236,28 @@
                                     </div>
                                 {% endif %}
 
-                                {% if ref.leaderboard %}
-                                    <div class="referral-leaderboard">
-                                        <div class="referral-title" style="font-size:16px;">Топ по приглашениям</div>
-                                        {% for row in ref.leaderboard %}
-                                            <div class="referral-leader"><b>#{{ loop.index }}</b><span>{{ row.fio or 'Гость' }}</span><b>{{ row.rewarded_count }} / {{ row.bonus_earned }} КБ</b></div>
-                                        {% endfor %}
+                                <div class="referral-leaderboard-card">
+                                    <div class="referral-leaderboard-head">
+                                        <div>
+                                            <div class="referral-title" style="font-size:16px;">Топ по приглашениям</div>
+                                            <div class="referral-note">Показываем рейтинг за текущий месяц.</div>
+                                        </div>
+                                        <button class="referral-btn secondary" type="button" onclick="openModal('referralLeaderboardModal')">Показать весь рейтинг</button>
                                     </div>
-                                {% endif %}
+                                    {% if ref.leaderboard %}
+                                        <div class="referral-leaderboard-list">
+                                            {% for row in ref.leaderboard %}
+                                                <div class="referral-leader">
+                                                    <div class="referral-rank">#{{ loop.index }}</div>
+                                                    <div class="referral-leader-name">{{ row.fio or 'Гость' }}</div>
+                                                    <div class="referral-leader-meta">{{ row.invited_count }} приглаш. • {{ row.bonus_earned }} КБ</div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <div class="referral-hint">В этом месяце пока нет приглашений.</div>
+                                    {% endif %}
+                                </div>
                             {% endif %}
                             <div class="referral-message" id="referralMessage"></div>
                         </div>
@@ -1307,6 +1336,64 @@
                     Бонус другу: {{ ref.settings.inviter_bonus }} КБ.
                     Бонус новому гостю: {{ ref.settings.invited_bonus }} КБ.
                 </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="referralSubmitModal">
+        <div class="app-modal">
+            <button class="modal-close" onclick="closeModal('referralSubmitModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Ввести номер друга</h2>
+            <div class="modal-text">Укажи мобильный номер друга, который пригласил тебя в клуб.</div>
+            <div class="referral-input-row" style="margin-top:14px;">
+                <input class="form-input" id="referrerPhoneInput" type="tel" placeholder="Телефон друга">
+                <button class="referral-btn" id="submitReferralBtn" type="button">Отправить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="referralStatusModal">
+        <div class="app-modal">
+            <button class="modal-close" onclick="closeModal('referralStatusModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Статус реферального бонуса</h2>
+            {% if ref.outgoing %}
+                <div class="modal-text">
+                    Друг: <b>{{ ref.outgoing.referrer_name or 'гость' }}</b><br>
+                    Статус: <b>{{ ref.outgoing.status_label }}</b>
+                </div>
+                {% if ref.outgoing.status == 'rewarded' %}
+                    <div class="modal-text" style="margin-top:12px;">Бонус начислен.</div>
+                {% else %}
+                    <div class="modal-text" style="margin-top:12px;">
+                        Отыгранные часы после заявки: <b>{{ ref.outgoing.hours_played }}</b> / {{ ref.settings.required_hours }}.
+                        {% if ref.outgoing.hours_left > 0 %}<br>Осталось отыграть: <b>{{ ref.outgoing.hours_left }}</b> ч.{% endif %}
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="referral-modal-empty">У тебя пока нет активной реферальной заявки.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="referralLeaderboardModal">
+        <div class="app-modal">
+            <button class="modal-close" onclick="closeModal('referralLeaderboardModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Рейтинг приглашений за текущий месяц</h2>
+            {% if ref.leaderboard_full %}
+                <div class="referral-modal-list">
+                    {% for row in ref.leaderboard_full %}
+                        <div class="referral-leader">
+                            <div class="referral-rank">#{{ loop.index }}</div>
+                            <div>
+                                <div class="referral-leader-name">{{ row.fio or 'Гость' }}</div>
+                                <div class="referral-note">{{ row.rewarded_count }} бонус(ов) начислено</div>
+                            </div>
+                            <div class="referral-leader-meta">{{ row.invited_count }} приглаш. • {{ row.bonus_earned }} КБ</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="referral-modal-empty">В этом месяце пока никто не приглашал друзей.</div>
             {% endif %}
         </div>
     </div>

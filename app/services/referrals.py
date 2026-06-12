@@ -254,6 +254,16 @@ def _decorate_link(cursor, row: dict[str, Any], settings: dict[str, Any]) -> dic
     return item
 
 
+def _current_month_bounds() -> tuple[datetime, datetime]:
+    now = datetime.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        month_end = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        month_end = month_start.replace(month=month_start.month + 1)
+    return month_start, month_end
+
+
 def process_referral_rewards(club_id: int) -> int:
     settings = get_referral_settings(club_id)
     if not settings.get("is_enabled"):
@@ -464,25 +474,28 @@ def get_guest_referral_context(guest_id: int, club_id: int) -> dict[str, Any]:
             incoming_rows = cursor.fetchall() or []
             incoming = [_decorate_link(cursor, row, settings) for row in incoming_rows]
 
+            month_start, month_end = _current_month_bounds()
             cursor.execute(
                 """
                 SELECT
                     rl.referrer_guest_id AS guest_id,
                     g.fio,
+                    COUNT(*) AS invited_count,
                     COUNT(CASE WHEN rl.status IN ('confirmed','rewarded') THEN 1 END) AS confirmed_count,
                     COUNT(CASE WHEN rl.status='rewarded' THEN 1 END) AS rewarded_count,
                     COALESCE(SUM(rl.inviter_bonus_awarded), 0) AS bonus_earned
                 FROM referral_links rl
                 JOIN guests g ON g.club_id=rl.club_id AND g.guest_id=rl.referrer_guest_id
                 WHERE rl.club_id=%s
+                  AND rl.requested_at >= %s
+                  AND rl.requested_at < %s
                 GROUP BY rl.referrer_guest_id, g.fio
-                HAVING confirmed_count > 0 OR rewarded_count > 0
-                ORDER BY rewarded_count DESC, confirmed_count DESC, bonus_earned DESC
-                LIMIT 10
+                HAVING invited_count > 0
+                ORDER BY invited_count DESC, rewarded_count DESC, bonus_earned DESC, g.fio ASC
                 """,
-                (club_id,),
+                (club_id, month_start, month_end),
             )
-            leaderboard = cursor.fetchall() or []
+            leaderboard_month = cursor.fetchall() or []
 
             cursor.execute(
                 """
@@ -505,7 +518,9 @@ def get_guest_referral_context(guest_id: int, club_id: int) -> dict[str, Any]:
             "outgoing": outgoing,
             "incoming": incoming,
             "pending_incoming": [x for x in incoming if x.get("status") == "pending_confirmation"],
-            "leaderboard": leaderboard,
+            "leaderboard": leaderboard_month[:3],
+            "leaderboard_full": leaderboard_month,
+            "leaderboard_month_label": month_start.strftime("%m.%Y"),
             "own_stats": own_stats,
         }
     finally:
