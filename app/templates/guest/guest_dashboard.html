@@ -1191,75 +1191,6 @@
                             </div>
                         </div>
 
-                        <div class="referral-box" id="referralBox">
-                            <div class="referral-head">
-                                <div>
-                                    <div class="referral-title">Реферальная программа</div>
-                                    <div class="referral-subtitle">Приглашай друзей и получайте бонусы вместе!</div>
-                                </div>
-                                <button class="referral-btn secondary" type="button" onclick="openModal('referralRulesModal')">Как это работает?</button>
-                            </div>
-
-                            {% if not ref.is_enabled %}
-                                <div class="referral-status">Реферальная программа пока выключена в этом клубе.</div>
-                            {% else %}
-                                <div class="referral-grid">
-                                    <div class="referral-mini"><b>{{ ref.own_stats.invited_total|default(0) }}</b><span>друзей указали тебя</span></div>
-                                    <div class="referral-mini"><b>{{ ref.own_stats.rewarded_total|default(0) }}</b><span>награды начислены</span></div>
-                                    <div class="referral-mini"><b>{{ ref.own_stats.bonus_earned|default(0) }}</b><span>КБ заработано</span></div>
-                                </div>
-
-                                <div class="referral-primary-actions">
-                                    {% if ref.can_submit %}
-                                        <button class="referral-btn" type="button" onclick="openModal('referralSubmitModal')">Ввести номер</button>
-                                    {% elif ref.outgoing %}
-                                        <button class="referral-btn" type="button" onclick="openModal('referralStatusModal')">Бонус получен</button>
-                                    {% endif %}
-                                </div>
-
-                                {% if not ref.can_submit and not ref.outgoing %}
-                                    <div class="referral-hint">Указать пригласившего друга можно только до первого визита и только один раз.</div>
-                                {% endif %}
-
-                                {% if ref.pending_incoming %}
-                                    <div class="referral-pending">
-                                        <div class="referral-title" style="font-size:16px;">Тебя указали другом</div>
-                                        {% for item in ref.pending_incoming %}
-                                            <div class="referral-pending-item">
-                                                <div>Новый гость указал тебя. Для защиты от случайного ввода подтверди его телефон.</div>
-                                                <div class="referral-input-row">
-                                                    <input class="form-input" type="tel" placeholder="Телефон нового гостя" data-ref-confirm-phone data-request-id="{{ item.id }}">
-                                                    <button class="referral-btn" type="button" data-ref-confirm-btn data-request-id="{{ item.id }}">Подтвердить</button>
-                                                </div>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-
-                                <div class="referral-leaderboard-card">
-                                    <div class="referral-leaderboard-head">
-                                        <div>
-                                            <div class="referral-title" style="font-size:16px;">Топ по приглашениям</div>
-                                            <div class="referral-note">Показываем рейтинг за текущий месяц.</div>
-                                        </div>
-                                        <button class="referral-btn secondary" type="button" onclick="openModal('referralLeaderboardModal')">Показать весь рейтинг</button>
-                                    </div>
-                                    {% if ref.leaderboard %}
-                                        <div class="referral-leaderboard-list">
-                                            {% for row in ref.leaderboard %}
-                                                <div class="referral-leader">
-                                                    <div class="referral-rank">#{{ loop.index }}</div>
-                                                    <div class="referral-leader-name">{{ row.fio or 'Гость' }}</div>
-                                                    <div class="referral-leader-meta">{{ row.invited_count }} приглаш. • {{ row.bonus_earned }} КБ</div>
-                                                </div>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <div class="referral-hint">В этом месяце пока нет приглашений.</div>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                            <div class="referral-message" id="referralMessage"></div>
                         </div>
 
                     </div>
@@ -1296,6 +1227,76 @@
                         <div class="empty">Для твоего клуба пока нет активных заданий.</div>
                     {% endif %}
                 </section>
+                <div class="referral-box" id="referralBox">
+                    <div class="referral-head">
+                        <div>
+                            <div class="referral-title">Реферальная программа</div>
+                            <div class="referral-subtitle">Приглашай друзей и получайте бонусы вместе!</div>
+                        </div>
+                        <button class="referral-btn secondary" type="button" onclick="openModal('referralRulesModal')">Как это работает?</button>
+                    </div>
+
+                    {% if not ref.is_enabled %}
+                        <div class="referral-status">Реферальная программа пока выключена в этом клубе.</div>
+                    {% else %}
+                        <div class="referral-grid">
+                            <div class="referral-mini"><b>{{ ref.own_stats.invited_total|default(0) }}</b><span>друзей указали тебя</span></div>
+                            <div class="referral-mini"><b>{{ ref.own_stats.rewarded_total|default(0) }}</b><span>награды начислены</span></div>
+                            <div class="referral-mini"><b>{{ ref.own_stats.bonus_earned|default(0) }}</b><span>КБ заработано</span></div>
+                        </div>
+
+                        <div class="referral-primary-actions">
+                            {% if ref.can_submit %}
+                                <button class="referral-btn" type="button" onclick="openModal('referralSubmitModal')">Ввести номер</button>
+                            {% elif ref.outgoing %}
+                                <button class="referral-btn" type="button" onclick="openModal('referralStatusModal')">Бонус получен</button>
+                            {% endif %}
+                        </div>
+
+                        {% if not ref.can_submit and not ref.outgoing %}
+                            <div class="referral-hint">Указать пригласившего друга можно только до первого визита и только один раз.</div>
+                        {% endif %}
+
+                        {% if ref.pending_incoming %}
+                            <div class="referral-pending">
+                                <div class="referral-title" style="font-size:16px;">Тебя указали другом</div>
+                                {% for item in ref.pending_incoming %}
+                                    <div class="referral-pending-item">
+                                        <div>Новый гость указал тебя. Для защиты от случайного ввода подтверди его телефон.</div>
+                                        <div class="referral-input-row">
+                                            <input class="form-input" type="tel" placeholder="Телефон нового гостя" data-ref-confirm-phone data-request-id="{{ item.id }}">
+                                            <button class="referral-btn" type="button" data-ref-confirm-btn data-request-id="{{ item.id }}">Подтвердить</button>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="referral-leaderboard-card">
+                            <div class="referral-leaderboard-head">
+                                <div>
+                                    <div class="referral-title" style="font-size:16px;">Топ по приглашениям</div>
+                                    <div class="referral-note">Показываем рейтинг за текущий месяц.</div>
+                                </div>
+                                <button class="referral-btn secondary" type="button" onclick="openModal('referralLeaderboardModal')">Показать весь рейтинг</button>
+                            </div>
+                            {% if ref.leaderboard %}
+                                <div class="referral-leaderboard-list">
+                                    {% for row in ref.leaderboard %}
+                                        <div class="referral-leader">
+                                            <div class="referral-rank">#{{ loop.index }}</div>
+                                            <div class="referral-leader-name">{{ row.fio or 'Гость' }}</div>
+                                            <div class="referral-leader-meta">{{ row.invited_count }} приглаш. • {{ row.bonus_earned }} КБ</div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="referral-hint">В этом месяце пока нет приглашений.</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    <div class="referral-message" id="referralMessage"></div>
+
             </div>
 
             <section class="panel wheel-panel">
