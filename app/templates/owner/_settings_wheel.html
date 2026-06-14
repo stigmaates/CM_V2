@@ -425,15 +425,17 @@
 
     .case-list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+        gap: 18px;
+        align-items: start;
     }
 
     .case-card {
         border: 1px solid var(--border);
         border-radius: 18px;
-        padding: 16px;
+        padding: 18px;
         background: rgba(20, 12, 36, 0.56);
+        min-width: 0;
     }
 
     .case-card-head {
@@ -500,12 +502,33 @@
         display: none !important;
     }
 
+    .case-item-row--compact {
+        overflow: hidden;
+    }
+
+    .case-item-row--compact .prize-card-actions {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .case-item-row--compact .prize-card-actions .btn,
+    .case-item-row--compact .prize-card-actions form {
+        min-width: 0;
+    }
+
 
     .case-item-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1.25fr) minmax(90px, .65fr) minmax(125px, .85fr) minmax(80px, .55fr) minmax(80px, .55fr);
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
         align-items: start;
+    }
+
+    .case-item-grid > .form-group:first-child {
+        grid-column: 1 / -1;
     }
 
     .case-item-grid .full {
@@ -515,6 +538,21 @@
     .case-item-grid .form-group,
     .case-form-grid .form-group {
         margin-bottom: 0;
+        min-width: 0;
+    }
+
+    .case-item-grid label,
+    .case-form-grid label {
+        display: block;
+        margin-bottom: 6px;
+        line-height: 1.25;
+    }
+
+    .case-item-grid .form-input,
+    .case-form-grid .form-input {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
 
     .case-form-grid {
@@ -555,13 +593,24 @@
         background: rgba(143, 91, 255, 0.2);
     }
 
+    @media (max-width: 1180px) {
+        .case-list {
+            grid-template-columns: 1fr;
+        }
+    }
+
     @media (max-width: 920px) {
         .game-mode-picker {
             grid-template-columns: 1fr;
         }
         .case-item-grid,
-        .case-form-grid {
+        .case-form-grid,
+        .case-item-picker {
             grid-template-columns: 1fr;
+        }
+        .case-item-picker-meta {
+            justify-items: start;
+            white-space: normal;
         }
     }
 </style>
