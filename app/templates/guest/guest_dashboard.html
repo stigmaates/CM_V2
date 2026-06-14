@@ -745,7 +745,7 @@
             background: rgba(255,255,255,0.04);
             overflow: hidden;
         }
-        .case-tile-image img { width: 100%; height: 100%; object-fit: contain; }
+        .case-tile-image img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
         .case-tile-fallback { font-size: 52px; line-height: 1; }
         .case-tile-name { font-weight: 800; font-size: 15px; }
         .case-tile-desc { color: var(--text-muted); font-size: 12px; line-height: 1.35; flex: 1 1 auto; }
@@ -1367,10 +1367,10 @@
             .wheel-wrap { width: min(560px, 86vw); }
         }
     
-        /* Strict adaptive cases layout v2.
-           The old grid stretched the cases panel to the full dashboard row height,
-           so with 1-2 cases it looked as if there was empty space for 9 cards.
-           Here the right side becomes a real vertical stack: cases first, history directly below.
+        /* Adaptive layout for game mode: Cases.
+           The right side spans the same vertical area as the left column + referral block.
+           The cases panel itself no longer becomes a huge empty rectangle; instead, the
+           visible group "Cases + History" is centered inside the available height.
         */
         .layout.layout--cases {
             grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
@@ -1378,219 +1378,297 @@
                 "left-top right-stack"
                 "referral right-stack";
             grid-template-rows: auto auto;
-            align-items: start !important;
-            align-content: start !important;
-            min-height: 0 !important;
-        }
-
-        /* Fallback for browsers where the class somehow is not enough, but visible cases exist. */
-        .layout:has(.cases-panel:not([style*="display:none"])) {
-            grid-template-areas:
-                "left-top right-stack"
-                "referral right-stack";
-            grid-template-rows: auto auto;
-            align-items: start !important;
-            align-content: start !important;
-            min-height: 0 !important;
-        }
-
-        .layout.layout--cases .left-column,
-        .layout.layout--cases .referral-box {
-            align-self: start;
-        }
-
-        .layout.layout--cases .right-column,
-        .layout:has(.cases-panel:not([style*="display:none"])) .right-column {
-            grid-area: right-stack;
-            display: flex !important;
-            flex-direction: column;
-            gap: 18px;
-            align-self: start !important;
             align-items: stretch;
-            min-height: 0 !important;
-            height: auto !important;
+            align-content: stretch;
+        }
+
+        .layout.layout--cases .right-column {
+            grid-area: right-stack;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: stretch;
+            gap: 18px;
+            align-self: stretch;
+            min-height: 100%;
         }
 
         .layout.layout--cases .right-column > .wheel-panel[style*="display:none"],
         .layout.layout--cases .right-column > .wheel-history-panel[style*="display:none"],
-        .layout.layout--cases .right-column > .cases-panel[style*="display:none"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-panel[style*="display:none"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-history-panel[style*="display:none"] {
+        .layout.layout--cases .right-column > .cases-panel[style*="display:none"] {
             display: none !important;
         }
 
-        .layout.layout--cases .right-column > .cases-panel,
-        .layout.layout--cases .right-column > .wheel-history-panel,
-        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .cases-panel,
-        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-history-panel {
-            grid-area: auto !important;
-            width: 100%;
-            align-self: stretch !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            flex: 0 0 auto !important;
-        }
-
         .layout.layout--cases .cases-panel,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel {
+        .layout.layout--cases .right-column > .wheel-history-panel {
+            grid-area: auto;
+            width: 100%;
+            height: auto;
+            min-height: 0;
+            max-height: none;
+            align-self: stretch;
+            flex: 0 0 auto;
+        }
+
+        .layout.layout--cases .cases-panel {
             --case-thumb-height: 130px;
-            padding: 22px 24px !important;
-            height: fit-content !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            align-self: start !important;
+            padding: 26px 28px 24px;
         }
 
-        .layout.layout--cases .cases-subtitle,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-subtitle {
-            margin-bottom: 14px;
+        .layout.layout--cases .cases-subtitle {
+            margin: 4px 0 18px;
         }
 
-        .layout.layout--cases .cases-grid,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid {
+        .layout.layout--cases .cases-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 14px;
-            align-content: start !important;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
             align-items: stretch;
-            justify-content: start;
+            align-content: start;
+            justify-content: center;
             overflow: visible;
             padding-right: 0;
-            flex: 0 0 auto !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
+            height: auto;
+            min-height: 0;
+            max-height: none;
         }
 
-        .layout.layout--cases .cases-grid[data-count="1"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"] {
-            grid-template-columns: minmax(260px, 360px) !important;
-            max-width: 380px !important;
+        .layout.layout--cases .case-tile {
+            min-height: 0;
+            height: auto;
+            padding: 16px;
+            gap: 10px;
         }
 
-        .layout.layout--cases .cases-grid[data-count="2"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"] {
-            grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
-            max-width: 640px !important;
+        .layout.layout--cases .case-tile-desc {
+            flex: 0 0 auto;
         }
 
-        .layout.layout--cases .cases-grid[data-count="3"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"] {
-            grid-template-columns: repeat(3, minmax(180px, 1fr)) !important;
+        .layout.layout--cases .case-tile-image {
+            height: var(--case-thumb-height);
         }
 
-        .layout.layout--cases .cases-grid[data-count="4"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] {
-            grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
-            max-width: 760px !important;
+        .layout.layout--cases .case-tile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
         }
 
-        .layout.layout--cases .cases-panel[data-cases-count="1"],
-        .layout.layout--cases .cases-panel[data-cases-count="2"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="1"],
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="2"] {
-            padding-top: 18px !important;
-            padding-bottom: 18px !important;
-            height: fit-content !important;
-            min-height: 0 !important;
+        /* 1 case: one large hero card. */
+        .layout.layout--cases .cases-grid[data-count="1"] {
+            --case-thumb-height: 260px;
+            grid-template-columns: minmax(320px, 460px);
+            max-width: 500px;
+            margin-inline: auto;
         }
 
-        .layout.layout--cases .cases-panel[data-cases-count="1"] .cases-subtitle,
-        .layout.layout--cases .cases-panel[data-cases-count="2"] .cases-subtitle,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="1"] .cases-subtitle,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="2"] .cases-subtitle {
-            margin-bottom: 12px !important;
+        .layout.layout--cases .cases-grid[data-count="1"] .case-tile-name {
+            font-size: 22px;
         }
 
-        .layout.layout--cases .cases-grid[data-count="1"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"] .case-tile-image {
-            height: 150px !important;
+        .layout.layout--cases .cases-grid[data-count="1"] .case-tile-desc {
+            font-size: 15px;
         }
 
-        .layout.layout--cases .cases-grid[data-count="3"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="4"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] .case-tile-image {
-            height: 125px !important;
+        .layout.layout--cases .cases-grid[data-count="1"] .case-open-btn {
+            min-height: 58px;
+            font-size: 17px;
         }
 
-        .layout.layout--cases .cases-grid[data-count="5"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="6"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="7"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="8"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="9"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="5"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="6"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="7"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="8"] .case-tile-image,
-        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="9"] .case-tile-image {
-            height: var(--case-thumb-height) !important;
+        /* 2 cases: two prominent cards instead of a tiny row with empty space below. */
+        .layout.layout--cases .cases-grid[data-count="2"] {
+            --case-thumb-height: 220px;
+            grid-template-columns: repeat(2, minmax(250px, 1fr));
+            max-width: 820px;
+            margin-inline: auto;
         }
 
-        .layout.layout--cases .case-tile,
-        .layout:has(.cases-panel:not([style*="display:none"])) .case-tile {
-            min-height: 0 !important;
-            height: auto !important;
+        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-name {
+            font-size: 20px;
         }
 
-        .layout.layout--cases .case-tile-desc,
-        .layout:has(.cases-panel:not([style*="display:none"])) .case-tile-desc {
-            flex: 0 0 auto !important;
+        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-desc {
+            font-size: 14px;
         }
 
-        .layout.layout--cases .right-column > .wheel-history-panel,
-        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-history-panel {
-            padding: 20px 22px !important;
+        .layout.layout--cases .cases-grid[data-count="2"] .case-open-btn {
+            min-height: 54px;
+            font-size: 16px;
         }
 
-        .layout.layout--cases .wheel-history-panel .history-list,
-        .layout:has(.cases-panel:not([style*="display:none"])) .wheel-history-panel .history-list {
+        /* 3 cases: one row of three medium cards. */
+        .layout.layout--cases .cases-grid[data-count="3"] {
+            --case-thumb-height: 190px;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            max-width: 900px;
+            margin-inline: auto;
+        }
+
+        /* 4 cases: balanced 2 x 2 grid. */
+        .layout.layout--cases .cases-grid[data-count="4"] {
+            --case-thumb-height: 200px;
+            grid-template-columns: repeat(2, minmax(240px, 1fr));
+            max-width: 820px;
+            margin-inline: auto;
+        }
+
+        /* 5+ cases: compact grid, close to the previous dense layout. */
+        .layout.layout--cases .cases-grid[data-count="5"],
+        .layout.layout--cases .cases-grid[data-count="6"],
+        .layout.layout--cases .cases-grid[data-count="7"],
+        .layout.layout--cases .cases-grid[data-count="8"],
+        .layout.layout--cases .cases-grid[data-count="9"] {
+            --case-thumb-height: 130px;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            max-width: none;
+            margin-inline: 0;
+        }
+
+        .layout.layout--cases .right-column > .wheel-history-panel {
+            padding: 20px 22px;
+        }
+
+        .layout.layout--cases .wheel-history-panel .history-list {
             max-height: 360px;
         }
 
         @media (max-width: 1180px) {
-            .layout.layout--cases,
-            .layout:has(.cases-panel:not([style*="display:none"])) {
+            .layout.layout--cases {
                 grid-template-columns: 1fr;
                 grid-template-areas:
                     "left-top"
                     "referral"
                     "right-stack";
-                min-height: 0 !important;
-                align-items: start !important;
+                min-height: 0;
+                align-items: start;
+                align-content: start;
+            }
+
+            .layout.layout--cases .right-column {
+                justify-content: flex-start;
+                min-height: 0;
             }
         }
 
         @media (max-width: 760px) {
+            .layout.layout--cases .cases-panel {
+                padding: 20px 16px;
+            }
+
             .layout.layout--cases .cases-grid,
             .layout.layout--cases .cases-grid[data-count="1"],
             .layout.layout--cases .cases-grid[data-count="2"],
             .layout.layout--cases .cases-grid[data-count="3"],
-            .layout.layout--cases .cases-grid[data-count="4"],
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid,
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"],
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"],
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"],
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] {
-                grid-template-columns: 1fr !important;
-                max-width: none !important;
+            .layout.layout--cases .cases-grid[data-count="4"] {
+                grid-template-columns: 1fr;
+                max-width: none;
+                margin-inline: 0;
             }
 
-            .layout.layout--cases .cases-grid[data-count="1"] .case-tile-image,
-            .layout.layout--cases .cases-grid[data-count="2"] .case-tile-image,
-            .layout.layout--cases .cases-grid[data-count="3"] .case-tile-image,
-            .layout.layout--cases .cases-grid[data-count="4"] .case-tile-image,
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"] .case-tile-image,
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"] .case-tile-image,
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"] .case-tile-image,
-            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] .case-tile-image {
-                height: 150px !important;
+            .layout.layout--cases .cases-grid[data-count="1"],
+            .layout.layout--cases .cases-grid[data-count="2"],
+            .layout.layout--cases .cases-grid[data-count="3"],
+            .layout.layout--cases .cases-grid[data-count="4"] {
+                --case-thumb-height: 170px;
             }
         }
 
+
+        /* case-layout-hard-fix-v5: финальный фикс режима «Кейсы».
+           Важно: это намеренно стоит в самом конце style-блока и дублируется JS-страховкой ниже,
+           чтобы старые правила .wheel-panel/.right-column/display:contents не могли снова растянуть cases-panel. */
+        @media (min-width: 1181px) {
+            body .layout.layout--cases.case-layout-hard-fix-v5 {
+                grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+                grid-template-areas:
+                    "left-top right-stack"
+                    "referral right-stack" !important;
+                grid-template-rows: auto auto !important;
+                align-items: stretch !important;
+                align-content: stretch !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: stretch !important;
+                gap: 18px !important;
+                align-self: stretch !important;
+                min-height: 0 !important;
+                height: 100% !important;
+            }
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+            display: none !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .cases-panel,
+        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .cases-history-panel {
+            grid-area: auto !important;
+            align-self: stretch !important;
+            flex: 0 0 auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            width: 100% !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .cases-panel {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            padding: 26px 28px 24px !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v5 .cases-grid {
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            align-content: start !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v5 .case-tile {
+            height: auto !important;
+            min-height: 0 !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v5 .case-tile-image img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            display: block !important;
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-hard-fix-v5 {
+                grid-template-columns: 1fr !important;
+                grid-template-areas:
+                    "left-top"
+                    "referral"
+                    "right-stack" !important;
+                min-height: 0 !important;
+                align-items: start !important;
+                align-content: start !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                gap: 16px !important;
+                min-height: 0 !important;
+            }
+        }
 
     </style>
 </head>
@@ -1621,7 +1699,7 @@
         <!-- guest-layout-v20260612-wheel-big-strict -->
         <!-- case-right-column-real-fix-20260614 -->
         <!-- case-area-strict-fix-20260614 -->
-        <main class="layout {% if game_mode == 'cases' %}layout--cases{% endif %}">
+        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-hard-fix-v5{% endif %}" data-case-layout-fix="v5">
             <div class="left-column">
                 <section class="panel profile-panel">
                     <div class="profile-header-row">
@@ -1786,7 +1864,7 @@
                     <div class="referral-message" id="referralMessage"></div>
                 </div>
 
-            <div class="right-column" {% if game_mode == 'cases' %}style="grid-area:right-stack;display:flex;flex-direction:column;gap:18px;align-self:start;height:auto;min-height:0;"{% endif %}>
+            <div class="right-column" data-case-right-column="v5">
                 <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Колесо фортуны</div>
@@ -1839,7 +1917,7 @@
                     {% endif %}
                 </section>
 
-                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" style="{% if game_mode != 'cases' %}display:none;{% else %}align-self:start;height:auto;min-height:0;max-height:none;{% endif %}">
+                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Кейсы</div>
                     </div>
@@ -1871,7 +1949,7 @@
                     {% endif %}
                 </section>
 
-                <section class="panel wheel-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="section-title">
                         <span>История открытий</span>
                     </div>
@@ -3205,6 +3283,122 @@
             }
         });
 
+
+        function applyCasesLayoutHardFixV5() {
+            if (gameMode !== 'cases') return;
+
+            const layout = document.querySelector('.layout.layout--cases');
+            const rightColumn = document.querySelector('[data-case-right-column="v5"]');
+            const casesPanel = document.querySelector('.cases-panel');
+            const historyPanel = document.querySelector('.cases-history-panel');
+            const casesGrid = document.getElementById('casesGrid');
+            if (!layout || !rightColumn || !casesPanel) return;
+
+            layout.classList.add('case-layout-hard-fix-v5');
+            layout.style.alignItems = 'stretch';
+            layout.style.alignContent = window.innerWidth > 1180 ? 'stretch' : 'start';
+
+            if (window.innerWidth > 1180) {
+                layout.style.gridTemplateColumns = 'minmax(460px, 0.95fr) minmax(640px, 1.05fr)';
+                layout.style.gridTemplateAreas = '"left-top right-stack" "referral right-stack"';
+                layout.style.gridTemplateRows = 'auto auto';
+                rightColumn.style.justifyContent = 'center';
+                rightColumn.style.height = '100%';
+            } else {
+                layout.style.gridTemplateColumns = '1fr';
+                layout.style.gridTemplateAreas = '"left-top" "referral" "right-stack"';
+                layout.style.gridTemplateRows = 'auto';
+                layout.style.minHeight = '0';
+                rightColumn.style.justifyContent = 'flex-start';
+                rightColumn.style.height = 'auto';
+            }
+
+            rightColumn.style.gridArea = 'right-stack';
+            rightColumn.style.display = 'flex';
+            rightColumn.style.flexDirection = 'column';
+            rightColumn.style.alignItems = 'stretch';
+            rightColumn.style.gap = window.innerWidth > 1180 ? '18px' : '16px';
+            rightColumn.style.alignSelf = 'stretch';
+            rightColumn.style.minHeight = '0';
+
+            [casesPanel, historyPanel].filter(Boolean).forEach((panel) => {
+                panel.style.gridArea = 'auto';
+                panel.style.alignSelf = 'stretch';
+                panel.style.flex = '0 0 auto';
+                panel.style.height = 'auto';
+                panel.style.minHeight = '0';
+                panel.style.maxHeight = 'none';
+                panel.style.width = '100%';
+            });
+
+            casesPanel.style.display = 'flex';
+            casesPanel.style.flexDirection = 'column';
+            casesPanel.style.justifyContent = 'flex-start';
+            casesPanel.style.overflow = 'visible';
+
+            if (casesGrid) {
+                const count = Number(casesGrid.dataset.count || '0');
+                casesGrid.style.display = 'grid';
+                casesGrid.style.height = 'auto';
+                casesGrid.style.minHeight = '0';
+                casesGrid.style.maxHeight = 'none';
+                casesGrid.style.overflow = 'visible';
+                casesGrid.style.alignContent = 'start';
+                casesGrid.style.justifyContent = 'center';
+                casesGrid.style.paddingRight = '0';
+
+                let imageHeight = '130px';
+                casesGrid.style.marginInline = '0';
+                casesGrid.style.maxWidth = 'none';
+
+                if (window.innerWidth <= 760) {
+                    casesGrid.style.gridTemplateColumns = '1fr';
+                    imageHeight = count <= 4 ? '170px' : '130px';
+                } else if (count === 1) {
+                    casesGrid.style.gridTemplateColumns = 'minmax(320px, 460px)';
+                    casesGrid.style.maxWidth = '500px';
+                    casesGrid.style.marginInline = 'auto';
+                    imageHeight = '260px';
+                } else if (count === 2) {
+                    casesGrid.style.gridTemplateColumns = 'repeat(2, minmax(250px, 1fr))';
+                    casesGrid.style.maxWidth = '820px';
+                    casesGrid.style.marginInline = 'auto';
+                    imageHeight = '220px';
+                } else if (count === 3) {
+                    casesGrid.style.gridTemplateColumns = 'repeat(3, minmax(180px, 1fr))';
+                    casesGrid.style.maxWidth = '900px';
+                    casesGrid.style.marginInline = 'auto';
+                    imageHeight = '190px';
+                } else if (count === 4) {
+                    casesGrid.style.gridTemplateColumns = 'repeat(2, minmax(240px, 1fr))';
+                    casesGrid.style.maxWidth = '820px';
+                    casesGrid.style.marginInline = 'auto';
+                    imageHeight = '200px';
+                } else {
+                    casesGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(190px, 1fr))';
+                    imageHeight = '130px';
+                }
+
+                casesGrid.querySelectorAll('.case-tile').forEach((tile) => {
+                    tile.style.height = 'auto';
+                    tile.style.minHeight = '0';
+                });
+                casesGrid.querySelectorAll('.case-tile-image').forEach((imageBox) => {
+                    imageBox.style.height = imageHeight;
+                });
+                casesGrid.querySelectorAll('.case-tile-image img').forEach((img) => {
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    img.style.objectPosition = 'center';
+                    img.style.display = 'block';
+                });
+            }
+        }
+
+        window.addEventListener('resize', applyCasesLayoutHardFixV5);
+
+        applyCasesLayoutHardFixV5();
         renderWheelSvg();
         setTokens(initialTokens);
         setCmBonuses(initialCmBonusBalance);
