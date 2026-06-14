@@ -1286,7 +1286,7 @@
     <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
     {% endif %}
     {% set profile = profile_stats|default({"total_hours": 0, "bonus_balance_placeholder": "—", "loyalty_level_placeholder": "—"}) %}
-    {% set missions_list = missions|default([]) %}
+    {% set missions_list = guest_missions|default([], true) %}
     {% set prizes_list = wheel_prizes|default([]) %}
     {% set history_list = wheel_history|default([]) %}
     {% set spin_cost = wheel_settings.spin_cost if wheel_settings else 2 %}

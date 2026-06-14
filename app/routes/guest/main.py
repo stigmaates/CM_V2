@@ -65,6 +65,7 @@ def dashboard():
         guest_name=session.get("guest_name"),
         guest_id=session.get("guest_id"),
         missions=missions,
+        guest_missions=missions,
         profile_stats=profile_stats,
         wheel_settings=wheel_settings,
         wheel_prizes=wheel_prizes,
