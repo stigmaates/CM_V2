@@ -54,6 +54,16 @@ def _parse_probability(raw_value: str) -> float:
     return probability
 
 
+CASE_RARITY_LABELS = ("Обычный", "Редкий", "Очень редкий", "Ультра редкий")
+
+
+def _parse_rarity_label(raw_value: str) -> str:
+    value = (raw_value or "").strip()
+    if value not in CASE_RARITY_LABELS:
+        return "Обычный"
+    return value
+
+
 @owner_bp.route('/game-mode', methods=['POST'])
 @owner_required
 def game_mode_save():
@@ -196,6 +206,7 @@ def case_item_add(case_id):
     bonus_raw = request.form.get("bonus_amount", "").strip()
     token_raw = request.form.get("token_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
+    rarity_label = _parse_rarity_label(request.form.get("rarity_label", "Обычный"))
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
     if not name:
@@ -222,6 +233,7 @@ def case_item_add(case_id):
             bonus_amount=bonus_amount,
             token_amount=token_amount,
             probability=probability,
+            rarity_label=rarity_label,
             is_active=is_active,
             sort_order=sort_order,
         )
@@ -250,6 +262,7 @@ def case_item_update(case_id, item_id):
     bonus_raw = request.form.get("bonus_amount", "").strip()
     token_raw = request.form.get("token_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
+    rarity_label = _parse_rarity_label(request.form.get("rarity_label", "Обычный"))
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
     if not name:
@@ -275,6 +288,7 @@ def case_item_update(case_id, item_id):
             bonus_amount=bonus_amount,
             token_amount=token_amount,
             probability=probability,
+            rarity_label=rarity_label,
             is_active=is_active,
             sort_order=int(item.get("sort_order") or 0),
         )

@@ -84,6 +84,7 @@ def ensure_case_tables(cursor):
             bonus_amount INT NOT NULL DEFAULT 0,
             token_amount INT NOT NULL DEFAULT 0,
             probability DECIMAL(8,4) NOT NULL DEFAULT 0,
+            rarity_label VARCHAR(40) NOT NULL DEFAULT 'Обычный',
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             sort_order INT NOT NULL DEFAULT 0,
             KEY idx_case_items_case (case_id, sort_order),
@@ -91,6 +92,24 @@ def ensure_case_tables(cursor):
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
     )
+    cursor.execute(
+        """
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'club_case_items'
+          AND COLUMN_NAME = 'rarity_label'
+        """
+    )
+    if not cursor.fetchone():
+        cursor.execute(
+            """
+            ALTER TABLE club_case_items
+            ADD COLUMN rarity_label VARCHAR(40) NOT NULL DEFAULT 'Обычный'
+            AFTER probability
+            """
+        )
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS guest_case_openings (
@@ -184,7 +203,7 @@ def get_cases_for_admin(club_id: int):
                 cursor.execute(
                     """
                     SELECT id, case_id, club_id, name, description, image_url,
-                           bonus_amount, token_amount, probability, is_active, sort_order
+                           bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
                     FROM club_case_items
                     WHERE case_id = %s
                     ORDER BY sort_order, id
@@ -213,7 +232,7 @@ def get_cases(club_id: int):
                 cursor.execute(
                     """
                     SELECT id, case_id, club_id, name, description, image_url,
-                           bonus_amount, token_amount, probability, is_active, sort_order
+                           bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
                     FROM club_case_items
                     WHERE case_id = %s AND is_active = 1
                     ORDER BY sort_order, id
@@ -340,7 +359,7 @@ def get_case_item_by_id(item_id: int, club_id: int):
             cursor.execute(
                 """
                 SELECT id, case_id, club_id, name, description, image_url,
-                       bonus_amount, token_amount, probability, is_active, sort_order
+                       bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
                 FROM club_case_items
                 WHERE id = %s AND club_id = %s
                 LIMIT 1
@@ -353,7 +372,8 @@ def get_case_item_by_id(item_id: int, club_id: int):
 
 
 def create_case_item(case_id: int, club_id: int, name: str, description: str | None, image_url: str | None,
-                      bonus_amount: int, token_amount: int, probability: float, is_active: int = 1, sort_order: int = 0) -> int:
+                      bonus_amount: int, token_amount: int, probability: float, rarity_label: str = "Обычный",
+                      is_active: int = 1, sort_order: int = 0) -> int:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -362,11 +382,15 @@ def create_case_item(case_id: int, club_id: int, name: str, description: str | N
                 """
                 INSERT INTO club_case_items (
                     case_id, club_id, name, description, image_url,
-                    bonus_amount, token_amount, probability, is_active, sort_order
+                    bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (case_id, club_id, name, description, image_url, int(bonus_amount or 0), int(token_amount or 0), probability, is_active, sort_order),
+                (
+                    case_id, club_id, name, description, image_url,
+                    int(bonus_amount or 0), int(token_amount or 0), probability,
+                    rarity_label or "Обычный", is_active, sort_order
+                ),
             )
             new_id = int(cursor.lastrowid)
         conn.commit()
@@ -376,7 +400,8 @@ def create_case_item(case_id: int, club_id: int, name: str, description: str | N
 
 
 def update_case_item(item_id: int, club_id: int, case_id: int, name: str, description: str | None, image_url: str | None,
-                      bonus_amount: int, token_amount: int, probability: float, is_active: int, sort_order: int):
+                      bonus_amount: int, token_amount: int, probability: float, rarity_label: str,
+                      is_active: int, sort_order: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -386,10 +411,13 @@ def update_case_item(item_id: int, club_id: int, case_id: int, name: str, descri
                 UPDATE club_case_items
                 SET name = %s, description = %s, image_url = %s,
                     bonus_amount = %s, token_amount = %s, probability = %s,
-                    is_active = %s, sort_order = %s
+                    rarity_label = %s, is_active = %s, sort_order = %s
                 WHERE id = %s AND club_id = %s AND case_id = %s
                 """,
-                (name, description, image_url, int(bonus_amount or 0), int(token_amount or 0), probability, is_active, sort_order, item_id, club_id, case_id),
+                (
+                    name, description, image_url, int(bonus_amount or 0), int(token_amount or 0),
+                    probability, rarity_label or "Обычный", is_active, sort_order, item_id, club_id, case_id
+                ),
             )
         conn.commit()
     finally:
@@ -422,6 +450,7 @@ def serialize_case_item(item):
         "bonus_amount": int(item.get("bonus_amount") or 0),
         "token_amount": int(item.get("token_amount") or 0),
         "probability": float(item.get("probability") or 0),
+        "rarity_label": item.get("rarity_label") or "Обычный",
         "is_active": bool(item.get("is_active")),
     }
 
@@ -484,7 +513,7 @@ def open_case(guest_id: int, club_id: int, case_id: int):
             cursor.execute(
                 """
                 SELECT id, case_id, club_id, name, description, image_url,
-                       bonus_amount, token_amount, probability, is_active, sort_order
+                       bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
                 FROM club_case_items
                 WHERE case_id = %s AND is_active = 1
                 """,

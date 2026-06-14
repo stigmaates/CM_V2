@@ -72,7 +72,7 @@
                                     <select class="form-input" id="case_item_select_{{ case.id }}" data-case-item-selector data-case-id="{{ case.id }}">
                                         {% for item in case_items %}
                                             <option value="{{ item.id }}">
-                                                {{ loop.index }}. {{ item.name }} — {{ item.probability }}%{% if not item.is_active %} · выкл.{% endif %}
+                                                {{ loop.index }}. {{ item.name }} — {{ item.rarity_label or 'Обычный' }}{% if not item.is_active %} · выкл.{% endif %}
                                             </option>
                                         {% endfor %}
                                     </select>
@@ -103,6 +103,15 @@
                                         <div class="form-group">
                                             <label for="item_prob_{{ item.id }}">Шанс, %</label>
                                             <input class="form-input" type="number" id="item_prob_{{ item.id }}" name="probability" min="0.0001" step="0.0001" value="{{ item.probability }}" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="item_rarity_{{ item.id }}">Группа описания</label>
+                                            <select class="form-input" id="item_rarity_{{ item.id }}" name="rarity_label">
+                                                {% set item_rarity = item.rarity_label or 'Обычный' %}
+                                                {% for rarity in ['Обычный', 'Редкий', 'Очень редкий', 'Ультра редкий'] %}
+                                                    <option value="{{ rarity }}" {% if item_rarity == rarity %}selected{% endif %}>{{ rarity }}</option>
+                                                {% endfor %}
+                                            </select>
                                         </div>
                                         <div class="form-group">
                                             <label for="item_bonus_{{ item.id }}">КБ</label>
@@ -150,6 +159,15 @@
                                 <div class="form-group">
                                     <label>Шанс, %</label>
                                     <input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Группа описания</label>
+                                    <select class="form-input" name="rarity_label">
+                                        <option value="Обычный" selected>Обычный</option>
+                                        <option value="Редкий">Редкий</option>
+                                        <option value="Очень редкий">Очень редкий</option>
+                                        <option value="Ультра редкий">Ультра редкий</option>
+                                    </select>
                                 </div>
                                 <div class="form-group">
                                     <label>КБ</label>
