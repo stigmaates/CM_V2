@@ -1,0 +1,240 @@
+{% set cases_list = cases|default([]) %}
+
+<section class="card wheel-section">
+    <div class="wheel-prizes-head">
+        <div class="section-title">Кейсы</div>
+        <button class="case-add-trigger" type="button" id="openCaseAddModal">+ Добавить кейс</button>
+    </div>
+    <p class="wheel-subtitle">
+        Каждый кейс открывается за жетоны по своей цене. У каждого предмета можно задать название, картинку, описание,
+        а также КБ и/или жетоны, которые начислятся автоматически. Если у предмета нет КБ/жетонов — он попадёт в заявки
+        на ручную выдачу, как сейчас работает для призов колеса. Чтобы включить кейс, сумма шансов его активных
+        предметов должна быть равна 100%.
+    </p>
+
+    {% if cases_list %}
+        <div class="case-list">
+            {% for case in cases_list %}
+                {% set items = case.items or [] %}
+                {% set active_items = items|selectattr('is_active')|list %}
+                {% set prob_sum = active_items|sum(attribute='probability')|float %}
+                {% set case_prob_ok = (prob_sum - 100)|abs < 0.06 %}
+                <div class="case-card">
+                    <div class="case-card-head">
+                        <h3 class="case-card-title">{{ case.name }}</h3>
+                        <span class="prize-active-badge {% if not case.is_active %}prize-active-badge--off{% endif %}">
+                            {% if case.is_active %}активен{% else %}выключен{% endif %}
+                        </span>
+                    </div>
+
+                    <form id="case-update-{{ case.id }}" method="POST" action="{{ url_for('owner.case_update', case_id=case.id) }}">
+                        <div class="case-form-grid">
+                            <div class="form-group">
+                                <label for="case_name_{{ case.id }}">Название</label>
+                                <input class="form-input" type="text" id="case_name_{{ case.id }}" name="name" value="{{ case.name }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="case_badge_{{ case.id }}">Метка (Обычный/Редкий…)</label>
+                                <input class="form-input" type="text" id="case_badge_{{ case.id }}" name="badge_label" value="{{ case.badge_label or '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="case_price_{{ case.id }}">Цена, жетонов</label>
+                                <input class="form-input" type="number" id="case_price_{{ case.id }}" name="price_tokens" min="0" step="1" value="{{ case.price_tokens or 0 }}">
+                            </div>
+                            <div class="form-group full">
+                                <label for="case_image_{{ case.id }}">Картинка кейса (URL)</label>
+                                <input class="form-input" type="text" id="case_image_{{ case.id }}" name="image_url" value="{{ case.image_url or '' }}" placeholder="https://...">
+                            </div>
+                            <div class="form-group full">
+                                <label for="case_description_{{ case.id }}">Описание</label>
+                                <textarea class="form-input" id="case_description_{{ case.id }}" name="description" rows="2">{{ case.description or '' }}</textarea>
+                            </div>
+                            <div class="form-group full">
+                                <label class="form-check" for="case_active_{{ case.id }}">
+                                    <input type="checkbox" class="form-check-input" id="case_active_{{ case.id }}" name="is_active" value="1" {% if case.is_active %}checked{% endif %}>
+                                    <span class="form-check-box" aria-hidden="true"></span>
+                                    <span class="form-check-text">Кейс включён (виден гостям)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="case-prob-total {% if case_prob_ok %}is-ok{% else %}is-bad{% endif %}">
+                        Сумма шансов активных предметов: {{ '%.2f'|format(prob_sum) }}%
+                        {% if not case_prob_ok %} — должна быть 100%, чтобы включить кейс{% endif %}
+                    </div>
+
+                    <div class="case-items-list">
+                        {% for item in items %}
+                            <div class="case-item-row">
+                                <form id="case-item-update-{{ item.id }}" method="POST" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}">
+                                    <div class="case-item-grid">
+                                        <div class="form-group">
+                                            <label for="item_name_{{ item.id }}">Название</label>
+                                            <input class="form-input" type="text" id="item_name_{{ item.id }}" name="name" value="{{ item.name }}" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="item_prob_{{ item.id }}">Шанс, %</label>
+                                            <input class="form-input" type="number" id="item_prob_{{ item.id }}" name="probability" min="0.0001" step="0.0001" value="{{ item.probability }}" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="item_bonus_{{ item.id }}">КБ</label>
+                                            <input class="form-input" type="number" id="item_bonus_{{ item.id }}" name="bonus_amount" min="0" step="1" value="{{ item.bonus_amount or 0 }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="item_tokens_{{ item.id }}">Жетоны</label>
+                                            <input class="form-input" type="number" id="item_tokens_{{ item.id }}" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}">
+                                        </div>
+                                        <div class="form-group full">
+                                            <label for="item_image_{{ item.id }}">Картинка предмета (URL)</label>
+                                            <input class="form-input" type="text" id="item_image_{{ item.id }}" name="image_url" value="{{ item.image_url or '' }}" placeholder="https://...">
+                                        </div>
+                                        <div class="form-group full">
+                                            <label for="item_description_{{ item.id }}">Описание</label>
+                                            <textarea class="form-input" id="item_description_{{ item.id }}" name="description" rows="2">{{ item.description or '' }}</textarea>
+                                        </div>
+                                        <div class="form-group full">
+                                            <label class="form-check" for="item_active_{{ item.id }}">
+                                                <input type="checkbox" class="form-check-input" id="item_active_{{ item.id }}" name="is_active" value="1" {% if item.is_active %}checked{% endif %}>
+                                                <span class="form-check-box" aria-hidden="true"></span>
+                                                <span class="form-check-text">Предмет активен</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </form>
+                                <div class="prize-card-actions">
+                                    <button type="submit" class="btn" form="case-item-update-{{ item.id }}">Сохранить предмет</button>
+                                    <form method="POST" action="{{ url_for('owner.case_item_delete', case_id=case.id, item_id=item.id) }}">
+                                        <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот предмет?')">Удалить</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="muted">В кейсе пока нет предметов.</div>
+                        {% endfor %}
+                    </div>
+
+                    <details style="margin-top: 12px;">
+                        <summary style="cursor:pointer; font-weight:800; color: var(--accent-strong);">+ Добавить предмет в кейс</summary>
+                        <form method="POST" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;">
+                            <div class="case-item-grid">
+                                <div class="form-group">
+                                    <label>Название</label>
+                                    <input class="form-input" type="text" name="name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Шанс, %</label>
+                                    <input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>КБ</label>
+                                    <input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Жетоны</label>
+                                    <input class="form-input" type="number" name="token_amount" min="0" step="1" value="0">
+                                </div>
+                                <div class="form-group full">
+                                    <label>Картинка предмета (URL)</label>
+                                    <input class="form-input" type="text" name="image_url" placeholder="https://...">
+                                </div>
+                                <div class="form-group full">
+                                    <label>Описание</label>
+                                    <textarea class="form-input" name="description" rows="2"></textarea>
+                                </div>
+                                <div class="form-group full">
+                                    <label class="form-check">
+                                        <input type="checkbox" class="form-check-input" name="is_active" value="1" checked>
+                                        <span class="form-check-box" aria-hidden="true"></span>
+                                        <span class="form-check-text">Предмет активен</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="actions">
+                                <button type="submit" class="btn">Добавить предмет</button>
+                            </div>
+                        </form>
+                    </details>
+
+                    <div class="prize-card-actions">
+                        <button type="submit" class="btn" form="case-update-{{ case.id }}">Сохранить кейс</button>
+                        <form method="POST" action="{{ url_for('owner.case_delete', case_id=case.id) }}">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот кейс со всеми предметами?')">Удалить кейс</button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="muted">Пока не добавлено ни одного кейса.</div>
+    {% endif %}
+</section>
+
+<div class="modal-overlay" id="caseAddModal" aria-hidden="true">
+    <div class="modal-panel modal-panel--prize" role="dialog" aria-modal="true" aria-labelledby="caseAddModalTitle">
+        <div class="modal-header">
+            <h2 class="modal-title" id="caseAddModalTitle">Добавить кейс</h2>
+            <button type="button" class="modal-close" id="closeCaseAddModal" aria-label="Закрыть">×</button>
+        </div>
+
+        <form method="POST" action="{{ url_for('owner.case_add') }}">
+            <div class="case-form-grid">
+                <div class="form-group">
+                    <label for="add_case_name">Название</label>
+                    <input class="form-input" type="text" id="add_case_name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="add_case_badge">Метка (Обычный/Редкий…)</label>
+                    <input class="form-input" type="text" id="add_case_badge" name="badge_label" placeholder="Обычный">
+                </div>
+                <div class="form-group">
+                    <label for="add_case_price">Цена, жетонов</label>
+                    <input class="form-input" type="number" id="add_case_price" name="price_tokens" min="0" step="1" value="0">
+                </div>
+                <div class="form-group full">
+                    <label for="add_case_image">Картинка кейса (URL)</label>
+                    <input class="form-input" type="text" id="add_case_image" name="image_url" placeholder="https://...">
+                </div>
+                <div class="form-group full">
+                    <label for="add_case_description">Описание</label>
+                    <textarea class="form-input" id="add_case_description" name="description" rows="2"></textarea>
+                </div>
+            </div>
+            <p class="muted" style="margin-top: 10px;">
+                После создания кейс будет выключен. Добавь предметы и проценты выпадения (в сумме 100%), затем включи кейс.
+            </p>
+            <div class="actions">
+                <button type="submit" class="btn">Добавить кейс</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const modal = document.getElementById('caseAddModal');
+        const openBtn = document.getElementById('openCaseAddModal');
+        const closeBtn = document.getElementById('closeCaseAddModal');
+        if (!modal || !openBtn || !closeBtn) return;
+
+        function openModal() {
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeModal() {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+
+        openBtn.addEventListener('click', openModal);
+        closeBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) closeModal();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+        });
+    })();
+</script>

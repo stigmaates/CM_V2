@@ -4,6 +4,7 @@ from app.core import owner_required
 from app.services.clubs import get_club_info, update_club_info
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
+from app.services.cases import get_cases_for_admin, get_game_mode
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 from app.services.system_status import get_owner_settings_system_status
 from app.services.referrals import get_referral_settings, save_referral_settings
@@ -136,6 +137,8 @@ def settings():
             "prizes": prizes,
             "wheel_active_prob_sum": wheel_active_prob_sum,
             "prize_icon_choices": ['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕'],
+            "game_mode": get_game_mode(club_id_int),
+            "cases": get_cases_for_admin(club_id_int),
         })
 
     return render_template("owner/settings.html", **context)

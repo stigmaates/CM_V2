@@ -684,6 +684,143 @@
         }
         .wheel-footnote { text-align: center; color: var(--text-muted); font-weight: 700; margin-top: 14px; padding-bottom: 2px; font-size: 13px; flex-shrink: 0; }
 
+        .cases-panel {
+            grid-area: wheel;
+            align-self: stretch;
+            padding: 26px 28px 24px;
+            height: 100%;
+            min-height: 760px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            isolation: isolate;
+            background:
+                radial-gradient(circle at 78% 14%, rgba(126, 235, 70, 0.18), transparent 35%),
+                radial-gradient(circle at 14% 88%, rgba(70, 207, 255, 0.16), transparent 30%),
+                linear-gradient(180deg, rgba(30, 17, 52, 0.96), rgba(15, 10, 28, 0.98));
+        }
+        .cases-subtitle { color: var(--text-muted); font-weight: 600; margin: 4px 0 16px; font-size: 14px; line-height: 1.4; }
+        .cases-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+            gap: 14px;
+            overflow-y: auto;
+            padding-right: 4px;
+            flex: 1 1 auto;
+            align-content: start;
+        }
+        .case-tile {
+            position: relative;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .case-tile:hover {
+            transform: translateY(-2px);
+            border-color: rgba(165, 114, 255, 0.45);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+        }
+        .case-tile-badge {
+            align-self: flex-start;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .03em;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(165, 114, 255, 0.18);
+            border: 1px solid rgba(165, 114, 255, 0.32);
+            color: #e6d9ff;
+        }
+        .case-tile-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 120px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.04);
+            overflow: hidden;
+        }
+        .case-tile-image img { width: 100%; height: 100%; object-fit: contain; }
+        .case-tile-fallback { font-size: 52px; line-height: 1; }
+        .case-tile-name { font-weight: 800; font-size: 15px; }
+        .case-tile-desc { color: var(--text-muted); font-size: 12px; line-height: 1.35; flex: 1 1 auto; }
+        .case-open-btn {
+            border: 0;
+            border-radius: 12px;
+            padding: 11px 12px;
+            color: #fff;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), #6a45bf);
+            transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+        }
+        .case-open-btn:not(:disabled):hover {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(95, 58, 166, 0.4);
+        }
+        .case-open-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+        .app-modal--case { width: min(720px, 96%); }
+        .case-reel-viewport {
+            position: relative;
+            height: 140px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.28);
+            border: 1px solid var(--border);
+            margin-bottom: 18px;
+        }
+        .case-reel-viewport::before, .case-reel-viewport::after {
+            content: "";
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 60px;
+            z-index: 3;
+            pointer-events: none;
+        }
+        .case-reel-viewport::before { left: 0; background: linear-gradient(90deg, rgba(15,10,28,0.95), transparent); }
+        .case-reel-viewport::after { right: 0; background: linear-gradient(-90deg, rgba(15,10,28,0.95), transparent); }
+        .case-reel-pointer {
+            position: absolute;
+            top: 0; bottom: 0;
+            left: 50%;
+            width: 3px;
+            margin-left: -1.5px;
+            background: #ffd469;
+            box-shadow: 0 0 14px rgba(255, 212, 105, 0.65);
+            z-index: 4;
+        }
+        .case-reel-track {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            will-change: transform;
+        }
+        .case-reel-item {
+            flex: 0 0 124px;
+            width: 124px;
+            height: 124px;
+            margin: 0 6px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .case-reel-item img { width: 100%; height: 100%; object-fit: contain; }
+        .case-reel-item span { font-size: 46px; }
+        .case-reel-item.is-winner { border-color: rgba(255, 212, 105, 0.65); box-shadow: 0 0 22px rgba(255, 212, 105, 0.35); }
+
+
         .modal-backdrop {
             position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 18px;
             background: rgba(8, 4, 15, 0.74); backdrop-filter: blur(8px);
@@ -1335,7 +1472,7 @@
                 </div>
 
             <div class="right-column">
-                <section class="panel wheel-panel">
+                <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Колесо фортуны</div>
                     </div>
@@ -1358,7 +1495,7 @@
                     <div class="wheel-footnote">Крутка стоит {{ spin_cost }} жетонов • недельная серия даёт от 1 до 7 жетонов • приз сохраняется сразу</div>
                 </section>
 
-                <section class="panel wheel-history-panel">
+                <section class="panel wheel-history-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="section-title">
                         <span>История выпадений</span>
                     </div>
@@ -1384,6 +1521,69 @@
                     {% else %}
                         <div class="empty" id="historyEmpty">Пока нет побед. Крути колесо и получай призы!</div>
                         <div class="history-list" id="historyList"></div>
+                    {% endif %}
+                </section>
+
+                <section class="panel cases-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                    <div class="wheel-head">
+                        <div class="section-title" style="margin:0;">Кейсы</div>
+                    </div>
+                    <p class="cases-subtitle">Открывай кейсы и получай призы! Приз начисляется сразу или передаётся администратору на выдачу.</p>
+
+                    {% set cases_list = cases|default([]) %}
+                    {% if cases_list %}
+                        <div class="cases-grid" id="casesGrid">
+                            {% for case in cases_list %}
+                                <div class="case-tile" data-case-id="{{ case.id }}">
+                                    {% if case.badge_label %}<div class="case-tile-badge">{{ case.badge_label }}</div>{% endif %}
+                                    <div class="case-tile-image">
+                                        {% if case.image_url %}
+                                            <img src="{{ case.image_url }}" alt="{{ case.name }}">
+                                        {% else %}
+                                            <span class="case-tile-fallback">📦</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="case-tile-name">{{ case.name }}</div>
+                                    {% if case.description %}<div class="case-tile-desc">{{ case.description }}</div>{% endif %}
+                                    <button class="case-open-btn" data-case-id="{{ case.id }}" onclick="openCase({{ case.id }})">
+                                        {% if case.price_tokens %}Открыть за {{ case.price_tokens }} жет.{% else %}Открыть бесплатно{% endif %}
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty">Владелец клуба пока не добавил кейсы.</div>
+                    {% endif %}
+                </section>
+
+                <section class="panel wheel-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                    <div class="section-title">
+                        <span>История открытий</span>
+                    </div>
+                    {% set case_history_list = case_history|default([]) %}
+                    {% if case_history_list %}
+                        <div class="history-list" id="caseHistoryList">
+                            {% for item in case_history_list %}
+                                <div class="history-item">
+                                    <div class="history-thumb" aria-hidden="true">
+                                        {% if item.image_url %}
+                                            <img class="history-thumb-img" src="{{ item.image_url }}" alt="{{ item.name }}">
+                                        {% else %}
+                                            <span class="history-thumb-placeholder">🎁</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="history-title">{{ item.name }}</div>
+                                        <div class="history-date">{{ item.case_name }}{% if item.description %} • {{ item.description }}{% endif %}</div>
+                                        <div class="history-status {{ 'history-status--issued' if (item.bonus_amount|int > 0 or item.token_amount|int > 0 or item.claim_status == 'issued') else ('history-status--cancelled' if item.claim_status == 'cancelled' else 'history-status--pending') }}">{{ item.prize_status_label }}</div>
+                                    </div>
+                                    <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty" id="caseHistoryEmpty">Пока нет открытий. Открой кейс и получи приз!</div>
+                        <div class="history-list" id="caseHistoryList"></div>
                     {% endif %}
                 </section>
             </div>
@@ -1478,6 +1678,29 @@
                     <div class="win-desc" id="winDescription">Поздравляем! Твой приз сохранён за тобой.</div>
                     <div class="history-status history-status--pending" id="winClaimStatus" style="display:none;"></div>
                     <button class="claim-btn" onclick="closeModal('winModal')">Отлично</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="caseOpenModal">
+        <div class="app-modal app-modal--case">
+            <button class="modal-close" onclick="closeModal('caseOpenModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title" id="caseOpenTitle">Открываем кейс...</h2>
+            <div class="case-reel-viewport">
+                <div class="case-reel-track" id="caseReelTrack"></div>
+                <div class="case-reel-pointer" aria-hidden="true"></div>
+            </div>
+            <div class="win-modal-grid" id="caseResult" style="display:none;">
+                <div class="win-image-box">
+                    <img class="win-image" id="caseWinImage" src="" alt="Приз" style="display:none;">
+                    <div id="caseWinFallback" style="font-size:70px;">🎁</div>
+                </div>
+                <div>
+                    <div class="win-name" id="caseWinName">Приз</div>
+                    <div class="win-desc" id="caseWinDescription">Поздравляем! Твой приз сохранён за тобой.</div>
+                    <div class="history-status history-status--pending" id="caseWinClaimStatus" style="display:none;"></div>
+                    <button class="claim-btn" onclick="closeModal('caseOpenModal')">Отлично</button>
                 </div>
             </div>
         </div>
@@ -1586,6 +1809,19 @@
         const initialTokens = Number({{ tokens_balance|default(0) }});
         const initialCmBonusBalance = Number({{ cm_balance|default(0) }});
         const prizes = {{ prizes_list|tojson }};
+        const gameMode = {{ game_mode|default('wheel')|tojson }};
+        const casesData = {{ cases|default([])|tojson }};
+        const caseReelTrack = document.getElementById('caseReelTrack');
+        const caseOpenTitle = document.getElementById('caseOpenTitle');
+        const caseResult = document.getElementById('caseResult');
+        const caseWinImage = document.getElementById('caseWinImage');
+        const caseWinFallback = document.getElementById('caseWinFallback');
+        const caseWinName = document.getElementById('caseWinName');
+        const caseWinDescription = document.getElementById('caseWinDescription');
+        const caseWinClaimStatus = document.getElementById('caseWinClaimStatus');
+        const caseHistoryList = document.getElementById('caseHistoryList');
+        const caseHistoryEmpty = document.getElementById('caseHistoryEmpty');
+        let isCaseOpening = false;
         let currentRotation = 0;
         let isSpinning = false;
         let pointerTickRaf = null;
@@ -2294,6 +2530,161 @@
                 stopPointerTicks();
                 showWinModal({ name: 'Ошибка', description: 'Что-то пошло не так при прокруте' });
                 isSpinning = false;
+                await loadTokens();
+            }
+        }
+
+        function reelItemMarkup(item, extraClass) {
+            const cls = `case-reel-item${extraClass ? ' ' + extraClass : ''}`;
+            if (item && item.image_url) {
+                return `<div class="${cls}"><img src="${item.image_url}" alt=""></div>`;
+            }
+            return `<div class="${cls}"><span>🎁</span></div>`;
+        }
+
+        function buildAndPlayReel(caseObj, wonItem, onDone) {
+            const pool = (caseObj && caseObj.items && caseObj.items.length) ? caseObj.items : [wonItem];
+            const totalCells = 36;
+            const winnerIndex = totalCells - 6;
+            let html = '';
+            for (let i = 0; i < totalCells; i += 1) {
+                if (i === winnerIndex) {
+                    html += reelItemMarkup(wonItem, 'is-winner');
+                } else {
+                    const randomItem = pool[Math.floor(Math.random() * pool.length)];
+                    html += reelItemMarkup(randomItem);
+                }
+            }
+            caseReelTrack.innerHTML = html;
+            caseReelTrack.style.transition = 'none';
+            caseReelTrack.style.transform = 'translateX(0px)';
+
+            const cellWidth = 124 + 12; // width + margins
+            const viewportWidth = caseReelTrack.parentElement.clientWidth;
+            const targetOffset = (winnerIndex * cellWidth + cellWidth / 2) - (viewportWidth / 2);
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    caseReelTrack.style.transition = 'transform 3.6s cubic-bezier(0.12, 0.78, 0.15, 1)';
+                    caseReelTrack.style.transform = `translateX(-${targetOffset}px)`;
+                });
+            });
+
+            setTimeout(onDone, 3700);
+        }
+
+        function showCaseResult(item, claim = null) {
+            caseOpenTitle.textContent = 'Тебе выпало!';
+            caseResult.style.display = 'grid';
+            caseWinName.textContent = item.name || 'Приз получен';
+            caseWinDescription.textContent = item.description || 'Поздравляем! Твой приз сохранён за тобой.';
+            if (item.image_url) {
+                caseWinImage.src = item.image_url;
+                caseWinImage.style.display = 'block';
+                caseWinFallback.style.display = 'none';
+            } else {
+                caseWinImage.removeAttribute('src');
+                caseWinImage.style.display = 'none';
+                caseWinFallback.style.display = 'block';
+            }
+            if (caseWinClaimStatus) {
+                if (claim) {
+                    caseWinClaimStatus.style.display = 'inline-flex';
+                    caseWinClaimStatus.className = `history-status ${claimStatusClass(claim.status)}`;
+                    caseWinClaimStatus.textContent = `Заявка #${claim.id}: ${claim.status_label || 'ожидает выдачи'}`;
+                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0) {
+                    caseWinClaimStatus.style.display = 'inline-flex';
+                    caseWinClaimStatus.className = 'history-status history-status--issued';
+                    caseWinClaimStatus.textContent = 'Начислено автоматически';
+                } else {
+                    caseWinClaimStatus.style.display = 'none';
+                    caseWinClaimStatus.textContent = '';
+                }
+            }
+        }
+
+        function prependCaseHistory(caseObj, item, claim = null) {
+            if (!caseHistoryList) return;
+            if (caseHistoryEmpty) caseHistoryEmpty.style.display = 'none';
+            const row = document.createElement('div');
+            row.className = 'history-item';
+            const imageHtml = item.image_url
+                ? `<div class="history-thumb" aria-hidden="true"><img class="history-thumb-img" src="${item.image_url}" alt=""></div>`
+                : `<div class="history-thumb" aria-hidden="true"><span class="history-thumb-placeholder">🎁</span></div>`;
+            row.innerHTML = `
+                ${imageHtml}
+                <div>
+                    <div class="history-title"></div>
+                    <div class="history-date"></div>
+                    <div class="history-status" style="display:none;"></div>
+                </div>
+                <div class="history-date">сейчас</div>
+            `;
+            row.querySelector('.history-title').textContent = item.name || 'Приз';
+            row.querySelectorAll('.history-date')[0].textContent = (caseObj && caseObj.name) ? caseObj.name : 'Кейс';
+            const statusBadge = row.querySelector('.history-status');
+            if (statusBadge) {
+                if (claim) {
+                    statusBadge.style.display = 'inline-flex';
+                    statusBadge.className = `history-status ${claimStatusClass(claim.status)}`;
+                    statusBadge.textContent = claim.status_label || 'ожидает выдачи';
+                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0) {
+                    statusBadge.style.display = 'inline-flex';
+                    statusBadge.className = 'history-status history-status--issued';
+                    statusBadge.textContent = 'начислено автоматически';
+                }
+            }
+            caseHistoryList.prepend(row);
+        }
+
+        async function openCase(caseId) {
+            if (isCaseOpening) return;
+            isCaseOpening = true;
+
+            document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = true; });
+            caseOpenTitle.textContent = 'Открываем кейс...';
+            caseResult.style.display = 'none';
+            openModal('caseOpenModal');
+
+            const caseObj = casesData.find((c) => Number(c.id) === Number(caseId));
+
+            try {
+                const response = await fetch(`/guest/api/cases/${caseId}/open`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    let errorText = 'Не удалось открыть кейс';
+                    if (data.error === 'no_tokens') errorText = 'Недостаточно жетонов для открытия';
+                    if (data.error === 'cases_disabled') errorText = 'Кейсы сейчас отключены';
+                    if (data.error === 'case_not_found') errorText = 'Кейс не найден';
+                    if (data.error === 'no_items' || data.error === 'invalid_items_config') errorText = 'Кейс пока не настроен';
+                    if (data.error === 'unauthorized') errorText = 'Нужно заново войти в кабинет';
+                    closeModal('caseOpenModal');
+                    showWinModal({ name: 'Ошибка', description: errorText });
+                    isCaseOpening = false;
+                    document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
+                    await loadTokens();
+                    return;
+                }
+
+                const item = data.item || {};
+                buildAndPlayReel(caseObj, item, async () => {
+                    showCaseResult(item, data.claim || null);
+                    prependCaseHistory(caseObj, item, data.claim || null);
+                    if (data.tokens_after !== undefined) setTokens(data.tokens_after);
+                    await loadTokens();
+                    await loadCmBonuses();
+                    isCaseOpening = false;
+                    document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
+                });
+            } catch (error) {
+                closeModal('caseOpenModal');
+                showWinModal({ name: 'Ошибка', description: 'Что-то пошло не так при открытии кейса' });
+                isCaseOpening = false;
+                document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
                 await loadTokens();
             }
         }

@@ -382,12 +382,148 @@
         }
     }
 
+    .game-mode-picker {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 14px;
+    }
+
+    .game-mode-choice {
+        position: relative;
+        display: grid;
+        gap: 6px;
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(20, 12, 36, 0.56);
+        cursor: pointer;
+        transition: border-color .16s ease, background .16s ease;
+    }
+
+    .game-mode-choice input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .game-mode-choice.is-active {
+        border-color: rgba(165, 114, 255, 0.55);
+        background: linear-gradient(135deg, rgba(143, 91, 255, 0.16), rgba(255, 212, 105, 0.08));
+    }
+
+    .game-mode-title {
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .game-mode-desc {
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    .case-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
+    }
+
+    .case-card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(20, 12, 36, 0.56);
+    }
+
+    .case-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .case-card-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .case-items-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .case-item-row {
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(255,255,255,0.035);
+    }
+
+    .case-item-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(90px, .7fr) minmax(80px, .6fr) minmax(80px, .6fr);
+        gap: 10px;
+        align-items: start;
+    }
+
+    .case-item-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .case-item-grid .form-group,
+    .case-form-grid .form-group {
+        margin-bottom: 0;
+    }
+
+    .case-form-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(120px, .7fr) minmax(120px, .7fr);
+        gap: 10px;
+        align-items: start;
+    }
+
+    .case-form-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .case-prob-total {
+        font-weight: 800;
+        font-size: 13px;
+        margin: 8px 0 4px;
+    }
+
+    .case-prob-total.is-ok { color: #63d67e; }
+    .case-prob-total.is-bad { color: #ff6f61; }
+
+    .case-add-trigger {
+        flex-shrink: 0;
+        white-space: nowrap;
+        font-weight: 800;
+        padding: 11px 14px;
+        border: 1px solid rgba(165, 114, 255, 0.32);
+        border-radius: 14px;
+        background: rgba(143, 91, 255, 0.12);
+        color: var(--accent-strong);
+        cursor: pointer;
+    }
+
+    .case-add-trigger:hover {
+        color: var(--text-main);
+        border-color: rgba(165, 114, 255, 0.55);
+        background: rgba(143, 91, 255, 0.2);
+    }
+
     @media (max-width: 920px) {
-        .prize-list,
-        .wheel-form-grid {
+        .game-mode-picker {
             grid-template-columns: 1fr;
         }
-        .prize-compact-grid {
+        .case-item-grid,
+        .case-form-grid {
             grid-template-columns: 1fr;
         }
     }
@@ -396,9 +532,32 @@
 <div class="wheel-page">
 <div class="wheel-layout">
     <section class="card wheel-section">
-        <div class="section-title">Настройки колеса</div>
+        <div class="section-title">Бонусная игра</div>
         <p class="wheel-subtitle">
-            Здесь задается дата начала начисления жетонов, стоимость прокрута и состояние колеса.
+            Выбери, что видят гости в личном кабинете: классическое колесо фортуны или кейсы с настраиваемым содержимым.
+            Жетоны для крутки/открытия начисляются по тем же правилам недельной серии, заданным ниже.
+        </p>
+
+        <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
+            <div class="game-mode-picker">
+                <label class="game-mode-choice {% if (game_mode|default('wheel')) == 'wheel' %}is-active{% endif %}">
+                    <input type="radio" name="game_mode" value="wheel" {% if (game_mode|default('wheel')) == 'wheel' %}checked{% endif %} onchange="this.form.submit()">
+                    <span class="game-mode-title">🎡 Колесо фортуны</span>
+                    <span class="game-mode-desc">Классическое колесо с призами и вероятностями</span>
+                </label>
+                <label class="game-mode-choice {% if game_mode == 'cases' %}is-active{% endif %}">
+                    <input type="radio" name="game_mode" value="cases" {% if game_mode == 'cases' %}checked{% endif %} onchange="this.form.submit()">
+                    <span class="game-mode-title">📦 Кейсы</span>
+                    <span class="game-mode-desc">Несколько кейсов со своим набором предметов и шансами</span>
+                </label>
+            </div>
+        </form>
+    </section>
+
+    <section class="card wheel-section">
+        <div class="section-title">Настройки жетонов</div>
+        <p class="wheel-subtitle">
+            Здесь задается дата начала начисления жетонов, стоимость прокрута колеса (для режима «Колесо фортуны») и состояние колеса.
             Жетоны считаются по уникальным дням посещения после выбранной даты.
         </p>
 
@@ -417,7 +576,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="spin_cost">Стоимость одного прокрута</label>
+                    <label for="spin_cost">Стоимость одного прокрута колеса</label>
                     <input
                         class="form-input"
                         type="number"
@@ -441,7 +600,7 @@
                             {% if wheel_settings.is_enabled %}checked{% endif %}
                         >
                         <span class="form-check-box" aria-hidden="true"></span>
-                        <span class="form-check-text">Колесо включено</span>
+                        <span class="form-check-text">Колесо включено{% if game_mode == 'cases' %} (применится при возврате к режиму «Колесо фортуны»){% endif %}</span>
                     </label>
                 </div>
             </div>
@@ -452,6 +611,9 @@
         </form>
     </section>
 
+    {% if game_mode == 'cases' %}
+        {% include "owner/_settings_cases.html" %}
+    {% else %}
     <section class="wheel-prize-workspace">
         <div class="card wheel-section wheel-prizes-panel">
             <div class="wheel-prizes-head">
@@ -575,6 +737,7 @@
             {% endif %}
         </aside>
     </section>
+    {% endif %}
 </div>
 </div>
 
