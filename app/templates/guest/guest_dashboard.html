@@ -767,6 +767,50 @@
         }
         .case-open-btn:disabled { opacity: .55; cursor: not-allowed; }
 
+
+        /* Cases mode should not reserve the huge wheel area when there are only a few cases */
+        .layout--cases {
+            min-height: 0;
+            align-items: start;
+            align-content: start;
+            grid-template-rows: auto auto;
+        }
+        .layout--cases .left-column,
+        .layout--cases .cases-panel,
+        .layout--cases .wheel-history-panel {
+            align-self: start;
+        }
+        .layout--cases .cases-panel {
+            height: auto;
+            min-height: 0;
+        }
+        .layout--cases .cases-grid {
+            flex: 0 0 auto;
+            overflow: visible;
+            padding-right: 0;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        }
+        .layout--cases .cases-grid[data-count="1"] {
+            grid-template-columns: minmax(280px, 430px);
+            max-width: 460px;
+        }
+        .layout--cases .cases-grid[data-count="2"] {
+            grid-template-columns: repeat(2, minmax(260px, 1fr));
+        }
+        .layout--cases .cases-grid[data-count="1"] .case-tile-image {
+            height: 260px;
+        }
+        .layout--cases .cases-grid[data-count="2"] .case-tile-image {
+            height: 230px;
+        }
+        .layout--cases .cases-grid[data-count="3"] .case-tile-image,
+        .layout--cases .cases-grid[data-count="4"] .case-tile-image {
+            height: 190px;
+        }
+        .layout--cases .case-tile {
+            min-height: 0;
+        }
+
         .app-modal--case { width: min(720px, 96%); }
         .case-reel-viewport {
             position: relative;
@@ -1139,6 +1183,15 @@
             .mission-card--has-reward { grid-template-columns: 1fr; }
             .mission-reward-col { padding: 10px 0 0; }
             .wheel-wrap { width: min(430px, 92vw); }
+            .layout--cases .cases-grid[data-count="1"],
+            .layout--cases .cases-grid[data-count="2"] {
+                grid-template-columns: 1fr;
+                max-width: none;
+            }
+            .layout--cases .cases-grid[data-count="1"] .case-tile-image,
+            .layout--cases .cases-grid[data-count="2"] .case-tile-image {
+                height: 190px;
+            }
             .wheel-axle { width: 86px; height: 86px; }
             .wheel-axle__mark { font-size: 24px; }
         }
@@ -1393,7 +1446,8 @@
         </header>
 
         <!-- guest-layout-v20260612-wheel-big-strict -->
-        <main class="layout">
+        <!-- case-area-auto-height-fix-20260614 -->
+        <main class="layout {% if game_mode == 'cases' %}layout--cases{% endif %}">
             <div class="left-column">
                 <section class="panel profile-panel">
                     <div class="profile-header-row">
@@ -1611,7 +1665,7 @@
                     {% endif %}
                 </section>
 
-                <section class="panel cases-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Кейсы</div>
                     </div>
@@ -1619,7 +1673,7 @@
 
                     {% set cases_list = cases|default([]) %}
                     {% if cases_list %}
-                        <div class="cases-grid" id="casesGrid">
+                        <div class="cases-grid" id="casesGrid" data-count="{{ cases_list|length }}">
                             {% for case in cases_list %}
                                 <div class="case-tile" data-case-id="{{ case.id }}">
                                     {% if case.badge_label %}<div class="case-tile-badge">{{ case.badge_label }}</div>{% endif %}
