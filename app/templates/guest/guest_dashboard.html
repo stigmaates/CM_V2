@@ -1367,18 +1367,31 @@
             .wheel-wrap { width: min(560px, 86vw); }
         }
     
-        /* Adaptive cases layout: the cases block grows by real number of case cards.
-           1-2 cases stay compact, 6-9 cases naturally take more height,
-           and the openings history moves directly under the cases block. */
+        /* Strict adaptive cases layout v2.
+           The old grid stretched the cases panel to the full dashboard row height,
+           so with 1-2 cases it looked as if there was empty space for 9 cards.
+           Here the right side becomes a real vertical stack: cases first, history directly below.
+        */
         .layout.layout--cases {
             grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
             grid-template-areas:
                 "left-top right-stack"
                 "referral right-stack";
             grid-template-rows: auto auto;
-            align-items: start;
-            align-content: start;
-            min-height: 0;
+            align-items: start !important;
+            align-content: start !important;
+            min-height: 0 !important;
+        }
+
+        /* Fallback for browsers where the class somehow is not enough, but visible cases exist. */
+        .layout:has(.cases-panel:not([style*="display:none"])) {
+            grid-template-areas:
+                "left-top right-stack"
+                "referral right-stack";
+            grid-template-rows: auto auto;
+            align-items: start !important;
+            align-content: start !important;
+            min-height: 0 !important;
         }
 
         .layout.layout--cases .left-column,
@@ -1386,125 +1399,168 @@
             align-self: start;
         }
 
-        .layout.layout--cases .right-column {
+        .layout.layout--cases .right-column,
+        .layout:has(.cases-panel:not([style*="display:none"])) .right-column {
             grid-area: right-stack;
-            display: flex;
+            display: flex !important;
             flex-direction: column;
             gap: 18px;
-            align-self: start;
-            min-height: 0;
-            height: auto;
+            align-self: start !important;
+            align-items: stretch;
+            min-height: 0 !important;
+            height: auto !important;
         }
 
         .layout.layout--cases .right-column > .wheel-panel[style*="display:none"],
         .layout.layout--cases .right-column > .wheel-history-panel[style*="display:none"],
-        .layout.layout--cases .right-column > .cases-panel[style*="display:none"] {
+        .layout.layout--cases .right-column > .cases-panel[style*="display:none"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-panel[style*="display:none"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-history-panel[style*="display:none"] {
             display: none !important;
         }
 
         .layout.layout--cases .right-column > .cases-panel,
-        .layout.layout--cases .right-column > .wheel-history-panel {
-            grid-area: auto;
+        .layout.layout--cases .right-column > .wheel-history-panel,
+        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .cases-panel,
+        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-history-panel {
+            grid-area: auto !important;
             width: 100%;
-            align-self: stretch;
-            height: auto;
-            min-height: 0;
-            max-height: none;
-            flex: 0 0 auto;
+            align-self: stretch !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            flex: 0 0 auto !important;
         }
 
-        .layout.layout--cases .cases-panel {
-            --case-thumb-height: 120px;
-            padding: 22px 24px 22px;
+        .layout.layout--cases .cases-panel,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel {
+            --case-thumb-height: 130px;
+            padding: 22px 24px !important;
+            height: fit-content !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            align-self: start !important;
         }
 
-        .layout.layout--cases .cases-subtitle {
+        .layout.layout--cases .cases-subtitle,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-subtitle {
             margin-bottom: 14px;
         }
 
-        .layout.layout--cases .cases-grid {
+        .layout.layout--cases .cases-grid,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 14px;
-            align-content: start;
+            align-content: start !important;
             align-items: stretch;
             justify-content: start;
             overflow: visible;
             padding-right: 0;
-            flex: 0 0 auto;
+            flex: 0 0 auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="1"] {
-            grid-template-columns: minmax(260px, 380px);
-            max-width: 400px;
+        .layout.layout--cases .cases-grid[data-count="1"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"] {
+            grid-template-columns: minmax(260px, 360px) !important;
+            max-width: 380px !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="2"] {
-            grid-template-columns: repeat(2, minmax(220px, 1fr));
-            max-width: 620px;
+        .layout.layout--cases .cases-grid[data-count="2"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"] {
+            grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
+            max-width: 640px !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="3"] {
-            grid-template-columns: repeat(3, minmax(180px, 1fr));
+        .layout.layout--cases .cases-grid[data-count="3"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"] {
+            grid-template-columns: repeat(3, minmax(180px, 1fr)) !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="4"] {
-            grid-template-columns: repeat(2, minmax(220px, 1fr));
-            max-width: 760px;
+        .layout.layout--cases .cases-grid[data-count="4"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] {
+            grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
+            max-width: 760px !important;
         }
 
         .layout.layout--cases .cases-panel[data-cases-count="1"],
-        .layout.layout--cases .cases-panel[data-cases-count="2"] {
-            padding-top: 20px;
-            padding-bottom: 20px;
+        .layout.layout--cases .cases-panel[data-cases-count="2"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="1"],
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="2"] {
+            padding-top: 18px !important;
+            padding-bottom: 18px !important;
+            height: fit-content !important;
+            min-height: 0 !important;
         }
 
         .layout.layout--cases .cases-panel[data-cases-count="1"] .cases-subtitle,
-        .layout.layout--cases .cases-panel[data-cases-count="2"] .cases-subtitle {
-            margin-bottom: 12px;
+        .layout.layout--cases .cases-panel[data-cases-count="2"] .cases-subtitle,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="1"] .cases-subtitle,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-panel[data-cases-count="2"] .cases-subtitle {
+            margin-bottom: 12px !important;
         }
 
         .layout.layout--cases .cases-grid[data-count="1"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-image {
-            height: 118px;
+        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"] .case-tile-image {
+            height: 150px !important;
         }
 
         .layout.layout--cases .cases-grid[data-count="3"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="4"] .case-tile-image {
-            height: 110px;
+        .layout.layout--cases .cases-grid[data-count="4"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] .case-tile-image {
+            height: 125px !important;
         }
 
         .layout.layout--cases .cases-grid[data-count="5"] .case-tile-image,
         .layout.layout--cases .cases-grid[data-count="6"] .case-tile-image,
         .layout.layout--cases .cases-grid[data-count="7"] .case-tile-image,
         .layout.layout--cases .cases-grid[data-count="8"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="9"] .case-tile-image {
-            height: var(--case-thumb-height);
+        .layout.layout--cases .cases-grid[data-count="9"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="5"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="6"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="7"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="8"] .case-tile-image,
+        .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="9"] .case-tile-image {
+            height: var(--case-thumb-height) !important;
         }
 
-        .layout.layout--cases .case-tile {
-            min-height: 0;
+        .layout.layout--cases .case-tile,
+        .layout:has(.cases-panel:not([style*="display:none"])) .case-tile {
+            min-height: 0 !important;
+            height: auto !important;
         }
 
-        .layout.layout--cases .case-tile-desc {
-            flex: 0 0 auto;
+        .layout.layout--cases .case-tile-desc,
+        .layout:has(.cases-panel:not([style*="display:none"])) .case-tile-desc {
+            flex: 0 0 auto !important;
         }
 
-        .layout.layout--cases .right-column > .wheel-history-panel {
-            padding: 20px 22px;
+        .layout.layout--cases .right-column > .wheel-history-panel,
+        .layout:has(.cases-panel:not([style*="display:none"])) .right-column > .wheel-history-panel {
+            padding: 20px 22px !important;
         }
 
-        .layout.layout--cases .wheel-history-panel .history-list {
+        .layout.layout--cases .wheel-history-panel .history-list,
+        .layout:has(.cases-panel:not([style*="display:none"])) .wheel-history-panel .history-list {
             max-height: 360px;
         }
 
         @media (max-width: 1180px) {
-            .layout.layout--cases {
+            .layout.layout--cases,
+            .layout:has(.cases-panel:not([style*="display:none"])) {
                 grid-template-columns: 1fr;
                 grid-template-areas:
                     "left-top"
                     "referral"
                     "right-stack";
+                min-height: 0 !important;
+                align-items: start !important;
             }
         }
 
@@ -1513,18 +1569,28 @@
             .layout.layout--cases .cases-grid[data-count="1"],
             .layout.layout--cases .cases-grid[data-count="2"],
             .layout.layout--cases .cases-grid[data-count="3"],
-            .layout.layout--cases .cases-grid[data-count="4"] {
-                grid-template-columns: 1fr;
-                max-width: none;
+            .layout.layout--cases .cases-grid[data-count="4"],
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid,
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"],
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"],
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"],
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] {
+                grid-template-columns: 1fr !important;
+                max-width: none !important;
             }
 
             .layout.layout--cases .cases-grid[data-count="1"] .case-tile-image,
             .layout.layout--cases .cases-grid[data-count="2"] .case-tile-image,
             .layout.layout--cases .cases-grid[data-count="3"] .case-tile-image,
-            .layout.layout--cases .cases-grid[data-count="4"] .case-tile-image {
-                height: 150px;
+            .layout.layout--cases .cases-grid[data-count="4"] .case-tile-image,
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="1"] .case-tile-image,
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="2"] .case-tile-image,
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="3"] .case-tile-image,
+            .layout:has(.cases-panel:not([style*="display:none"])) .cases-grid[data-count="4"] .case-tile-image {
+                height: 150px !important;
             }
         }
+
 
     </style>
 </head>
@@ -1720,7 +1786,7 @@
                     <div class="referral-message" id="referralMessage"></div>
                 </div>
 
-            <div class="right-column">
+            <div class="right-column" {% if game_mode == 'cases' %}style="grid-area:right-stack;display:flex;flex-direction:column;gap:18px;align-self:start;height:auto;min-height:0;"{% endif %}>
                 <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Колесо фортуны</div>
@@ -1773,7 +1839,7 @@
                     {% endif %}
                 </section>
 
-                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" style="{% if game_mode != 'cases' %}display:none;{% else %}align-self:start;height:auto;min-height:0;max-height:none;{% endif %}">
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Кейсы</div>
                     </div>
