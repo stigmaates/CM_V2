@@ -819,6 +819,86 @@
         .case-reel-item img { width: 100%; height: 100%; object-fit: contain; }
         .case-reel-item span { font-size: 46px; }
         .case-reel-item.is-winner { border-color: rgba(255, 212, 105, 0.65); box-shadow: 0 0 22px rgba(255, 212, 105, 0.35); }
+        .case-reel-track.is-idle {
+            animation: caseReelIdle 18s linear infinite;
+        }
+        @keyframes caseReelIdle {
+            from { transform: translateX(0); }
+            to { transform: translateX(-816px); }
+        }
+        .case-preview-panel {
+            display: grid;
+            gap: 12px;
+            margin: 0 0 16px;
+        }
+        .case-preview-title {
+            color: var(--text-main);
+            font-weight: 900;
+            font-size: 15px;
+        }
+        .case-preview-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            max-height: 260px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+        .case-preview-item {
+            display: grid;
+            grid-template-columns: 46px 1fr;
+            gap: 10px;
+            align-items: center;
+            min-height: 62px;
+            padding: 9px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.09);
+            background: rgba(255,255,255,0.045);
+        }
+        .case-preview-thumb {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background: rgba(0,0,0,.18);
+            border: 1px solid rgba(255,255,255,.08);
+            font-size: 22px;
+        }
+        .case-preview-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .case-preview-name {
+            color: #fff;
+            font-weight: 900;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+        .case-preview-reward {
+            color: var(--text-muted);
+            font-size: 11px;
+            line-height: 1.25;
+            margin-top: 3px;
+        }
+        .case-modal-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .case-modal-actions .claim-btn {
+            width: auto;
+            flex: 1 1 180px;
+        }
+        .case-modal-actions .claim-btn.secondary {
+            background: rgba(255,255,255,.09);
+            color: #f4ecff;
+            border: 1px solid rgba(255,255,255,.14);
+            box-shadow: none;
+        }
 
 
         .modal-backdrop {
@@ -1552,7 +1632,7 @@
                                     </div>
                                     <div class="case-tile-name">{{ case.name }}</div>
                                     {% if case.description %}<div class="case-tile-desc">{{ case.description }}</div>{% endif %}
-                                    <button class="case-open-btn" data-case-id="{{ case.id }}" onclick="openCase({{ case.id }})">
+                                    <button class="case-open-btn" data-case-id="{{ case.id }}" onclick="previewCase({{ case.id }})">
                                         {% if case.price_tokens %}Открыть за {{ case.price_tokens }} жет.{% else %}Открыть бесплатно{% endif %}
                                     </button>
                                 </div>
@@ -1693,11 +1773,22 @@
     <div class="modal-backdrop" id="caseOpenModal">
         <div class="app-modal app-modal--case">
             <button class="modal-close" onclick="closeModal('caseOpenModal')" aria-label="Закрыть">×</button>
-            <h2 class="modal-title" id="caseOpenTitle">Открываем кейс...</h2>
+            <h2 class="modal-title" id="caseOpenTitle">Открыть кейс?</h2>
             <div class="case-reel-viewport">
                 <div class="case-reel-track" id="caseReelTrack"></div>
                 <div class="case-reel-pointer" aria-hidden="true"></div>
             </div>
+
+            <div class="case-preview-panel" id="casePreviewPanel">
+                <div class="case-preview-title">Что может выпасть</div>
+                <div class="case-preview-items" id="casePreviewItems"></div>
+            </div>
+
+            <div class="case-modal-actions" id="caseModalActions">
+                <button class="claim-btn" type="button" id="caseConfirmOpenBtn">Открыть</button>
+                <button class="claim-btn secondary" type="button" id="caseChooseAnotherBtn">Открыть другой кейс</button>
+            </div>
+
             <div class="win-modal-grid" id="caseResult" style="display:none;">
                 <div class="win-image-box">
                     <img class="win-image" id="caseWinImage" src="" alt="Приз" style="display:none;">
@@ -1820,6 +1911,11 @@
         const casesData = {{ cases|default([])|tojson }};
         const caseReelTrack = document.getElementById('caseReelTrack');
         const caseOpenTitle = document.getElementById('caseOpenTitle');
+        const casePreviewPanel = document.getElementById('casePreviewPanel');
+        const casePreviewItems = document.getElementById('casePreviewItems');
+        const caseModalActions = document.getElementById('caseModalActions');
+        const caseConfirmOpenBtn = document.getElementById('caseConfirmOpenBtn');
+        const caseChooseAnotherBtn = document.getElementById('caseChooseAnotherBtn');
         const caseResult = document.getElementById('caseResult');
         const caseWinImage = document.getElementById('caseWinImage');
         const caseWinFallback = document.getElementById('caseWinFallback');
@@ -1829,6 +1925,7 @@
         const caseHistoryList = document.getElementById('caseHistoryList');
         const caseHistoryEmpty = document.getElementById('caseHistoryEmpty');
         let isCaseOpening = false;
+        let selectedCaseId = null;
         let currentRotation = 0;
         let isSpinning = false;
         let pointerTickRaf = null;
@@ -1846,6 +1943,10 @@
         function closeModal(id) {
             const modal = document.getElementById(id);
             if (modal) modal.classList.remove('show');
+            if (id === 'caseOpenModal' && !isCaseOpening) {
+                stopIdleCaseReel();
+                selectedCaseId = null;
+            }
         }
 
         function setTokens(tokens) {
@@ -2549,6 +2650,94 @@
             return `<div class="${cls}"><span>🎁</span></div>`;
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function caseRewardText(item) {
+            const parts = [];
+            if (Number(item && item.bonus_amount || 0) > 0) parts.push(`${Number(item.bonus_amount)} КБ`);
+            if (Number(item && item.token_amount || 0) > 0) parts.push(`${Number(item.token_amount)} жет.`);
+            return parts.length ? parts.join(' + ') : 'ручной приз';
+        }
+
+        function renderCasePreviewItems(caseObj) {
+            if (!casePreviewItems) return;
+            const items = (caseObj && caseObj.items && caseObj.items.length) ? caseObj.items : [];
+            if (!items.length) {
+                casePreviewItems.innerHTML = '<div class="referral-modal-empty">В этом кейсе пока нет предметов.</div>';
+                return;
+            }
+            casePreviewItems.innerHTML = items.map((item) => {
+                const thumb = item.image_url
+                    ? `<img src="${escapeHtml(item.image_url)}" alt="">`
+                    : '<span>🎁</span>';
+                const probability = Number(item.probability || 0) > 0 ? ` · ${Number(item.probability).toFixed(2).replace(/\.?0+$/, '')}%` : '';
+                return `
+                    <div class="case-preview-item">
+                        <div class="case-preview-thumb">${thumb}</div>
+                        <div>
+                            <div class="case-preview-name">${escapeHtml(item.name || 'Приз')}</div>
+                            <div class="case-preview-reward">${escapeHtml(caseRewardText(item))}${probability}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function stopIdleCaseReel() {
+            if (!caseReelTrack) return;
+            caseReelTrack.classList.remove('is-idle');
+            caseReelTrack.style.animation = '';
+        }
+
+        function startIdleCaseReel(caseObj) {
+            if (!caseReelTrack) return;
+            const pool = (caseObj && caseObj.items && caseObj.items.length) ? caseObj.items : [{ name: 'Приз', image_url: null }];
+            const totalCells = 28;
+            let html = '';
+            for (let i = 0; i < totalCells; i += 1) {
+                const item = pool[i % pool.length];
+                html += reelItemMarkup(item);
+            }
+            stopIdleCaseReel();
+            caseReelTrack.innerHTML = html;
+            caseReelTrack.style.transition = 'none';
+            caseReelTrack.style.transform = 'translateX(0px)';
+            caseReelTrack.classList.remove('is-idle');
+            void caseReelTrack.offsetWidth;
+            caseReelTrack.classList.add('is-idle');
+        }
+
+        function previewCase(caseId) {
+            if (isCaseOpening) return;
+            const caseObj = casesData.find((c) => Number(c.id) === Number(caseId));
+            if (!caseObj) {
+                showWinModal({ name: 'Ошибка', description: 'Кейс не найден' });
+                return;
+            }
+
+            selectedCaseId = caseId;
+            caseOpenTitle.textContent = caseObj.name ? `Кейс: ${caseObj.name}` : 'Открыть кейс?';
+            if (caseResult) caseResult.style.display = 'none';
+            if (casePreviewPanel) casePreviewPanel.style.display = 'grid';
+            if (caseModalActions) caseModalActions.style.display = 'flex';
+            if (caseConfirmOpenBtn) {
+                const price = Number(caseObj.price_tokens || 0);
+                caseConfirmOpenBtn.disabled = false;
+                caseConfirmOpenBtn.textContent = price > 0 ? `Открыть за ${price} жет.` : 'Открыть бесплатно';
+            }
+            renderCasePreviewItems(caseObj);
+            startIdleCaseReel(caseObj);
+            openModal('caseOpenModal');
+        }
+
         function buildAndPlayReel(caseObj, wonItem, onDone) {
             const pool = (caseObj && caseObj.items && caseObj.items.length) ? caseObj.items : [wonItem];
             const totalCells = 36;
@@ -2654,10 +2843,16 @@
             if (isCaseOpening) return;
             isCaseOpening = true;
 
+            stopIdleCaseReel();
             document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = true; });
+            if (caseConfirmOpenBtn) {
+                caseConfirmOpenBtn.disabled = true;
+                caseConfirmOpenBtn.textContent = 'Открываем...';
+            }
+            if (caseModalActions) caseModalActions.style.display = 'none';
+            if (casePreviewPanel) casePreviewPanel.style.display = 'none';
             caseOpenTitle.textContent = 'Открываем кейс...';
             caseResult.style.display = 'none';
-            openModal('caseOpenModal');
 
             const caseObj = casesData.find((c) => Number(c.id) === Number(caseId));
 
@@ -2691,6 +2886,7 @@
                     await loadTokens();
                     await loadCmBonuses();
                     isCaseOpening = false;
+                    selectedCaseId = null;
                     document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
                 });
             } catch (error) {
@@ -2700,6 +2896,18 @@
                 document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
                 await loadTokens();
             }
+        }
+
+        if (caseConfirmOpenBtn) {
+            caseConfirmOpenBtn.addEventListener('click', () => {
+                if (selectedCaseId !== null) openCase(selectedCaseId);
+            });
+        }
+
+        if (caseChooseAnotherBtn) {
+            caseChooseAnotherBtn.addEventListener('click', () => {
+                closeModal('caseOpenModal');
+            });
         }
 
 

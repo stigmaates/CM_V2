@@ -421,6 +421,8 @@ def serialize_case_item(item):
         "image_url": item.get("image_url"),
         "bonus_amount": int(item.get("bonus_amount") or 0),
         "token_amount": int(item.get("token_amount") or 0),
+        "probability": float(item.get("probability") or 0),
+        "is_active": bool(item.get("is_active")),
     }
 
 
