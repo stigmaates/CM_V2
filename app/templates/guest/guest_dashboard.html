@@ -1438,16 +1438,21 @@
         }
 
     
-        /* Right column flex fix for cases mode: cases + history stack by content height */
+        /* REAL structural fix for cases mode:
+           right column stops using display: contents and becomes a normal flex column.
+           This makes Cases and History stack by real content height instead of reserving wheel-sized grid rows. */
         .layout.layout--cases {
-            min-height: 0 !important;
+            grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+            grid-template-areas:
+                "left-top right-stack"
+                "referral right-stack" !important;
             align-items: start !important;
             align-content: start !important;
-            grid-template-rows: auto auto !important;
+            min-height: 0 !important;
         }
 
         .layout.layout--cases .right-column {
-            grid-area: wheel !important;
+            grid-area: right-stack !important;
             display: flex !important;
             flex-direction: column !important;
             gap: 24px !important;
@@ -1456,68 +1461,84 @@
             height: auto !important;
         }
 
-        .layout.layout--cases .cases-panel,
-        .layout.layout--cases .wheel-history-panel {
+        .layout.layout--cases .right-column > .wheel-panel[style*="display:none"],
+        .layout.layout--cases .right-column > .wheel-history-panel[style*="display:none"] {
+            display: none !important;
+        }
+
+        .layout.layout--cases .right-column > .cases-panel,
+        .layout.layout--cases .right-column > .wheel-history-panel {
+            grid-area: auto !important;
+            width: 100% !important;
             align-self: stretch !important;
+        }
+
+        .layout.layout--cases .right-column > .cases-panel {
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            flex: 0 0 auto !important;
+            padding-bottom: 24px !important;
+        }
+
+        .layout.layout--cases .right-column > .wheel-history-panel {
             height: auto !important;
             min-height: 0 !important;
             flex: 0 0 auto !important;
         }
 
-        .layout.layout--cases .cases-grid {
+        .layout.layout--cases .right-column > .cases-panel .cases-grid {
             display: grid !important;
             flex: 0 0 auto !important;
             overflow: visible !important;
-            padding-right: 0 !important;
             align-content: start !important;
             justify-content: start !important;
-            gap: 18px !important;
+            padding-right: 0 !important;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="1"] {
-            grid-template-columns: minmax(300px, 440px) !important;
-            max-width: 470px !important;
+        .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="1"] {
+            grid-template-columns: minmax(300px, 430px) !important;
+            max-width: 460px !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="2"] {
+        .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="2"] {
             grid-template-columns: repeat(2, minmax(300px, 390px)) !important;
             max-width: 820px !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="1"] .case-tile-image {
+        .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="1"] .case-tile-image {
             height: 270px !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-image {
-            height: 245px !important;
+        .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="2"] .case-tile-image {
+            height: 240px !important;
         }
 
-        .layout.layout--cases .cases-grid[data-count="3"] .case-tile-image,
-        .layout.layout--cases .cases-grid[data-count="4"] .case-tile-image {
-            height: 205px !important;
-        }
-
-        .layout.layout--cases .case-tile {
+        .layout.layout--cases .right-column > .cases-panel .case-tile {
             min-height: 0 !important;
         }
 
         @media (max-width: 1180px) {
-            .layout.layout--cases .right-column {
-                grid-area: wheel !important;
+            .layout.layout--cases {
+                grid-template-columns: 1fr !important;
+                grid-template-areas:
+                    "left-top"
+                    "referral"
+                    "right-stack" !important;
             }
         }
 
         @media (max-width: 760px) {
-            .layout.layout--cases .cases-grid,
-            .layout.layout--cases .cases-grid[data-count="1"],
-            .layout.layout--cases .cases-grid[data-count="2"] {
+            .layout.layout--cases .right-column > .cases-panel .cases-grid,
+            .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="1"],
+            .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="2"] {
                 grid-template-columns: 1fr !important;
                 max-width: none !important;
             }
 
-            .layout.layout--cases .cases-grid[data-count="1"] .case-tile-image,
-            .layout.layout--cases .cases-grid[data-count="2"] .case-tile-image {
+            .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="1"] .case-tile-image,
+            .layout.layout--cases .right-column > .cases-panel .cases-grid[data-count="2"] .case-tile-image {
                 height: 190px !important;
             }
         }
@@ -1549,8 +1570,8 @@
         </header>
 
         <!-- guest-layout-v20260612-wheel-big-strict -->
+        <!-- case-right-column-real-fix-20260614 -->
         <!-- case-area-strict-fix-20260614 -->
-        <!-- case-right-column-flex-fix-20260614 -->
         <main class="layout {% if game_mode == 'cases' %}layout--cases{% endif %}">
             <div class="left-column">
                 <section class="panel profile-panel">
