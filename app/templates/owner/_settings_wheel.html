@@ -464,6 +464,43 @@
         background: rgba(255,255,255,0.035);
     }
 
+    .case-items-compact {
+        display: grid;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .case-item-picker {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(255,255,255,0.035);
+    }
+
+    .case-item-picker .form-group {
+        margin-bottom: 0;
+    }
+
+    .case-item-picker-meta {
+        display: grid;
+        gap: 4px;
+        justify-items: end;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.25;
+        padding-bottom: 4px;
+        white-space: nowrap;
+    }
+
+    .case-item-row--compact[hidden] {
+        display: none !important;
+    }
+
+
     .case-item-grid {
         display: grid;
         grid-template-columns: minmax(0, 1.4fr) minmax(90px, .7fr) minmax(80px, .6fr) minmax(80px, .6fr);

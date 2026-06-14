@@ -64,9 +64,36 @@
                         {% if not case_prob_ok %} — должна быть 100%, чтобы включить кейс{% endif %}
                     </div>
 
-                    <div class="case-items-list">
+                    <div class="case-items-compact" data-case-items-compact="{{ case.id }}">
+                        <div class="case-item-picker">
+                            <div class="form-group">
+                                <label for="case_item_select_{{ case.id }}">Предмет кейса</label>
+                                {% if case_items %}
+                                    <select class="form-input" id="case_item_select_{{ case.id }}" data-case-item-selector data-case-id="{{ case.id }}">
+                                        {% for item in case_items %}
+                                            <option value="{{ item.id }}">
+                                                {{ loop.index }}. {{ item.name }} — {{ item.probability }}%{% if not item.is_active %} · выкл.{% endif %}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <div class="muted">В кейсе пока нет предметов.</div>
+                                {% endif %}
+                            </div>
+                            {% if case_items %}
+                                <div class="case-item-picker-meta">
+                                    <span>Всего предметов: {{ case_items|length }}</span>
+                                    <span>Активных: {{ active_items|length }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+
                         {% for item in case_items %}
-                            <div class="case-item-row">
+                            <div class="case-item-row case-item-row--compact"
+                                 data-case-item-editor
+                                 data-case-id="{{ case.id }}"
+                                 data-item-id="{{ item.id }}"
+                                 {% if not loop.first %}hidden{% endif %}>
                                 <form id="case-item-update-{{ item.id }}" method="POST" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}">
                                     <div class="case-item-grid">
                                         <div class="form-group">
@@ -109,8 +136,6 @@
                                     </form>
                                 </div>
                             </div>
-                        {% else %}
-                            <div class="muted">В кейсе пока нет предметов.</div>
                         {% endfor %}
                     </div>
 
@@ -233,6 +258,16 @@
         modal.addEventListener('click', (event) => {
             if (event.target === modal) closeModal();
         });
+        document.querySelectorAll('[data-case-item-selector]').forEach((selector) => {
+            selector.addEventListener('change', () => {
+                const caseId = selector.dataset.caseId;
+                const itemId = selector.value;
+                document.querySelectorAll(`[data-case-item-editor][data-case-id="${caseId}"]`).forEach((editor) => {
+                    editor.hidden = editor.dataset.itemId !== itemId;
+                });
+            });
+        });
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
         });

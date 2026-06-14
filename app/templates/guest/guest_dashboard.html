@@ -1007,6 +1007,13 @@
         .history-status--issued { color: #d8ffe6; background: rgba(73, 207, 130, .13); border-color: rgba(120, 238, 170, .26); }
         .history-status--pending { color: #fff2c8; background: rgba(255, 202, 92, .12); border-color: rgba(255, 218, 132, .28); }
         .history-status--cancelled { color: #ffd6dc; background: rgba(255, 92, 125, .13); border-color: rgba(255, 132, 158, .28); }
+        .win-modal-grid .history-status {
+            margin-bottom: 14px;
+        }
+
+        .win-modal-grid .claim-btn {
+            margin-top: 8px;
+        }
         .wheel-history-panel {
             grid-area: history;
             align-self: stretch;
@@ -2549,7 +2556,9 @@
             let html = '';
             for (let i = 0; i < totalCells; i += 1) {
                 if (i === winnerIndex) {
-                    html += reelItemMarkup(wonItem, 'is-winner');
+                    // Не подсвечиваем выигрышную ячейку заранее: пока лента летит,
+                    // это обычная ячейка. Подсветка включается только после остановки.
+                    html += reelItemMarkup(wonItem, 'js-case-winner');
                 } else {
                     const randomItem = pool[Math.floor(Math.random() * pool.length)];
                     html += reelItemMarkup(randomItem);
@@ -2570,7 +2579,11 @@
                 });
             });
 
-            setTimeout(onDone, 3700);
+            setTimeout(() => {
+                const winnerCell = caseReelTrack.querySelector('.js-case-winner');
+                if (winnerCell) winnerCell.classList.add('is-winner');
+                onDone();
+            }, 3700);
         }
 
         function showCaseResult(item, claim = null) {
