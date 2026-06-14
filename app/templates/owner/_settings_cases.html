@@ -15,8 +15,8 @@
     {% if cases_list %}
         <div class="case-list">
             {% for case in cases_list %}
-                {% set items = case.items or [] %}
-                {% set active_items = items|selectattr('is_active')|list %}
+                {% set case_items = case.get('items') or [] %}
+                {% set active_items = case_items|selectattr('is_active')|list %}
                 {% set prob_sum = active_items|sum(attribute='probability')|float %}
                 {% set case_prob_ok = (prob_sum - 100)|abs < 0.06 %}
                 <div class="case-card">
@@ -65,7 +65,7 @@
                     </div>
 
                     <div class="case-items-list">
-                        {% for item in items %}
+                        {% for item in case_items %}
                             <div class="case-item-row">
                                 <form id="case-item-update-{{ item.id }}" method="POST" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}">
                                     <div class="case-item-grid">
