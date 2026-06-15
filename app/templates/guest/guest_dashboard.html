@@ -1576,11 +1576,11 @@
         }
 
 
-        /* case-layout-hard-fix-v5: финальный фикс режима «Кейсы».
+        /* case-layout-hard-fix-v6: финальный фикс режима «Кейсы».
            Важно: это намеренно стоит в самом конце style-блока и дублируется JS-страховкой ниже,
            чтобы старые правила .wheel-panel/.right-column/display:contents не могли снова растянуть cases-panel. */
         @media (min-width: 1181px) {
-            body .layout.layout--cases.case-layout-hard-fix-v5 {
+            body .layout.layout--cases.case-layout-hard-fix-v6 {
                 grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
                 grid-template-areas:
                     "left-top right-stack"
@@ -1590,7 +1590,7 @@
                 align-content: stretch !important;
             }
 
-            body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column {
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
                 grid-area: right-stack !important;
                 display: flex !important;
                 flex-direction: column !important;
@@ -1603,13 +1603,13 @@
             }
         }
 
-        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .wheel-panel[style*="display:none"],
-        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
             display: none !important;
         }
 
-        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .cases-panel,
-        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .cases-history-panel {
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-panel,
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel {
             grid-area: auto !important;
             align-self: stretch !important;
             flex: 0 0 auto !important;
@@ -1619,7 +1619,7 @@
             width: 100% !important;
         }
 
-        body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column > .cases-panel {
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-panel {
             display: flex !important;
             flex-direction: column !important;
             justify-content: flex-start !important;
@@ -1627,7 +1627,7 @@
             overflow: visible !important;
         }
 
-        body .layout.layout--cases.case-layout-hard-fix-v5 .cases-grid {
+        body .layout.layout--cases.case-layout-hard-fix-v6 .cases-grid {
             height: auto !important;
             min-height: 0 !important;
             max-height: none !important;
@@ -1635,12 +1635,12 @@
             align-content: start !important;
         }
 
-        body .layout.layout--cases.case-layout-hard-fix-v5 .case-tile {
+        body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile {
             height: auto !important;
             min-height: 0 !important;
         }
 
-        body .layout.layout--cases.case-layout-hard-fix-v5 .case-tile-image img {
+        body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile-image img {
             width: 100% !important;
             height: 100% !important;
             object-fit: cover !important;
@@ -1649,7 +1649,7 @@
         }
 
         @media (max-width: 1180px) {
-            body .layout.layout--cases.case-layout-hard-fix-v5 {
+            body .layout.layout--cases.case-layout-hard-fix-v6 {
                 grid-template-columns: 1fr !important;
                 grid-template-areas:
                     "left-top"
@@ -1660,13 +1660,114 @@
                 align-content: start !important;
             }
 
-            body .layout.layout--cases.case-layout-hard-fix-v5 > .right-column {
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
                 grid-area: right-stack !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: flex-start !important;
                 gap: 16px !important;
                 min-height: 0 !important;
+            }
+        }
+
+        /* case-layout-hard-fix-v6: кейсы сверху, история под ними, низ истории выровнен с рефералкой.
+           На десктопе правая колонка растягивается на всю высоту двух левых блоков,
+           а история занимает оставшееся пространство. */
+        @media (min-width: 1181px) {
+            body .layout.layout--cases.case-layout-hard-fix-v6 {
+                grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+                grid-template-areas:
+                    "left-top right-stack"
+                    "referral right-stack" !important;
+                grid-template-rows: auto auto !important;
+                align-items: stretch !important;
+                align-content: stretch !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                align-items: stretch !important;
+                gap: 18px !important;
+                align-self: stretch !important;
+                min-height: 100% !important;
+                height: 100% !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-panel {
+                flex: 0 0 auto !important;
+                height: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel .history-list {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                overflow: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel .empty {
+                flex: 1 1 auto !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .cases-grid {
+                align-items: stretch !important;
+                grid-auto-rows: 1fr !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile {
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100% !important;
+                min-height: 0 !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .case-open-btn {
+                margin-top: auto !important;
+            }
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                gap: 16px !important;
+                min-height: 0 !important;
+                height: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel {
+                display: block !important;
+                flex: 0 0 auto !important;
+                overflow: visible !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel .history-list {
+                max-height: 360px !important;
+                overflow: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .cases-grid {
+                grid-auto-rows: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile {
+                height: auto !important;
             }
         }
 
@@ -1699,7 +1800,7 @@
         <!-- guest-layout-v20260612-wheel-big-strict -->
         <!-- case-right-column-real-fix-20260614 -->
         <!-- case-area-strict-fix-20260614 -->
-        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-hard-fix-v5{% endif %}" data-case-layout-fix="v5">
+        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-hard-fix-v6{% endif %}" data-case-layout-fix="v6">
             <div class="left-column">
                 <section class="panel profile-panel">
                     <div class="profile-header-row">
@@ -1864,7 +1965,7 @@
                     <div class="referral-message" id="referralMessage"></div>
                 </div>
 
-            <div class="right-column" data-case-right-column="v5">
+            <div class="right-column" data-case-right-column="v6">
                 <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Колесо фортуны</div>
@@ -3284,17 +3385,17 @@
         });
 
 
-        function applyCasesLayoutHardFixV5() {
+        function applyCasesLayoutHardFixV6() {
             if (gameMode !== 'cases') return;
 
             const layout = document.querySelector('.layout.layout--cases');
-            const rightColumn = document.querySelector('[data-case-right-column="v5"]');
+            const rightColumn = document.querySelector('[data-case-right-column="v6"]');
             const casesPanel = document.querySelector('.cases-panel');
             const historyPanel = document.querySelector('.cases-history-panel');
             const casesGrid = document.getElementById('casesGrid');
             if (!layout || !rightColumn || !casesPanel) return;
 
-            layout.classList.add('case-layout-hard-fix-v5');
+            layout.classList.add('case-layout-hard-fix-v6');
             layout.style.alignItems = 'stretch';
             layout.style.alignContent = window.innerWidth > 1180 ? 'stretch' : 'start';
 
@@ -3302,8 +3403,9 @@
                 layout.style.gridTemplateColumns = 'minmax(460px, 0.95fr) minmax(640px, 1.05fr)';
                 layout.style.gridTemplateAreas = '"left-top right-stack" "referral right-stack"';
                 layout.style.gridTemplateRows = 'auto auto';
-                rightColumn.style.justifyContent = 'center';
+                rightColumn.style.justifyContent = 'flex-start';
                 rightColumn.style.height = '100%';
+                rightColumn.style.minHeight = '100%';
             } else {
                 layout.style.gridTemplateColumns = '1fr';
                 layout.style.gridTemplateAreas = '"left-top" "referral" "right-stack"';
@@ -3311,6 +3413,7 @@
                 layout.style.minHeight = '0';
                 rightColumn.style.justifyContent = 'flex-start';
                 rightColumn.style.height = 'auto';
+                rightColumn.style.minHeight = '0';
             }
 
             rightColumn.style.gridArea = 'right-stack';
@@ -3319,12 +3422,10 @@
             rightColumn.style.alignItems = 'stretch';
             rightColumn.style.gap = window.innerWidth > 1180 ? '18px' : '16px';
             rightColumn.style.alignSelf = 'stretch';
-            rightColumn.style.minHeight = '0';
 
             [casesPanel, historyPanel].filter(Boolean).forEach((panel) => {
                 panel.style.gridArea = 'auto';
                 panel.style.alignSelf = 'stretch';
-                panel.style.flex = '0 0 auto';
                 panel.style.height = 'auto';
                 panel.style.minHeight = '0';
                 panel.style.maxHeight = 'none';
@@ -3335,6 +3436,28 @@
             casesPanel.style.flexDirection = 'column';
             casesPanel.style.justifyContent = 'flex-start';
             casesPanel.style.overflow = 'visible';
+            casesPanel.style.flex = '0 0 auto';
+
+            if (historyPanel) {
+                if (window.innerWidth > 1180) {
+                    historyPanel.style.display = 'flex';
+                    historyPanel.style.flexDirection = 'column';
+                    historyPanel.style.flex = '1 1 auto';
+                    historyPanel.style.minHeight = '0';
+                    historyPanel.style.overflow = 'hidden';
+                    const historyList = historyPanel.querySelector('.history-list');
+                    if (historyList) {
+                        historyList.style.flex = '1 1 auto';
+                        historyList.style.minHeight = '0';
+                        historyList.style.maxHeight = 'none';
+                        historyList.style.overflow = 'auto';
+                    }
+                } else {
+                    historyPanel.style.display = 'block';
+                    historyPanel.style.flex = '0 0 auto';
+                    historyPanel.style.overflow = 'visible';
+                }
+            }
 
             if (casesGrid) {
                 const count = Number(casesGrid.dataset.count || '0');
@@ -3344,8 +3467,9 @@
                 casesGrid.style.maxHeight = 'none';
                 casesGrid.style.overflow = 'visible';
                 casesGrid.style.alignContent = 'start';
-                casesGrid.style.justifyContent = 'center';
+                casesGrid.style.alignItems = 'stretch';
                 casesGrid.style.paddingRight = '0';
+                casesGrid.style.gridAutoRows = window.innerWidth > 1180 ? '1fr' : 'auto';
 
                 let imageHeight = '130px';
                 casesGrid.style.marginInline = '0';
@@ -3380,8 +3504,13 @@
                 }
 
                 casesGrid.querySelectorAll('.case-tile').forEach((tile) => {
-                    tile.style.height = 'auto';
+                    tile.style.display = 'flex';
+                    tile.style.flexDirection = 'column';
+                    tile.style.height = window.innerWidth > 1180 ? '100%' : 'auto';
                     tile.style.minHeight = '0';
+                });
+                casesGrid.querySelectorAll('.case-open-btn').forEach((button) => {
+                    button.style.marginTop = 'auto';
                 });
                 casesGrid.querySelectorAll('.case-tile-image').forEach((imageBox) => {
                     imageBox.style.height = imageHeight;
@@ -3396,9 +3525,9 @@
             }
         }
 
-        window.addEventListener('resize', applyCasesLayoutHardFixV5);
+        window.addEventListener('resize', applyCasesLayoutHardFixV6);
 
-        applyCasesLayoutHardFixV5();
+        applyCasesLayoutHardFixV6();
         renderWheelSvg();
         setTokens(initialTokens);
         setCmBonuses(initialCmBonusBalance);
