@@ -745,7 +745,6 @@
             background: rgba(255,255,255,0.04);
             overflow: hidden;
         }
-        .case-tile-image img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
         .case-tile-image img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
         .case-tile-fallback { font-size: 52px; line-height: 1; }
         .case-tile-name { font-weight: 800; font-size: 15px; }
@@ -1368,10 +1367,6 @@
             .wheel-wrap { width: min(560px, 86vw); }
         }
     
-        /* Adaptive layout for game mode: Cases.
-           The right side spans the same vertical area as the left column + referral block.
-           The cases panel itself no longer becomes a huge empty rectangle; instead, the
-           visible group "Cases + History" is centered inside the available height.
         /* Adaptive layout for game mode: Cases.
            The right side spans the same vertical area as the left column + referral block.
            The cases panel itself no longer becomes a huge empty rectangle; instead, the
@@ -2180,7 +2175,6 @@
                 </section>
 
                 <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
-                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Кейсы</div>
                     </div>
@@ -2214,7 +2208,6 @@
                     {% endif %}
                 </section>
 
-                <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                 <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="section-title">
                         <span>История открытий</span>
