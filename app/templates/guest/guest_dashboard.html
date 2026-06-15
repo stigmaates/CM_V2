@@ -746,6 +746,7 @@
             overflow: hidden;
         }
         .case-tile-image img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+        .case-tile-image img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
         .case-tile-fallback { font-size: 52px; line-height: 1; }
         .case-tile-name { font-weight: 800; font-size: 15px; }
         .case-tile-desc { color: var(--text-muted); font-size: 12px; line-height: 1.35; flex: 1 1 auto; }
@@ -1371,6 +1372,10 @@
            The right side spans the same vertical area as the left column + referral block.
            The cases panel itself no longer becomes a huge empty rectangle; instead, the
            visible group "Cases + History" is centered inside the available height.
+        /* Adaptive layout for game mode: Cases.
+           The right side spans the same vertical area as the left column + referral block.
+           The cases panel itself no longer becomes a huge empty rectangle; instead, the
+           visible group "Cases + History" is centered inside the available height.
         */
         .layout.layout--cases {
             grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
@@ -1771,6 +1776,162 @@
             }
         }
 
+    
+        /* case-layout-adaptive-v7:
+           adaptive case cards by amount:
+           1-2 = big showcase cards; 3-4 = medium cards; 5-8 = normal compact grid;
+           9+ = dense grid so 12 cases fit without giant cards or wasted wheel-sized area. */
+        body .layout.layout--cases.case-layout-adaptive-v7 {
+            grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+            grid-template-areas:
+                "left-top right-stack"
+                "referral right-stack" !important;
+            grid-template-rows: auto auto !important;
+            align-items: start !important;
+            align-content: start !important;
+            min-height: 0 !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column {
+            grid-area: right-stack !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-items: stretch !important;
+            align-self: start !important;
+            gap: 18px !important;
+            min-height: 0 !important;
+            height: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+            display: none !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-panel,
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-history-panel {
+            grid-area: auto !important;
+            align-self: stretch !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            flex: 0 0 auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-panel {
+            --case-grid-gap: 16px;
+            --case-card-padding: 14px;
+            --case-thumb-height: 170px;
+            --case-name-size: 15px;
+            --case-desc-size: 12px;
+            --case-button-padding: 11px 12px;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid {
+            display: grid !important;
+            gap: var(--case-grid-gap) !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding-right: 0 !important;
+            align-content: start !important;
+            align-items: stretch !important;
+            grid-auto-rows: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile {
+            height: auto !important;
+            min-height: 0 !important;
+            padding: var(--case-card-padding) !important;
+            gap: 8px !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-image {
+            height: var(--case-thumb-height) !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-image img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            display: block !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-name {
+            font-size: var(--case-name-size) !important;
+            line-height: 1.18 !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-desc {
+            font-size: var(--case-desc-size) !important;
+            line-height: 1.3 !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-open-btn {
+            margin-top: auto !important;
+            padding: var(--case-button-padding) !important;
+        }
+
+        /* CSS fallback by exact count; JS below may refine columns by real container width. */
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="1"] {
+            grid-template-columns: minmax(320px, 520px) !important;
+            max-width: 560px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="2"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            max-width: 860px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="3"] {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            max-width: 900px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="4"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            max-width: 860px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="5"],
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="6"] {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="7"],
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="8"] {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-adaptive-v7 {
+                grid-template-columns: 1fr !important;
+                grid-template-areas:
+                    "left-top"
+                    "referral"
+                    "right-stack" !important;
+            }
+        }
+
+        @media (max-width: 760px) {
+            body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-panel {
+                padding: 20px 16px !important;
+            }
+            body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid,
+            body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count] {
+                grid-template-columns: 1fr !important;
+                max-width: none !important;
+                margin-inline: 0 !important;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1800,7 +1961,7 @@
         <!-- guest-layout-v20260612-wheel-big-strict -->
         <!-- case-right-column-real-fix-20260614 -->
         <!-- case-area-strict-fix-20260614 -->
-        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-hard-fix-v6{% endif %}" data-case-layout-fix="v6">
+        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-adaptive-v7{% endif %}" data-case-layout-fix="v7">
             <div class="left-column">
                 <section class="panel profile-panel">
                     <div class="profile-header-row">
@@ -1965,7 +2126,7 @@
                     <div class="referral-message" id="referralMessage"></div>
                 </div>
 
-            <div class="right-column" data-case-right-column="v6">
+            <div class="right-column" data-case-right-column="v7">
                 <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Колесо фортуны</div>
@@ -2019,14 +2180,17 @@
                 </section>
 
                 <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Кейсы</div>
                     </div>
                     <p class="cases-subtitle">Открывай кейсы и получай призы! Приз начисляется сразу или передаётся администратору на выдачу.</p>
 
                     {% set cases_list = cases|default([]) %}
+                    {% set cases_count = cases_list|length %}
+                    {% set cases_density = 'single' if cases_count == 1 else ('few' if cases_count <= 2 else ('medium' if cases_count <= 4 else ('normal' if cases_count <= 8 else 'compact'))) %}
                     {% if cases_list %}
-                        <div class="cases-grid" id="casesGrid" data-count="{{ cases_list|length }}">
+                        <div class="cases-grid cases-grid--{{ cases_density }}" id="casesGrid" data-count="{{ cases_count }}" data-density="{{ cases_density }}">
                             {% for case in cases_list %}
                                 <div class="case-tile" data-case-id="{{ case.id }}">
                                     {% if case.badge_label %}<div class="case-tile-badge">{{ case.badge_label }}</div>{% endif %}
@@ -2050,6 +2214,7 @@
                     {% endif %}
                 </section>
 
+                <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                 <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="section-title">
                         <span>История открытий</span>
@@ -3384,44 +3549,41 @@
             }
         });
 
-
-        function applyCasesLayoutHardFixV6() {
+        function applyCasesLayoutAdaptiveV7() {
             if (gameMode !== 'cases') return;
 
             const layout = document.querySelector('.layout.layout--cases');
-            const rightColumn = document.querySelector('[data-case-right-column="v6"]');
+            const rightColumn = document.querySelector('[data-case-right-column="v7"]') || document.querySelector('.right-column');
             const casesPanel = document.querySelector('.cases-panel');
             const historyPanel = document.querySelector('.cases-history-panel');
             const casesGrid = document.getElementById('casesGrid');
             if (!layout || !rightColumn || !casesPanel) return;
 
-            layout.classList.add('case-layout-hard-fix-v6');
-            layout.style.alignItems = 'stretch';
-            layout.style.alignContent = window.innerWidth > 1180 ? 'stretch' : 'start';
+            layout.classList.remove('case-layout-hard-fix-v6');
+            layout.classList.add('case-layout-adaptive-v7');
+            layout.dataset.caseLayoutFix = 'v7';
 
             if (window.innerWidth > 1180) {
                 layout.style.gridTemplateColumns = 'minmax(460px, 0.95fr) minmax(640px, 1.05fr)';
                 layout.style.gridTemplateAreas = '"left-top right-stack" "referral right-stack"';
-                layout.style.gridTemplateRows = 'auto auto';
-                rightColumn.style.justifyContent = 'flex-start';
-                rightColumn.style.height = '100%';
-                rightColumn.style.minHeight = '100%';
             } else {
                 layout.style.gridTemplateColumns = '1fr';
                 layout.style.gridTemplateAreas = '"left-top" "referral" "right-stack"';
-                layout.style.gridTemplateRows = 'auto';
-                layout.style.minHeight = '0';
-                rightColumn.style.justifyContent = 'flex-start';
-                rightColumn.style.height = 'auto';
-                rightColumn.style.minHeight = '0';
             }
+            layout.style.gridTemplateRows = 'auto auto';
+            layout.style.alignItems = 'start';
+            layout.style.alignContent = 'start';
+            layout.style.minHeight = '0';
 
             rightColumn.style.gridArea = 'right-stack';
             rightColumn.style.display = 'flex';
             rightColumn.style.flexDirection = 'column';
+            rightColumn.style.justifyContent = 'flex-start';
             rightColumn.style.alignItems = 'stretch';
+            rightColumn.style.alignSelf = 'start';
             rightColumn.style.gap = window.innerWidth > 1180 ? '18px' : '16px';
-            rightColumn.style.alignSelf = 'stretch';
+            rightColumn.style.height = 'auto';
+            rightColumn.style.minHeight = '0';
 
             [casesPanel, historyPanel].filter(Boolean).forEach((panel) => {
                 panel.style.gridArea = 'auto';
@@ -3430,104 +3592,166 @@
                 panel.style.minHeight = '0';
                 panel.style.maxHeight = 'none';
                 panel.style.width = '100%';
+                panel.style.flex = '0 0 auto';
             });
 
             casesPanel.style.display = 'flex';
             casesPanel.style.flexDirection = 'column';
             casesPanel.style.justifyContent = 'flex-start';
             casesPanel.style.overflow = 'visible';
-            casesPanel.style.flex = '0 0 auto';
 
-            if (historyPanel) {
-                if (window.innerWidth > 1180) {
-                    historyPanel.style.display = 'flex';
-                    historyPanel.style.flexDirection = 'column';
-                    historyPanel.style.flex = '1 1 auto';
-                    historyPanel.style.minHeight = '0';
-                    historyPanel.style.overflow = 'hidden';
-                    const historyList = historyPanel.querySelector('.history-list');
-                    if (historyList) {
-                        historyList.style.flex = '1 1 auto';
-                        historyList.style.minHeight = '0';
-                        historyList.style.maxHeight = 'none';
-                        historyList.style.overflow = 'auto';
-                    }
-                } else {
-                    historyPanel.style.display = 'block';
-                    historyPanel.style.flex = '0 0 auto';
-                    historyPanel.style.overflow = 'visible';
-                }
+            if (!casesGrid) return;
+
+            const count = Number(casesGrid.dataset.count || '0');
+            const gridWidth = casesGrid.clientWidth || casesPanel.clientWidth || 720;
+
+            let columns = 2;
+            let imageHeight = 170;
+            let gap = 16;
+            let cardPadding = 14;
+            let nameSize = 15;
+            let descSize = 12;
+            let buttonPadding = '11px 12px';
+            let hideDesc = false;
+            let maxWidth = 'none';
+            let marginInline = '0';
+
+            if (window.innerWidth <= 760) {
+                columns = 1;
+                imageHeight = count <= 2 ? 190 : 165;
+            } else if (count <= 1) {
+                columns = 1;
+                imageHeight = 260;
+                maxWidth = '560px';
+                marginInline = 'auto';
+                cardPadding = 16;
+                nameSize = 17;
+                descSize = 13;
+                buttonPadding = '13px 14px';
+            } else if (count === 2) {
+                columns = 2;
+                imageHeight = 220;
+                maxWidth = '860px';
+                marginInline = 'auto';
+                cardPadding = 16;
+                nameSize = 16;
+                descSize = 13;
+                buttonPadding = '13px 14px';
+            } else if (count === 3) {
+                columns = gridWidth >= 720 ? 3 : 2;
+                imageHeight = 180;
+                maxWidth = '920px';
+                marginInline = 'auto';
+            } else if (count === 4) {
+                columns = 2;
+                imageHeight = 170;
+                maxWidth = '860px';
+                marginInline = 'auto';
+            } else if (count <= 6) {
+                columns = gridWidth >= 620 ? 3 : 2;
+                imageHeight = 140;
+                gap = 14;
+                cardPadding = 12;
+                nameSize = 14;
+                descSize = 11;
+                buttonPadding = '10px 10px';
+            } else if (count <= 8) {
+                columns = gridWidth >= 650 ? 4 : 3;
+                imageHeight = 118;
+                gap = 12;
+                cardPadding = 11;
+                nameSize = 13;
+                descSize = 11;
+                buttonPadding = '9px 10px';
+                hideDesc = true;
+            } else if (count <= 12) {
+                columns = gridWidth >= 620 ? 4 : 3;
+                imageHeight = 96;
+                gap = 10;
+                cardPadding = 10;
+                nameSize = 12;
+                descSize = 10;
+                buttonPadding = '8px 8px';
+                hideDesc = true;
+            } else {
+                columns = gridWidth >= 720 ? 5 : 4;
+                imageHeight = 84;
+                gap = 8;
+                cardPadding = 9;
+                nameSize = 12;
+                descSize = 10;
+                buttonPadding = '8px 8px';
+                hideDesc = true;
             }
 
-            if (casesGrid) {
-                const count = Number(casesGrid.dataset.count || '0');
-                casesGrid.style.display = 'grid';
-                casesGrid.style.height = 'auto';
-                casesGrid.style.minHeight = '0';
-                casesGrid.style.maxHeight = 'none';
-                casesGrid.style.overflow = 'visible';
-                casesGrid.style.alignContent = 'start';
-                casesGrid.style.alignItems = 'stretch';
-                casesGrid.style.paddingRight = '0';
-                casesGrid.style.gridAutoRows = window.innerWidth > 1180 ? '1fr' : 'auto';
+            casesPanel.style.setProperty('--case-grid-gap', `${gap}px`);
+            casesPanel.style.setProperty('--case-card-padding', `${cardPadding}px`);
+            casesPanel.style.setProperty('--case-thumb-height', `${imageHeight}px`);
+            casesPanel.style.setProperty('--case-name-size', `${nameSize}px`);
+            casesPanel.style.setProperty('--case-desc-size', `${descSize}px`);
+            casesPanel.style.setProperty('--case-button-padding', buttonPadding);
 
-                let imageHeight = '130px';
-                casesGrid.style.marginInline = '0';
-                casesGrid.style.maxWidth = 'none';
+            casesGrid.style.display = 'grid';
+            casesGrid.style.gridTemplateColumns = `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`;
+            casesGrid.style.gap = `${gap}px`;
+            casesGrid.style.height = 'auto';
+            casesGrid.style.minHeight = '0';
+            casesGrid.style.maxHeight = 'none';
+            casesGrid.style.overflow = 'visible';
+            casesGrid.style.alignContent = 'start';
+            casesGrid.style.alignItems = 'stretch';
+            casesGrid.style.paddingRight = '0';
+            casesGrid.style.gridAutoRows = 'auto';
+            casesGrid.style.maxWidth = maxWidth;
+            casesGrid.style.marginInline = marginInline;
 
-                if (window.innerWidth <= 760) {
-                    casesGrid.style.gridTemplateColumns = '1fr';
-                    imageHeight = count <= 4 ? '170px' : '130px';
-                } else if (count === 1) {
-                    casesGrid.style.gridTemplateColumns = 'minmax(320px, 460px)';
-                    casesGrid.style.maxWidth = '500px';
-                    casesGrid.style.marginInline = 'auto';
-                    imageHeight = '260px';
-                } else if (count === 2) {
-                    casesGrid.style.gridTemplateColumns = 'repeat(2, minmax(250px, 1fr))';
-                    casesGrid.style.maxWidth = '820px';
-                    casesGrid.style.marginInline = 'auto';
-                    imageHeight = '220px';
-                } else if (count === 3) {
-                    casesGrid.style.gridTemplateColumns = 'repeat(3, minmax(180px, 1fr))';
-                    casesGrid.style.maxWidth = '900px';
-                    casesGrid.style.marginInline = 'auto';
-                    imageHeight = '190px';
-                } else if (count === 4) {
-                    casesGrid.style.gridTemplateColumns = 'repeat(2, minmax(240px, 1fr))';
-                    casesGrid.style.maxWidth = '820px';
-                    casesGrid.style.marginInline = 'auto';
-                    imageHeight = '200px';
-                } else {
-                    casesGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(190px, 1fr))';
-                    imageHeight = '130px';
-                }
+            casesGrid.querySelectorAll('.case-tile').forEach((tile) => {
+                tile.style.display = 'flex';
+                tile.style.flexDirection = 'column';
+                tile.style.height = 'auto';
+                tile.style.minHeight = '0';
+                tile.style.padding = `${cardPadding}px`;
+                tile.style.gap = count >= 9 ? '6px' : '8px';
+            });
 
-                casesGrid.querySelectorAll('.case-tile').forEach((tile) => {
-                    tile.style.display = 'flex';
-                    tile.style.flexDirection = 'column';
-                    tile.style.height = window.innerWidth > 1180 ? '100%' : 'auto';
-                    tile.style.minHeight = '0';
-                });
-                casesGrid.querySelectorAll('.case-open-btn').forEach((button) => {
-                    button.style.marginTop = 'auto';
-                });
-                casesGrid.querySelectorAll('.case-tile-image').forEach((imageBox) => {
-                    imageBox.style.height = imageHeight;
-                });
-                casesGrid.querySelectorAll('.case-tile-image img').forEach((img) => {
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = 'cover';
-                    img.style.objectPosition = 'center';
-                    img.style.display = 'block';
-                });
-            }
+            casesGrid.querySelectorAll('.case-tile-image').forEach((imageBox) => {
+                imageBox.style.height = `${imageHeight}px`;
+            });
+
+            casesGrid.querySelectorAll('.case-tile-image img').forEach((img) => {
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                img.style.objectPosition = 'center';
+                img.style.display = 'block';
+            });
+
+            casesGrid.querySelectorAll('.case-tile-name').forEach((name) => {
+                name.style.fontSize = `${nameSize}px`;
+                name.style.lineHeight = '1.18';
+            });
+
+            casesGrid.querySelectorAll('.case-tile-desc').forEach((desc) => {
+                desc.style.display = hideDesc ? 'none' : '';
+                desc.style.fontSize = `${descSize}px`;
+            });
+
+            casesGrid.querySelectorAll('.case-open-btn').forEach((button) => {
+                button.style.marginTop = 'auto';
+                button.style.padding = buttonPadding;
+                button.style.fontSize = count >= 9 ? '12px' : '13px';
+            });
+
+            casesGrid.querySelectorAll('.case-tile-badge').forEach((badge) => {
+                badge.style.fontSize = count >= 9 ? '10px' : '11px';
+                badge.style.padding = count >= 9 ? '3px 8px' : '4px 10px';
+            });
         }
 
-        window.addEventListener('resize', applyCasesLayoutHardFixV6);
+        window.addEventListener('resize', applyCasesLayoutAdaptiveV7);
 
-        applyCasesLayoutHardFixV6();
+
+        applyCasesLayoutAdaptiveV7();
         renderWheelSvg();
         setTokens(initialTokens);
         setCmBonuses(initialCmBonusBalance);
