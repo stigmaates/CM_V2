@@ -8,6 +8,7 @@ from app.services.cases import get_cases_for_admin, get_game_mode
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 from app.services.system_status import get_owner_settings_system_status
 from app.services.referrals import get_referral_settings, save_referral_settings
+from app.services.upload_storage import get_club_upload_usage_info
 
 from . import owner_bp
 
@@ -139,6 +140,7 @@ def settings():
             "prize_icon_choices": ['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕'],
             "game_mode": get_game_mode(club_id_int),
             "cases": get_cases_for_admin(club_id_int),
+            "case_upload_usage": get_club_upload_usage_info(club_id_int),
         })
 
     return render_template("owner/settings.html", **context)

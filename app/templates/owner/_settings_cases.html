@@ -1,5 +1,54 @@
 {% set cases_list = cases|default([]) %}
 {# case-card-layout-fix-20260614 #}
+<style>
+    .case-upload-quota {
+        margin: 14px 0 18px;
+        padding: 12px 14px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 14px;
+        background: rgba(255,255,255,.05);
+        display: grid;
+        gap: 8px;
+    }
+    .case-upload-quota-bar {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.08);
+        overflow: hidden;
+    }
+    .case-upload-quota-bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #8f5bff, #ffd469);
+    }
+    .case-image-preview {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 8px 0 10px;
+        padding: 10px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 14px;
+        background: rgba(0,0,0,.14);
+    }
+    .case-image-preview img {
+        width: 118px;
+        height: 82px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.05);
+    }
+    .case-image-preview--small img {
+        width: 76px;
+        height: 76px;
+        object-fit: contain;
+    }
+</style>
+
 
 <section class="card wheel-section">
     <div class="wheel-prizes-head">
@@ -12,6 +61,19 @@
         на ручную выдачу, как сейчас работает для призов колеса. Чтобы включить кейс, сумма шансов его активных
         предметов должна быть равна 100%.
     </p>
+
+    {% if case_upload_usage %}
+        <div class="case-upload-quota">
+            <div>
+                <b>Хранилище картинок:</b>
+                {{ case_upload_usage.used_mb }} из {{ case_upload_usage.limit_mb }} МБ
+                <span class="muted">· осталось {{ case_upload_usage.remaining_mb }} МБ</span>
+            </div>
+            <div class="case-upload-quota-bar" aria-hidden="true">
+                <span style="width: {{ [case_upload_usage.percent, 100]|min }}%;"></span>
+            </div>
+        </div>
+    {% endif %}
 
     {% if cases_list %}
         <div class="case-list">
@@ -28,7 +90,7 @@
                         </span>
                     </div>
 
-                    <form id="case-update-{{ case.id }}" method="POST" action="{{ url_for('owner.case_update', case_id=case.id) }}">
+                    <form id="case-update-{{ case.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_update', case_id=case.id) }}">
                         <div class="case-form-grid">
                             <div class="form-group">
                                 <label for="case_name_{{ case.id }}">Название</label>
@@ -43,8 +105,20 @@
                                 <input class="form-input" type="number" id="case_price_{{ case.id }}" name="price_tokens" min="0" step="1" value="{{ case.price_tokens or 0 }}">
                             </div>
                             <div class="form-group full">
-                                <label for="case_image_{{ case.id }}">Картинка кейса (URL)</label>
-                                <input class="form-input" type="text" id="case_image_{{ case.id }}" name="image_url" value="{{ case.image_url or '' }}" placeholder="https://...">
+                                <label for="case_file_{{ case.id }}">Картинка кейса</label>
+                                {% if case.image_url %}
+                                    <div class="case-image-preview">
+                                        <img src="{{ case.image_url }}" alt="{{ case.name }}">
+                                        <label class="form-check">
+                                            <input type="checkbox" class="form-check-input" name="remove_image" value="1">
+                                            <span class="form-check-box" aria-hidden="true"></span>
+                                            <span class="form-check-text">Удалить текущую картинку</span>
+                                        </label>
+                                    </div>
+                                {% endif %}
+                                <input class="form-input" type="file" id="case_file_{{ case.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
+                                <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
+                                <input class="form-input" type="text" id="case_image_{{ case.id }}" name="image_url" value="{{ case.image_url or '' }}" placeholder="или внешняя https:// ссылка">
                             </div>
                             <div class="form-group full">
                                 <label for="case_description_{{ case.id }}">Описание</label>
@@ -95,7 +169,7 @@
                                  data-case-id="{{ case.id }}"
                                  data-item-id="{{ item.id }}"
                                  {% if not loop.first %}hidden{% endif %}>
-                                <form id="case-item-update-{{ item.id }}" method="POST" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}">
+                                <form id="case-item-update-{{ item.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}">
                                     <div class="case-item-grid">
                                         <div class="form-group">
                                             <label for="item_name_{{ item.id }}">Название</label>
@@ -123,8 +197,20 @@
                                             <input class="form-input" type="number" id="item_tokens_{{ item.id }}" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}">
                                         </div>
                                         <div class="form-group full">
-                                            <label for="item_image_{{ item.id }}">Картинка предмета (URL)</label>
-                                            <input class="form-input" type="text" id="item_image_{{ item.id }}" name="image_url" value="{{ item.image_url or '' }}" placeholder="https://...">
+                                            <label for="item_file_{{ item.id }}">Картинка предмета</label>
+                                            {% if item.image_url %}
+                                                <div class="case-image-preview case-image-preview--small">
+                                                    <img src="{{ item.image_url }}" alt="{{ item.name }}">
+                                                    <label class="form-check">
+                                                        <input type="checkbox" class="form-check-input" name="remove_image" value="1">
+                                                        <span class="form-check-box" aria-hidden="true"></span>
+                                                        <span class="form-check-text">Удалить текущую картинку</span>
+                                                    </label>
+                                                </div>
+                                            {% endif %}
+                                            <input class="form-input" type="file" id="item_file_{{ item.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
+                                            <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
+                                            <input class="form-input" type="text" id="item_image_{{ item.id }}" name="image_url" value="{{ item.image_url or '' }}" placeholder="или внешняя https:// ссылка">
                                         </div>
                                         <div class="form-group full">
                                             <label for="item_description_{{ item.id }}">Описание</label>
@@ -151,7 +237,7 @@
 
                     <details style="margin-top: 12px;">
                         <summary style="cursor:pointer; font-weight:800; color: var(--accent-strong);">+ Добавить предмет в кейс</summary>
-                        <form method="POST" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;">
+                        <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;">
                             <div class="case-item-grid">
                                 <div class="form-group">
                                     <label>Название</label>
@@ -179,8 +265,10 @@
                                     <input class="form-input" type="number" name="token_amount" min="0" step="1" value="0">
                                 </div>
                                 <div class="form-group full">
-                                    <label>Картинка предмета (URL)</label>
-                                    <input class="form-input" type="text" name="image_url" placeholder="https://...">
+                                    <label>Картинка предмета</label>
+                                    <input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp">
+                                    <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
+                                    <input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка">
                                 </div>
                                 <div class="form-group full">
                                     <label>Описание</label>
@@ -221,7 +309,7 @@
             <button type="button" class="modal-close" id="closeCaseAddModal" aria-label="Закрыть">×</button>
         </div>
 
-        <form method="POST" action="{{ url_for('owner.case_add') }}">
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_add') }}">
             <div class="case-form-grid">
                 <div class="form-group">
                     <label for="add_case_name">Название</label>
@@ -236,8 +324,10 @@
                     <input class="form-input" type="number" id="add_case_price" name="price_tokens" min="0" step="1" value="0">
                 </div>
                 <div class="form-group full">
-                    <label for="add_case_image">Картинка кейса (URL)</label>
-                    <input class="form-input" type="text" id="add_case_image" name="image_url" placeholder="https://...">
+                    <label for="add_case_file">Картинка кейса</label>
+                    <input class="form-input" type="file" id="add_case_file" name="image_file" accept="image/png,image/jpeg,image/webp">
+                    <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
+                    <input class="form-input" type="text" id="add_case_image" name="image_url" placeholder="или внешняя https:// ссылка">
                 </div>
                 <div class="form-group full">
                     <label for="add_case_description">Описание</label>

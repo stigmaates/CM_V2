@@ -16,3 +16,11 @@ CM_BONUS_BOT_TOKEN = os.getenv("CM_BONUS_BOT_TOKEN", "")
 CM_BONUS_ADMIN_CHAT_ID = os.getenv("CM_BONUS_ADMIN_CHAT_ID", "")
 
 AUTO_MAILING_TIMEZONE = os.getenv("AUTO_MAILING_TIMEZONE", "Europe/Moscow")
+
+
+# Upload storage for owner-managed images (case covers and case prizes).
+# For stage use /var/www/clubmodule_uploads/stage, for main set env to /var/www/clubmodule_uploads/main.
+CLUBMODULE_UPLOAD_ROOT = os.getenv("CLUBMODULE_UPLOAD_ROOT", "/var/www/clubmodule_uploads/stage")
+CLUBMODULE_UPLOAD_URL_PREFIX = os.getenv("CLUBMODULE_UPLOAD_URL_PREFIX", "/uploads")
+CLUBMODULE_UPLOAD_QUOTA_MB = int(os.getenv("CLUBMODULE_UPLOAD_QUOTA_MB", "25"))
+CLUBMODULE_IMAGE_MAX_MB = int(os.getenv("CLUBMODULE_IMAGE_MAX_MB", "5"))
