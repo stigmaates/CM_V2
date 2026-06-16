@@ -1927,6 +1927,173 @@
             }
         }
 
+    
+        /* case-layout-profile-sync-v8:
+           Cases panel is never lower than the profile panel.
+           Right history fills the remaining right column height down to the referral/missions bottom.
+           Cards adapt by case count: few = larger, many = denser. */
+        body .layout.layout--cases.case-layout-profile-sync-v8 {
+            grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+            grid-template-areas:
+                "left-top right-stack"
+                "referral right-stack" !important;
+            grid-template-rows: auto auto !important;
+            align-items: stretch !important;
+            align-content: stretch !important;
+            min-height: 0 !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column {
+            grid-area: right-stack !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-items: stretch !important;
+            align-self: stretch !important;
+            gap: 18px !important;
+            min-height: 0 !important;
+            height: 100% !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+            display: none !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-panel {
+            --case-grid-gap: 16px;
+            --case-card-padding: 14px;
+            --case-thumb-height: 170px;
+            --case-name-size: 15px;
+            --case-desc-size: 12px;
+            --case-button-padding: 11px 12px;
+            grid-area: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-self: stretch !important;
+            flex: 0 0 auto !important;
+            height: auto !important;
+            min-height: var(--cases-profile-min-height, 0px) !important;
+            max-height: none !important;
+            width: 100% !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-history-panel {
+            grid-area: auto !important;
+            align-self: stretch !important;
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            height: auto !important;
+            width: 100% !important;
+            overflow: hidden !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-history-panel .history-list {
+            flex: 1 1 auto !important;
+            max-height: none !important;
+            min-height: 0 !important;
+            overflow: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-history-panel .empty {
+            flex: 1 1 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 .cases-grid {
+            display: grid !important;
+            gap: var(--case-grid-gap) !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding-right: 0 !important;
+            align-content: start !important;
+            align-items: stretch !important;
+            grid-auto-rows: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 .case-tile {
+            display: flex !important;
+            flex-direction: column !important;
+            height: auto !important;
+            min-height: 0 !important;
+            padding: var(--case-card-padding) !important;
+            gap: 8px !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 .case-tile-image {
+            height: var(--case-thumb-height) !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 .case-tile-image img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            display: block !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 .case-tile-name {
+            font-size: var(--case-name-size) !important;
+            line-height: 1.18 !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 .case-tile-desc {
+            font-size: var(--case-desc-size) !important;
+            line-height: 1.3 !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v8 .case-open-btn {
+            margin-top: auto !important;
+            padding: var(--case-button-padding) !important;
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-profile-sync-v8 {
+                grid-template-columns: 1fr !important;
+                grid-template-areas:
+                    "left-top"
+                    "referral"
+                    "right-stack" !important;
+                align-items: start !important;
+                align-content: start !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column {
+                align-self: start !important;
+                height: auto !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-panel {
+                min-height: 0 !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-history-panel {
+                display: block !important;
+                flex: 0 0 auto !important;
+                overflow: visible !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-history-panel .history-list {
+                max-height: 360px !important;
+            }
+        }
+
+        @media (max-width: 760px) {
+            body .layout.layout--cases.case-layout-profile-sync-v8 > .right-column > .cases-panel {
+                padding: 20px 16px !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v8 .cases-grid,
+            body .layout.layout--cases.case-layout-profile-sync-v8 .cases-grid[data-count] {
+                grid-template-columns: 1fr !important;
+                max-width: none !important;
+                margin-inline: 0 !important;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1956,7 +2123,7 @@
         <!-- guest-layout-v20260612-wheel-big-strict -->
         <!-- case-right-column-real-fix-20260614 -->
         <!-- case-area-strict-fix-20260614 -->
-        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-adaptive-v7{% endif %}" data-case-layout-fix="v7">
+        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-profile-sync-v8{% endif %}" data-case-layout-fix="v8">
             <div class="left-column">
                 <section class="panel profile-panel">
                     <div class="profile-header-row">
@@ -2121,7 +2288,7 @@
                     <div class="referral-message" id="referralMessage"></div>
                 </div>
 
-            <div class="right-column" data-case-right-column="v7">
+            <div class="right-column" data-case-right-column="v8">
                 <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Колесо фортуны</div>
@@ -3542,30 +3709,36 @@
             }
         });
 
-        function applyCasesLayoutAdaptiveV7() {
+        function applyCasesLayoutProfileSyncV8() {
             if (gameMode !== 'cases') return;
 
             const layout = document.querySelector('.layout.layout--cases');
-            const rightColumn = document.querySelector('[data-case-right-column="v7"]') || document.querySelector('.right-column');
+            const rightColumn = document.querySelector('[data-case-right-column="v8"]') || document.querySelector('[data-case-right-column="v7"]') || document.querySelector('.right-column');
+            const leftColumn = document.querySelector('.left-column');
+            const profilePanel = document.querySelector('.profile-panel');
             const casesPanel = document.querySelector('.cases-panel');
             const historyPanel = document.querySelector('.cases-history-panel');
             const casesGrid = document.getElementById('casesGrid');
             if (!layout || !rightColumn || !casesPanel) return;
 
-            layout.classList.remove('case-layout-hard-fix-v6');
-            layout.classList.add('case-layout-adaptive-v7');
-            layout.dataset.caseLayoutFix = 'v7';
+            layout.classList.remove('case-layout-hard-fix-v6', 'case-layout-adaptive-v7');
+            layout.classList.add('case-layout-profile-sync-v8');
+            layout.dataset.caseLayoutFix = 'v8';
 
-            if (window.innerWidth > 1180) {
+            const desktop = window.innerWidth > 1180;
+            if (desktop) {
                 layout.style.gridTemplateColumns = 'minmax(460px, 0.95fr) minmax(640px, 1.05fr)';
                 layout.style.gridTemplateAreas = '"left-top right-stack" "referral right-stack"';
+                layout.style.gridTemplateRows = 'auto auto';
+                layout.style.alignItems = 'stretch';
+                layout.style.alignContent = 'stretch';
             } else {
                 layout.style.gridTemplateColumns = '1fr';
                 layout.style.gridTemplateAreas = '"left-top" "referral" "right-stack"';
+                layout.style.gridTemplateRows = 'auto';
+                layout.style.alignItems = 'start';
+                layout.style.alignContent = 'start';
             }
-            layout.style.gridTemplateRows = 'auto auto';
-            layout.style.alignItems = 'start';
-            layout.style.alignContent = 'start';
             layout.style.minHeight = '0';
 
             rightColumn.style.gridArea = 'right-stack';
@@ -3573,30 +3746,61 @@
             rightColumn.style.flexDirection = 'column';
             rightColumn.style.justifyContent = 'flex-start';
             rightColumn.style.alignItems = 'stretch';
-            rightColumn.style.alignSelf = 'start';
-            rightColumn.style.gap = window.innerWidth > 1180 ? '18px' : '16px';
-            rightColumn.style.height = 'auto';
-            rightColumn.style.minHeight = '0';
+            rightColumn.style.gap = desktop ? '18px' : '16px';
+            rightColumn.style.alignSelf = desktop ? 'stretch' : 'start';
+            rightColumn.style.height = desktop ? '100%' : 'auto';
+            rightColumn.style.minHeight = desktop ? '100%' : '0';
 
-            [casesPanel, historyPanel].filter(Boolean).forEach((panel) => {
-                panel.style.gridArea = 'auto';
-                panel.style.alignSelf = 'stretch';
-                panel.style.height = 'auto';
-                panel.style.minHeight = '0';
-                panel.style.maxHeight = 'none';
-                panel.style.width = '100%';
-                panel.style.flex = '0 0 auto';
-            });
+            const profileHeight = profilePanel ? Math.ceil(profilePanel.getBoundingClientRect().height) : 0;
+            const leftHeight = leftColumn ? Math.ceil(leftColumn.getBoundingClientRect().height) : 0;
+            if (desktop) {
+                casesPanel.style.setProperty('--cases-profile-min-height', `${profileHeight}px`);
+                if (leftHeight > 0) rightColumn.style.minHeight = `${leftHeight}px`;
+            } else {
+                casesPanel.style.setProperty('--cases-profile-min-height', '0px');
+            }
 
+            casesPanel.style.gridArea = 'auto';
             casesPanel.style.display = 'flex';
             casesPanel.style.flexDirection = 'column';
             casesPanel.style.justifyContent = 'flex-start';
+            casesPanel.style.alignSelf = 'stretch';
+            casesPanel.style.height = 'auto';
+            casesPanel.style.minHeight = desktop && profileHeight ? `${profileHeight}px` : '0';
+            casesPanel.style.maxHeight = 'none';
+            casesPanel.style.width = '100%';
             casesPanel.style.overflow = 'visible';
+            casesPanel.style.flex = '0 0 auto';
+
+            if (historyPanel) {
+                historyPanel.style.gridArea = 'auto';
+                historyPanel.style.alignSelf = 'stretch';
+                historyPanel.style.width = '100%';
+                historyPanel.style.minHeight = '0';
+                if (desktop) {
+                    historyPanel.style.display = 'flex';
+                    historyPanel.style.flexDirection = 'column';
+                    historyPanel.style.flex = '1 1 auto';
+                    historyPanel.style.overflow = 'hidden';
+                } else {
+                    historyPanel.style.display = 'block';
+                    historyPanel.style.flex = '0 0 auto';
+                    historyPanel.style.overflow = 'visible';
+                }
+                const historyList = historyPanel.querySelector('.history-list');
+                if (historyList) {
+                    historyList.style.flex = desktop ? '1 1 auto' : '';
+                    historyList.style.minHeight = desktop ? '0' : '';
+                    historyList.style.maxHeight = desktop ? 'none' : '360px';
+                    historyList.style.overflow = 'auto';
+                }
+            }
 
             if (!casesGrid) return;
 
             const count = Number(casesGrid.dataset.count || '0');
             const gridWidth = casesGrid.clientWidth || casesPanel.clientWidth || 720;
+            const panelTarget = desktop && profileHeight ? profileHeight : 0;
 
             let columns = 2;
             let imageHeight = 170;
@@ -3614,7 +3818,7 @@
                 imageHeight = count <= 2 ? 190 : 165;
             } else if (count <= 1) {
                 columns = 1;
-                imageHeight = 260;
+                imageHeight = Math.max(260, Math.min(320, panelTarget - 230));
                 maxWidth = '560px';
                 marginInline = 'auto';
                 cardPadding = 16;
@@ -3623,8 +3827,8 @@
                 buttonPadding = '13px 14px';
             } else if (count === 2) {
                 columns = 2;
-                imageHeight = 220;
-                maxWidth = '860px';
+                imageHeight = Math.max(220, Math.min(280, panelTarget - 245));
+                maxWidth = '900px';
                 marginInline = 'auto';
                 cardPadding = 16;
                 nameSize = 16;
@@ -3632,9 +3836,11 @@
                 buttonPadding = '13px 14px';
             } else if (count === 3) {
                 columns = gridWidth >= 720 ? 3 : 2;
-                imageHeight = 180;
+                imageHeight = Math.max(195, Math.min(250, panelTarget - 250));
                 maxWidth = '920px';
                 marginInline = 'auto';
+                cardPadding = 14;
+                nameSize = 15;
             } else if (count === 4) {
                 columns = 2;
                 imageHeight = 170;
@@ -3741,10 +3947,11 @@
             });
         }
 
-        window.addEventListener('resize', applyCasesLayoutAdaptiveV7);
+        window.addEventListener('resize', applyCasesLayoutProfileSyncV8);
 
 
-        applyCasesLayoutAdaptiveV7();
+
+        applyCasesLayoutProfileSyncV8();
         renderWheelSvg();
         setTokens(initialTokens);
         setCmBonuses(initialCmBonusBalance);
