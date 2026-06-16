@@ -651,9 +651,18 @@ def _get_guest_ids_for_engagement_scope(club_id: int, current_start=None, curren
                         WHERE club_id = %s
                           AND created_at >= %s
                           AND created_at < %s
+
+                        UNION
+
+                        SELECT guest_id
+                        FROM guest_case_openings
+                        WHERE club_id = %s
+                          AND created_at >= %s
+                          AND created_at < %s
                     ) scope_guests
                     """,
                     (
+                        club_id, current_start, current_end,
                         club_id, current_start, current_end,
                         club_id, current_start, current_end,
                         club_id, current_start, current_end,
@@ -883,6 +892,32 @@ def _get_wheel_spins_by_guest(club_id: int, guest_ids=None):
     finally:
         conn.close()
 
+def _get_case_openings_by_guest(club_id: int, guest_ids=None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            guest_filter_sql, guest_filter_params = _build_guest_filter_sql(guest_ids)
+            cursor.execute(
+                f"""
+                SELECT guest_id, created_at
+                FROM guest_case_openings
+                WHERE club_id = %s
+                  AND created_at IS NOT NULL
+                  {guest_filter_sql}
+                ORDER BY guest_id, created_at
+                """,
+                [club_id] + guest_filter_params,
+            )
+            rows = cursor.fetchall() or []
+
+        openings_by_guest = defaultdict(list)
+        for row in rows:
+            openings_by_guest[row["guest_id"]].append(row["created_at"])
+        return openings_by_guest
+    finally:
+        conn.close()
+
+
 
 def _get_mission_completion_at_from_preloaded(
     guest_id,
@@ -1020,6 +1055,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     total_guests = len(guest_ids)
     sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
     spins_by_guest = _get_wheel_spins_by_guest(club_id, guest_ids)
+    case_openings_by_guest = _get_case_openings_by_guest(club_id, guest_ids)
 
     # -------------------------
     # WHEEL
@@ -1043,6 +1079,29 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
             wheel_returned_guests += 1
 
     wheel_engagement_percent = _round_display((wheel_spun_guests / total_guests) * 100) if total_guests > 0 else 0
+
+    # -------------------------
+    # CASES
+    # -------------------------
+    first_case_opening_by_guest = {
+        guest_id: min(opening_dates)
+        for guest_id, opening_dates in case_openings_by_guest.items()
+        if opening_dates
+    }
+
+    case_opened_guests = len(first_case_opening_by_guest)
+    case_returned_guests = 0
+
+    for guest_id, first_case_opened_at in first_case_opening_by_guest.items():
+        guest_sessions = sessions_by_guest.get(guest_id, [])
+        returned = any(
+            session_row["date_start"] and session_row["date_start"] > first_case_opened_at
+            for session_row in guest_sessions
+        )
+        if returned:
+            case_returned_guests += 1
+
+    case_engagement_percent = _round_display((case_opened_guests / total_guests) * 100) if total_guests > 0 else 0
 
     # -------------------------
     # MISSIONS
@@ -1093,6 +1152,12 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
             "involved_guests": wheel_spun_guests,
             "engagement_percent": wheel_engagement_percent,
             "returned_guests": wheel_returned_guests,
+        },
+        "cases": {
+            "total_guests": total_guests,
+            "involved_guests": case_opened_guests,
+            "engagement_percent": case_engagement_percent,
+            "returned_guests": case_returned_guests,
         },
         "missions": {
             "total_guests": total_guests,
