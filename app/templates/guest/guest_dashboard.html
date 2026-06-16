@@ -1928,11 +1928,11 @@
         }
 
     
-        /* case-layout-profile-sync-v9:
+        /* case-layout-profile-sync-v10:
            Cases panel is never lower than the profile panel.
            Right history fills the remaining right column height down to the referral/missions bottom.
            Cards adapt by case count: few = larger, many = denser. */
-        body .layout.layout--cases.case-layout-profile-sync-v9 {
+        body .layout.layout--cases.case-layout-profile-sync-v10 {
             grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
             grid-template-areas:
                 "left-top right-stack"
@@ -1943,7 +1943,7 @@
             min-height: 0 !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column {
+        body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column {
             grid-area: right-stack !important;
             display: flex !important;
             flex-direction: column !important;
@@ -1955,12 +1955,12 @@
             height: 100% !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .wheel-panel[style*="display:none"],
-        body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+        body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
             display: none !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-panel {
+        body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-panel {
             --case-grid-gap: 16px;
             --case-card-padding: 14px;
             --case-thumb-height: 170px;
@@ -1980,7 +1980,7 @@
             overflow: visible !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-history-panel {
+        body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-history-panel {
             grid-area: auto !important;
             align-self: stretch !important;
             display: flex !important;
@@ -1992,21 +1992,21 @@
             overflow: hidden !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-history-panel .history-list {
+        body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-history-panel .history-list {
             flex: 1 1 auto !important;
             max-height: none !important;
             min-height: 0 !important;
             overflow: auto !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-history-panel .empty {
+        body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-history-panel .empty {
             flex: 1 1 auto !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 .cases-grid {
+        body .layout.layout--cases.case-layout-profile-sync-v10 .cases-grid {
             display: grid !important;
             gap: var(--case-grid-gap) !important;
             height: auto !important;
@@ -2019,7 +2019,7 @@
             grid-auto-rows: auto !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 .case-tile {
+        body .layout.layout--cases.case-layout-profile-sync-v10 .case-tile {
             display: flex !important;
             flex-direction: column !important;
             height: auto !important;
@@ -2028,11 +2028,11 @@
             gap: 8px !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 .case-tile-image {
+        body .layout.layout--cases.case-layout-profile-sync-v10 .case-tile-image {
             height: var(--case-thumb-height) !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 .case-tile-image img {
+        body .layout.layout--cases.case-layout-profile-sync-v10 .case-tile-image img {
             width: 100% !important;
             height: 100% !important;
             object-fit: contain !important;
@@ -2040,23 +2040,23 @@
             display: block !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 .case-tile-name {
+        body .layout.layout--cases.case-layout-profile-sync-v10 .case-tile-name {
             font-size: var(--case-name-size) !important;
             line-height: 1.18 !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 .case-tile-desc {
+        body .layout.layout--cases.case-layout-profile-sync-v10 .case-tile-desc {
             font-size: var(--case-desc-size) !important;
             line-height: 1.3 !important;
         }
 
-        body .layout.layout--cases.case-layout-profile-sync-v9 .case-open-btn {
+        body .layout.layout--cases.case-layout-profile-sync-v10 .case-open-btn {
             margin-top: auto !important;
             padding: var(--case-button-padding) !important;
         }
 
         @media (max-width: 1180px) {
-            body .layout.layout--cases.case-layout-profile-sync-v9 {
+            body .layout.layout--cases.case-layout-profile-sync-v10 {
                 grid-template-columns: 1fr !important;
                 grid-template-areas:
                     "left-top"
@@ -2065,29 +2065,29 @@
                 align-items: start !important;
                 align-content: start !important;
             }
-            body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column {
+            body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column {
                 align-self: start !important;
                 height: auto !important;
             }
-            body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-panel {
+            body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-panel {
                 min-height: 0 !important;
             }
-            body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-history-panel {
+            body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-history-panel {
                 display: block !important;
                 flex: 0 0 auto !important;
                 overflow: visible !important;
             }
-            body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-history-panel .history-list {
+            body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-history-panel .history-list {
                 max-height: 360px !important;
             }
         }
 
         @media (max-width: 760px) {
-            body .layout.layout--cases.case-layout-profile-sync-v9 > .right-column > .cases-panel {
+            body .layout.layout--cases.case-layout-profile-sync-v10 > .right-column > .cases-panel {
                 padding: 20px 16px !important;
             }
-            body .layout.layout--cases.case-layout-profile-sync-v9 .cases-grid,
-            body .layout.layout--cases.case-layout-profile-sync-v9 .cases-grid[data-count] {
+            body .layout.layout--cases.case-layout-profile-sync-v10 .cases-grid,
+            body .layout.layout--cases.case-layout-profile-sync-v10 .cases-grid[data-count] {
                 grid-template-columns: 1fr !important;
                 max-width: none !important;
                 margin-inline: 0 !important;
@@ -2121,10 +2121,10 @@
         </header>
 
         <!-- guest-layout-v20260612-wheel-big-strict -->
-        <!-- case-layout-profile-sync-v9 -->
+        <!-- case-layout-profile-sync-v10 -->
         <!-- case-right-column-real-fix-20260614 -->
         <!-- case-area-strict-fix-20260614 -->
-        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-profile-sync-v9{% endif %}" data-case-layout-fix="v9">
+        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-profile-sync-v10{% endif %}" data-case-layout-fix="v10">
             <div class="left-column">
                 <section class="panel profile-panel">
                     <div class="profile-header-row">
@@ -2289,7 +2289,7 @@
                     <div class="referral-message" id="referralMessage"></div>
                 </div>
 
-            <div class="right-column" data-case-right-column="v9">
+            <div class="right-column" data-case-right-column="v10">
                 <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Колесо фортуны</div>
@@ -3710,11 +3710,11 @@
             }
         });
 
-        function applyCasesLayoutProfileSyncV9() {
+        function applyCasesLayoutProfileSyncV10() {
             if (gameMode !== 'cases') return;
 
             const layout = document.querySelector('.layout.layout--cases');
-            const rightColumn = document.querySelector('[data-case-right-column="v9"]') || document.querySelector('[data-case-right-column="v8"]') || document.querySelector('.right-column');
+            const rightColumn = document.querySelector('[data-case-right-column="v10"]') || document.querySelector('[data-case-right-column="v9"]') || document.querySelector('[data-case-right-column="v8"]') || document.querySelector('.right-column');
             const leftColumn = document.querySelector('.left-column');
             const profilePanel = document.querySelector('.profile-panel');
             const casesPanel = document.querySelector('.cases-panel');
@@ -3722,9 +3722,9 @@
             const casesGrid = document.getElementById('casesGrid');
             if (!layout || !rightColumn || !casesPanel) return;
 
-            layout.classList.remove('case-layout-hard-fix-v6', 'case-layout-adaptive-v7', 'case-layout-profile-sync-v8');
-            layout.classList.add('case-layout-profile-sync-v9');
-            layout.dataset.caseLayoutFix = 'v9';
+            layout.classList.remove('case-layout-hard-fix-v6', 'case-layout-adaptive-v7', 'case-layout-profile-sync-v8', 'case-layout-profile-sync-v9', 'case-count-lte-4', 'case-count-gt-4');
+            layout.classList.add('case-layout-profile-sync-v10');
+            layout.dataset.caseLayoutFix = 'v10';
 
             const desktop = window.innerWidth > 1180;
             const count = casesGrid ? Number(casesGrid.dataset.count || '0') : 0;
@@ -3748,6 +3748,11 @@
             const leftHeight = leftColumn ? Math.ceil(leftColumn.getBoundingClientRect().height) : 0;
             const syncCasesToProfile = desktop && profileHeight > 0 && count > 0 && count <= 4;
 
+            layout.classList.toggle('case-count-lte-4', desktop && count > 0 && count <= 4);
+            layout.classList.toggle('case-count-gt-4', desktop && count > 4);
+            layout.style.setProperty('--cases-profile-height', profileHeight ? `${profileHeight}px` : 'auto');
+            layout.style.setProperty('--cases-left-column-height', leftHeight ? `${leftHeight}px` : 'auto');
+
             rightColumn.style.gridArea = 'right-stack';
             rightColumn.style.display = 'flex';
             rightColumn.style.flexDirection = 'column';
@@ -3755,8 +3760,9 @@
             rightColumn.style.alignItems = 'stretch';
             rightColumn.style.gap = desktop ? '18px' : '16px';
             rightColumn.style.alignSelf = desktop ? 'stretch' : 'start';
+            rightColumn.style.boxSizing = 'border-box';
             rightColumn.style.minHeight = desktop && leftHeight ? `${leftHeight}px` : '0';
-            rightColumn.style.height = desktop && syncCasesToProfile && leftHeight ? `${leftHeight}px` : 'auto';
+            rightColumn.style.height = desktop && leftHeight ? `${leftHeight}px` : 'auto';
 
             casesPanel.style.gridArea = 'auto';
             casesPanel.style.display = 'flex';
@@ -3766,9 +3772,17 @@
             casesPanel.style.width = '100%';
             casesPanel.style.overflow = 'visible';
             casesPanel.style.flex = '0 0 auto';
-            casesPanel.style.maxHeight = 'none';
+            casesPanel.style.boxSizing = 'border-box';
             casesPanel.style.minHeight = desktop && profileHeight ? `${profileHeight}px` : '0';
-            casesPanel.style.height = syncCasesToProfile ? `${profileHeight}px` : 'auto';
+            if (syncCasesToProfile) {
+                casesPanel.style.height = `${profileHeight}px`;
+                casesPanel.style.maxHeight = `${profileHeight}px`;
+                casesPanel.style.overflow = 'hidden';
+            } else {
+                casesPanel.style.height = 'auto';
+                casesPanel.style.maxHeight = 'none';
+                casesPanel.style.overflow = 'visible';
+            }
 
             if (historyPanel) {
                 historyPanel.style.gridArea = 'auto';
@@ -3959,11 +3973,27 @@
             });
         }
 
-        window.addEventListener('resize', applyCasesLayoutProfileSyncV9);
+        window.addEventListener('resize', applyCasesLayoutProfileSyncV10);
+        window.addEventListener('load', () => {
+            applyCasesLayoutProfileSyncV10();
+            setTimeout(applyCasesLayoutProfileSyncV10, 80);
+            setTimeout(applyCasesLayoutProfileSyncV10, 250);
+        });
+        document.querySelectorAll('.case-tile-image img').forEach((img) => {
+            if (!img.complete) img.addEventListener('load', applyCasesLayoutProfileSyncV10, { once: true });
+        });
+        if (window.ResizeObserver) {
+            const profileResizeObserver = new ResizeObserver(() => applyCasesLayoutProfileSyncV10());
+            const profilePanelForResize = document.querySelector('.profile-panel');
+            const leftColumnForResize = document.querySelector('.left-column');
+            if (profilePanelForResize) profileResizeObserver.observe(profilePanelForResize);
+            if (leftColumnForResize) profileResizeObserver.observe(leftColumnForResize);
+        }
 
 
 
-        applyCasesLayoutProfileSyncV9();
+
+        applyCasesLayoutProfileSyncV10();
         renderWheelSvg();
         setTokens(initialTokens);
         setCmBonuses(initialCmBonusBalance);
