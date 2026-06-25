@@ -273,20 +273,6 @@
         </div>
     </section>
 
-    <section class="cb-panel cb-referral-panel">
-        <div class="cb-panel-head">
-            <div>
-                <h2>Реферальная программа</h2>
-                <p>Гости, пришедшие по подтверждённым рекомендациям за последние {{ referral_stats.period_days|default(selected_period) }} дней</p>
-            </div>
-        </div>
-        <div class="cb-metric-grid">
-            <div class="cb-metric-card"><div class="cb-metric-icon">🤝</div><div><span>Пришли по рефералке</span><b>{{ referral_stats.referred_guests|default(0) }}</b></div></div>
-            <div class="cb-metric-card"><div class="cb-metric-icon">↻</div><div><span>Пришли повторно</span><b>{{ referral_stats.returned_after_first|default(0) }}</b></div></div>
-            <div class="cb-metric-card"><div class="cb-metric-icon">🎡</div><div><span>Крутили колесо</span><b>{{ referral_stats.wheel_spun|default(0) }}</b></div></div>
-            <div class="cb-metric-card"><div class="cb-metric-icon">☑</div><div><span>Выполнили задание</span><b>{{ referral_stats.completed_mission|default(0) }}</b></div></div>
-        </div>
-    </section>
 
 </main>
 

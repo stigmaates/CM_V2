@@ -8,7 +8,6 @@ from app.services.guest_auth import create_guest_login_token, get_guest_by_id, g
 from app.services.missions import get_guest_missions_with_progress
 from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, get_cm_bonus_redeem_history, redeem_cm_bonuses
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
-from app.services.referrals import get_guest_referral_context, submit_referral, confirm_referral
 from app.services.cases import (
     get_cases,
     get_game_mode,
@@ -58,7 +57,6 @@ def dashboard():
     cm_bonus_balance = get_cm_bonus_balance(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_history = get_cm_bonus_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=10)
     cm_bonus_redeem_history = get_cm_bonus_redeem_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=30)
-    referral_context = get_guest_referral_context(guest_id=guest["guest_id"], club_id=guest["club_id"])
 
     return render_template(
         "guest/guest_dashboard.html",
@@ -79,7 +77,6 @@ def dashboard():
         cm_bonus_balance=cm_bonus_balance,
         cm_bonus_history=cm_bonus_history,
         cm_bonus_redeem_history=cm_bonus_redeem_history,
-        referral=referral_context,
     )
 
 
@@ -289,57 +286,6 @@ def api_cm_bonuses_redeem():
     return result
 
 
-
-@guest_bp.route('/api/referrals')
-@guest_required
-def api_referrals():
-    guest_id = session.get("guest_id")
-    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
-    if not guest:
-        return {"error": "guest_not_found"}, 404
-    return get_guest_referral_context(guest_id=guest["guest_id"], club_id=guest["club_id"])
-
-
-@guest_bp.route('/api/referrals/submit', methods=['POST'])
-@guest_required
-def api_referrals_submit():
-    guest_id = session.get("guest_id")
-    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
-    if not guest:
-        return {"error": "guest_not_found"}, 404
-    data = request.get_json(silent=True) or {}
-    phone = (data.get("phone") or data.get("referrer_phone") or "").strip()
-    try:
-        result = submit_referral(club_id=guest["club_id"], invited_guest_id=guest["guest_id"], referrer_phone=phone)
-        result["referral"] = get_guest_referral_context(guest_id=guest["guest_id"], club_id=guest["club_id"])
-        return result
-    except ValueError as exc:
-        return {"error": "invalid_request", "message": str(exc)}, 400
-    except Exception as exc:
-        return {"error": "referral_failed", "message": str(exc)}, 500
-
-
-@guest_bp.route('/api/referrals/confirm', methods=['POST'])
-@guest_required
-def api_referrals_confirm():
-    guest_id = session.get("guest_id")
-    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
-    if not guest:
-        return {"error": "guest_not_found"}, 404
-    data = request.get_json(silent=True) or {}
-    try:
-        request_id = int(data.get("request_id") or 0)
-    except (TypeError, ValueError):
-        request_id = 0
-    phone = (data.get("phone") or data.get("invited_phone") or "").strip()
-    try:
-        result = confirm_referral(club_id=guest["club_id"], referrer_guest_id=guest["guest_id"], request_id=request_id, invited_phone=phone)
-        result["referral"] = get_guest_referral_context(guest_id=guest["guest_id"], club_id=guest["club_id"])
-        return result
-    except ValueError as exc:
-        return {"error": "invalid_request", "message": str(exc)}, 400
-    except Exception as exc:
-        return {"error": "referral_confirm_failed", "message": str(exc)}, 500
 
 @guest_bp.route('/logout')
 @guest_required

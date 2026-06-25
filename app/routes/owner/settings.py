@@ -7,13 +7,12 @@ from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_fo
 from app.services.cases import get_cases_for_admin, get_game_mode
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 from app.services.system_status import get_owner_settings_system_status
-from app.services.referrals import get_referral_settings, save_referral_settings
 from app.services.upload_storage import get_club_upload_usage_info
 
 from . import owner_bp
 
 
-SETTINGS_TABS = {"club", "missions", "wheel", "referrals"}
+SETTINGS_TABS = {"club", "missions", "wheel"}
 
 
 @owner_bp.route("/settings/pc-names", methods=["POST"])
@@ -45,30 +44,6 @@ def settings_pc_names_save():
     return redirect(url_for("owner.settings", tab="club") + "#pc-names")
 
 
-
-@owner_bp.route("/settings/referrals", methods=["POST"])
-@owner_required
-def settings_referrals_save():
-    club_id = session.get("club_id")
-    if not club_id:
-        flash("Сначала создайте клуб", "error")
-        return redirect(url_for("owner.club_create"))
-
-    try:
-        required_hours_raw = str(request.form.get("required_hours", "3")).replace(",", ".")
-        save_referral_settings(
-            club_id=int(club_id),
-            is_enabled=bool(request.form.get("is_enabled")),
-            required_hours=float(required_hours_raw or 0),
-            inviter_bonus=int(request.form.get("inviter_bonus") or 0),
-            invited_bonus=int(request.form.get("invited_bonus") or 0),
-            rules_text=request.form.get("rules_text", ""),
-        )
-        flash("Настройки реферальной программы сохранены", "success")
-    except Exception as exc:
-        flash(f"Ошибка сохранения реферальной программы: {exc}", "error")
-
-    return redirect(url_for("owner.settings", tab="referrals"))
 
 @owner_bp.route("/settings", methods=["GET", "POST"])
 @owner_required
@@ -123,10 +98,6 @@ def settings():
         context.update({
             "templates": get_mission_templates(),
             "missions": get_club_missions_all(club_id_int),
-        })
-    elif active_tab == "referrals":
-        context.update({
-            "referral_settings": get_referral_settings(club_id_int),
         })
     elif active_tab == "wheel":
         prizes = get_wheel_prizes_for_admin(club_id_int)
