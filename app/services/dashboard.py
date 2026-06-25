@@ -312,6 +312,62 @@ def get_unique_guests_chart(club_id: int, period_days: int):
         conn.close()
 
 
+
+def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
+    """Return case opening counts for the selected dashboard period."""
+    if not club_id:
+        return {"items": [], "total_openings": 0, "period_days": period_days}
+
+    period_days = period_days if period_days in (7, 30, 90) else 30
+    current_end = datetime.now()
+    current_start = current_end - timedelta(days=period_days)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    c.id AS case_id,
+                    c.name AS case_name,
+                    c.sort_order,
+                    COUNT(o.id) AS openings_count
+                FROM club_cases c
+                LEFT JOIN guest_case_openings o
+                  ON o.club_id = c.club_id
+                 AND o.case_id = c.id
+                 AND o.created_at >= %s
+                 AND o.created_at < %s
+                WHERE c.club_id = %s
+                GROUP BY c.id, c.name, c.sort_order
+                ORDER BY openings_count DESC, c.sort_order ASC, c.id ASC
+                """,
+                (current_start, current_end, club_id),
+            )
+            rows = cursor.fetchall() or []
+    finally:
+        conn.close()
+
+    max_openings = max((int(row.get("openings_count") or 0) for row in rows), default=0)
+    items = []
+    for row in rows:
+        openings = int(row.get("openings_count") or 0)
+        width = round((openings / max_openings) * 100, 1) if max_openings else 0
+        items.append(
+            {
+                "case_id": int(row.get("case_id") or 0),
+                "name": row.get("case_name") or "Без названия",
+                "openings": openings,
+                "width": width,
+            }
+        )
+
+    return {
+        "items": items,
+        "total_openings": sum(item["openings"] for item in items),
+        "period_days": period_days,
+    }
+
 def get_dashboard_stats(club_id: int, period_days: int = 30):
     if not club_id:
         return None
