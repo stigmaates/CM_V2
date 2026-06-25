@@ -291,9 +291,9 @@
             </div>
         </div>
 
-        {% if case_openings_chart.items %}
+        {% if case_openings_chart['items'] %}
         <div class="cb-case-openings-chart">
-            {% for item in case_openings_chart.items %}
+            {% for item in case_openings_chart['items'] %}
             <div class="cb-case-openings-row" title="{{ item.name }}: {{ item.openings }} открытий">
                 <div class="cb-case-openings-meta">
                     <span>{{ item.name }}</span>
