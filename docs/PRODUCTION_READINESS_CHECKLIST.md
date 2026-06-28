@@ -26,6 +26,8 @@ Use this checklist before connecting a paid club.
 
 - MySQL backups run automatically.
 - Restore procedure is documented and tested.
+- `scripts/backup_mysql.sh` creates a backup before deploy.
+- `scripts/restore_mysql.sh` has been tested against staging.
 - Database schema changes are applied through migrations.
 - `python3 scripts/migrate.py` has been executed successfully before deploy.
 - Runtime schema guards are reviewed and scheduled for removal after migration coverage is complete.

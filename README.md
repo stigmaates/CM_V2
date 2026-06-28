@@ -106,6 +106,8 @@ clubmodule/
 - [Pilot onboarding checklist](docs/PILOT_ONBOARDING_CHECKLIST.md) — чеклист ручного запуска первых пилотных клубов.
 - [Database migrations](docs/DATABASE_MIGRATIONS.md) — как применять и добавлять миграции базы.
 - [Safe rollout plan](docs/SAFE_ROLLOUT_PLAN.md) — как выпускать изменения, не ломая текущую рабочую версию.
+- [Backup and restore](docs/BACKUP_RESTORE.md) — как создавать и проверять резервные копии.
+- [Deployment runbook](docs/DEPLOYMENT_RUNBOOK.md) — staging/production-регламент релиза.
 
 В production-окружении обязательно указывать `APP_ENV=production` и все критичные переменные из `.env.example`.
 

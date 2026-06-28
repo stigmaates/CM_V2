@@ -33,6 +33,7 @@ Outcome: 2-3 pilot clubs can be connected manually and supported without constan
 - Add basic smoke tests for auth, owner dashboard, guest dashboard, and critical JSON endpoints.
 - Add structured logging for sync scripts and Telegram workers.
 - Add backup and restore instructions for MySQL.
+- Add backup/restore scripts and a deployment runbook.
 
 ### Product
 

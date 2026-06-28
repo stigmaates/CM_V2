@@ -26,6 +26,8 @@ This project already has a live production installation. Treat the current serve
 12. Run post-deploy smoke tests.
 13. Keep rollback steps ready until the first full sync cycle completes.
 
+Use `docs/BACKUP_RESTORE.md` and `docs/DEPLOYMENT_RUNBOOK.md` for the concrete commands.
+
 ## Staging requirements
 
 - Separate database name.
