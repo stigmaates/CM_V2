@@ -2,6 +2,8 @@
 
 This runbook is for managed staging and production deploys. It assumes the current live server already has a working version and must not be modified casually.
 
+Before production, complete `docs/RELEASE_CANDIDATE_CHECKLIST.md`.
+
 ## Services
 
 Run these as separate supervised processes:
