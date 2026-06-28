@@ -50,6 +50,7 @@ MYSQL_PWD="$DB_PASSWORD" mysqldump \
   --host="$DB_HOST" \
   --port="$DB_PORT" \
   --user="$DB_USER" \
+  --set-gtid-purged=OFF \
   --skip-opt \
   --single-transaction \
   --skip-lock-tables \
@@ -59,8 +60,7 @@ MYSQL_PWD="$DB_PASSWORD" mysqldump \
   --create-options \
   --extended-insert \
   --set-charset \
-  --routines \
-  --triggers \
+  --skip-triggers \
   --default-character-set=utf8mb4 \
   "$DB_NAME" | gzip -c > "$backup_file"
 
