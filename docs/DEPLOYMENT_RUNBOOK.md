@@ -14,6 +14,7 @@ Run these as separate supervised processes:
 - Referral processor.
 
 Use `docs/SYSTEMD_SERVICES.md` for service/timer templates.
+Use `docs/NGINX_TEMPLATE.md` for reverse proxy, static files, and uploads.
 
 ## Staging deploy
 

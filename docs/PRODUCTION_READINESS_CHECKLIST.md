@@ -14,6 +14,7 @@ Use this checklist before connecting a paid club.
 ## Processes
 
 - Web app runs under a production WSGI server.
+- Nginx or equivalent reverse proxy serves `/static/` and `/uploads/`.
 - Guest Telegram bot runs as a separate supervised process.
 - Admin/worker Telegram bot runs as a separate supervised process.
 - systemd services/timers are installed or an equivalent supervisor is documented.
