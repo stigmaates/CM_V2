@@ -93,3 +93,24 @@ clubmodule/
 ├── .env.example
 ├── pyproject.toml
 └── README.md
+```
+
+---
+
+## Коммерческая готовность
+
+Для доведения проекта до стабильной продуктовой версии заведены рабочие документы:
+
+- [Product maturity roadmap](docs/PRODUCT_MATURITY_ROADMAP.md) — план доведения продукта до уровня 9/10.
+- [Production readiness checklist](docs/PRODUCTION_READINESS_CHECKLIST.md) — проверка перед подключением платного клуба.
+- [Pilot onboarding checklist](docs/PILOT_ONBOARDING_CHECKLIST.md) — чеклист ручного запуска первых пилотных клубов.
+- [Database migrations](docs/DATABASE_MIGRATIONS.md) — как применять и добавлять миграции базы.
+- [Safe rollout plan](docs/SAFE_ROLLOUT_PLAN.md) — как выпускать изменения, не ломая текущую рабочую версию.
+
+В production-окружении обязательно указывать `APP_ENV=production` и все критичные переменные из `.env.example`.
+
+Перед запуском новой версии в production примените миграции базы данных:
+
+```bash
+python3 scripts/migrate.py
+```

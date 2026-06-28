@@ -7,7 +7,16 @@ from flask import Flask, redirect, session, url_for
 from pymysql.cursors import DictCursor
 from sqlalchemy import create_engine
 
-from app.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, SECRET_KEY, CLUBMODULE_IMAGE_MAX_MB
+from app.config import (
+    CLUBMODULE_IMAGE_MAX_MB,
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWORD,
+    DB_PORT,
+    DB_USER,
+    IS_PRODUCTION,
+    SECRET_KEY,
+)
 
 
 def create_flask_app():
@@ -15,6 +24,7 @@ def create_flask_app():
     app.secret_key = SECRET_KEY
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
     # Limit image upload requests at Flask level. Per-club quota is checked separately.
     app.config["MAX_CONTENT_LENGTH"] = int(CLUBMODULE_IMAGE_MAX_MB or 5) * 1024 * 1024 + 1024 * 1024
     return app
