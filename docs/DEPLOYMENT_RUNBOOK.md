@@ -13,6 +13,8 @@ Run these as separate supervised processes:
 - Mailing processors.
 - Referral processor.
 
+Use `docs/SYSTEMD_SERVICES.md` for service/timer templates.
+
 ## Staging deploy
 
 1. Create or update the staging checkout.

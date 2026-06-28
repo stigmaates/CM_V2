@@ -1,0 +1,16 @@
+[Unit]
+Description=Cyber Bonus web app
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/cyber-bonus
+EnvironmentFile=/etc/cyber-bonus/production.env
+ExecStart=/opt/cyber-bonus/.venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 app.main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

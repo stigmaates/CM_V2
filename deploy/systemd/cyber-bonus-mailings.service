@@ -1,0 +1,11 @@
+[Unit]
+Description=Cyber Bonus mailing processor
+After=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/cyber-bonus
+EnvironmentFile=/etc/cyber-bonus/production.env
+ExecStart=/opt/cyber-bonus/.venv/bin/python scripts/process_mailings.py

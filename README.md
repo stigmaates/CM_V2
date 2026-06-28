@@ -108,6 +108,7 @@ clubmodule/
 - [Safe rollout plan](docs/SAFE_ROLLOUT_PLAN.md) — как выпускать изменения, не ломая текущую рабочую версию.
 - [Backup and restore](docs/BACKUP_RESTORE.md) — как создавать и проверять резервные копии.
 - [Deployment runbook](docs/DEPLOYMENT_RUNBOOK.md) — staging/production-регламент релиза.
+- [systemd service templates](docs/SYSTEMD_SERVICES.md) — шаблоны сервисов и таймеров.
 
 В production-окружении обязательно указывать `APP_ENV=production` и все критичные переменные из `.env.example`.
 

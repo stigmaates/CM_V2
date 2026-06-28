@@ -1,0 +1,16 @@
+[Unit]
+Description=Cyber Bonus guest Telegram bot
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/cyber-bonus
+EnvironmentFile=/etc/cyber-bonus/production.env
+ExecStart=/opt/cyber-bonus/.venv/bin/python run_bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

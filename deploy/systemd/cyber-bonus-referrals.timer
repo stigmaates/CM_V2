@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Cyber Bonus referral processor every 10 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+Unit=cyber-bonus-referrals.service
+
+[Install]
+WantedBy=timers.target

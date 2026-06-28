@@ -16,6 +16,7 @@ Use this checklist before connecting a paid club.
 - Web app runs under a production WSGI server.
 - Guest Telegram bot runs as a separate supervised process.
 - Admin/worker Telegram bot runs as a separate supervised process.
+- systemd services/timers are installed or an equivalent supervisor is documented.
 - Incremental guest sync is scheduled and monitored.
 - Incremental session sync is scheduled and monitored.
 - Incremental operation sync is scheduled and monitored.
