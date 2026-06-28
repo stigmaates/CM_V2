@@ -50,6 +50,8 @@ MYSQL_PWD="$DB_PASSWORD" mysqldump \
   --port="$DB_PORT" \
   --user="$DB_USER" \
   --single-transaction \
+  --skip-lock-tables \
+  --no-tablespaces \
   --quick \
   --routines \
   --triggers \

@@ -51,8 +51,12 @@ def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
+    args_file = tmp_path / "mysqldump.args"
     mysqldump = bin_dir / "mysqldump"
-    mysqldump.write_text("#!/usr/bin/env bash\necho 'CREATE TABLE smoke (id int);'\n", encoding="utf-8")
+    mysqldump.write_text(
+        f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {args_file}\necho 'CREATE TABLE smoke (id int);'\n",
+        encoding="utf-8",
+    )
     mysqldump.chmod(0o755)
     gzip = bin_dir / "gzip"
     gzip.write_text("#!/usr/bin/env bash\ncat\n", encoding="utf-8")
@@ -77,3 +81,6 @@ def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
     backup_path = Path(result.stdout.strip())
     assert backup_path.exists()
     assert backup_path.read_text(encoding="utf-8").startswith("CREATE TABLE smoke")
+    args = args_file.read_text(encoding="utf-8")
+    assert "--skip-lock-tables" in args
+    assert "--no-tablespaces" in args
