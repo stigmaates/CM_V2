@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import importlib
 import pkgutil
 import sys
@@ -40,7 +41,7 @@ def _migration_modules():
     return sorted(modules, key=lambda pair: pair[0])
 
 
-def migrate() -> int:
+def migrate(*, dry_run: bool = False) -> int:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -54,6 +55,12 @@ def migrate() -> int:
 
             if not pending:
                 print("No pending migrations.")
+                return 0
+
+            if dry_run:
+                print("Pending migrations:")
+                for revision, _module in pending:
+                    print(f"- {revision}")
                 return 0
 
             for revision, module in pending:
@@ -75,4 +82,7 @@ def migrate() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(migrate())
+    parser = argparse.ArgumentParser(description="Apply Cyber Bonus database migrations.")
+    parser.add_argument("--dry-run", action="store_true", help="List pending migrations without applying them")
+    args = parser.parse_args()
+    raise SystemExit(migrate(dry_run=args.dry_run))
