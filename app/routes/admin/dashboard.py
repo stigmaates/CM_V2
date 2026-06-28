@@ -5,6 +5,7 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
+from app.services.support_health import get_admin_system_health
 
 
 def ensure_admin_sync_logs_table():
@@ -312,6 +313,12 @@ def club_details(club_id: int):
         "club": clubs[0],
         "logs": get_club_sync_logs(club_id),
     })
+
+
+@admin_bp.route("/api/system-health")
+@admin_required
+def api_system_health():
+    return jsonify(get_admin_system_health())
 
 
 @admin_bp.route("/clubs/<int:club_id>/sync/<sync_type>", methods=["POST"])

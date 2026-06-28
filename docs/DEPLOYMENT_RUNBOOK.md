@@ -44,7 +44,8 @@ curl -fsS https://staging.example.com/healthz
 curl -fsS https://staging.example.com/readyz
 ```
 
-8. Manually verify owner login, guest login, dashboard, cases/wheel, referrals, bonuses, and mailings.
+8. Log in as admin and check `/admin/api/system-health`.
+9. Manually verify owner login, guest login, dashboard, cases/wheel, referrals, bonuses, and mailings.
 
 ## Production deploy
 
@@ -81,6 +82,7 @@ curl -fsS https://your-domain.example/readyz
 10. Run manual smoke checks:
     - Owner login.
     - Guest Telegram login.
+    - Admin `/admin/api/system-health`.
     - Owner dashboard.
     - Guest dashboard.
     - Sync status.

@@ -46,6 +46,7 @@ Use this checklist before connecting a paid club.
 
 - `/healthz` returns 200 from the running web process.
 - `/readyz` returns 200 when the web process can reach MySQL.
+- Admin `/admin/api/system-health` shows no pending migrations.
 - Failed syncs trigger an alert.
 - Stale sync data triggers an alert.
 - Bot process failures trigger an alert.
