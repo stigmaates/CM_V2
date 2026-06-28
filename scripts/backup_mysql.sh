@@ -46,6 +46,7 @@ timestamp="$(date +%Y%m%d_%H%M%S)"
 backup_file="$BACKUP_DIR/${DB_NAME}_${timestamp}.sql.gz"
 
 MYSQL_PWD="$DB_PASSWORD" mysqldump \
+  --no-defaults \
   --host="$DB_HOST" \
   --port="$DB_PORT" \
   --user="$DB_USER" \

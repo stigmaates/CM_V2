@@ -82,5 +82,6 @@ def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
     assert backup_path.exists()
     assert backup_path.read_text(encoding="utf-8").startswith("CREATE TABLE smoke")
     args = args_file.read_text(encoding="utf-8")
+    assert "--no-defaults" in args
     assert "--skip-lock-tables" in args
     assert "--no-tablespaces" in args
