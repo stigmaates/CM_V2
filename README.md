@@ -114,3 +114,10 @@ clubmodule/
 ```bash
 python3 scripts/migrate.py
 ```
+
+Локальные smoke-проверки:
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```

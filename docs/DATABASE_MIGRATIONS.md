@@ -27,6 +27,8 @@ Run it before deploying a new production version.
 - Auto-mailing tables.
 - First visit survey table.
 - Bonus giveaway tables.
+- Cases tables and wheel/cases `game_mode`.
+- Referral settings and referral links.
 - Admin sync and impersonation logs.
 - Audit log table.
 - New compatibility columns on existing club, mission, wheel prize, and login token tables.

@@ -90,6 +90,8 @@ def upgrade(cursor) -> None:
             """
         )
 
+    _add_column(cursor, "club_wheel_settings", "game_mode", "VARCHAR(10) NOT NULL DEFAULT 'wheel'")
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS cm_bonus_balances (
@@ -350,8 +352,124 @@ def upgrade(cursor) -> None:
             ALTER TABLE bonus_giveaway_recipients
             DROP INDEX uq_bonus_giveaway_guest,
             ADD UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, club_id, guest_id)
-            """
-        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS club_cases (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            club_id INT NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            description TEXT NULL,
+            image_url TEXT NULL,
+            badge_label VARCHAR(60) NULL,
+            price_tokens INT NOT NULL DEFAULT 0,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            sort_order INT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_club_cases_club (club_id, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS club_case_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            case_id INT NOT NULL,
+            club_id INT NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            description TEXT NULL,
+            image_url TEXT NULL,
+            bonus_amount INT NOT NULL DEFAULT 0,
+            token_amount INT NOT NULL DEFAULT 0,
+            probability DECIMAL(8,4) NOT NULL DEFAULT 0,
+            rarity_label VARCHAR(40) NOT NULL DEFAULT 'Обычный',
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            sort_order INT NOT NULL DEFAULT 0,
+            KEY idx_case_items_case (case_id, sort_order),
+            KEY idx_case_items_club (club_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    _add_column(cursor, "club_case_items", "rarity_label", "VARCHAR(40) NOT NULL DEFAULT 'Обычный' AFTER probability")
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS guest_case_openings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            club_id INT NOT NULL,
+            guest_id INT NOT NULL,
+            case_id INT NOT NULL,
+            item_id INT NOT NULL,
+            spent_tokens INT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_case_openings_guest (club_id, guest_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS club_referral_settings (
+            club_id INT NOT NULL PRIMARY KEY,
+            is_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            required_hours DECIMAL(8,2) NOT NULL DEFAULT 3.00,
+            inviter_bonus INT NOT NULL DEFAULT 300,
+            invited_bonus INT NOT NULL DEFAULT 150,
+            rules_text TEXT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS referral_links (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            club_id INT NOT NULL,
+            invited_guest_id INT NOT NULL,
+            referrer_guest_id INT NOT NULL,
+            invited_phone VARCHAR(40) NULL,
+            referrer_phone VARCHAR(40) NULL,
+            status VARCHAR(40) NOT NULL DEFAULT 'pending_confirmation',
+            requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            confirmed_at DATETIME NULL,
+            rewarded_at DATETIME NULL,
+            inviter_bonus_awarded INT NOT NULL DEFAULT 0,
+            invited_bonus_awarded INT NOT NULL DEFAULT 0,
+            error_text TEXT NULL,
+            UNIQUE KEY uq_referral_invited_guest (club_id, invited_guest_id),
+            KEY idx_referral_referrer (club_id, referrer_guest_id, status),
+            KEY idx_referral_status (status),
+            KEY idx_referral_requested (club_id, requested_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    for table_name, columns in {
+        "club_referral_settings": {
+            "is_enabled": "TINYINT(1) NOT NULL DEFAULT 0",
+            "required_hours": "DECIMAL(8,2) NOT NULL DEFAULT 3.00",
+            "inviter_bonus": "INT NOT NULL DEFAULT 300",
+            "invited_bonus": "INT NOT NULL DEFAULT 150",
+            "rules_text": "TEXT NULL",
+            "created_at": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        },
+        "referral_links": {
+            "invited_phone": "VARCHAR(40) NULL",
+            "referrer_phone": "VARCHAR(40) NULL",
+            "status": "VARCHAR(40) NOT NULL DEFAULT 'pending_confirmation'",
+            "requested_at": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "confirmed_at": "DATETIME NULL",
+            "rewarded_at": "DATETIME NULL",
+            "inviter_bonus_awarded": "INT NOT NULL DEFAULT 0",
+            "invited_bonus_awarded": "INT NOT NULL DEFAULT 0",
+            "error_text": "TEXT NULL",
+        },
+    }.items():
+        for column_name, ddl in columns.items():
+            _add_column(cursor, table_name, column_name, ddl)
 
     cursor.execute(
         """
