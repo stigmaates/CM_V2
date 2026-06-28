@@ -2,6 +2,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 from app.core import get_db_connection
+from app.services.rate_limit import client_ip, is_rate_limited
 
 from . import auth_bp
 
@@ -9,6 +10,11 @@ from . import auth_bp
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        ip = client_ip()
+        if is_rate_limited(f"auth.login:{ip}", limit=10, window_seconds=300):
+            flash("Слишком много попыток входа. Попробуйте позже.", "error")
+            return redirect(url_for("auth.login"))
+
         login_value = request.form.get("login", "").strip()
         password = request.form.get("password", "").strip()
 

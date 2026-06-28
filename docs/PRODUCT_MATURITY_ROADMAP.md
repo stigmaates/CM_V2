@@ -50,6 +50,7 @@ Outcome: 2-3 pilot clubs can be connected manually and supported without constan
 - Enable secure cookies in production.
 - Review all owner/admin routes for club_id isolation.
 - Add rate limiting for login and Telegram token polling.
+- Replace in-memory rate limiting with shared Redis/storage before multi-worker scaling.
 - Add audit log table for sensitive owner/admin actions.
 - Add audit log writer and cover sensitive owner/admin changes.
 

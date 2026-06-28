@@ -4,6 +4,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import guest_required
 from app.config import BOT_USERNAME
+from app.services.rate_limit import client_ip, is_rate_limited
 from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_token
 from app.services.missions import get_guest_missions_with_progress
 from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, get_cm_bonus_redeem_history, redeem_cm_bonuses
@@ -85,6 +86,10 @@ def check_login():
     token = request.args.get("token", "").strip()
     if not token:
         return {"ok": False, "error": "token_required"}, 400
+    ip = client_ip()
+    token_prefix = token[:12]
+    if is_rate_limited(f"guest.check_login:{ip}:{token_prefix}", limit=30, window_seconds=60):
+        return {"ok": False, "error": "rate_limited"}, 429
 
     token_row = get_guest_login_token(token)
     if not token_row:
