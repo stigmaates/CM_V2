@@ -5,6 +5,7 @@ Use this checklist before connecting a paid club.
 ## Environment
 
 - `APP_ENV=production` is set on the server.
+- `python3 scripts/check_environment.py --env-file ...` passes.
 - `SECRET_KEY` is unique, long, and not reused between environments.
 - Database credentials are not stored in git.
 - Telegram bot tokens are not stored in git.

@@ -21,34 +21,40 @@ Use `docs/NGINX_TEMPLATE.md` for reverse proxy, static files, and uploads.
 1. Create or update the staging checkout.
 2. Configure staging `.env`.
 3. Restore a recent production backup into the staging database if you need realistic data.
-4. Install dependencies:
+4. Run environment preflight:
+
+```bash
+python3 scripts/check_environment.py --env-file .env
+```
+
+5. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-5. Apply migrations:
+6. Apply migrations:
 
 ```bash
 python3 scripts/migrate.py
 ```
 
-6. Run smoke checks:
+7. Run smoke checks:
 
 ```bash
 python3 -m compileall app bot scripts migrations run.py run_bot.py run_admin_bot.py
 python3 -m pytest
 ```
 
-7. Start the web app and check:
+8. Start the web app and check:
 
 ```bash
 curl -fsS https://staging.example.com/healthz
 curl -fsS https://staging.example.com/readyz
 ```
 
-8. Log in as admin and check `/admin/api/system-health`.
-9. Manually verify owner login, guest login, dashboard, cases/wheel, referrals, bonuses, and mailings.
+9. Log in as admin and check `/admin/api/system-health`.
+10. Manually verify owner login, guest login, dashboard, cases/wheel, referrals, bonuses, and mailings.
 
 ## Production deploy
 
@@ -61,28 +67,34 @@ ENV_FILE=/etc/cyber-bonus/production.env BACKUP_DIR=/var/backups/cyber-bonus scr
 ```
 
 4. Record the backup path.
-5. Pull or check out the release commit.
-6. Install dependencies.
-7. Apply migrations:
+5. Run environment preflight:
+
+```bash
+python3 scripts/check_environment.py --env-file /etc/cyber-bonus/production.env
+```
+
+6. Pull or check out the release commit.
+7. Install dependencies.
+8. Apply migrations:
 
 ```bash
 ENV_FILE=/etc/cyber-bonus/production.env python3 scripts/migrate.py
 ```
 
-8. Restart services one by one:
+9. Restart services one by one:
    - Web app.
    - Guest bot.
    - Admin bot.
    - Workers and scheduled jobs.
 
-9. Check:
+10. Check:
 
 ```bash
 curl -fsS https://your-domain.example/healthz
 curl -fsS https://your-domain.example/readyz
 ```
 
-10. Run manual smoke checks:
+11. Run manual smoke checks:
     - Owner login.
     - Guest Telegram login.
     - Admin `/admin/api/system-health`.

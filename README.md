@@ -125,3 +125,9 @@ python3 scripts/migrate.py
 pip install -r requirements-dev.txt
 pytest
 ```
+
+Проверка окружения перед staging/production:
+
+```bash
+python3 scripts/check_environment.py --env-file .env
+```
