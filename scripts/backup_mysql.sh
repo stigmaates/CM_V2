@@ -50,10 +50,15 @@ MYSQL_PWD="$DB_PASSWORD" mysqldump \
   --host="$DB_HOST" \
   --port="$DB_PORT" \
   --user="$DB_USER" \
+  --skip-opt \
   --single-transaction \
   --skip-lock-tables \
   --no-tablespaces \
   --quick \
+  --add-drop-table \
+  --create-options \
+  --extended-insert \
+  --set-charset \
   --routines \
   --triggers \
   --default-character-set=utf8mb4 \
