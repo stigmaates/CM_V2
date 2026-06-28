@@ -5,6 +5,7 @@ import pkgutil
 from typing import Any
 
 import migrations.versions
+from app.config import APP_VERSION, GIT_COMMIT
 from app.core import get_db_connection
 
 
@@ -65,6 +66,10 @@ def get_admin_system_health() -> dict[str, Any]:
     pending = [revision for revision in expected if revision not in set(applied)]
     return {
         "ok": database_ok and not pending,
+        "release": {
+            "version": APP_VERSION,
+            "commit": GIT_COMMIT or None,
+        },
         "database": {
             "ok": database_ok,
             "error": error,

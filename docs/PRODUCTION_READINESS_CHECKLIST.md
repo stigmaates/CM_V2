@@ -5,6 +5,7 @@ Use this checklist before connecting a paid club.
 ## Environment
 
 - `APP_ENV=production` is set on the server.
+- `APP_VERSION` and `GIT_COMMIT` identify the deployed release.
 - `python3 scripts/check_environment.py --env-file ...` passes.
 - `SECRET_KEY` is unique, long, and not reused between environments.
 - Database credentials are not stored in git.

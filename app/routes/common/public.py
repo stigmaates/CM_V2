@@ -1,12 +1,18 @@
 from flask import jsonify, redirect, session, url_for
 
+from app.config import APP_VERSION, GIT_COMMIT
 from app.core import get_db_connection
 from . import public_bp
 
 
 @public_bp.route("/healthz")
 def healthz():
-    return jsonify({"ok": True, "service": "cyber-bonus"})
+    return jsonify({
+        "ok": True,
+        "service": "cyber-bonus",
+        "version": APP_VERSION,
+        "commit": GIT_COMMIT or None,
+    })
 
 
 @public_bp.route("/readyz")
@@ -20,12 +26,24 @@ def readyz():
         if int(row.get("ok") or 0) != 1:
             raise RuntimeError("unexpected database response")
     except Exception:
-        return jsonify({"ok": False, "service": "cyber-bonus", "database": "unavailable"}), 503
+        return jsonify({
+            "ok": False,
+            "service": "cyber-bonus",
+            "version": APP_VERSION,
+            "commit": GIT_COMMIT or None,
+            "database": "unavailable",
+        }), 503
     finally:
         if conn:
             conn.close()
 
-    return jsonify({"ok": True, "service": "cyber-bonus", "database": "available"})
+    return jsonify({
+        "ok": True,
+        "service": "cyber-bonus",
+        "version": APP_VERSION,
+        "commit": GIT_COMMIT or None,
+        "database": "available",
+    })
 
 
 @public_bp.route("/")

@@ -5,6 +5,8 @@ load_dotenv()
 
 APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 IS_PRODUCTION = APP_ENV == "production"
+APP_VERSION = os.getenv("APP_VERSION", "development")
+GIT_COMMIT = os.getenv("GIT_COMMIT", "")
 
 DB_HOST = os.getenv("DB_HOST", "")
 DB_PORT = int(os.getenv("DB_PORT", 3306))

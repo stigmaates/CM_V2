@@ -73,28 +73,29 @@ ENV_FILE=/etc/cyber-bonus/production.env BACKUP_DIR=/var/backups/cyber-bonus scr
 python3 scripts/check_environment.py --env-file /etc/cyber-bonus/production.env
 ```
 
-6. Pull or check out the release commit.
-7. Install dependencies.
-8. Apply migrations:
+6. Set `APP_VERSION` and `GIT_COMMIT` in the environment file or service environment.
+7. Pull or check out the release commit.
+8. Install dependencies.
+9. Apply migrations:
 
 ```bash
 ENV_FILE=/etc/cyber-bonus/production.env python3 scripts/migrate.py
 ```
 
-9. Restart services one by one:
+10. Restart services one by one:
    - Web app.
    - Guest bot.
    - Admin bot.
    - Workers and scheduled jobs.
 
-10. Check:
+11. Check:
 
 ```bash
 curl -fsS https://your-domain.example/healthz
 curl -fsS https://your-domain.example/readyz
 ```
 
-11. Run manual smoke checks:
+12. Run manual smoke checks:
     - Owner login.
     - Guest Telegram login.
     - Admin `/admin/api/system-health`.

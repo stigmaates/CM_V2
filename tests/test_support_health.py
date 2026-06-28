@@ -46,6 +46,7 @@ def test_system_health_ok_when_migrations_are_applied(monkeypatch):
     health = support_health.get_admin_system_health()
 
     assert health["ok"] is True
+    assert "release" in health
     assert health["database"]["ok"] is True
     assert health["migrations"]["pending"] == []
     assert health["counts"]["clubs"] == 3
