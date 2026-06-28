@@ -50,6 +50,7 @@ Outcome: 2-3 pilot clubs can be connected manually and supported without constan
 - Review all owner/admin routes for club_id isolation.
 - Add rate limiting for login and Telegram token polling.
 - Add audit log table for sensitive owner/admin actions.
+- Add audit log writer and cover sensitive owner/admin changes.
 
 ## Phase 2: Sales-ready product
 

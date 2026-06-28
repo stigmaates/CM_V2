@@ -1,6 +1,7 @@
 from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import owner_required, parse_datetime_local
+from app.services.audit import record_audit_event
 from app.services.clubs import get_club_info
 from app.services.wheel import (
     assert_active_wheel_probabilities_sum_is_100,
@@ -59,6 +60,17 @@ def wheel_settings():
                 tokens_start_date=tokens_start_date,
                 spin_cost=spin_cost,
                 is_enabled=is_enabled,
+            )
+            record_audit_event(
+                action="owner.wheel_settings.update",
+                club_id=club_id_int,
+                entity_type="club_wheel_settings",
+                entity_id=club_id_int,
+                details={
+                    "spin_cost": spin_cost,
+                    "is_enabled": bool(is_enabled),
+                    "tokens_start_date": tokens_start_date.isoformat() if tokens_start_date else None,
+                },
             )
             flash("Настройки колеса сохранены", "success")
         except Exception as e:
@@ -157,6 +169,13 @@ def wheel_prize_add():
             is_active=is_active,
             sort_order=sort_order,
         )
+        record_audit_event(
+            action="owner.wheel_prize.create",
+            club_id=club_id_int,
+            entity_type="club_wheel_prize",
+            entity_id=new_id,
+            details={"name": name, "probability": probability, "is_active": bool(is_active)},
+        )
         flash("Приз добавлен", "success")
     except Exception as e:
         flash(f"Ошибка добавления приза: {e}", "error")
@@ -224,6 +243,13 @@ def wheel_prize_update(prize_id):
             is_active=is_active,
             sort_order=sort_order,
         )
+        record_audit_event(
+            action="owner.wheel_prize.update",
+            club_id=club_id_int,
+            entity_type="club_wheel_prize",
+            entity_id=prize_id,
+            details={"name": name, "probability": probability, "is_active": bool(is_active)},
+        )
         flash("Приз обновлён", "success")
     except Exception as e:
         flash(f"Ошибка обновления приза: {e}", "error")
@@ -243,6 +269,12 @@ def wheel_prize_delete(prize_id):
 
     try:
         delete_wheel_prize(prize_id, club_id_int)
+        record_audit_event(
+            action="owner.wheel_prize.delete",
+            club_id=club_id_int,
+            entity_type="club_wheel_prize",
+            entity_id=prize_id,
+        )
         flash("Приз удалён", "success")
     except Exception as e:
         flash(f"Ошибка удаления приза: {e}", "error")

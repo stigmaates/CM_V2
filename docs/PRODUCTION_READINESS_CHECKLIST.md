@@ -39,6 +39,7 @@ Use this checklist before connecting a paid club.
 - Login endpoints have rate limiting.
 - Telegram login tokens have expiration and replay protection.
 - Sensitive owner/admin actions are written to an audit log.
+- Audit log writes are best-effort and do not break owner/admin workflows.
 - Production cookies use `Secure`, `HttpOnly`, and appropriate `SameSite`.
 
 ## Monitoring

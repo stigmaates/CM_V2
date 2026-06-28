@@ -1,6 +1,7 @@
 from flask import flash, redirect, request, session, url_for
 
 from app.core import owner_required
+from app.services.audit import record_audit_event
 from app.services.cases import (
     assert_case_active_items_probability_sum_is_100,
     create_case,
@@ -123,6 +124,13 @@ def game_mode_save():
     mode = request.form.get("game_mode", "wheel").strip()
     try:
         save_game_mode(club_id, mode)
+        record_audit_event(
+            action="owner.game_mode.update",
+            club_id=club_id,
+            entity_type="club_wheel_settings",
+            entity_id=club_id,
+            details={"game_mode": mode},
+        )
         flash("Режим бонусной игры сохранён", "success")
     except Exception as e:
         flash(f"Ошибка сохранения режима: {e}", "error")
@@ -155,7 +163,7 @@ def case_add():
 
     try:
         sort_order = len(get_cases_for_admin(club_id)) + 1
-        create_case(
+        case_id = create_case(
             club_id=club_id,
             name=name,
             description=description or None,
@@ -164,6 +172,13 @@ def case_add():
             price_tokens=price_tokens,
             is_active=0,
             sort_order=sort_order,
+        )
+        record_audit_event(
+            action="owner.case.create",
+            club_id=club_id,
+            entity_type="club_case",
+            entity_id=case_id,
+            details={"name": name, "price_tokens": price_tokens, "is_active": False},
         )
         flash("Кейс добавлен. Добавь предметы и проценты выпадения, затем включи кейс.", "success")
     except Exception as e:
@@ -221,6 +236,13 @@ def case_update(case_id):
             sort_order=int(case.get("sort_order") or 0),
         )
         _delete_old_image_if_replaced(old_image_url, image_url)
+        record_audit_event(
+            action="owner.case.update",
+            club_id=club_id,
+            entity_type="club_case",
+            entity_id=case_id,
+            details={"name": name, "price_tokens": price_tokens, "is_active": bool(is_active)},
+        )
         flash("Кейс обновлён", "success")
     except Exception as e:
         # If a new local file was saved but DB update failed, remove it.
@@ -244,6 +266,12 @@ def case_delete(case_id):
         delete_case(case_id, club_id)
         for url in image_urls:
             delete_local_upload(url)
+        record_audit_event(
+            action="owner.case.delete",
+            club_id=club_id,
+            entity_type="club_case",
+            entity_id=case_id,
+        )
         flash("Кейс удалён", "success")
     except Exception as e:
         flash(f"Ошибка удаления кейса: {e}", "error")
@@ -287,7 +315,7 @@ def case_item_add(case_id):
     try:
         items = case.get("items") or []
         sort_order = len(items) + 1
-        create_case_item(
+        item_id = create_case_item(
             case_id=case_id,
             club_id=club_id,
             name=name,
@@ -299,6 +327,18 @@ def case_item_add(case_id):
             rarity_label=rarity_label,
             is_active=is_active,
             sort_order=sort_order,
+        )
+        record_audit_event(
+            action="owner.case_item.create",
+            club_id=club_id,
+            entity_type="club_case_item",
+            entity_id=item_id,
+            details={
+                "case_id": case_id,
+                "name": name,
+                "probability": probability,
+                "is_active": bool(is_active),
+            },
         )
         flash("Предмет добавлен в кейс", "success")
     except Exception as e:
@@ -363,6 +403,18 @@ def case_item_update(case_id, item_id):
             sort_order=int(item.get("sort_order") or 0),
         )
         _delete_old_image_if_replaced(old_image_url, image_url)
+        record_audit_event(
+            action="owner.case_item.update",
+            club_id=club_id,
+            entity_type="club_case_item",
+            entity_id=item_id,
+            details={
+                "case_id": case_id,
+                "name": name,
+                "probability": probability,
+                "is_active": bool(is_active),
+            },
+        )
         flash("Предмет обновлён", "success")
     except Exception as e:
         if image_url != old_image_url:
@@ -385,6 +437,13 @@ def case_item_delete(case_id, item_id):
     try:
         delete_case_item(item_id, club_id)
         delete_local_upload(image_url)
+        record_audit_event(
+            action="owner.case_item.delete",
+            club_id=club_id,
+            entity_type="club_case_item",
+            entity_id=item_id,
+            details={"case_id": case_id},
+        )
         flash("Предмет удалён", "success")
     except Exception as e:
         flash(f"Ошибка удаления предмета: {e}", "error")

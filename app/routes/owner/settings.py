@@ -1,6 +1,7 @@
 from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import owner_required
+from app.services.audit import record_audit_event
 from app.services.clubs import get_club_info, update_club_info
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
@@ -37,6 +38,12 @@ def settings_pc_names_save():
 
     try:
         save_pc_name_settings(int(club_id), items)
+        record_audit_event(
+            action="owner.pc_names.update",
+            club_id=int(club_id),
+            entity_type="club_pc_names",
+            details={"items_count": len(items)},
+        )
         flash("Названия ПК сохранены", "success")
     except Exception as exc:
         flash(f"Ошибка сохранения ПК: {exc}", "error")
@@ -76,6 +83,26 @@ def settings():
         try:
             update_club_info(club_id, name, lg_api_key, secret, cm_bonus_admin_chat_id, instagram_url, youtube_url, vk_url, telegram_channel_url, yandex_maps_url, two_gis_url)
             session["club_name"] = name
+            record_audit_event(
+                action="owner.club_settings.update",
+                club_id=int(club_id),
+                entity_type="club",
+                entity_id=club_id,
+                details={
+                    "name": name,
+                    "has_lg_api_key": bool(lg_api_key),
+                    "has_secret": bool(secret),
+                    "has_bonus_admin_chat": bool(cm_bonus_admin_chat_id),
+                    "social_links": {
+                        "instagram": bool(instagram_url),
+                        "youtube": bool(youtube_url),
+                        "vk": bool(vk_url),
+                        "telegram": bool(telegram_channel_url),
+                        "yandex_maps": bool(yandex_maps_url),
+                        "two_gis": bool(two_gis_url),
+                    },
+                },
+            )
             flash("Настройки клуба обновлены", "success")
             return redirect(url_for("owner.settings", tab="club"))
         except Exception as e:

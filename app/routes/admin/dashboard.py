@@ -4,6 +4,7 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 
 from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
+from app.services.audit import record_audit_event
 
 
 def ensure_admin_sync_logs_table():
@@ -335,6 +336,13 @@ def club_sync(club_id: int, sync_type: str):
         result = func(club_id)
         message = result or "Синхронизация завершена"
         finish_sync_log(log_id, "success", message)
+        record_audit_event(
+            action="admin.club_sync.run",
+            club_id=club_id,
+            entity_type="admin_sync_log",
+            entity_id=log_id,
+            details={"script_name": script_name, "sync_mode": sync_mode, "status": "success"},
+        )
         return jsonify({"status": True, "message": message})
     except Exception as e:
         finish_sync_log(log_id, "error", str(e))
@@ -358,6 +366,13 @@ def start_owner_impersonation(club_id: int):
         session["original_club_name"] = session.get("club_name")
 
     log_id = create_impersonation_log(int(club["club_id"]), club.get("name"))
+    record_audit_event(
+        action="admin.impersonation.start",
+        club_id=int(club["club_id"]),
+        entity_type="admin_impersonation_log",
+        entity_id=log_id,
+        details={"club_name": club.get("name")},
+    )
 
     session["impersonating_owner"] = True
     session["impersonated_club_id"] = int(club["club_id"])
@@ -373,7 +388,15 @@ def start_owner_impersonation(club_id: int):
 @admin_bp.route("/impersonation/stop")
 @admin_required
 def stop_owner_impersonation():
+    impersonated_club_id = session.get("impersonated_club_id")
+    impersonation_log_id = session.get("impersonation_log_id")
     finish_impersonation_log(session.get("impersonation_log_id"))
+    record_audit_event(
+        action="admin.impersonation.stop",
+        club_id=int(impersonated_club_id) if impersonated_club_id else None,
+        entity_type="admin_impersonation_log",
+        entity_id=impersonation_log_id,
+    )
 
     original_club_id = session.pop("original_club_id", None)
     original_club_name = session.pop("original_club_name", None)
