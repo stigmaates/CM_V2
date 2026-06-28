@@ -112,6 +112,7 @@ clubmodule/
 - [Nginx template](docs/NGINX_TEMPLATE.md) — шаблон reverse proxy, static и uploads.
 - [Staging smoke tests](docs/STAGING_SMOKE_TESTS.md) — быстрые проверки после деплоя.
 - [Release candidate checklist](docs/RELEASE_CANDIDATE_CHECKLIST.md) — финальная проверка перед релизом.
+- [Stage server runbook](docs/STAGE_SERVER_RUNBOOK.md) — инструкции для текущего stage-сервера.
 
 В production-окружении обязательно указывать `APP_ENV=production` и все критичные переменные из `.env.example`.
 
