@@ -1,4 +1,6 @@
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -30,3 +32,48 @@ def test_backup_script_requires_env_file(tmp_path):
 
     assert result.returncode != 0
     assert "Environment file not found" in result.stderr
+
+
+def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        '\n'.join(
+            [
+                'DB_HOST = "127.0.0.1"',
+                "DB_PORT = 3306",
+                'DB_USER = "club"',
+                'DB_PASSWORD = "secret with spaces"',
+                'DB_NAME = "stage_db"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    mysqldump = bin_dir / "mysqldump"
+    mysqldump.write_text("#!/usr/bin/env bash\necho 'CREATE TABLE smoke (id int);'\n", encoding="utf-8")
+    mysqldump.chmod(0o755)
+    gzip = bin_dir / "gzip"
+    gzip.write_text("#!/usr/bin/env bash\ncat\n", encoding="utf-8")
+    gzip.chmod(0o755)
+
+    backup_dir = tmp_path / "backups"
+    result = subprocess.run(
+        ["bash", "scripts/backup_mysql.sh"],
+        cwd=ROOT,
+        env={
+            "ENV_FILE": str(env_file),
+            "BACKUP_DIR": str(backup_dir),
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "PYTHON_BIN": sys.executable,
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    backup_path = Path(result.stdout.strip())
+    assert backup_path.exists()
+    assert backup_path.read_text(encoding="utf-8").startswith("CREATE TABLE smoke")

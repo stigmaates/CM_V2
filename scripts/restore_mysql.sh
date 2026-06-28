@@ -3,6 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env}"
+PYTHON_BIN="${PYTHON_BIN:-$ROOT_DIR/venv/bin/python}"
+
+if [[ ! -x "$PYTHON_BIN" ]]; then
+  PYTHON_BIN="python3"
+fi
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 /path/to/backup.sql.gz" >&2
@@ -20,10 +25,23 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
+env_exports="$("$PYTHON_BIN" - "$ENV_FILE" <<'PY'
+from __future__ import annotations
+
+import shlex
+import sys
+
+from dotenv import dotenv_values
+
+names = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME")
+values = dotenv_values(sys.argv[1])
+for name in names:
+    value = values.get(name)
+    if value is not None:
+        print(f"export {name}={shlex.quote(str(value))}")
+PY
+)" || exit 1
+eval "$env_exports"
 
 required=(DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME)
 for name in "${required[@]}"; do
