@@ -41,6 +41,8 @@ Use this checklist before connecting a paid club.
 
 ## Monitoring
 
+- `/healthz` returns 200 from the running web process.
+- `/readyz` returns 200 when the web process can reach MySQL.
 - Failed syncs trigger an alert.
 - Stale sync data triggers an alert.
 - Bot process failures trigger an alert.

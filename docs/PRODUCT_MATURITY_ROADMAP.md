@@ -28,6 +28,7 @@ Outcome: 2-3 pilot clubs can be connected manually and supported without constan
 - Add DB migration tool and move schema changes out of runtime code.
 - Apply `scripts/migrate.py` before every production deploy.
 - Add smoke tests and CI for import/config/security checks.
+- Add liveness and readiness endpoints for deployment checks.
 - Add deployment documentation for web app, guest bot, admin bot, and scheduled scripts.
 - Add basic smoke tests for auth, owner dashboard, guest dashboard, and critical JSON endpoints.
 - Add structured logging for sync scripts and Telegram workers.

@@ -1,6 +1,31 @@
-from flask import redirect, session, url_for
+from flask import jsonify, redirect, session, url_for
 
+from app.core import get_db_connection
 from . import public_bp
+
+
+@public_bp.route("/healthz")
+def healthz():
+    return jsonify({"ok": True, "service": "cyber-bonus"})
+
+
+@public_bp.route("/readyz")
+def readyz():
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1 AS ok")
+            row = cursor.fetchone() or {}
+        if int(row.get("ok") or 0) != 1:
+            raise RuntimeError("unexpected database response")
+    except Exception:
+        return jsonify({"ok": False, "service": "cyber-bonus", "database": "unavailable"}), 503
+    finally:
+        if conn:
+            conn.close()
+
+    return jsonify({"ok": True, "service": "cyber-bonus", "database": "available"})
 
 
 @public_bp.route("/")
