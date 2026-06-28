@@ -51,6 +51,7 @@ python3 -m pytest
 ```bash
 curl -fsS https://staging.example.com/healthz
 curl -fsS https://staging.example.com/readyz
+python3 scripts/smoke_http.py --base-url https://staging.example.com
 ```
 
 9. Log in as admin and check `/admin/api/system-health`.
@@ -93,6 +94,7 @@ ENV_FILE=/etc/cyber-bonus/production.env python3 scripts/migrate.py
 ```bash
 curl -fsS https://your-domain.example/healthz
 curl -fsS https://your-domain.example/readyz
+python3 scripts/smoke_http.py --base-url https://your-domain.example
 ```
 
 12. Run manual smoke checks:

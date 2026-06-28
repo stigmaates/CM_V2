@@ -110,6 +110,7 @@ clubmodule/
 - [Deployment runbook](docs/DEPLOYMENT_RUNBOOK.md) — staging/production-регламент релиза.
 - [systemd service templates](docs/SYSTEMD_SERVICES.md) — шаблоны сервисов и таймеров.
 - [Nginx template](docs/NGINX_TEMPLATE.md) — шаблон reverse proxy, static и uploads.
+- [Staging smoke tests](docs/STAGING_SMOKE_TESTS.md) — быстрые проверки после деплоя.
 
 В production-окружении обязательно указывать `APP_ENV=production` и все критичные переменные из `.env.example`.
 
