@@ -2040,13 +2040,28 @@
            For 1-4 cases the external bottom border of the Cases panel must exactly match
            the external bottom border of the Profile panel. The exact value is measured in JS
            and applied with !important, because older experimental fixes had height:auto!important. */
-        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-lte-4 > .right-column > .cases-panel {
+        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-lte-4:not(.case-count-1) > .right-column > .cases-panel {
             box-sizing: border-box !important;
             height: var(--cases-profile-height, auto) !important;
             min-height: var(--cases-profile-height, 0px) !important;
             max-height: var(--cases-profile-height, none) !important;
             flex: 0 0 var(--cases-profile-height, auto) !important;
             overflow: hidden !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-1 > .right-column > .cases-panel {
+            box-sizing: border-box !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            flex: 0 0 auto !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-1 .cases-grid {
+            grid-template-columns: minmax(280px, 380px) !important;
+            max-width: 420px !important;
+            margin-inline: auto !important;
         }
 
         body .layout.layout--cases.case-layout-profile-sync-v11.case-count-gt-4 > .right-column > .cases-panel {
@@ -3535,7 +3550,7 @@
             const casesGrid = document.getElementById('casesGrid');
             if (!layout || !rightColumn || !casesPanel) return;
 
-            layout.classList.remove('case-layout-hard-fix-v6', 'case-layout-adaptive-v7', 'case-layout-profile-sync-v8', 'case-layout-profile-sync-v9', 'case-layout-profile-sync-v10', 'case-count-lte-4', 'case-count-gt-4');
+            layout.classList.remove('case-layout-hard-fix-v6', 'case-layout-adaptive-v7', 'case-layout-profile-sync-v8', 'case-layout-profile-sync-v9', 'case-layout-profile-sync-v10', 'case-count-1', 'case-count-lte-4', 'case-count-gt-4');
             layout.classList.add('case-layout-profile-sync-v11');
             layout.dataset.caseLayoutFix = 'v11';
 
@@ -3559,8 +3574,9 @@
 
             const profileHeight = profilePanel ? Math.ceil(profilePanel.offsetHeight || profilePanel.getBoundingClientRect().height) : 0;
             const leftHeight = leftColumn ? Math.ceil(leftColumn.offsetHeight || leftColumn.getBoundingClientRect().height) : 0;
-            const syncCasesToProfile = desktop && profileHeight > 0 && count > 0 && count <= 4;
+            const syncCasesToProfile = desktop && profileHeight > 0 && count >= 2 && count <= 4;
 
+            layout.classList.toggle('case-count-1', desktop && count === 1);
             layout.classList.toggle('case-count-lte-4', desktop && count > 0 && count <= 4);
             layout.classList.toggle('case-count-gt-4', desktop && count > 4);
             layout.style.setProperty('--cases-profile-height', profileHeight ? `${profileHeight}px` : 'auto');
@@ -3586,7 +3602,7 @@
             casesPanel.style.overflow = 'visible';
             casesPanel.style.setProperty('box-sizing', 'border-box', 'important');
             casesPanel.style.setProperty('flex', '0 0 auto', 'important');
-            casesPanel.style.setProperty('min-height', desktop && profileHeight ? `${profileHeight}px` : '0', 'important');
+            casesPanel.style.setProperty('min-height', desktop && profileHeight && count !== 1 ? `${profileHeight}px` : '0', 'important');
             if (syncCasesToProfile) {
                 casesPanel.style.setProperty('height', `${profileHeight}px`, 'important');
                 casesPanel.style.setProperty('max-height', `${profileHeight}px`, 'important');
@@ -3642,13 +3658,13 @@
                 imageHeight = count <= 2 ? 190 : 165;
             } else if (count <= 1) {
                 columns = 1;
-                imageHeight = syncCasesToProfile ? Math.max(190, Math.min(260, profileHeight - 245)) : 240;
-                maxWidth = '560px';
+                imageHeight = 180;
+                maxWidth = '420px';
                 marginInline = 'auto';
-                cardPadding = 16;
-                nameSize = 17;
+                cardPadding = 14;
+                nameSize = 16;
                 descSize = 13;
-                buttonPadding = '13px 14px';
+                buttonPadding = '11px 12px';
             } else if (count === 2) {
                 columns = 2;
                 imageHeight = syncCasesToProfile ? Math.max(170, Math.min(220, profileHeight - 260)) : 210;
