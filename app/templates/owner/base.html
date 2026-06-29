@@ -12,7 +12,7 @@
     {% block head %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="owner-body">
     {% if request.host.startswith('stage.') %}
     <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
     {% endif %}

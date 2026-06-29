@@ -964,6 +964,20 @@ select {
     letter-spacing: 0;
 }
 
+.owner-body .stage-badge {
+    top: 104px;
+    right: 24px;
+    z-index: 80;
+    padding: 8px 12px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    box-shadow: 0 8px 22px rgba(255, 31, 31, 0.34);
+}
+
+.owner-body .stage-badge::before {
+    font-size: 12px;
+}
+
 @media (max-width: 768px) {
     .stage-badge {
         top: 10px;
@@ -972,5 +986,11 @@ select {
         font-size: 11px;
         box-shadow: 0 8px 22px rgba(255, 31, 31, 0.4);
     }
-}
 
+    .owner-body .stage-badge {
+        top: auto;
+        right: 10px;
+        bottom: 10px;
+        max-width: calc(100vw - 20px);
+    }
+}
