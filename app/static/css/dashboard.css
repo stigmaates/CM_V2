@@ -1694,9 +1694,9 @@ body.modal-open { overflow: hidden; }
     grid-template-areas:
         "survey csi mailing"
         "survey funnel funnel";
-    grid-template-rows: auto auto;
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 18px;
-    align-items: start;
+    align-items: stretch;
 }
 
 .cb-panel {
@@ -2412,7 +2412,8 @@ body.modal-open { overflow: hidden; }
 
 .cb-streak-funnel-card {
     grid-area: funnel;
-    min-height: 260px;
+    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -2432,7 +2433,7 @@ body.modal-open { overflow: hidden; }
     grid-template-columns: repeat(7, minmax(0, 1fr));
     align-items: end;
     gap: clamp(10px, 1.2vw, 20px);
-    min-height: 185px;
+    min-height: 260px;
     flex: 1;
     padding: 4px 2px 0;
 }
