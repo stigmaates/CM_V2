@@ -196,7 +196,7 @@
                     <div class="cb-funnel-bar-item" title="{{ item.label }}: {{ item.count }} гостей">
                         <div class="cb-funnel-bar-wrap">
                             <div class="cb-funnel-bar-area">
-                                <div class="cb-funnel-bar-stack" style="height: {{ item.height }}%">
+                                <div class="cb-funnel-bar-stack" style="height: {{ [item.height * 1.65, 100]|min }}%">
                                     <div class="cb-funnel-bar-value">{{ item.count }}</div>
                                     <span class="cb-funnel-bar"></span>
                                 </div>
