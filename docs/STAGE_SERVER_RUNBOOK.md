@@ -71,6 +71,27 @@ Also check manually:
 - CM bonuses.
 - `/admin/api/system-health`.
 
+## Refresh stage data from production
+
+Use this only after explicitly approving a production-to-stage data refresh.
+The script stops the stage bot, backs up both databases, overwrites only the
+stage database with production data, runs stage migrations, restarts stage web,
+and leaves the stage bot stopped.
+
+```bash
+cd /root/cm_stage/CM_V2
+bash scripts/refresh_stage_from_production.sh
+```
+
+When prompted, type:
+
+```text
+REFRESH_STAGE
+```
+
+After the refresh, verify stage web and keep the stage bot stopped unless the
+bot token and notification behavior are safe for testing.
+
 ## If deploy fails
 
 1. Do not touch production.

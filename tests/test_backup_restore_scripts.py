@@ -20,6 +20,25 @@ def test_restore_script_requires_backup_path():
     assert "Usage:" in result.stderr
 
 
+def test_stage_refresh_script_requires_stage_root(tmp_path):
+    result = subprocess.run(
+        ["bash", "scripts/refresh_stage_from_production.sh"],
+        cwd=ROOT,
+        env={
+            "STAGE_ROOT": str(tmp_path / "stage"),
+            "PROD_ROOT": str(tmp_path / "prod"),
+            "PATH": os.environ["PATH"],
+            "PYTHON_BIN": sys.executable,
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Run this script from" in result.stderr
+
+
 def test_backup_script_requires_env_file(tmp_path):
     result = subprocess.run(
         ["bash", "scripts/backup_mysql.sh"],
