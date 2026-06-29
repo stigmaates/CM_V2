@@ -370,6 +370,73 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
         "period_days": period_days,
     }
 
+
+def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
+    """Return completion counts by mission for the selected dashboard period."""
+    if not club_id:
+        return {"items": [], "total_completions": 0, "period_days": period_days}
+
+    period_days = period_days if period_days in (7, 30, 90) else 30
+    ranges = get_period_range(period_days)
+    current_start = ranges["current_start"]
+    current_end = ranges["current_end"]
+
+    active_missions = get_club_missions(club_id)
+    if not active_missions:
+        return {"items": [], "total_completions": 0, "period_days": period_days}
+
+    guest_ids = _get_guest_ids_for_engagement_scope(
+        club_id,
+        current_start=current_start,
+        current_end=current_end,
+        all_time=False,
+    )
+    sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
+    spins_by_guest = _get_wheel_spins_by_guest(club_id, guest_ids)
+
+    completion_counts = defaultdict(int)
+    completion_cache = {}
+
+    for guest_id in guest_ids:
+        guest_sessions = sessions_by_guest.get(guest_id, [])
+        guest_spins = spins_by_guest.get(guest_id, [])
+
+        for mission in active_missions:
+            completed_at = _get_mission_completion_at_from_preloaded(
+                guest_id,
+                club_id,
+                mission,
+                guest_sessions,
+                guest_spins,
+                active_missions,
+                completion_cache,
+            )
+            if completed_at and current_start <= completed_at < current_end:
+                completion_counts[mission.get("id")] += 1
+
+    max_completions = max(completion_counts.values(), default=0)
+    items = []
+    for mission in active_missions:
+        mission_id = mission.get("id")
+        completions = int(completion_counts.get(mission_id, 0))
+        width = round((completions / max_completions) * 100, 1) if max_completions else 0
+        items.append(
+            {
+                "mission_id": int(mission_id or 0),
+                "name": mission.get("display_name") or mission.get("name") or "Без названия",
+                "completions": completions,
+                "width": width,
+            }
+        )
+
+    items.sort(key=lambda item: (-item["completions"], item["name"]))
+
+    return {
+        "items": items,
+        "total_completions": sum(item["completions"] for item in items),
+        "period_days": period_days,
+    }
+
 def get_dashboard_stats(club_id: int, period_days: int = 30):
     if not club_id:
         return None

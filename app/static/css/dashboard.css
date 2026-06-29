@@ -3646,6 +3646,11 @@ body.modal-open { overflow: hidden; }
     letter-spacing: .08em;
 }
 
+.cb-case-openings-thumb--mission span {
+    font-size: 24px;
+    letter-spacing: 0;
+}
+
 .cb-case-openings-name {
     min-width: 0;
     color: #eee7fb;

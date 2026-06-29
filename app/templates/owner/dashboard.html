@@ -259,7 +259,7 @@
 
             <div id="caseMetrics" class="cb-metric-grid hidden-block" data-engagement-metrics="cases">
                 <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="cases.total_guests">{{ engagement_data.cases.total_guests }}</b></div></div>
-                <div class="cb-metric-card"><div class="cb-metric-icon">📦</div><div><span>Открывали кейсы</span><b data-engagement-value="cases.involved_guests">{{ engagement_data.cases.involved_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">💼</div><div><span>Открывали кейсы</span><b data-engagement-value="cases.involved_guests">{{ engagement_data.cases.involved_guests }}</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Вовлеченность</span><b><span data-engagement-value="cases.engagement_percent">{{ engagement_data.cases.engagement_percent }}</span>%</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">↻</div><div><span>Вернулись после открытия</span><b data-engagement-value="cases.returned_guests">{{ engagement_data.cases.returned_guests }}</b></div></div>
             </div>
@@ -331,10 +331,73 @@
                 </div>
                 <div class="cb-case-openings-summary-separator"></div>
                 <div class="cb-case-openings-summary-row">
-                    <div class="cb-case-openings-summary-icon">♧</div>
+                    <div class="cb-case-openings-summary-icon">💼</div>
                     <div>
                         <b>{{ opened_cases_count }}</b>
                         <span>кейсов открывали</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <section
+        class="cb-panel cb-case-openings-panel hidden-block"
+        id="missionCompletionsChartPanel"
+        data-engagement-extra="missions"
+        aria-label="Статистика выполнений заданий"
+    >
+        {% set completed_missions_count = mission_completions_chart['items']|selectattr('completions')|list|length %}
+        <div class="cb-case-openings-layout">
+            <div class="cb-case-openings-list-panel">
+                <div class="cb-panel-head cb-case-openings-head">
+                    <div>
+                        <h2>Выполнения заданий</h2>
+                        <p>Топ заданий за последние {{ mission_completions_chart.period_days }} дней</p>
+                    </div>
+                    <span class="cb-case-openings-column-label">Выполнений</span>
+                </div>
+
+                {% if mission_completions_chart['items'] %}
+                <div class="cb-case-openings-chart">
+                    {% for item in mission_completions_chart['items'] %}
+                    <div class="cb-case-openings-row" title="{{ item.name }}: {{ item.completions }} выполнений">
+                        <div class="cb-case-openings-rank">{{ loop.index }}</div>
+                        <div class="cb-case-openings-thumb cb-case-openings-thumb--mission">
+                            <span>✓</span>
+                        </div>
+                        <div class="cb-case-openings-name">{{ item.name }}</div>
+                        <b class="cb-case-openings-count">{{ item.completions }}</b>
+                        <div class="cb-case-openings-track" aria-hidden="true">
+                            <div
+                                class="cb-case-openings-bar {% if item.completions == 0 %}is-empty{% endif %}"
+                                style="width: {{ item.width }}%"
+                            ></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="cb-case-openings-empty">
+                    Задания пока не созданы. После добавления заданий здесь появится статистика выполнений.
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="cb-case-openings-summary">
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">☑</div>
+                    <div>
+                        <b>{{ mission_completions_chart.total_completions }}</b>
+                        <span>всего выполнений</span>
+                    </div>
+                </div>
+                <div class="cb-case-openings-summary-separator"></div>
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">★</div>
+                    <div>
+                        <b>{{ completed_missions_count }}</b>
+                        <span>заданий выполняли</span>
                     </div>
                 </div>
             </aside>
