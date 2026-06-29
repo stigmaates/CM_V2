@@ -2391,7 +2391,7 @@ body.modal-open { overflow: hidden; }
 }
 
 .cb-survey-panel {
-    grid-row: span 2;
+    grid-row: auto;
 }
 
 .cb-streak-funnel-card {
