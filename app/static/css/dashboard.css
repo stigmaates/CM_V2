@@ -1691,8 +1691,12 @@ body.modal-open { overflow: hidden; }
 .cb-main-grid {
     display: grid;
     grid-template-columns: 1.42fr .64fr .64fr;
+    grid-template-areas:
+        "survey csi mailing"
+        "survey funnel funnel";
+    grid-template-rows: auto auto;
     gap: 18px;
-    align-items: stretch;
+    align-items: start;
 }
 
 .cb-panel {
@@ -2204,8 +2208,13 @@ body.modal-open { overflow: hidden; }
     }
     .cb-kpi-icon { width: 58px; height: 58px; border-radius: 16px; }
     .cb-sparkline { display: none; }
-    .cb-main-grid { grid-template-columns: 1fr 1fr; }
-    .cb-survey-panel { grid-column: 1 / -1; }
+    .cb-main-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "survey survey"
+            "csi mailing"
+            "funnel funnel";
+    }
     .cb-engagement-panel { grid-template-columns: 1fr; }
     .cb-wheel-art { display: none; }
     .cb-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2214,6 +2223,13 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 980px) {
     .cb-dashboard-head { flex-direction: column; align-items: flex-start; }
     .cb-kpi-grid, .cb-main-grid, .cb-survey-summary, .cb-feedback-grid { grid-template-columns: 1fr; }
+    .cb-main-grid {
+        grid-template-areas:
+            "survey"
+            "csi"
+            "mailing"
+            "funnel";
+    }
     .cb-period-switcher { width: 100%; }
     .cb-period-option { min-width: 0; flex: 1; padding-left: 10px; padding-right: 10px; }
     .cb-engagement-top { flex-direction: column; align-items: flex-start; }
@@ -2391,15 +2407,23 @@ body.modal-open { overflow: hidden; }
 }
 
 .cb-survey-panel {
-    grid-row: auto;
+    grid-area: survey;
 }
 
 .cb-streak-funnel-card {
-    grid-column: 2 / 4;
+    grid-area: funnel;
     min-height: 260px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.cb-csi-card {
+    grid-area: csi;
+}
+
+.cb-mailing-card {
+    grid-area: mailing;
 }
 
  .cb-funnel-chart {
