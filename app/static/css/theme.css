@@ -965,13 +965,16 @@ select {
 }
 
 .owner-body .stage-badge {
-    top: 104px;
-    right: 24px;
+    top: auto;
+    right: auto;
+    bottom: 14px;
+    left: 14px;
     z-index: 80;
-    padding: 8px 12px;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    box-shadow: 0 8px 22px rgba(255, 31, 31, 0.34);
+    padding: 7px 10px;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    opacity: 0.72;
+    box-shadow: 0 8px 18px rgba(255, 31, 31, 0.24);
 }
 
 .owner-body .stage-badge::before {
@@ -989,7 +992,8 @@ select {
 
     .owner-body .stage-badge {
         top: auto;
-        right: 10px;
+        right: auto;
+        left: 10px;
         bottom: 10px;
         max-width: calc(100vw - 20px);
     }
