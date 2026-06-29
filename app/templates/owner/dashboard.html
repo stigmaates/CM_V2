@@ -280,42 +280,64 @@
         data-engagement-extra="cases"
         aria-label="Статистика открытий кейсов"
     >
-        <div class="cb-panel-head cb-case-openings-head">
-            <div>
-                <h2>Открытия кейсов</h2>
-                <p>Количество открытий каждого кейса за последние {{ case_openings_chart.period_days }} дней.</p>
-            </div>
-            <div class="cb-case-openings-total">
-                <b>{{ case_openings_chart.total_openings }}</b>
-                <span>всего открытий</span>
-            </div>
-        </div>
-
-        {% if case_openings_chart['items'] %}
-        <div class="cb-case-openings-chart">
-            {% for item in case_openings_chart['items'] %}
-            <div class="cb-case-openings-row" title="{{ item.name }}: {{ item.openings }} открытий">
-                <div class="cb-case-openings-meta">
-                    <span>{{ item.name }}</span>
-                    <b>{{ item.openings }}</b>
+        {% set opened_cases_count = case_openings_chart['items']|selectattr('openings')|list|length %}
+        <div class="cb-case-openings-layout">
+            <div class="cb-case-openings-list-panel">
+                <div class="cb-panel-head cb-case-openings-head">
+                    <div>
+                        <h2>Открытия кейсов</h2>
+                        <p>Топ кейсов за последние {{ case_openings_chart.period_days }} дней</p>
+                    </div>
+                    <span class="cb-case-openings-column-label">Открытий</span>
                 </div>
-                <div class="cb-case-openings-track" aria-hidden="true">
-                    <div
-                        class="cb-case-openings-bar {% if item.openings == 0 %}is-empty{% endif %}"
-                        style="width: {{ item.width }}%"
-                    ></div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="cb-case-openings-empty">
-            Кейсы пока не созданы. После добавления кейсов здесь появится статистика открытий.
-        </div>
-        {% endif %}
 
-        <div class="cb-case-openings-note">
-            Гистограмма использует выбранный сверху период 7/30/90 дней. Переключатель «За всё время» влияет только на карточки вовлечённости.
+                {% if case_openings_chart['items'] %}
+                <div class="cb-case-openings-chart">
+                    {% for item in case_openings_chart['items'] %}
+                    <div class="cb-case-openings-row" title="{{ item.name }}: {{ item.openings }} открытий">
+                        <div class="cb-case-openings-rank">{{ loop.index }}</div>
+                        <div class="cb-case-openings-thumb">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.name }}">
+                            {% else %}
+                                <span>CB</span>
+                            {% endif %}
+                        </div>
+                        <div class="cb-case-openings-name">{{ item.name }}</div>
+                        <b class="cb-case-openings-count">{{ item.openings }}</b>
+                        <div class="cb-case-openings-track" aria-hidden="true">
+                            <div
+                                class="cb-case-openings-bar {% if item.openings == 0 %}is-empty{% endif %}"
+                                style="width: {{ item.width }}%"
+                            ></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="cb-case-openings-empty">
+                    Кейсы пока не созданы. После добавления кейсов здесь появится статистика открытий.
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="cb-case-openings-summary">
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">◇</div>
+                    <div>
+                        <b>{{ case_openings_chart.total_openings }}</b>
+                        <span>всего открытий</span>
+                    </div>
+                </div>
+                <div class="cb-case-openings-summary-separator"></div>
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">♧</div>
+                    <div>
+                        <b>{{ opened_cases_count }}</b>
+                        <span>кейсов открывали</span>
+                    </div>
+                </div>
+            </aside>
         </div>
     </section>
 

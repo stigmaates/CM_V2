@@ -330,6 +330,7 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                 SELECT
                     c.id AS case_id,
                     c.name AS case_name,
+                    c.image_url AS case_image_url,
                     c.sort_order,
                     COUNT(o.id) AS openings_count
                 FROM club_cases c
@@ -339,7 +340,7 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                  AND o.created_at >= %s
                  AND o.created_at < %s
                 WHERE c.club_id = %s
-                GROUP BY c.id, c.name, c.sort_order
+                GROUP BY c.id, c.name, c.image_url, c.sort_order
                 ORDER BY openings_count DESC, c.sort_order ASC, c.id ASC
                 """,
                 (current_start, current_end, club_id),
@@ -357,6 +358,7 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
             {
                 "case_id": int(row.get("case_id") or 0),
                 "name": row.get("case_name") or "Без названия",
+                "image_url": row.get("case_image_url") or "",
                 "openings": openings,
                 "width": width,
             }
