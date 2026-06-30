@@ -1,10 +1,16 @@
 import argparse
 import logging
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pymysql
 from pymysql.cursors import DictCursor
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 from app.services.job_runs import finish_job_run, start_job_run
