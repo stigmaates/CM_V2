@@ -6,6 +6,7 @@ from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
 from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_runs
+from app.services.operational_alerts import get_operational_alerts, summarize_alerts
 from app.services.support_health import get_admin_system_health
 
 SYNC_JOB_TYPES = [
@@ -409,12 +410,15 @@ def dashboard():
     ensure_admin_impersonation_logs_table()
     clubs = get_clubs_for_admin()
     club_sync_health = get_club_sync_health(clubs)
+    operational_alerts = get_operational_alerts(problem_job_limit=10)
     return render_template(
         "admin/dashboard.html",
         metrics=get_admin_metrics(),
         recent_clubs=clubs[:6],
         club_sync_health=club_sync_health,
         sync_health_summary=summarize_sync_health(club_sync_health),
+        operational_alerts=operational_alerts[:8],
+        operational_alert_summary=summarize_alerts(operational_alerts),
         recent_job_runs=get_recent_job_runs_for_dashboard(limit=12),
         active_page="dashboard",
     )
@@ -450,6 +454,17 @@ def club_details(club_id: int):
 @admin_required
 def api_system_health():
     return jsonify(get_admin_system_health())
+
+
+@admin_bp.route("/api/operational-alerts")
+@admin_required
+def api_operational_alerts():
+    alerts = get_operational_alerts(problem_job_limit=20)
+    return jsonify({
+        "ok": not any(alert.get("severity") == "error" for alert in alerts),
+        "summary": summarize_alerts(alerts),
+        "alerts": alerts,
+    })
 
 
 @admin_bp.route("/api/clubs/<int:club_id>/health")

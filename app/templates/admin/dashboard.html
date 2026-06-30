@@ -33,6 +33,37 @@
 <section class="admin-card">
     <div class="admin-section-head">
         <div>
+            <h2>Операционные предупреждения</h2>
+            <p>Ошибки и риски, которые требуют внимания технического админа.</p>
+        </div>
+        <div class="alerts-summary">
+            <span class="status-pill error">Ошибки: {{ operational_alert_summary.error }}</span>
+            <span class="status-pill stale">Предупреждения: {{ operational_alert_summary.warning }}</span>
+        </div>
+    </div>
+
+    <div class="alerts-list">
+        {% for alert in operational_alerts %}
+            <div class="alert-item {{ alert.severity }}">
+                <div>
+                    <strong>{{ alert.message }}</strong>
+                    <span class="admin-table-sub">
+                        {{ alert.code }}
+                        {% if alert.club_id %} · клуб {{ alert.club_id }}{% endif %}
+                        {% if alert.age_minutes is not none %} · {{ alert.age_minutes }} мин{% endif %}
+                    </span>
+                </div>
+                <span class="status-pill {{ 'error' if alert.severity == 'error' else 'stale' }}">{{ alert.severity }}</span>
+            </div>
+        {% else %}
+            <div class="empty-logs">Активных предупреждений нет</div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
             <h2>Состояние синхронизаций</h2>
             <p>Последние фоновые обновления данных по каждому клубу.</p>
         </div>

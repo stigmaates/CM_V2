@@ -169,6 +169,37 @@
 .health-summary-item.error { border-color: rgba(239, 68, 68, 0.38); }
 .health-summary-item.running { border-color: rgba(250, 204, 21, 0.34); }
 
+.alerts-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.alerts-list {
+    display: grid;
+    gap: 10px;
+}
+
+.alert-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 15px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.alert-item.error {
+    border-color: rgba(239, 68, 68, 0.36);
+}
+
+.alert-item.warning {
+    border-color: rgba(245, 158, 11, 0.34);
+}
+
 .metric-card span {
     display: block;
     color: var(--admin-muted);
