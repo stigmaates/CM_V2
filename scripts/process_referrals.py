@@ -9,6 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.core import get_db_connection
+from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from app.services.referrals import ensure_referral_tables, process_referral_rewards
 
@@ -26,7 +27,14 @@ def main() -> None:
 
     total = 0
     for club_id in clubs:
+        lock = job_lock("process_referrals", club_id=club_id, ttl_minutes=30)
+        acquired_lock = lock.__enter__()
         job_run_id = start_job_run("process_referrals", club_id=club_id)
+        if not acquired_lock.acquired:
+            finish_job_run(job_run_id, "skipped_locked", metadata={"reason": "referrals already running"})
+            print(f"SKIP: referrals club_id={club_id}, locked")
+            lock.__exit__(None, None, None)
+            continue
         try:
             awarded = process_referral_rewards(club_id)
             total += awarded
@@ -36,6 +44,8 @@ def main() -> None:
             finish_job_run(job_run_id, "error", error_text=str(exc))
             print(f"ERROR: referrals club_id={club_id}: {exc}")
             raise
+        finally:
+            lock.__exit__(None, None, None)
     print(f"OK: referrals processed, clubs={len(clubs)}, awarded_total={total}")
 
 

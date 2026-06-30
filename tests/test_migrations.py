@@ -14,6 +14,17 @@ def test_product_readiness_migration_exports_revision_and_upgrade():
     )
 
 
+def test_background_job_locks_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0002_background_job_locks")
+
+    assert migration.revision == "0002_background_job_locks"
+    assert callable(migration.upgrade)
+    assert any(
+        isinstance(value, str) and "background_job_locks" in value
+        for value in migration.upgrade.__code__.co_consts
+    )
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

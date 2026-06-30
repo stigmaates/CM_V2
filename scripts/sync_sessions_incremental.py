@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 
 
@@ -163,11 +164,22 @@ def sync_sessions_incremental(club_id=None):
         current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
+        lock = job_lock("sync_sessions_incremental", club_id=current_club_id, ttl_minutes=60)
+        acquired_lock = lock.__enter__()
         job_run_id = start_job_run(
             "sync_sessions_incremental",
             club_id=current_club_id,
             metadata={"source": "langame", "date_from": date_from, "date_to": date_to},
         )
+        if not acquired_lock.acquired:
+            finish_job_run(
+                job_run_id,
+                "skipped_locked",
+                metadata={"reason": "sync_sessions_incremental already running"},
+            )
+            summary.append({"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to})
+            lock.__exit__(None, None, None)
+            continue
 
         logging.info(f"Клуб {current_club_id} | Langame secret={secret} | {date_from} → {date_to}")
 
@@ -207,6 +219,8 @@ def sync_sessions_incremental(club_id=None):
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))
             raise
+        finally:
+            lock.__exit__(None, None, None)
 
     logging.info("=== END SYNC ===")
     return summary

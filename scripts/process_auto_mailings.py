@@ -12,6 +12,7 @@ load_dotenv()
 from app.config import AUTO_MAILING_TIMEZONE
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from app.services.mailing import (
     create_mailing_for_recipients,
@@ -467,11 +468,21 @@ def process_auto_mailings() -> dict:
         for setting in settings:
             code = setting.get("code")
             club_id = int(setting["club_id"])
+            lock = job_lock("process_auto_mailing", club_id=club_id, resource_id=code, ttl_minutes=60)
+            acquired_lock = lock.__enter__()
             job_run_id = start_job_run(
                 "process_auto_mailing",
                 club_id=club_id,
                 metadata={"code": code, "setting_id": setting.get("id")},
             )
+            if not acquired_lock.acquired:
+                finish_job_run(
+                    job_run_id,
+                    "skipped_locked",
+                    metadata={"code": code, "reason": "auto mailing already running"},
+                )
+                lock.__exit__(None, None, None)
+                continue
             try:
                 if code == "inactive_14_bonus":
                     created = process_inactive_14_bonus(conn, setting)
@@ -501,6 +512,8 @@ def process_auto_mailings() -> dict:
             except Exception as exc:
                 finish_job_run(job_run_id, "error", error_text=str(exc), metadata={"code": code})
                 raise
+            finally:
+                lock.__exit__(None, None, None)
 
         return {"processed": processed, "recipients_created": total_created}
     finally:

@@ -306,7 +306,8 @@
 }
 
 .status-pill.stale,
-.status-pill.none {
+.status-pill.none,
+.status-pill.skipped_locked {
     color: #ffd9ae;
     background: rgba(245, 158, 11, 0.15);
     border-color: rgba(245, 158, 11, 0.34);

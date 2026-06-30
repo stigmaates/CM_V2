@@ -240,6 +240,7 @@ def _job_state(job_type: str, row):
         "error": "ошибка",
         "running": "идёт",
         "stale": "устарело",
+        "skipped_locked": "пропущено",
     }
 
     return {

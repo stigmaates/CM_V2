@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.core import get_db_connection
+from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 TG_PROXY_URL = os.getenv("TG_PROXY_URL")
@@ -100,135 +101,143 @@ def send_single_message(telegram_id: int, text: str, parse_mode: str, attachment
 
 def process_one_mailing(conn, mailing_id: int):
     job_run_id = None
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE mailings
-            SET status = 'in_progress', started_at = NOW()
-            WHERE id = %s AND status = 'queued'
-            """,
-            (mailing_id,),
-        )
-        if cur.rowcount == 0:
-            return
-
-        cur.execute("SELECT * FROM mailings WHERE id = %s", (mailing_id,))
-        mailing = cur.fetchone()
-        job_run_id = start_job_run(
-            "process_mailing",
-            club_id=mailing.get("club_id") if mailing else None,
-            metadata={"mailing_id": mailing_id},
-        )
-
-        cur.execute(
-            """
-            SELECT id, guest_id, telegram_id
-            FROM mailing_recipients
-            WHERE mailing_id = %s AND status = 'pending'
-            ORDER BY id
-            """,
-            (mailing_id,),
-        )
-        recipients = cur.fetchall()
-
-        cur.execute(
-            """
-            SELECT file_type, file_path, original_name
-            FROM mailing_attachments
-            WHERE mailing_id = %s
-            ORDER BY id
-            """,
-            (mailing_id,),
-        )
-        attachments = cur.fetchall()
-
-    success_count = 0
-    failed_count = 0
+    lock = job_lock("process_mailing", resource_id=mailing_id, ttl_minutes=120)
+    acquired_lock = lock.__enter__()
+    if not acquired_lock.acquired:
+        return
 
     try:
-        for rec in recipients:
-            recipient_id = rec["id"]
-            telegram_id = rec["telegram_id"]
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE mailings
+                SET status = 'in_progress', started_at = NOW()
+                WHERE id = %s AND status = 'queued'
+                """,
+                (mailing_id,),
+            )
+            if cur.rowcount == 0:
+                return
 
-            try:
-                response = send_single_message(
-                    telegram_id=telegram_id,
-                    text=mailing["message_text"],
-                    parse_mode=mailing["parse_mode"],
-                    attachments=attachments,
-                )
-                ok = response.status_code == 200 and response.json().get("ok") is True
+            cur.execute("SELECT * FROM mailings WHERE id = %s", (mailing_id,))
+            mailing = cur.fetchone()
+            job_run_id = start_job_run(
+                "process_mailing",
+                club_id=mailing.get("club_id") if mailing else None,
+                metadata={"mailing_id": mailing_id},
+            )
 
-                with conn.cursor() as cur:
-                    if ok:
-                        cur.execute(
-                            """
-                            UPDATE mailing_recipients
-                            SET status = 'sent', sent_at = NOW(), error_text = NULL
-                            WHERE id = %s
-                            """,
-                            (recipient_id,),
-                        )
-                        success_count += 1
-                    else:
-                        error_text = response.text[:1000]
+            cur.execute(
+                """
+                SELECT id, guest_id, telegram_id
+                FROM mailing_recipients
+                WHERE mailing_id = %s AND status = 'pending'
+                ORDER BY id
+                """,
+                (mailing_id,),
+            )
+            recipients = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT file_type, file_path, original_name
+                FROM mailing_attachments
+                WHERE mailing_id = %s
+                ORDER BY id
+                """,
+                (mailing_id,),
+            )
+            attachments = cur.fetchall()
+
+        success_count = 0
+        failed_count = 0
+
+        try:
+            for rec in recipients:
+                recipient_id = rec["id"]
+                telegram_id = rec["telegram_id"]
+
+                try:
+                    response = send_single_message(
+                        telegram_id=telegram_id,
+                        text=mailing["message_text"],
+                        parse_mode=mailing["parse_mode"],
+                        attachments=attachments,
+                    )
+                    ok = response.status_code == 200 and response.json().get("ok") is True
+
+                    with conn.cursor() as cur:
+                        if ok:
+                            cur.execute(
+                                """
+                                UPDATE mailing_recipients
+                                SET status = 'sent', sent_at = NOW(), error_text = NULL
+                                WHERE id = %s
+                                """,
+                                (recipient_id,),
+                            )
+                            success_count += 1
+                        else:
+                            error_text = response.text[:1000]
+                            cur.execute(
+                                """
+                                UPDATE mailing_recipients
+                                SET status = 'failed', error_text = %s
+                                WHERE id = %s
+                                """,
+                                (error_text, recipient_id),
+                            )
+                            failed_count += 1
+
+                    conn.commit()
+                    time.sleep(0.08)
+
+                except Exception as e:
+                    with conn.cursor() as cur:
                         cur.execute(
                             """
                             UPDATE mailing_recipients
                             SET status = 'failed', error_text = %s
                             WHERE id = %s
                             """,
-                            (error_text, recipient_id),
+                            (str(e)[:1000], recipient_id),
                         )
-                        failed_count += 1
+                    conn.commit()
+                    failed_count += 1
+                    time.sleep(0.15)
 
-                conn.commit()
-                time.sleep(0.08)
-
-            except Exception as e:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        UPDATE mailing_recipients
-                        SET status = 'failed', error_text = %s
-                        WHERE id = %s
-                        """,
-                        (str(e)[:1000], recipient_id),
-                    )
-                conn.commit()
-                failed_count += 1
-                time.sleep(0.15)
-
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE mailings
-                SET
-                    status = 'completed',
-                    success_count = (
-                        SELECT COUNT(*) FROM mailing_recipients
-                        WHERE mailing_id = %s AND status = 'sent'
-                    ),
-                    failed_count = (
-                        SELECT COUNT(*) FROM mailing_recipients
-                        WHERE mailing_id = %s AND status = 'failed'
-                    ),
-                    finished_at = NOW()
-                WHERE id = %s
-                """,
-                (mailing_id, mailing_id, mailing_id),
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE mailings
+                    SET
+                        status = 'completed',
+                        success_count = (
+                            SELECT COUNT(*) FROM mailing_recipients
+                            WHERE mailing_id = %s AND status = 'sent'
+                        ),
+                        failed_count = (
+                            SELECT COUNT(*) FROM mailing_recipients
+                            WHERE mailing_id = %s AND status = 'failed'
+                        ),
+                        finished_at = NOW()
+                    WHERE id = %s
+                    """,
+                    (mailing_id, mailing_id, mailing_id),
+                )
+            conn.commit()
+            finish_job_run(
+                job_run_id,
+                "success",
+                rows_received=len(recipients),
+                rows_saved=success_count,
+                metadata={"mailing_id": mailing_id, "failed_count": failed_count},
             )
-        conn.commit()
-        finish_job_run(
-            job_run_id,
-            "success",
-            rows_received=len(recipients),
-            rows_saved=success_count,
-            metadata={"mailing_id": mailing_id, "failed_count": failed_count},
-        )
-    except Exception as exc:
-        finish_job_run(job_run_id, "error", error_text=str(exc), metadata={"mailing_id": mailing_id})
-        raise
+        except Exception as exc:
+            finish_job_run(job_run_id, "error", error_text=str(exc), metadata={"mailing_id": mailing_id})
+            raise
+    finally:
+        lock.__exit__(None, None, None)
 
 
 def main():
