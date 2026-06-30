@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Iterator
 
 from app.core import get_db_connection
@@ -198,5 +198,38 @@ def get_recent_job_runs(limit: int = 20) -> list[dict[str, Any]]:
                 (limit,),
             )
             return cursor.fetchall()
+    finally:
+        conn.close()
+
+
+def mark_stale_job_runs(*, max_age_minutes: int = 60) -> int:
+    cutoff = _utcnow() - timedelta(minutes=max_age_minutes)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_background_job_runs_table(cursor)
+            cursor.execute(
+                """
+                UPDATE background_job_runs
+                SET status = 'stale',
+                    finished_at = %s,
+                    duration_ms = TIMESTAMPDIFF(MICROSECOND, started_at, %s) DIV 1000,
+                    error_text = COALESCE(error_text, %s)
+                WHERE status = 'running'
+                  AND started_at < %s
+                """,
+                (
+                    _utcnow(),
+                    _utcnow(),
+                    f"Marked stale after {max_age_minutes} minutes without completion.",
+                    cutoff,
+                ),
+            )
+            marked = int(cursor.rowcount or 0)
+        conn.commit()
+        return marked
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()

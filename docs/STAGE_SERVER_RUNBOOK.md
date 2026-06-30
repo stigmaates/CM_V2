@@ -56,6 +56,7 @@ Run these from the stage server or a machine that can reach the stage URL:
 
 ```bash
 venv/bin/python scripts/smoke_http.py --base-url <STAGE_URL>
+venv/bin/python scripts/check_background_jobs.py --max-running-minutes 60
 ```
 
 Also check manually:

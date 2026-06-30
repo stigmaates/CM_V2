@@ -2,10 +2,11 @@ from app.services import job_runs
 
 
 class FakeCursor:
-    def __init__(self, rows=None):
+    def __init__(self, rows=None, rowcount=0):
         self.rows = rows or []
         self.executed = []
         self.lastrowid = 42
+        self.rowcount = rowcount
 
     def __enter__(self):
         return self
@@ -95,3 +96,18 @@ def test_latest_job_runs_are_grouped_by_club(monkeypatch):
     assert result[1]["sync_sessions_incremental"]["status"] == "error"
     assert result[2]["sync_guests_incremental"]["status"] == "running"
     assert conn.closed is True
+
+
+def test_mark_stale_job_runs_updates_old_running_rows(monkeypatch):
+    cursor = FakeCursor(rowcount=3)
+    conn = FakeConnection(cursor)
+    monkeypatch.setattr(job_runs, "get_db_connection", lambda: conn)
+
+    marked = job_runs.mark_stale_job_runs(max_age_minutes=45)
+
+    assert marked == 3
+    assert conn.committed is True
+    assert conn.closed is True
+    assert any("UPDATE background_job_runs" in query for query, _ in cursor.executed)
+    update_params = next(params for query, params in cursor.executed if "UPDATE background_job_runs" in query)
+    assert "45 minutes" in update_params[2]
