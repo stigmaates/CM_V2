@@ -11,7 +11,13 @@ from dotenv import dotenv_values
 
 REQUIRED_ALWAYS = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "SECRET_KEY")
 REQUIRED_PRODUCTION = ("BOT_TOKEN",)
-RECOMMENDED = ("CM_BONUS_BOT_TOKEN", "CM_BONUS_ADMIN_CHAT_ID", "BOT_USERNAME")
+RECOMMENDED = (
+    "CM_BONUS_BOT_TOKEN",
+    "CM_BONUS_ADMIN_CHAT_ID",
+    "BOT_USERNAME",
+    "TECH_ALERT_BOT_TOKEN",
+    "TECH_ALERT_CHAT_ID",
+)
 
 
 def validate_env(values: Mapping[str, str | None]) -> tuple[list[str], list[str]]:

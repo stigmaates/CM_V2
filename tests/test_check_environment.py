@@ -17,6 +17,8 @@ def test_validate_env_accepts_production_minimum(monkeypatch):
             "BOT_USERNAME": "bot",
             "CM_BONUS_BOT_TOKEN": "bonus",
             "CM_BONUS_ADMIN_CHAT_ID": "chat",
+            "TECH_ALERT_BOT_TOKEN": "tech",
+            "TECH_ALERT_CHAT_ID": "chat",
             "CLUBMODULE_UPLOAD_ROOT": "/var/www/uploads",
         }
     )

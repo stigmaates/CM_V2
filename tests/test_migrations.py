@@ -25,6 +25,17 @@ def test_background_job_locks_migration_exports_revision_and_upgrade():
     )
 
 
+def test_operational_alert_notifications_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0003_operational_alert_notifications")
+
+    assert migration.revision == "0003_operational_alert_notifications"
+    assert callable(migration.upgrade)
+    assert any(
+        isinstance(value, str) and "operational_alert_notifications" in value
+        for value in migration.upgrade.__code__.co_consts
+    )
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False
