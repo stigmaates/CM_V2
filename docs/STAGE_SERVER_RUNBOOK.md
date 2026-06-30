@@ -58,6 +58,7 @@ Run these from the stage server or a machine that can reach the stage URL:
 venv/bin/python scripts/smoke_http.py --base-url <STAGE_URL>
 venv/bin/python scripts/check_background_jobs.py --max-running-minutes 60
 venv/bin/python scripts/check_operational_alerts.py
+venv/bin/python scripts/send_operational_alerts.py --dry-run
 ```
 
 Also check manually:
@@ -72,6 +73,44 @@ Also check manually:
 - Referrals.
 - CM bonuses.
 - `/admin/api/system-health`.
+
+## Stage operational alert timer
+
+Use this only on the stage server. It sends critical operational alerts to the
+technical Telegram chat every 5 minutes, with the script-level duplicate
+cooldown still applied.
+
+First make sure `.env` contains:
+
+```bash
+TECH_ALERT_BOT_TOKEN=<technical alert bot token>
+TECH_ALERT_CHAT_ID=<technical alert chat id>
+```
+
+Then install and enable the stage timer:
+
+```bash
+cd /root/cm_stage/CM_V2
+cp deploy/systemd/clubmodule-stage-operational-alerts.service /etc/systemd/system/
+cp deploy/systemd/clubmodule-stage-operational-alerts.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now clubmodule-stage-operational-alerts.timer
+systemctl list-timers 'clubmodule-stage-operational-alerts*'
+systemctl status clubmodule-stage-operational-alerts.timer --no-pager -l
+```
+
+To send a one-off test message:
+
+```bash
+cd /root/cm_stage/CM_V2
+venv/bin/python scripts/send_operational_alerts.py --test-message
+```
+
+To inspect timer logs:
+
+```bash
+journalctl -u clubmodule-stage-operational-alerts.service -n 100 --no-pager
+```
 
 ## Refresh stage data from production
 

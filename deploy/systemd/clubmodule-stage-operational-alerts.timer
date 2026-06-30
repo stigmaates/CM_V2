@@ -1,0 +1,10 @@
+[Unit]
+Description=Run ClubModule Stage operational Telegram alerts every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=clubmodule-stage-operational-alerts.service
+
+[Install]
+WantedBy=timers.target

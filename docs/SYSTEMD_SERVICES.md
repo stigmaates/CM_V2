@@ -19,6 +19,7 @@ They are intentionally conservative examples. Before installing them, adjust:
 - `cyber-bonus-mailings.service` + `.timer` — queued mailings.
 - `cyber-bonus-auto-mailings.service` + `.timer` — auto-mailings.
 - `cyber-bonus-referrals.service` + `.timer` — referral rewards.
+- `clubmodule-stage-operational-alerts.service` + `.timer` — stage technical Telegram alerts.
 
 ## Install example
 
