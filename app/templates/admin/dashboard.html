@@ -30,7 +30,7 @@
         </div>
     </div>
     <div class="readiness-grid">
-        {% for item in readiness.items %}
+        {% for item in readiness["items"] %}
             <div class="readiness-item {{ item.status }}">
                 <span class="status-pill {{ item.status }}">{{ item.status }}</span>
                 <strong>{{ item.title }}</strong>
