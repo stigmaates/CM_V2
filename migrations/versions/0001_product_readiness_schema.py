@@ -490,6 +490,27 @@ def upgrade(cursor) -> None:
     )
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS background_job_runs (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            job_type VARCHAR(80) NOT NULL,
+            club_id INT NULL,
+            status VARCHAR(30) NOT NULL,
+            started_at DATETIME NOT NULL,
+            finished_at DATETIME NULL,
+            duration_ms INT NULL,
+            rows_received INT NULL,
+            rows_saved INT NULL,
+            error_text TEXT NULL,
+            metadata_json JSON NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_background_job_runs_club_type_started (club_id, job_type, started_at),
+            KEY idx_background_job_runs_status_started (status, started_at),
+            KEY idx_background_job_runs_started (started_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS admin_impersonation_logs (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             admin_user_id INT NOT NULL,

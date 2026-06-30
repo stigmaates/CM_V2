@@ -7,6 +7,7 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+from app.services.job_runs import finish_job_run, start_job_run
 
 
 logging.basicConfig(level=logging.INFO)
@@ -228,16 +229,32 @@ def sync_guests_incremental(club_id=None):
         current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
+        job_run_id = start_job_run(
+            "sync_guests_incremental",
+            club_id=current_club_id,
+            metadata={"source": "langame"},
+        )
 
         logging.info(f"Клуб {current_club_id} | Langame secret={secret}")
 
-        existing_ids = get_existing_guest_ids(current_club_id)
-        guests = fetch_guests(secret, api_key)
-        filtered = filter_new_guests(guests, existing_ids)
-        saved = save_guests(current_club_id, filtered)
+        try:
+            existing_ids = get_existing_guest_ids(current_club_id)
+            guests = fetch_guests(secret, api_key)
+            filtered = filter_new_guests(guests, existing_ids)
+            saved = save_guests(current_club_id, filtered)
 
-        logging.info(f"Клуб {current_club_id} | получено: {len(guests)} | к обновлению: {len(filtered)} | сохранено: {saved}")
-        summary.append({"club_id": current_club_id, "received": len(guests), "filtered": len(filtered), "saved": saved})
+            finish_job_run(
+                job_run_id,
+                "success",
+                rows_received=len(guests),
+                rows_saved=saved,
+                metadata={"filtered": len(filtered)},
+            )
+            logging.info(f"Клуб {current_club_id} | получено: {len(guests)} | к обновлению: {len(filtered)} | сохранено: {saved}")
+            summary.append({"club_id": current_club_id, "received": len(guests), "filtered": len(filtered), "saved": saved})
+        except Exception as exc:
+            finish_job_run(job_run_id, "error", error_text=str(exc))
+            raise
 
     logging.info("=== END GUEST SYNC ===")
     return summary

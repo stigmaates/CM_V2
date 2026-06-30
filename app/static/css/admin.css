@@ -201,6 +201,67 @@
     letter-spacing: 0.04em;
 }
 
+.admin-table-sub {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 4px;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.status-pill.success,
+.status-pill.ok {
+    color: #b8ffd0;
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.36);
+}
+
+.status-pill.error {
+    color: #ffd0d0;
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.38);
+}
+
+.status-pill.running {
+    color: #fff2ba;
+    background: rgba(250, 204, 21, 0.15);
+    border-color: rgba(250, 204, 21, 0.34);
+}
+
+.status-pill.stale,
+.status-pill.none {
+    color: #ffd9ae;
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.34);
+}
+
+.sync-health-cell {
+    display: grid;
+    gap: 2px;
+}
+
+.error-text {
+    color: #ffd0d0;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .clubs-table tbody tr {
     cursor: pointer;
     transition: 0.16s ease;

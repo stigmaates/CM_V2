@@ -5,7 +5,26 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
+from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_runs
 from app.services.support_health import get_admin_system_health
+
+SYNC_JOB_TYPES = [
+    "sync_guests_incremental",
+    "sync_sessions_incremental",
+    "sync_operations_incremental",
+]
+
+SYNC_JOB_LABELS = {
+    "sync_guests_incremental": "Гости",
+    "sync_sessions_incremental": "Сессии",
+    "sync_operations_incremental": "Операции",
+}
+
+SYNC_STALE_HOURS = {
+    "sync_guests_incremental": 24,
+    "sync_sessions_incremental": 8,
+    "sync_operations_incremental": 8,
+}
 
 
 def ensure_admin_sync_logs_table():
@@ -176,6 +195,82 @@ def get_admin_metrics():
     }
 
 
+def _format_job_age(dt):
+    if not dt:
+        return "—"
+
+    delta = datetime.utcnow() - dt
+    total_minutes = max(0, int(delta.total_seconds() // 60))
+    if total_minutes < 60:
+        return f"{total_minutes} мин назад"
+
+    total_hours = total_minutes // 60
+    if total_hours < 48:
+        return f"{total_hours} ч назад"
+
+    return f"{total_hours // 24} дн назад"
+
+
+def _job_state(job_type: str, row):
+    if not row:
+        return {
+            "label": SYNC_JOB_LABELS[job_type],
+            "status": "none",
+            "status_label": "нет данных",
+            "age_label": "—",
+            "rows_saved": None,
+            "error_text": None,
+        }
+
+    status = row.get("status") or "unknown"
+    started_at = row.get("started_at")
+    stale_hours = SYNC_STALE_HOURS.get(job_type, 24)
+    is_stale = bool(started_at and datetime.utcnow() - started_at > timedelta(hours=stale_hours))
+    view_status = "stale" if status == "success" and is_stale else status
+    status_labels = {
+        "success": "ok",
+        "error": "ошибка",
+        "running": "идёт",
+        "stale": "устарело",
+    }
+
+    return {
+        "label": SYNC_JOB_LABELS[job_type],
+        "status": view_status,
+        "status_label": status_labels.get(view_status, view_status),
+        "age_label": _format_job_age(started_at),
+        "rows_saved": row.get("rows_saved"),
+        "error_text": row.get("error_text"),
+    }
+
+
+def get_club_sync_health(clubs):
+    latest_by_club = get_latest_job_runs_by_club(SYNC_JOB_TYPES)
+    health = []
+
+    for club in clubs:
+        club_id = int(club["club_id"])
+        latest = latest_by_club.get(club_id, {})
+        jobs = [_job_state(job_type, latest.get(job_type)) for job_type in SYNC_JOB_TYPES]
+        if any(job["status"] == "error" for job in jobs):
+            overall = "error"
+        elif any(job["status"] in {"none", "stale"} for job in jobs):
+            overall = "stale"
+        elif any(job["status"] == "running" for job in jobs):
+            overall = "running"
+        else:
+            overall = "success"
+
+        health.append({
+            "club_id": club_id,
+            "name": club.get("name"),
+            "overall": overall,
+            "jobs": jobs,
+        })
+
+    return health
+
+
 def get_club_sync_logs(club_id: int, limit: int = 8):
     ensure_admin_sync_logs_table()
     with get_db_connection() as db:
@@ -281,10 +376,13 @@ def admin_index():
 def dashboard():
     ensure_admin_sync_logs_table()
     ensure_admin_impersonation_logs_table()
+    clubs = get_clubs_for_admin()
     return render_template(
         "admin/dashboard.html",
         metrics=get_admin_metrics(),
-        recent_clubs=get_clubs_for_admin()[:6],
+        recent_clubs=clubs[:6],
+        club_sync_health=get_club_sync_health(clubs),
+        recent_job_runs=get_recent_job_runs(limit=12),
         active_page="dashboard",
     )
 

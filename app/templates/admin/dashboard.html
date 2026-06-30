@@ -18,6 +18,106 @@
 <section class="admin-card">
     <div class="admin-section-head">
         <div>
+            <h2>Состояние синхронизаций</h2>
+            <p>Последние фоновые обновления данных по каждому клубу.</p>
+        </div>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table sync-health-table">
+            <thead>
+                <tr>
+                    <th>Клуб</th>
+                    <th>Общий статус</th>
+                    <th>Гости</th>
+                    <th>Сессии</th>
+                    <th>Операции</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for club in club_sync_health %}
+                    <tr>
+                        <td>
+                            <strong>{{ club.name or ('Клуб #' ~ club.club_id) }}</strong>
+                            <span class="admin-table-sub">ID {{ club.club_id }}</span>
+                        </td>
+                        <td><span class="status-pill {{ club.overall }}">{{ club.overall }}</span></td>
+                        {% for job in club.jobs %}
+                            <td>
+                                <div class="sync-health-cell">
+                                    <span class="status-pill {{ job.status }}">{{ job.status_label }}</span>
+                                    <span class="admin-table-sub">{{ job.age_label }}</span>
+                                    {% if job.rows_saved is not none %}
+                                        <span class="admin-table-sub">сохранено: {{ job.rows_saved }}</span>
+                                    {% endif %}
+                                    {% if job.error_text %}
+                                        <span class="admin-table-sub error-text">{{ job.error_text }}</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-cell">Клубов пока нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Последние фоновые задачи</h2>
+            <p>Свежие запуски синхронизаций и сервисных процессов.</p>
+        </div>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Задача</th>
+                    <th>Клуб</th>
+                    <th>Статус</th>
+                    <th>Старт</th>
+                    <th>Длительность</th>
+                    <th>Строки</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in recent_job_runs %}
+                    <tr>
+                        <td>{{ job.job_type }}</td>
+                        <td>{{ job.club_id or '—' }}</td>
+                        <td><span class="status-pill {{ job.status }}">{{ job.status }}</span></td>
+                        <td>{{ job.started_at or '—' }}</td>
+                        <td>
+                            {% if job.duration_ms is not none %}
+                                {{ (job.duration_ms / 1000)|round(1) }} сек
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if job.rows_received is not none or job.rows_saved is not none %}
+                                {{ job.rows_received or 0 }} / {{ job.rows_saved or 0 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-cell">Фоновые задачи ещё не запускались</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
             <h2>Последние клубы</h2>
             <p>Быстрый обзор подключённых клубов.</p>
         </div>

@@ -8,6 +8,10 @@ def test_product_readiness_migration_exports_revision_and_upgrade():
 
     assert migration.revision == "0001_product_readiness_schema"
     assert callable(migration.upgrade)
+    assert any(
+        isinstance(value, str) and "background_job_runs" in value
+        for value in migration.upgrade.__code__.co_consts
+    )
 
 
 class _Cursor:

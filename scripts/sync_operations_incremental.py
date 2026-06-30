@@ -9,6 +9,7 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+from app.services.job_runs import finish_job_run, start_job_run
 
 
 logging.basicConfig(level=logging.INFO)
@@ -221,14 +222,30 @@ def sync_operations_incremental(club_id=None):
         current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
+        job_run_id = start_job_run(
+            "sync_operations_incremental",
+            club_id=current_club_id,
+            metadata={"source": "langame", "date_from": date_from, "date_to": date_to},
+        )
 
         logging.info(f"Клуб {current_club_id} | Langame secret={secret} | {date_from} → {date_to}")
 
-        operations = fetch_operations(secret, api_key, current_club_id, date_from, date_to)
-        logging.info(f"Получено операций: {len(operations)}")
+        try:
+            operations = fetch_operations(secret, api_key, current_club_id, date_from, date_to)
+            logging.info(f"Получено операций: {len(operations)}")
 
-        saved = save_operations(current_club_id, operations)
-        summary.append({"club_id": current_club_id, "received": len(operations), "saved": saved, "date_from": date_from, "date_to": date_to})
+            saved = save_operations(current_club_id, operations)
+            finish_job_run(
+                job_run_id,
+                "success",
+                rows_received=len(operations),
+                rows_saved=saved,
+                metadata={"date_from": date_from, "date_to": date_to},
+            )
+            summary.append({"club_id": current_club_id, "received": len(operations), "saved": saved, "date_from": date_from, "date_to": date_to})
+        except Exception as exc:
+            finish_job_run(job_run_id, "error", error_text=str(exc))
+            raise
 
     logging.info("=== END OPERATIONS SYNC ===")
     return summary
