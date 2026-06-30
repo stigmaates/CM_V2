@@ -78,6 +78,13 @@ def format_tech_alert_message(alert: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def format_test_alert_message() -> str:
+    return "\n".join([
+        "<b>ClubModule: тест технических алертов</b>",
+        "Если ты видишь это сообщение, Telegram-алерты настроены корректно.",
+    ])
+
+
 def _should_send(cursor, alert_key: str, *, now: datetime, cooldown_minutes: int) -> bool:
     cursor.execute(
         "SELECT last_sent_at FROM operational_alert_notifications WHERE alert_key = %s",
@@ -200,3 +207,7 @@ def send_operational_alerts(
         return result
     finally:
         conn.close()
+
+
+def send_test_alert(*, http_post: HttpPost | None = None) -> tuple[bool, str | None]:
+    return send_telegram_message(format_test_alert_message(), http_post=http_post)

@@ -8,14 +8,23 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.services.tech_alerts import send_operational_alerts
+from app.services.tech_alerts import send_operational_alerts, send_test_alert
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Send critical ClubModule operational alerts to Telegram.")
     parser.add_argument("--cooldown-minutes", type=int, default=60)
     parser.add_argument("--dry-run", action="store_true", help="Print what would be sent without notifying Telegram")
+    parser.add_argument("--test-message", action="store_true", help="Send one explicit Telegram test message")
     args = parser.parse_args(argv)
+
+    if args.test_message:
+        sent, error = send_test_alert()
+        if sent:
+            print("OK: test alert sent")
+            return 0
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
 
     result = send_operational_alerts(
         cooldown_minutes=args.cooldown_minutes,

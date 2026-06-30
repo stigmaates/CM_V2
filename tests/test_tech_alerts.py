@@ -100,6 +100,22 @@ def test_send_telegram_message_posts_payload():
     assert calls[0][1]["chat_id"] == "-1"
 
 
+def test_send_test_alert_posts_explicit_test_message(monkeypatch):
+    messages = []
+
+    monkeypatch.setattr(
+        tech_alerts,
+        "send_telegram_message",
+        lambda message, http_post=None: (messages.append(message) is None, None),
+    )
+
+    ok, error = tech_alerts.send_test_alert()
+
+    assert ok is True
+    assert error is None
+    assert "тест технических алертов" in messages[0]
+
+
 def test_send_operational_alerts_sends_and_records(monkeypatch):
     cursor = _Cursor()
     conn = _Connection(cursor)
