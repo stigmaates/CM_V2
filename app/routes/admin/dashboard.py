@@ -248,7 +248,20 @@ def _job_state(job_type: str, row):
         "age_label": _format_job_age(started_at),
         "rows_saved": row.get("rows_saved"),
         "error_text": row.get("error_text"),
+        "started_at": row.get("started_at"),
+        "finished_at": row.get("finished_at"),
+        "rows_received": row.get("rows_received"),
     }
+
+
+def _overall_sync_status(jobs):
+    if any(job["status"] == "error" for job in jobs):
+        return "error"
+    if any(job["status"] in {"none", "stale"} for job in jobs):
+        return "stale"
+    if any(job["status"] == "running" for job in jobs):
+        return "running"
+    return "success"
 
 
 def get_club_sync_health(clubs):
@@ -259,14 +272,7 @@ def get_club_sync_health(clubs):
         club_id = int(club["club_id"])
         latest = latest_by_club.get(club_id, {})
         jobs = [_job_state(job_type, latest.get(job_type)) for job_type in SYNC_JOB_TYPES]
-        if any(job["status"] == "error" for job in jobs):
-            overall = "error"
-        elif any(job["status"] in {"none", "stale"} for job in jobs):
-            overall = "stale"
-        elif any(job["status"] == "running" for job in jobs):
-            overall = "running"
-        else:
-            overall = "success"
+        overall = _overall_sync_status(jobs)
 
         health.append({
             "club_id": club_id,
@@ -276,6 +282,17 @@ def get_club_sync_health(clubs):
         })
 
     return health
+
+
+def summarize_sync_health(club_sync_health):
+    summary = {"success": 0, "stale": 0, "error": 0, "running": 0}
+    for club in club_sync_health:
+        status = club.get("overall") or "stale"
+        if status not in summary:
+            summary[status] = 0
+        summary[status] += 1
+    summary["total"] = len(club_sync_health)
+    return summary
 
 
 def get_recent_job_runs_for_dashboard(limit: int = 12):
@@ -391,11 +408,13 @@ def dashboard():
     ensure_admin_sync_logs_table()
     ensure_admin_impersonation_logs_table()
     clubs = get_clubs_for_admin()
+    club_sync_health = get_club_sync_health(clubs)
     return render_template(
         "admin/dashboard.html",
         metrics=get_admin_metrics(),
         recent_clubs=clubs[:6],
-        club_sync_health=get_club_sync_health(clubs),
+        club_sync_health=club_sync_health,
+        sync_health_summary=summarize_sync_health(club_sync_health),
         recent_job_runs=get_recent_job_runs_for_dashboard(limit=12),
         active_page="dashboard",
     )
@@ -431,6 +450,27 @@ def club_details(club_id: int):
 @admin_required
 def api_system_health():
     return jsonify(get_admin_system_health())
+
+
+@admin_bp.route("/api/clubs/<int:club_id>/health")
+@admin_required
+def api_club_health(club_id: int):
+    club = get_club_by_id(club_id)
+    if not club:
+        return jsonify({"ok": False, "message": "Клуб не найден"}), 404
+
+    health = get_club_sync_health([club])[0]
+    return jsonify({
+        "ok": health["overall"] == "success",
+        "club": {
+            "club_id": int(club["club_id"]),
+            "name": club.get("name"),
+        },
+        "sync": {
+            "overall": health["overall"],
+            "jobs": health["jobs"],
+        },
+    })
 
 
 @admin_bp.route("/clubs/<int:club_id>/sync/<sync_type>", methods=["POST"])

@@ -18,6 +18,21 @@
 <section class="admin-card">
     <div class="admin-section-head">
         <div>
+            <h2>Техническое состояние</h2>
+            <p>Сводка по свежести фоновых синхронизаций.</p>
+        </div>
+    </div>
+    <div class="health-summary-grid">
+        <div class="health-summary-item success"><span>OK</span><strong>{{ sync_health_summary.success }}</strong></div>
+        <div class="health-summary-item stale"><span>Устарело/нет данных</span><strong>{{ sync_health_summary.stale }}</strong></div>
+        <div class="health-summary-item error"><span>Ошибки</span><strong>{{ sync_health_summary.error }}</strong></div>
+        <div class="health-summary-item running"><span>В работе</span><strong>{{ sync_health_summary.running }}</strong></div>
+    </div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
             <h2>Состояние синхронизаций</h2>
             <p>Последние фоновые обновления данных по каждому клубу.</p>
         </div>

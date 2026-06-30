@@ -137,6 +137,38 @@
     margin-bottom: 22px;
 }
 
+.health-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.health-summary-item {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.health-summary-item span {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.health-summary-item strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1;
+}
+
+.health-summary-item.success { border-color: rgba(34, 197, 94, 0.34); }
+.health-summary-item.stale { border-color: rgba(245, 158, 11, 0.34); }
+.health-summary-item.error { border-color: rgba(239, 68, 68, 0.38); }
+.health-summary-item.running { border-color: rgba(250, 204, 21, 0.34); }
+
 .metric-card span {
     display: block;
     color: var(--admin-muted);
@@ -454,12 +486,14 @@
     .admin-shell { display: block; }
     .admin-sidebar { width: auto; min-height: auto; position: static; }
     .admin-main { padding: 20px; box-sizing: border-box; }
-    .admin-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .admin-metrics-grid,
+    .health-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .modal-actions { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
     .admin-metrics-grid,
+    .health-summary-grid,
     .modal-actions { grid-template-columns: 1fr; }
     .admin-page-head,
     .admin-section-head { flex-direction: column; }
