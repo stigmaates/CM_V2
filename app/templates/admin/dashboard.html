@@ -15,6 +15,31 @@
     <div class="admin-card metric-card"><span>Админов</span><strong>{{ metrics.admins_count }}</strong></div>
 </section>
 
+<section class="admin-card readiness-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Готовность системы</h2>
+            <p>Короткая проверка перед раскаткой и подключением клубов.</p>
+        </div>
+        <div class="readiness-overall {{ readiness.overall_status }}">
+            <span>{{ readiness.overall_label }}</span>
+            <strong>{{ readiness.environment }}</strong>
+            {% if readiness.release.commit %}
+                <em>{{ readiness.release.commit[:7] }}</em>
+            {% endif %}
+        </div>
+    </div>
+    <div class="readiness-grid">
+        {% for item in readiness.items %}
+            <div class="readiness-item {{ item.status }}">
+                <span class="status-pill {{ item.status }}">{{ item.status }}</span>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.message }}</p>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
 <section class="admin-card">
     <div class="admin-section-head">
         <div>

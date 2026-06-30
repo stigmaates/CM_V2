@@ -143,6 +143,74 @@
     gap: 14px;
 }
 
+.readiness-card {
+    border-color: rgba(109, 211, 159, 0.24);
+}
+
+.readiness-overall {
+    min-width: 190px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    text-align: right;
+}
+
+.readiness-overall span,
+.readiness-overall em {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.readiness-overall strong {
+    display: block;
+    margin: 4px 0;
+    font-size: 18px;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.readiness-overall.success { border-color: rgba(34, 197, 94, 0.34); }
+.readiness-overall.warning { border-color: rgba(245, 158, 11, 0.34); }
+.readiness-overall.error { border-color: rgba(239, 68, 68, 0.38); }
+
+.readiness-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.readiness-item {
+    min-height: 126px;
+    padding: 15px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    align-content: start;
+    gap: 8px;
+}
+
+.readiness-item.success { border-color: rgba(34, 197, 94, 0.28); }
+.readiness-item.warning { border-color: rgba(245, 158, 11, 0.30); }
+.readiness-item.error { border-color: rgba(239, 68, 68, 0.34); }
+
+.readiness-item strong {
+    font-size: 16px;
+    line-height: 1.25;
+}
+
+.readiness-item p {
+    margin: 0;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
 .health-summary-item {
     padding: 16px;
     border-radius: 18px;
@@ -297,6 +365,12 @@
     color: #ffd0d0;
     background: rgba(239, 68, 68, 0.16);
     border-color: rgba(239, 68, 68, 0.38);
+}
+
+.status-pill.warning {
+    color: #ffd9ae;
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.34);
 }
 
 .status-pill.running {
@@ -518,6 +592,7 @@
     .admin-shell { display: block; }
     .admin-sidebar { width: auto; min-height: auto; position: static; }
     .admin-main { padding: 20px; box-sizing: border-box; }
+    .readiness-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .admin-metrics-grid,
     .health-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .modal-actions { grid-template-columns: 1fr; }
@@ -525,6 +600,7 @@
 
 @media (max-width: 560px) {
     .admin-metrics-grid,
+    .readiness-grid,
     .health-summary-grid,
     .modal-actions { grid-template-columns: 1fr; }
     .admin-page-head,

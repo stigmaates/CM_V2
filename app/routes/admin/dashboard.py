@@ -7,7 +7,7 @@ from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
 from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_runs
 from app.services.operational_alerts import get_operational_alerts, summarize_alerts
-from app.services.support_health import get_admin_system_health
+from app.services.support_health import build_admin_readiness, get_admin_system_health
 
 SYNC_JOB_TYPES = [
     "sync_guests_incremental",
@@ -411,16 +411,28 @@ def dashboard():
     ensure_admin_impersonation_logs_table()
     clubs = get_clubs_for_admin()
     club_sync_health = get_club_sync_health(clubs)
+    sync_health_summary = summarize_sync_health(club_sync_health)
     operational_alerts = get_operational_alerts(problem_job_limit=10)
+    operational_alert_summary = summarize_alerts(operational_alerts)
+    recent_job_runs = get_recent_job_runs_for_dashboard(limit=12)
+    system_health = get_admin_system_health()
+    readiness = build_admin_readiness(
+        system_health=system_health,
+        alert_summary=operational_alert_summary,
+        sync_summary=sync_health_summary,
+        recent_job_runs=recent_job_runs,
+    )
     return render_template(
         "admin/dashboard.html",
         metrics=get_admin_metrics(),
         recent_clubs=clubs[:6],
         club_sync_health=club_sync_health,
-        sync_health_summary=summarize_sync_health(club_sync_health),
+        sync_health_summary=sync_health_summary,
         operational_alerts=operational_alerts[:8],
-        operational_alert_summary=summarize_alerts(operational_alerts),
-        recent_job_runs=get_recent_job_runs_for_dashboard(limit=12),
+        operational_alert_summary=operational_alert_summary,
+        recent_job_runs=recent_job_runs,
+        system_health=system_health,
+        readiness=readiness,
         active_page="dashboard",
     )
 
