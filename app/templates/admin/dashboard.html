@@ -88,7 +88,10 @@
             <tbody>
                 {% for job in recent_job_runs %}
                     <tr>
-                        <td>{{ job.job_type }}</td>
+                        <td>
+                            {{ job.job_label }}
+                            <span class="admin-table-sub">{{ job.job_type }}</span>
+                        </td>
                         <td>{{ job.club_id or '—' }}</td>
                         <td><span class="status-pill {{ job.status }}">{{ job.status }}</span></td>
                         <td>{{ job.started_at or '—' }}</td>

@@ -20,6 +20,13 @@ SYNC_JOB_LABELS = {
     "sync_operations_incremental": "Операции",
 }
 
+JOB_TYPE_LABELS = {
+    **SYNC_JOB_LABELS,
+    "process_mailing": "Рассылка",
+    "process_auto_mailing": "Авторассылка",
+    "process_referrals": "Рефералы",
+}
+
 SYNC_STALE_HOURS = {
     "sync_guests_incremental": 24,
     "sync_sessions_incremental": 8,
@@ -271,6 +278,13 @@ def get_club_sync_health(clubs):
     return health
 
 
+def get_recent_job_runs_for_dashboard(limit: int = 12):
+    rows = get_recent_job_runs(limit=limit)
+    for row in rows:
+        row["job_label"] = JOB_TYPE_LABELS.get(row.get("job_type"), row.get("job_type"))
+    return rows
+
+
 def get_club_sync_logs(club_id: int, limit: int = 8):
     ensure_admin_sync_logs_table()
     with get_db_connection() as db:
@@ -382,7 +396,7 @@ def dashboard():
         metrics=get_admin_metrics(),
         recent_clubs=clubs[:6],
         club_sync_health=get_club_sync_health(clubs),
-        recent_job_runs=get_recent_job_runs(limit=12),
+        recent_job_runs=get_recent_job_runs_for_dashboard(limit=12),
         active_page="dashboard",
     )
 

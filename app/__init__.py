@@ -1,1 +1,1 @@
-from .main import app
+"""ClubModule application package."""

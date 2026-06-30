@@ -1,7 +1,15 @@
 """Cron helper: process referral rewards for all clubs."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from app.core import get_db_connection
+from app.services.job_runs import finish_job_run, start_job_run
 from app.services.referrals import ensure_referral_tables, process_referral_rewards
 
 
@@ -18,11 +26,14 @@ def main() -> None:
 
     total = 0
     for club_id in clubs:
+        job_run_id = start_job_run("process_referrals", club_id=club_id)
         try:
             awarded = process_referral_rewards(club_id)
             total += awarded
+            finish_job_run(job_run_id, "success", rows_received=awarded, rows_saved=awarded)
             print(f"OK: referrals club_id={club_id}, awarded={awarded}")
         except Exception as exc:
+            finish_job_run(job_run_id, "error", error_text=str(exc))
             print(f"ERROR: referrals club_id={club_id}: {exc}")
             raise
     print(f"OK: referrals processed, clubs={len(clubs)}, awarded_total={total}")
