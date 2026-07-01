@@ -74,6 +74,26 @@ BACKUP_MAX_AGE_HOURS=24
 If there is no backup file or the newest one is older than the max age,
 readiness and Telegram operational alerts will report it.
 
+Install and enable the daily stage backup timer:
+
+```bash
+cd /root/cm_stage/CM_V2
+cp deploy/systemd/clubmodule-stage-backup.service /etc/systemd/system/
+cp deploy/systemd/clubmodule-stage-backup.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now clubmodule-stage-backup.timer
+systemctl list-timers 'clubmodule-stage-backup*'
+systemctl status clubmodule-stage-backup.timer --no-pager -l
+```
+
+Run a one-off backup and inspect logs:
+
+```bash
+systemctl start clubmodule-stage-backup.service
+journalctl -u clubmodule-stage-backup.service -n 100 --no-pager
+find /root/cm_stage/CM_V2/backups -type f \( -name "*.sql" -o -name "*.sql.gz" \) -printf "%TY-%Tm-%Td %TH:%TM %s %p\n" | sort
+```
+
 Also check manually:
 
 - Owner login.
