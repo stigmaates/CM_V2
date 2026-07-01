@@ -33,8 +33,14 @@ def test_admin_dashboard_renders_readiness_items():
                     }
                 ],
             },
+            restart_controls={
+                "enabled": True,
+                "available": True,
+                "targets": [{"name": "clubmodule-stage.service", "label": "Stage Web"}],
+            },
             active_page="dashboard",
         )
 
     assert "Готовность системы" in html
     assert "База данных" in html
+    assert "Управление сервисами" in html

@@ -7,6 +7,7 @@ from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
 from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_runs
 from app.services.operational_alerts import get_operational_alerts, summarize_alerts
+from app.services.service_control import get_restart_controls, restart_allowed_service
 from app.services.support_health import build_admin_readiness, get_admin_system_health
 
 SYNC_JOB_TYPES = [
@@ -433,8 +434,32 @@ def dashboard():
         recent_job_runs=recent_job_runs,
         system_health=system_health,
         readiness=readiness,
+        restart_controls=get_restart_controls(),
         active_page="dashboard",
     )
+
+
+@admin_bp.route("/services/<service_name>/restart", methods=["POST"])
+@admin_required
+def restart_service(service_name: str):
+    result = restart_allowed_service(service_name)
+    record_audit_event(
+        action="admin.service.restart",
+        entity_type="systemd_service",
+        entity_id=service_name,
+        details=result,
+    )
+
+    if result.get("ok"):
+        flash(f"Перезапуск поставлен в очередь: {result.get('label') or service_name}", "success")
+    elif result.get("error") == "service_restart_disabled":
+        flash("Перезапуск сервисов выключен в конфигурации", "error")
+    elif result.get("error") == "service_not_allowed":
+        flash("Этот сервис не разрешён для перезапуска из админки", "error")
+    else:
+        flash(f"Не удалось перезапустить сервис: {result.get('error')}", "error")
+
+    return redirect(url_for("admin.dashboard"))
 
 
 @admin_bp.route("/clubs")

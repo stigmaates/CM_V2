@@ -112,6 +112,40 @@ To inspect timer logs:
 journalctl -u clubmodule-stage-operational-alerts.service -n 100 --no-pager
 ```
 
+## Stage admin service restart buttons
+
+Use this only on the stage server. The admin dashboard can show restart buttons
+for a strict allowlist of systemd units.
+
+Add this to `/root/cm_stage/CM_V2/.env`:
+
+```bash
+ADMIN_SERVICE_RESTART_ENABLED=true
+ADMIN_RESTART_SERVICES=clubmodule-stage.service:Stage Web,clubmodule-stage-bot.service:Stage Bot,clubmodule-stage-operational-alerts.timer:Stage Alerts Timer
+```
+
+Allow the web service user to restart only those stage units:
+
+```bash
+visudo -f /etc/sudoers.d/clubmodule-stage-admin-restart
+```
+
+Paste:
+
+```text
+www-data ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block restart clubmodule-stage.service, /usr/bin/systemctl --no-block restart clubmodule-stage-bot.service, /usr/bin/systemctl --no-block restart clubmodule-stage-operational-alerts.timer
+```
+
+Then verify and restart the stage web service:
+
+```bash
+chmod 440 /etc/sudoers.d/clubmodule-stage-admin-restart
+visudo -c -f /etc/sudoers.d/clubmodule-stage-admin-restart
+systemctl restart clubmodule-stage.service
+```
+
+The dashboard action is audited as `admin.service.restart`.
+
 ## Refresh stage data from production
 
 Use this only after explicitly approving a production-to-stage data refresh.

@@ -40,6 +40,34 @@
     </div>
 </section>
 
+<section class="admin-card service-control-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Управление сервисами</h2>
+            <p>Быстрый перезапуск разрешённых stage-сервисов без входа на сервер.</p>
+        </div>
+        <span class="status-pill {{ 'success' if restart_controls.available else 'stale' }}">
+            {{ 'включено' if restart_controls.available else 'выключено' }}
+        </span>
+    </div>
+
+    {% if restart_controls.available %}
+        <div class="service-actions-grid">
+            {% for service in restart_controls.targets %}
+                <form method="post" action="{{ url_for('admin.restart_service', service_name=service.name) }}" class="service-action-form">
+                    <div>
+                        <strong>{{ service.label }}</strong>
+                        <span class="admin-table-sub">{{ service.name }}</span>
+                    </div>
+                    <button class="admin-btn danger" type="submit">Перезапустить</button>
+                </form>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-logs">Перезапуск из админки не настроен</div>
+    {% endif %}
+</section>
+
 <section class="admin-card">
     <div class="admin-section-head">
         <div>

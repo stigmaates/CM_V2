@@ -303,9 +303,32 @@
     border: 1px solid var(--admin-border);
 }
 
+.admin-btn.danger {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.38);
+    box-shadow: none;
+}
+
 .admin-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
+}
+
+.service-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.service-action-form {
+    min-height: 104px;
+    padding: 15px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    align-content: space-between;
+    gap: 12px;
 }
 
 .admin-table-wrap {
@@ -593,6 +616,7 @@
     .admin-sidebar { width: auto; min-height: auto; position: static; }
     .admin-main { padding: 20px; box-sizing: border-box; }
     .readiness-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .service-actions-grid { grid-template-columns: 1fr; }
     .admin-metrics-grid,
     .health-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .modal-actions { grid-template-columns: 1fr; }
