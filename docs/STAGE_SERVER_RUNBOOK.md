@@ -124,7 +124,8 @@ ADMIN_SERVICE_RESTART_ENABLED=true
 ADMIN_RESTART_SERVICES=clubmodule-stage.service:Stage Web,clubmodule-stage-bot.service:Stage Bot,clubmodule-stage-operational-alerts.timer:Stage Alerts Timer
 ```
 
-Allow the web service user to restart only those stage units:
+If the web service runs as a non-root user and `sudo` is installed, allow that
+user to restart only those stage units:
 
 ```bash
 visudo -f /etc/sudoers.d/clubmodule-stage-admin-restart
@@ -145,6 +146,8 @@ systemctl restart clubmodule-stage.service
 ```
 
 The dashboard action is audited as `admin.service.restart`.
+If `sudo` is not installed, the app falls back to direct `systemctl`; this works
+only when the stage web service itself runs with enough systemd permissions.
 
 ## Refresh stage data from production
 

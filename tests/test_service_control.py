@@ -28,6 +28,7 @@ def test_restart_allowed_service_queues_systemctl_restart(monkeypatch):
     calls = []
     monkeypatch.setattr(service_control, "ADMIN_SERVICE_RESTART_ENABLED", True)
     monkeypatch.setattr(service_control, "ADMIN_RESTART_SERVICES", "clubmodule-stage.service:Stage Web")
+    monkeypatch.setattr(service_control.shutil, "which", lambda command: "/usr/bin/sudo")
 
     def fake_run(cmd, capture_output, check, text, timeout):
         calls.append(cmd)
@@ -39,3 +40,21 @@ def test_restart_allowed_service_queues_systemctl_restart(monkeypatch):
 
     assert result["ok"] is True
     assert calls == [["sudo", "-n", "systemctl", "--no-block", "restart", "clubmodule-stage.service"]]
+
+
+def test_restart_allowed_service_falls_back_when_sudo_is_missing(monkeypatch):
+    calls = []
+    monkeypatch.setattr(service_control, "ADMIN_SERVICE_RESTART_ENABLED", True)
+    monkeypatch.setattr(service_control, "ADMIN_RESTART_SERVICES", "clubmodule-stage.service:Stage Web")
+    monkeypatch.setattr(service_control.shutil, "which", lambda command: None)
+
+    def fake_run(cmd, capture_output, check, text, timeout):
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(service_control.subprocess, "run", fake_run)
+
+    result = service_control.restart_allowed_service("clubmodule-stage.service")
+
+    assert result["ok"] is True
+    assert calls == [["systemctl", "--no-block", "restart", "clubmodule-stage.service"]]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from typing import Any
@@ -50,6 +51,13 @@ def get_restart_controls() -> dict[str, Any]:
     }
 
 
+def _systemctl_restart_command(service_name: str) -> list[str]:
+    base = ["systemctl", "--no-block", "restart", service_name]
+    if shutil.which("sudo"):
+        return ["sudo", "-n", *base]
+    return base
+
+
 def restart_allowed_service(service_name: str) -> dict[str, Any]:
     targets = {target.name: target for target in _parse_restart_services(ADMIN_RESTART_SERVICES)}
     if not ADMIN_SERVICE_RESTART_ENABLED:
@@ -58,8 +66,9 @@ def restart_allowed_service(service_name: str) -> dict[str, Any]:
         return {"ok": False, "service": service_name, "error": "service_not_allowed"}
 
     try:
+        command = _systemctl_restart_command(service_name)
         completed = subprocess.run(
-            ["sudo", "-n", "systemctl", "--no-block", "restart", service_name],
+            command,
             capture_output=True,
             check=False,
             text=True,
@@ -79,4 +88,5 @@ def restart_allowed_service(service_name: str) -> dict[str, Any]:
         "service": service_name,
         "label": targets[service_name].label,
         "message": "restart_queued",
+        "command": " ".join(command),
     }
