@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core import get_db_connection
+from app.services.backup_monitor import get_backup_status
 from app.services.job_runs import ensure_background_job_runs_table, get_latest_job_runs_by_club
 
 
@@ -65,6 +66,7 @@ def build_operational_alerts(
     latest_jobs_by_club: dict[int, dict[str, dict[str, Any]]],
     problem_jobs: list[dict[str, Any]],
     stuck_mailings: list[dict[str, Any]],
+    backup_status: dict[str, Any] | None = None,
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     now = now or _utcnow()
@@ -144,6 +146,21 @@ def build_operational_alerts(
             },
         ))
 
+    if backup_status and backup_status.get("status") in {"error", "warning"}:
+        latest = backup_status.get("latest") or {}
+        alerts.append(_alert(
+            backup_status["status"],
+            "backup_stale" if latest else "backup_missing",
+            backup_status.get("message") or "Backup требует внимания",
+            age_minutes=(int(backup_status["age_hours"]) * 60 if backup_status.get("age_hours") is not None else None),
+            metadata={
+                "latest_backup": latest.get("name"),
+                "latest_backup_path": latest.get("path"),
+                "configured_dirs": backup_status.get("configured_dirs") or [],
+                "max_age_hours": backup_status.get("max_age_hours"),
+            },
+        ))
+
     severity_rank = {"error": 0, "warning": 1, "info": 2}
     alerts.sort(key=lambda item: (severity_rank.get(item["severity"], 9), item.get("club_id") or 0, item["code"]))
     return alerts
@@ -207,6 +224,7 @@ def get_operational_alerts(
             latest_jobs_by_club=latest_jobs_by_club,
             problem_jobs=problem_jobs,
             stuck_mailings=stuck_mailings,
+            backup_status=get_backup_status(),
         )
     finally:
         conn.close()

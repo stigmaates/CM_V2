@@ -23,6 +23,8 @@ TECH_ALERT_BOT_TOKEN = os.getenv("TECH_ALERT_BOT_TOKEN", "")
 TECH_ALERT_CHAT_ID = os.getenv("TECH_ALERT_CHAT_ID", "")
 ADMIN_SERVICE_RESTART_ENABLED = os.getenv("ADMIN_SERVICE_RESTART_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
 ADMIN_RESTART_SERVICES = os.getenv("ADMIN_RESTART_SERVICES", "")
+BACKUP_MONITOR_DIRS = os.getenv("BACKUP_MONITOR_DIRS", "backups")
+BACKUP_MAX_AGE_HOURS = int(os.getenv("BACKUP_MAX_AGE_HOURS", "24"))
 
 AUTO_MAILING_TIMEZONE = os.getenv("AUTO_MAILING_TIMEZONE", "Europe/Moscow")
 

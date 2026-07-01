@@ -16,6 +16,7 @@ from app.config import (
     TECH_ALERT_CHAT_ID,
 )
 from app.core import get_db_connection
+from app.services.backup_monitor import get_backup_status
 
 
 def get_expected_migration_revisions() -> list[str]:
@@ -123,6 +124,7 @@ def build_admin_readiness(
     alert_summary: dict[str, int],
     sync_summary: dict[str, int],
     recent_job_runs: list[dict[str, Any]],
+    backup_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     items: list[dict[str, str]] = []
 
@@ -180,6 +182,15 @@ def build_admin_readiness(
         items.append(_status_item("tech_alerts", "Telegram-алерты", "warning", "Не заполнены TECH_ALERT_*"))
 
     items.append(_upload_storage_item())
+
+    backup_status = backup_status or get_backup_status()
+    backup_item_status = backup_status.get("status") or "warning"
+    items.append(_status_item(
+        "backups",
+        "Backup",
+        backup_item_status,
+        backup_status.get("message") or "Статус backup неизвестен",
+    ))
 
     if any(item["status"] == "error" for item in items):
         overall_status = "error"

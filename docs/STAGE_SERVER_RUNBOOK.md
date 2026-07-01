@@ -61,6 +61,19 @@ venv/bin/python scripts/check_operational_alerts.py
 venv/bin/python scripts/send_operational_alerts.py --dry-run
 ```
 
+## Stage backup monitor
+
+The admin readiness block and operational alerts check the newest `.sql` or
+`.sql.gz` file in configured backup directories. Configure stage `.env`:
+
+```bash
+BACKUP_MONITOR_DIRS=/root/cm_stage/CM_V2/backups,/root/cm_stage/CM_V2/backups/prod-refresh
+BACKUP_MAX_AGE_HOURS=24
+```
+
+If there is no backup file or the newest one is older than the max age,
+readiness and Telegram operational alerts will report it.
+
 Also check manually:
 
 - Owner login.

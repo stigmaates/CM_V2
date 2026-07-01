@@ -79,10 +79,13 @@ def test_admin_readiness_success_when_core_checks_are_green(monkeypatch, tmp_pat
         alert_summary={"error": 0, "warning": 0},
         sync_summary={"error": 0, "stale": 0},
         recent_job_runs=[{"status": "success"}],
+        backup_status={"status": "success", "message": "Последний backup: 2 ч назад"},
     )
 
     assert readiness["overall_status"] == "success"
-    assert {item["key"]: item["status"] for item in readiness["items"]}["upload_storage"] == "success"
+    statuses = {item["key"]: item["status"] for item in readiness["items"]}
+    assert statuses["upload_storage"] == "success"
+    assert statuses["backups"] == "success"
 
 
 def test_admin_readiness_reports_errors_and_warnings(monkeypatch, tmp_path):
@@ -100,6 +103,7 @@ def test_admin_readiness_reports_errors_and_warnings(monkeypatch, tmp_path):
         alert_summary={"error": 1, "warning": 2},
         sync_summary={"error": 0, "stale": 1},
         recent_job_runs=[{"status": "stale"}],
+        backup_status={"status": "error", "message": "Backup-файлы не найдены"},
     )
 
     statuses = {item["key"]: item["status"] for item in readiness["items"]}
@@ -108,3 +112,4 @@ def test_admin_readiness_reports_errors_and_warnings(monkeypatch, tmp_path):
     assert statuses["operational_alerts"] == "error"
     assert statuses["sync_jobs"] == "warning"
     assert statuses["tech_alerts"] == "warning"
+    assert statuses["backups"] == "error"

@@ -75,6 +75,29 @@ def test_build_operational_alerts_reports_problem_jobs_and_stuck_mailings():
     assert alerts[1]["metadata"]["mailing_id"] == 15
 
 
+def test_build_operational_alerts_reports_backup_problem():
+    alerts = operational_alerts.build_operational_alerts(
+        clubs=[],
+        latest_jobs_by_club={},
+        problem_jobs=[],
+        stuck_mailings=[],
+        backup_status={
+            "status": "error",
+            "message": "Последний backup старше 24 ч",
+            "age_hours": 48,
+            "max_age_hours": 24,
+            "configured_dirs": ["/var/backups/cm"],
+            "latest": {"name": "old.sql.gz", "path": "/var/backups/cm/old.sql.gz"},
+        },
+        now=datetime(2026, 7, 1, 12, 0, 0),
+    )
+
+    assert len(alerts) == 1
+    assert alerts[0]["code"] == "backup_stale"
+    assert alerts[0]["severity"] == "error"
+    assert alerts[0]["age_minutes"] == 48 * 60
+
+
 def test_summarize_alerts_counts_severity():
     summary = operational_alerts.summarize_alerts([
         {"severity": "error"},
