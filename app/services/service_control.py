@@ -3,7 +3,9 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.config import ADMIN_RESTART_SERVICES, ADMIN_SERVICE_RESTART_ENABLED
@@ -12,6 +14,9 @@ from app.config import ADMIN_RESTART_SERVICES, ADMIN_SERVICE_RESTART_ENABLED
 SERVICE_NAME_RE = re.compile(r"^[A-Za-z0-9_.@:-]+\.(service|timer)$")
 SYSTEMCTL_PATHS = ("/usr/bin/systemctl", "/bin/systemctl")
 SUDO_PATHS = ("/usr/bin/sudo", "/bin/sudo")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DELAYED_RESTART_SCRIPT = PROJECT_ROOT / "scripts" / "delayed_systemctl_restart.py"
+RESTART_DELAY_SECONDS = 2
 
 
 @dataclass(frozen=True)
@@ -82,7 +87,13 @@ def restart_allowed_service(service_name: str) -> dict[str, Any]:
         return {"ok": False, "service": service_name, "error": "service_not_allowed"}
 
     try:
-        command = _systemctl_restart_command(service_name)
+        restart_command = _systemctl_restart_command(service_name)
+        command = [
+            sys.executable,
+            str(DELAYED_RESTART_SCRIPT),
+            str(RESTART_DELAY_SECONDS),
+            *restart_command,
+        ]
         process = subprocess.Popen(
             command,
             stdout=subprocess.DEVNULL,
@@ -98,6 +109,7 @@ def restart_allowed_service(service_name: str) -> dict[str, Any]:
         "service": service_name,
         "label": targets[service_name].label,
         "message": "restart_queued",
-        "command": " ".join(command),
+        "command": " ".join(restart_command),
+        "delay_seconds": RESTART_DELAY_SECONDS,
         "pid": process.pid,
     }

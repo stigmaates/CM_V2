@@ -38,7 +38,13 @@ def test_restart_allowed_service_queues_systemctl_restart(monkeypatch):
 
     assert result["ok"] is True
     assert result["pid"] == 123
-    assert calls == [["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "--no-block", "restart", "clubmodule-stage.service"]]
+    assert calls[0][:3] == [
+        service_control.sys.executable,
+        str(service_control.DELAYED_RESTART_SCRIPT),
+        str(service_control.RESTART_DELAY_SECONDS),
+    ]
+    assert calls[0][3:] == ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "--no-block", "restart", "clubmodule-stage.service"]
+    assert result["delay_seconds"] == service_control.RESTART_DELAY_SECONDS
 
 
 def test_restart_allowed_service_falls_back_when_sudo_is_missing(monkeypatch):
@@ -61,7 +67,7 @@ def test_restart_allowed_service_falls_back_when_sudo_is_missing(monkeypatch):
     result = service_control.restart_allowed_service("clubmodule-stage.service")
 
     assert result["ok"] is True
-    assert calls == [["/usr/bin/systemctl", "--no-block", "restart", "clubmodule-stage.service"]]
+    assert calls[0][3:] == ["/usr/bin/systemctl", "--no-block", "restart", "clubmodule-stage.service"]
 
 
 def test_restart_allowed_service_reports_missing_systemctl(monkeypatch):
