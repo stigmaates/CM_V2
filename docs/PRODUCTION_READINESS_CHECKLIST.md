@@ -62,6 +62,7 @@ Use this checklist before connecting a paid club.
 
 ## Onboarding
 
+- `docs/CLUB_ONBOARDING_RUNBOOK.md` is completed.
 - Club setup checklist is completed.
 - LANGAME API connection is validated.
 - Telegram guest bot flow is validated.

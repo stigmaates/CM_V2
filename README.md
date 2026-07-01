@@ -103,6 +103,7 @@ clubmodule/
 
 - [Product maturity roadmap](docs/PRODUCT_MATURITY_ROADMAP.md) — план доведения продукта до уровня 9/10.
 - [Production readiness checklist](docs/PRODUCTION_READINESS_CHECKLIST.md) — проверка перед подключением платного клуба.
+- [Club onboarding runbook](docs/CLUB_ONBOARDING_RUNBOOK.md) — пошаговое подключение нового клуба.
 - [Pilot onboarding checklist](docs/PILOT_ONBOARDING_CHECKLIST.md) — чеклист ручного запуска первых пилотных клубов.
 - [Database migrations](docs/DATABASE_MIGRATIONS.md) — как применять и добавлять миграции базы.
 - [Safe rollout plan](docs/SAFE_ROLLOUT_PLAN.md) — как выпускать изменения, не ломая текущую рабочую версию.

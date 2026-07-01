@@ -2,6 +2,9 @@
 
 This checklist is for the first manually supported club launches.
 
+For the repeatable paid-club workflow, use
+[`CLUB_ONBOARDING_RUNBOOK.md`](CLUB_ONBOARDING_RUNBOOK.md).
+
 ## Before setup
 
 - Confirm club name and owner contact.
