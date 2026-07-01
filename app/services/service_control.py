@@ -10,6 +10,8 @@ from app.config import ADMIN_RESTART_SERVICES, ADMIN_SERVICE_RESTART_ENABLED
 
 
 SERVICE_NAME_RE = re.compile(r"^[A-Za-z0-9_.@:-]+\.(service|timer)$")
+SYSTEMCTL_PATHS = ("/usr/bin/systemctl", "/bin/systemctl")
+SUDO_PATHS = ("/usr/bin/sudo", "/bin/sudo")
 
 
 @dataclass(frozen=True)
@@ -51,10 +53,24 @@ def get_restart_controls() -> dict[str, Any]:
     }
 
 
+def _find_executable(name: str, fallback_paths: tuple[str, ...]) -> str | None:
+    found = shutil.which(name)
+    if found:
+        return found
+    for path in fallback_paths:
+        if shutil.which(path):
+            return path
+    return None
+
+
 def _systemctl_restart_command(service_name: str) -> list[str]:
-    base = ["systemctl", "--no-block", "restart", service_name]
-    if shutil.which("sudo"):
-        return ["sudo", "-n", *base]
+    systemctl = _find_executable("systemctl", SYSTEMCTL_PATHS)
+    if not systemctl:
+        raise FileNotFoundError("systemctl binary not found")
+    base = [systemctl, "--no-block", "restart", service_name]
+    sudo = _find_executable("sudo", SUDO_PATHS)
+    if sudo:
+        return [sudo, "-n", *base]
     return base
 
 
