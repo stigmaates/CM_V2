@@ -148,6 +148,8 @@ systemctl restart clubmodule-stage.service
 The dashboard action is audited as `admin.service.restart`.
 If `sudo` is not installed, the app falls back to direct `systemctl`; this works
 only when the stage web service itself runs with enough systemd permissions.
+Restarts are started in detached mode, so restarting the web service can return
+a dashboard success response before the old worker is terminated.
 The app checks `/usr/bin/systemctl` and `/bin/systemctl`, so verify the server
 path if restart still fails:
 

@@ -83,21 +83,15 @@ def restart_allowed_service(service_name: str) -> dict[str, Any]:
 
     try:
         command = _systemctl_restart_command(service_name)
-        completed = subprocess.run(
+        process = subprocess.Popen(
             command,
-            capture_output=True,
-            check=False,
-            text=True,
-            timeout=10,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True,
         )
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "service": service_name, "error": "systemctl_timeout"}
     except Exception as exc:
         return {"ok": False, "service": service_name, "error": str(exc)}
-
-    if completed.returncode != 0:
-        error_text = (completed.stderr or completed.stdout or "").strip() or f"systemctl exited {completed.returncode}"
-        return {"ok": False, "service": service_name, "error": error_text}
 
     return {
         "ok": True,
@@ -105,4 +99,5 @@ def restart_allowed_service(service_name: str) -> dict[str, Any]:
         "label": targets[service_name].label,
         "message": "restart_queued",
         "command": " ".join(command),
+        "pid": process.pid,
     }

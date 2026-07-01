@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 from app.services import service_control
 
 
@@ -30,15 +28,16 @@ def test_restart_allowed_service_queues_systemctl_restart(monkeypatch):
     monkeypatch.setattr(service_control, "ADMIN_RESTART_SERVICES", "clubmodule-stage.service:Stage Web")
     monkeypatch.setattr(service_control.shutil, "which", lambda command: f"/usr/bin/{command}")
 
-    def fake_run(cmd, capture_output, check, text, timeout):
+    def fake_popen(cmd, stdout, stderr, start_new_session, close_fds):
         calls.append(cmd)
-        return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return type("Process", (), {"pid": 123})()
 
-    monkeypatch.setattr(service_control.subprocess, "run", fake_run)
+    monkeypatch.setattr(service_control.subprocess, "Popen", fake_popen)
 
     result = service_control.restart_allowed_service("clubmodule-stage.service")
 
     assert result["ok"] is True
+    assert result["pid"] == 123
     assert calls == [["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "--no-block", "restart", "clubmodule-stage.service"]]
 
 
@@ -53,11 +52,11 @@ def test_restart_allowed_service_falls_back_when_sudo_is_missing(monkeypatch):
 
     monkeypatch.setattr(service_control.shutil, "which", fake_which)
 
-    def fake_run(cmd, capture_output, check, text, timeout):
+    def fake_popen(cmd, stdout, stderr, start_new_session, close_fds):
         calls.append(cmd)
-        return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return type("Process", (), {"pid": 124})()
 
-    monkeypatch.setattr(service_control.subprocess, "run", fake_run)
+    monkeypatch.setattr(service_control.subprocess, "Popen", fake_popen)
 
     result = service_control.restart_allowed_service("clubmodule-stage.service")
 
