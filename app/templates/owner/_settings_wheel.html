@@ -625,6 +625,7 @@
         </p>
 
         <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
+            <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
             <div class="game-mode-picker">
                 <label class="game-mode-choice {% if (game_mode|default('wheel')) == 'wheel' %}is-active{% endif %}">
                     <input type="radio" name="game_mode" value="wheel" {% if (game_mode|default('wheel')) == 'wheel' %}checked{% endif %} onchange="this.form.submit()">
