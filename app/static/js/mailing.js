@@ -620,13 +620,19 @@ function renderInteractionRecipients(recipients) {
             ? `${escapeHtml(row.next_visit_at)}${row.next_visit_duration_display ? ` · ${escapeHtml(row.next_visit_duration_display)}` : ""}`
             : "не было";
         const deliveryClass = row.delivery_status === "sent" ? "is-ok" : (row.delivery_status === "failed" ? "is-bad" : "is-wait");
+        const deliveryDetail = row.error_text
+            ? `<span>${escapeHtml(row.error_text)}</span>`
+            : (row.recipient_bonus_amount ? `<span>+${escapeHtml(row.recipient_bonus_amount)} КБ</span>` : "");
         return `
             <div class="interaction-guest-row">
                 <div>
                     <strong>${escapeHtml(name)}</strong>
                     <span>${escapeHtml(row.phone || `ID ${row.guest_id}`)}</span>
                 </div>
-                <div><span class="interaction-status ${deliveryClass}">${escapeHtml(row.delivery_status || "—")}</span></div>
+                <div>
+                    <span class="interaction-status ${deliveryClass}">${escapeHtml(row.delivery_status || "—")}</span>
+                    ${deliveryDetail}
+                </div>
                 <div>${escapeHtml(nextVisit)}</div>
                 <div>${escapeHtml(row.avg_session_display || "—")}</div>
                 <div>${escapeHtml(formatValue(row.total_visits))}</div>
@@ -659,14 +665,17 @@ function renderCrmInteractionDetail(data) {
             ${bonusBlock}
         </div>
 
-        <section class="interaction-section interaction-group-effect">
-            <h3>Эффект на группу</h3>
-            <div class="interaction-effect-grid">
-                <div><span>Вернулись после сообщения</span><strong>${escapeHtml(summary.returned_count || 0)}</strong></div>
-                <div><span>Пока не вернулись</span><strong>${escapeHtml(summary.not_returned_count || 0)}</strong></div>
-                <div><span>Среднее время до визита</span><strong>${escapeHtml(summary.avg_return_delay_display || "—")}</strong></div>
-                <div><span>Средняя длительность визита после</span><strong>${escapeHtml(summary.avg_next_visit_duration_display || "—")}</strong></div>
+        <section class="interaction-section interaction-guest-table">
+            <h3>Гости после взаимодействия</h3>
+            <div class="interaction-guest-head">
+                <div>Гость</div>
+                <div>Доставка</div>
+                <div>Следующий визит</div>
+                <div>Средний визит</div>
+                <div>Всего визитов</div>
+                <div>30 дней до</div>
             </div>
+            <div class="interaction-guests">${renderInteractionRecipients(data.recipients || [])}</div>
         </section>
 
         <section class="interaction-section">
@@ -678,19 +687,6 @@ function renderCrmInteractionDetail(data) {
             <h3>Причины недоставки</h3>
             <div class="interaction-reasons">${renderFailureReasons(summary.failure_reasons || [])}</div>
         </section>
-
-        <details class="interaction-section interaction-guest-details">
-            <summary>Пути гостей после взаимодействия</summary>
-            <div class="interaction-guest-head">
-                <div>Гость</div>
-                <div>Доставка</div>
-                <div>Следующий визит</div>
-                <div>Средний визит</div>
-                <div>Всего визитов</div>
-                <div>30 дней до</div>
-            </div>
-            <div class="interaction-guests">${renderInteractionRecipients(data.recipients || [])}</div>
-        </details>
     `;
 }
 
