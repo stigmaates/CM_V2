@@ -897,6 +897,12 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                           AND s30.date_start >= DATE_SUB(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL 30 DAY)
                           AND s30.date_start < COALESCE(mr.sent_at, m.started_at, m.created_at)
                     ) AS visits_30d_before_message,
+                    ps.date_start AS previous_visit_at,
+                    CASE
+                        WHEN ps.date_start IS NOT NULL AND ps.date_stop IS NOT NULL
+                        THEN TIMESTAMPDIFF(MINUTE, ps.date_start, ps.date_stop)
+                        ELSE NULL
+                    END AS previous_visit_minutes,
                     ns.date_start AS next_visit_at,
                     TIMESTAMPDIFF(HOUR, COALESCE(mr.sent_at, m.started_at, m.created_at), ns.date_start) AS next_visit_delay_hours,
                     CASE
@@ -921,6 +927,16 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                   ON bgr.club_id = m.club_id
                  AND bgr.guest_id = mr.guest_id
                  AND bgr.giveaway_id = %s
+                LEFT JOIN guest_sessions ps
+                  ON ps.id = (
+                    SELECT s.id
+                    FROM guest_sessions s
+                    WHERE s.club_id = m.club_id
+                      AND s.guest_id = mr.guest_id
+                      AND s.date_start < COALESCE(mr.sent_at, m.started_at, m.created_at)
+                    ORDER BY s.date_start DESC
+                    LIMIT 1
+                  )
                 LEFT JOIN guest_sessions ns
                   ON ns.id = (
                     SELECT s.id
@@ -971,6 +987,7 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
     for row in recipients:
         item = _json_row(row)
         item["avg_session_display"] = _format_minutes(row.get("avg_session_minutes"))
+        item["previous_visit_duration_display"] = _format_minutes(row.get("previous_visit_minutes"))
         item["next_visit_duration_display"] = _format_minutes(row.get("next_visit_minutes"))
         item["next_visit_delay_display"] = _format_hours(avg_hours=row.get("next_visit_delay_hours"))
         serialized_recipients.append(item)

@@ -617,6 +617,16 @@ function formatDeliveryStatus(status) {
     return labels[status] || status || "—";
 }
 
+function renderVisitCell(dateTime, duration) {
+    if (!dateTime) {
+        return `<span class="interaction-muted">Не было</span>`;
+    }
+    return `
+        <span class="interaction-date">${escapeHtml(formatDateTime(dateTime))}</span>
+        ${duration ? `<span class="interaction-duration">${escapeHtml(duration)}</span>` : ""}
+    `;
+}
+
 function renderFailureReasons(reasons) {
     if (!reasons || !reasons.length) {
         return `<div class="empty-hint">Ошибок доставки нет.</div>`;
@@ -635,12 +645,8 @@ function renderInteractionRecipients(recipients) {
     }
     return recipients.map((row) => {
         const name = row.fio || row.phone || `Гость #${row.guest_id}`;
-        const nextVisit = row.next_visit_at
-            ? `
-                <span class="interaction-date">${escapeHtml(formatDateTime(row.next_visit_at))}</span>
-                ${row.next_visit_duration_display ? `<span class="interaction-duration">${escapeHtml(row.next_visit_duration_display)}</span>` : ""}
-            `
-            : `<span class="interaction-muted">Не было</span>`;
+        const previousVisit = renderVisitCell(row.previous_visit_at, row.previous_visit_duration_display);
+        const nextVisit = renderVisitCell(row.next_visit_at, row.next_visit_duration_display);
         const deliveryClass = row.delivery_status === "sent" ? "is-ok" : (row.delivery_status === "failed" ? "is-bad" : "is-wait");
         const deliveryDetail = row.error_text
             ? `<span>${escapeHtml(row.error_text)}</span>`
@@ -655,6 +661,7 @@ function renderInteractionRecipients(recipients) {
                     <span class="interaction-status ${deliveryClass}">${escapeHtml(formatDeliveryStatus(row.delivery_status))}</span>
                     ${deliveryDetail}
                 </div>
+                <div>${previousVisit}</div>
                 <div>${nextVisit}</div>
                 <div>${escapeHtml(row.avg_session_display || "—")}</div>
                 <div>${escapeHtml(formatValue(row.total_visits))}</div>
@@ -693,6 +700,7 @@ function renderCrmInteractionDetail(data) {
             <div class="interaction-guest-head">
                 <div>Гость</div>
                 <div>Доставка</div>
+                <div>Последний визит</div>
                 <div>Следующий визит</div>
                 <div>Средний визит</div>
                 <div>Всего визитов</div>

@@ -699,7 +699,7 @@
 .interaction-guest-head,
 .interaction-guest-row {
     display: grid;
-    grid-template-columns: minmax(190px, 1.15fr) 130px minmax(260px, 1.55fr) 145px 110px 110px;
+    grid-template-columns: minmax(190px, 1.1fr) 130px minmax(210px, 1.25fr) minmax(210px, 1.25fr) 135px 100px 100px;
     gap: 10px;
     align-items: center;
     text-align: center;
