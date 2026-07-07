@@ -518,7 +518,7 @@
 }
 
 .crm-interaction-dialog {
-    width: min(1120px, 100%);
+    width: min(1360px, 96vw);
     overscroll-behavior: contain;
 }
 
@@ -632,9 +632,10 @@
 .interaction-guest-head,
 .interaction-guest-row {
     display: grid;
-    grid-template-columns: minmax(150px, 1.2fr) 0.7fr minmax(170px, 1.15fr) 0.8fr 0.7fr 0.7fr;
+    grid-template-columns: minmax(190px, 1.15fr) 130px minmax(260px, 1.55fr) 145px 110px 110px;
     gap: 10px;
     align-items: center;
+    text-align: center;
 }
 
 .interaction-guest-head {
@@ -656,7 +657,7 @@
 
 .interaction-guest-row {
     border-radius: 14px;
-    padding: 10px;
+    padding: 12px 10px;
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.045);
     font-size: 13px;
@@ -672,9 +673,27 @@
     margin-bottom: 3px;
 }
 
+.interaction-date,
+.interaction-duration,
+.interaction-muted {
+    display: block;
+    line-height: 1.35;
+}
+
+.interaction-date {
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.interaction-duration {
+    margin-top: 3px;
+}
+
 .interaction-status {
     display: inline-flex;
     width: max-content;
+    margin: 0 auto;
+    justify-content: center;
     border-radius: 999px;
     padding: 4px 9px;
     font-weight: 900;
@@ -779,6 +798,11 @@
     opacity: 0;
     transform: translateY(18px) scale(0.96);
     transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.mailing-history-modal__dialog.crm-interaction-dialog {
+    width: min(1360px, 96vw);
+    max-height: min(820px, calc(100vh - 48px));
 }
 
 .mailing-history-modal__head {

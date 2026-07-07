@@ -598,6 +598,25 @@ function formatValue(value, fallback = "—") {
     return value;
 }
 
+function formatDateTime(value) {
+    if (!value) return "";
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    if (!match) return value;
+    return `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}`;
+}
+
+function formatDeliveryStatus(status) {
+    const labels = {
+        sent: "Доставлено",
+        failed: "Ошибка",
+        pending: "В очереди",
+        queued: "В очереди",
+        in_progress: "В работе",
+        completed: "Завершено",
+    };
+    return labels[status] || status || "—";
+}
+
 function renderFailureReasons(reasons) {
     if (!reasons || !reasons.length) {
         return `<div class="empty-hint">Ошибок доставки нет.</div>`;
@@ -617,8 +636,11 @@ function renderInteractionRecipients(recipients) {
     return recipients.map((row) => {
         const name = row.fio || row.phone || `Гость #${row.guest_id}`;
         const nextVisit = row.next_visit_at
-            ? `${escapeHtml(row.next_visit_at)}${row.next_visit_duration_display ? ` · ${escapeHtml(row.next_visit_duration_display)}` : ""}`
-            : "не было";
+            ? `
+                <span class="interaction-date">${escapeHtml(formatDateTime(row.next_visit_at))}</span>
+                ${row.next_visit_duration_display ? `<span class="interaction-duration">${escapeHtml(row.next_visit_duration_display)}</span>` : ""}
+            `
+            : `<span class="interaction-muted">Не было</span>`;
         const deliveryClass = row.delivery_status === "sent" ? "is-ok" : (row.delivery_status === "failed" ? "is-bad" : "is-wait");
         const deliveryDetail = row.error_text
             ? `<span>${escapeHtml(row.error_text)}</span>`
@@ -630,10 +652,10 @@ function renderInteractionRecipients(recipients) {
                     <span>${escapeHtml(row.phone || `ID ${row.guest_id}`)}</span>
                 </div>
                 <div>
-                    <span class="interaction-status ${deliveryClass}">${escapeHtml(row.delivery_status || "—")}</span>
+                    <span class="interaction-status ${deliveryClass}">${escapeHtml(formatDeliveryStatus(row.delivery_status))}</span>
                     ${deliveryDetail}
                 </div>
-                <div>${escapeHtml(nextVisit)}</div>
+                <div>${nextVisit}</div>
                 <div>${escapeHtml(row.avg_session_display || "—")}</div>
                 <div>${escapeHtml(formatValue(row.total_visits))}</div>
                 <div>${escapeHtml(formatValue(row.visits_30d_before_message))}</div>
@@ -648,9 +670,10 @@ function renderCrmInteractionDetail(data) {
     const typeLabel = interaction.interaction_type === "giveaway"
         ? "Раздача"
         : (interaction.interaction_type === "auto_mailing" ? "Авторассылка" : "Рассылка");
-    const title = `${typeLabel} #${interaction.interaction_id}`;
+    const createdAt = formatDateTime(interaction.created_at);
+    const title = `${typeLabel} №${interaction.interaction_id}${createdAt ? ` (${createdAt})` : ""}`;
     crmInteractionTitle.textContent = title;
-    crmInteractionType.textContent = interaction.status || "CRM-взаимодействие";
+    crmInteractionType.textContent = formatDeliveryStatus(interaction.status) || "CRM-взаимодействие";
 
     const bonusBlock = Number(interaction.bonus_amount || 0) > 0
         ? `<div class="interaction-kpi"><span>КБ</span><strong>+${escapeHtml(interaction.bonus_amount)}</strong></div>`
