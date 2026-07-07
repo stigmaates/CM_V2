@@ -50,7 +50,6 @@
             <section class="mailing-box">
                 <div class="segments-block-head">
                     <h3>Сохранённые сегменты</h3>
-                    <button type="button" class="btn btn-secondary btn-history-open" id="openMailingHistoryBtn">История рассылок</button>
                 </div>
                 <div class="segments-scroller">
                     <div id="segmentsList" class="segments-list">
@@ -173,20 +172,30 @@
         </div>
     </section>
 
-    <section class="mailing-box bonus-giveaway-history-box">
-        <h3>История раздач</h3>
-        <div class="bonus-giveaway-history">
-            {% for item in bonus_giveaways %}
-                <div class="history-row">
-                    <div>#{{ item.id }}</div>
+    <section class="mailing-box crm-interactions-box">
+        <div class="crm-interactions-head">
+            <div>
+                <h3>История взаимодействий</h3>
+                <div class="crm-segments-hint">Рассылки и раздачи с доставкой, ошибками и визитами гостей после сообщения.</div>
+            </div>
+        </div>
+        <div class="crm-interactions-list">
+            {% for item in crm_interactions %}
+                <button
+                    type="button"
+                    class="history-row interaction-row"
+                    data-interaction-type="{{ item.interaction_type }}"
+                    data-interaction-id="{{ item.interaction_id }}"
+                >
+                    <div>#{{ item.interaction_id }}</div>
+                    <div>{{ 'Раздача' if item.interaction_type == 'giveaway' else 'Рассылка' }}</div>
                     <div>{{ item.status }}</div>
-                    <div>+{{ item.bonus_amount }} бонусов</div>
+                    <div>{% if item.bonus_amount|int > 0 %}+{{ item.bonus_amount }} КБ{% else %}—{% endif %}</div>
                     <div>{{ item.recipients_count }} чел.</div>
-                    <div>{{ item.awarded_count }} начислено</div>
                     <div>{{ item.created_at }}</div>
-                </div>
+                </button>
             {% else %}
-                <div class="empty-hint">Пока нет раздач</div>
+                <div class="empty-hint">Пока нет взаимодействий</div>
             {% endfor %}
         </div>
     </section>
@@ -286,28 +295,18 @@
     </div>
 </div>
 
-<div class="mailing-history-modal" id="mailingHistoryModal" aria-hidden="true">
-    <div class="mailing-history-modal__backdrop" id="mailingHistoryBackdrop"></div>
-    <div class="mailing-history-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="mailingHistoryTitle">
+<div class="mailing-history-modal" id="crmInteractionModal" aria-hidden="true">
+    <div class="mailing-history-modal__backdrop" id="crmInteractionBackdrop"></div>
+    <div class="mailing-history-modal__dialog crm-interaction-dialog" role="dialog" aria-modal="true" aria-labelledby="crmInteractionTitle">
         <div class="mailing-history-modal__head">
-            <h2 id="mailingHistoryTitle">История рассылок</h2>
-            <button type="button" class="mailing-history-modal__close" id="closeMailingHistoryBtn" aria-label="Закрыть">×</button>
-        </div>
-        <div class="mailing-history-modal__body">
-            <div class="mailing-history">
-                {% for mailing in mailings %}
-                    <div class="history-row">
-                        <div>#{{ mailing.id }}</div>
-                        <div>{{ mailing.status }}</div>
-                        <div>{{ mailing.recipients_count }} чел.</div>
-                        <div>{{ mailing.success_count }} успешно</div>
-                        <div>{{ mailing.failed_count }} ошибок</div>
-                        <div>{{ mailing.created_at }}</div>
-                    </div>
-                {% else %}
-                    <div class="empty-hint">Пока нет рассылок</div>
-                {% endfor %}
+            <div>
+                <div class="mailing-modal__eyebrow" id="crmInteractionType">CRM-взаимодействие</div>
+                <h2 id="crmInteractionTitle">История взаимодействия</h2>
             </div>
+            <button type="button" class="mailing-history-modal__close" id="closeCrmInteractionBtn" aria-label="Закрыть">×</button>
+        </div>
+        <div class="mailing-history-modal__body crm-interaction-body" id="crmInteractionBody">
+            <div class="empty-hint">Загрузка...</div>
         </div>
     </div>
 </div>

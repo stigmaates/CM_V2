@@ -2,6 +2,8 @@ import json
 import os
 import re
 import uuid
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Dict, List, Tuple
 
 from werkzeug.utils import secure_filename
@@ -578,6 +580,270 @@ def list_mailings(conn, club_id: int) -> List[Dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(sql, (club_id,))
         return cur.fetchall()
+
+
+def _json_datetime(value):
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
+
+
+def _json_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: _json_datetime(value) for key, value in dict(row or {}).items()}
+
+
+def _format_minutes(minutes) -> str | None:
+    if minutes is None:
+        return None
+    try:
+        minutes = int(minutes)
+    except (TypeError, ValueError):
+        return None
+    if minutes < 60:
+        return f"{minutes} мин"
+    hours = minutes // 60
+    rest = minutes % 60
+    if rest:
+        return f"{hours} ч {rest} мин"
+    return f"{hours} ч"
+
+
+def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str, Any]]:
+    ensure_bonus_giveaway_tables(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                CONCAT('mailing-', m.id) AS interaction_key,
+                'mailing' AS interaction_type,
+                m.id AS interaction_id,
+                NULL AS giveaway_id,
+                m.id AS mailing_id,
+                m.status,
+                0 AS bonus_amount,
+                m.recipients_count,
+                m.success_count,
+                m.failed_count,
+                NULL AS awarded_count,
+                m.created_at
+            FROM mailings m
+            LEFT JOIN bonus_giveaways bg
+              ON bg.club_id = m.club_id
+             AND bg.mailing_id = m.id
+            WHERE m.club_id = %s
+              AND bg.id IS NULL
+
+            UNION ALL
+
+            SELECT
+                CONCAT('giveaway-', bg.id) AS interaction_key,
+                'giveaway' AS interaction_type,
+                bg.id AS interaction_id,
+                bg.id AS giveaway_id,
+                bg.mailing_id,
+                COALESCE(m.status, bg.status) AS status,
+                bg.bonus_amount,
+                bg.recipients_count,
+                COALESCE(m.success_count, 0) AS success_count,
+                COALESCE(m.failed_count, 0) AS failed_count,
+                bg.awarded_count,
+                bg.created_at
+            FROM bonus_giveaways bg
+            LEFT JOIN mailings m
+              ON m.club_id = bg.club_id
+             AND m.id = bg.mailing_id
+            WHERE bg.club_id = %s
+
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (club_id, club_id, int(limit)),
+        )
+        return [_json_row(row) for row in cur.fetchall()]
+
+
+def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction_id: int) -> Dict[str, Any] | None:
+    with conn.cursor() as cur:
+        if interaction_type == "giveaway":
+            ensure_bonus_giveaway_tables(conn)
+            cur.execute(
+                """
+                SELECT
+                    bg.id AS interaction_id,
+                    'giveaway' AS interaction_type,
+                    bg.id AS giveaway_id,
+                    bg.mailing_id,
+                    COALESCE(m.status, bg.status) AS status,
+                    bg.bonus_amount,
+                    bg.message_text,
+                    bg.recipients_count,
+                    bg.awarded_count,
+                    bg.skipped_count,
+                    COALESCE(m.success_count, 0) AS success_count,
+                    COALESCE(m.failed_count, 0) AS failed_count,
+                    bg.created_at,
+                    bg.finished_at
+                FROM bonus_giveaways bg
+                LEFT JOIN mailings m
+                  ON m.club_id = bg.club_id
+                 AND m.id = bg.mailing_id
+                WHERE bg.club_id = %s
+                  AND bg.id = %s
+                LIMIT 1
+                """,
+                (club_id, interaction_id),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT
+                    m.id AS interaction_id,
+                    'mailing' AS interaction_type,
+                    NULL AS giveaway_id,
+                    m.id AS mailing_id,
+                    m.status,
+                    0 AS bonus_amount,
+                    m.message_text,
+                    m.recipients_count,
+                    NULL AS awarded_count,
+                    NULL AS skipped_count,
+                    m.success_count,
+                    m.failed_count,
+                    m.created_at,
+                    m.finished_at
+                FROM mailings m
+                LEFT JOIN bonus_giveaways bg
+                  ON bg.club_id = m.club_id
+                 AND bg.mailing_id = m.id
+                WHERE m.club_id = %s
+                  AND m.id = %s
+                  AND bg.id IS NULL
+                LIMIT 1
+                """,
+                (club_id, interaction_id),
+            )
+        return cur.fetchone()
+
+
+def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, interaction_id: int) -> Dict[str, Any] | None:
+    if interaction_type not in {"mailing", "giveaway"}:
+        return None
+
+    ensure_bonus_giveaway_tables(conn)
+    base = _get_interaction_base(conn, club_id, interaction_type, interaction_id)
+    if not base:
+        return None
+
+    mailing_id = base.get("mailing_id")
+    if not mailing_id:
+        recipients = []
+    else:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    mr.id AS recipient_id,
+                    mr.guest_id,
+                    g.phone,
+                    g.fio,
+                    mr.status AS delivery_status,
+                    mr.error_text,
+                    mr.sent_at,
+                    COALESCE(mr.sent_at, m.started_at, m.created_at) AS interaction_at,
+                    up.crm_type,
+                    up.total_visits,
+                    up.avg_session_minutes,
+                    (
+                        SELECT COUNT(*)
+                        FROM guest_sessions s30
+                        WHERE s30.club_id = m.club_id
+                          AND s30.guest_id = mr.guest_id
+                          AND s30.date_start >= DATE_SUB(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL 30 DAY)
+                          AND s30.date_start < COALESCE(mr.sent_at, m.started_at, m.created_at)
+                    ) AS visits_30d_before_message,
+                    ns.date_start AS next_visit_at,
+                    CASE
+                        WHEN ns.date_start IS NOT NULL AND ns.date_stop IS NOT NULL
+                        THEN TIMESTAMPDIFF(MINUTE, ns.date_start, ns.date_stop)
+                        ELSE NULL
+                    END AS next_visit_minutes,
+                    bgr.transaction_status AS bonus_status,
+                    bgr.bonus_amount AS recipient_bonus_amount,
+                    bgr.error_text AS bonus_error_text
+                FROM mailing_recipients mr
+                JOIN mailings m
+                  ON m.id = mr.mailing_id
+                 AND m.club_id = %s
+                LEFT JOIN guests g
+                  ON g.club_id = m.club_id
+                 AND g.guest_id = mr.guest_id
+                LEFT JOIN user_portrait up
+                  ON up.club_id = m.club_id
+                 AND up.guest_id = mr.guest_id
+                LEFT JOIN bonus_giveaway_recipients bgr
+                  ON bgr.club_id = m.club_id
+                 AND bgr.guest_id = mr.guest_id
+                 AND bgr.giveaway_id = %s
+                LEFT JOIN guest_sessions ns
+                  ON ns.id = (
+                    SELECT s.id
+                    FROM guest_sessions s
+                    WHERE s.club_id = m.club_id
+                      AND s.guest_id = mr.guest_id
+                      AND s.date_start > COALESCE(mr.sent_at, m.started_at, m.created_at)
+                    ORDER BY s.date_start ASC
+                    LIMIT 1
+                  )
+                WHERE mr.mailing_id = %s
+                ORDER BY
+                    CASE WHEN ns.date_start IS NULL THEN 1 ELSE 0 END,
+                    ns.date_start ASC,
+                    mr.id ASC
+                LIMIT 300
+                """,
+                (club_id, base.get("giveaway_id"), mailing_id),
+            )
+            recipients = cur.fetchall()
+
+    sent_count = sum(1 for row in recipients if row.get("delivery_status") == "sent")
+    failed_count = sum(1 for row in recipients if row.get("delivery_status") == "failed")
+    pending_count = sum(1 for row in recipients if row.get("delivery_status") == "pending")
+    returned_count = sum(1 for row in recipients if row.get("next_visit_at") is not None)
+
+    failure_reasons: Dict[str, int] = {}
+    for row in recipients:
+        if row.get("delivery_status") != "failed":
+            continue
+        reason = (row.get("error_text") or "Ошибка без текста").strip()
+        failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
+
+    serialized_recipients = []
+    for row in recipients:
+        item = _json_row(row)
+        item["avg_session_display"] = _format_minutes(row.get("avg_session_minutes"))
+        item["next_visit_duration_display"] = _format_minutes(row.get("next_visit_minutes"))
+        serialized_recipients.append(item)
+
+    return {
+        "interaction": _json_row(base),
+        "summary": {
+            "recipients_count": int(base.get("recipients_count") or len(recipients)),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "pending_count": pending_count,
+            "returned_count": returned_count,
+            "return_rate": round((returned_count / len(recipients)) * 100, 1) if recipients else 0,
+            "failure_reasons": [
+                {"reason": reason, "count": count}
+                for reason, count in sorted(failure_reasons.items(), key=lambda item: item[1], reverse=True)
+            ],
+        },
+        "recipients": serialized_recipients,
+    }
 
 def _ensure_auto_mailing_column(cursor, column_name: str, ddl: str) -> None:
     cursor.execute(

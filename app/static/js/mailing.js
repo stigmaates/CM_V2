@@ -306,7 +306,7 @@ async function previewGiveawayAudience() {
 
 
 function escapeHtml(value) {
-    return value
+    return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
@@ -329,7 +329,7 @@ function openMailingModal(recipientsCount, messageText) {
 function closeMailingModal() {
     modalEl.classList.remove("is-open");
     modalEl.setAttribute("aria-hidden", "true");
-    const hm = document.getElementById("mailingHistoryModal");
+    const hm = document.getElementById("crmInteractionModal");
     const hint = document.getElementById("mailingAudienceHintModal");
     if ((!hm || !hm.classList.contains("is-open")) && (!hint || !hint.classList.contains("is-open"))) {
         document.body.style.overflow = "";
@@ -566,28 +566,138 @@ document.getElementById("modalEditBtn").addEventListener("click", closeMailingMo
 document.getElementById("mailingModalClose").addEventListener("click", closeMailingModal);
 document.getElementById("mailingModalOverlay").addEventListener("click", closeMailingModal);
 
-const historyModalEl = document.getElementById("mailingHistoryModal");
-const openHistoryBtn = document.getElementById("openMailingHistoryBtn");
-const closeHistoryBtn = document.getElementById("closeMailingHistoryBtn");
-const historyBackdrop = document.getElementById("mailingHistoryBackdrop");
+const crmInteractionModal = document.getElementById("crmInteractionModal");
+const closeCrmInteractionBtn = document.getElementById("closeCrmInteractionBtn");
+const crmInteractionBackdrop = document.getElementById("crmInteractionBackdrop");
+const crmInteractionBody = document.getElementById("crmInteractionBody");
+const crmInteractionTitle = document.getElementById("crmInteractionTitle");
+const crmInteractionType = document.getElementById("crmInteractionType");
 
-function openMailingHistoryModal() {
-    if (!historyModalEl) return;
-    historyModalEl.classList.add("is-open");
-    historyModalEl.setAttribute("aria-hidden", "false");
+function openCrmInteractionModal() {
+    if (!crmInteractionModal) return;
+    crmInteractionModal.classList.add("is-open");
+    crmInteractionModal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
     requestAnimationFrame(function () {
-        void historyModalEl.offsetWidth;
+        void crmInteractionModal.offsetWidth;
     });
 }
 
-function closeMailingHistoryModal() {
-    if (!historyModalEl) return;
-    historyModalEl.classList.remove("is-open");
-    historyModalEl.setAttribute("aria-hidden", "true");
+function closeCrmInteractionModal() {
+    if (!crmInteractionModal) return;
+    crmInteractionModal.classList.remove("is-open");
+    crmInteractionModal.setAttribute("aria-hidden", "true");
     const hint = document.getElementById("mailingAudienceHintModal");
     if ((!modalEl || !modalEl.classList.contains("is-open")) && (!hint || !hint.classList.contains("is-open"))) {
         document.body.style.overflow = "";
+    }
+}
+
+function formatValue(value, fallback = "—") {
+    if (value === null || value === undefined || value === "") return fallback;
+    return value;
+}
+
+function renderFailureReasons(reasons) {
+    if (!reasons || !reasons.length) {
+        return `<div class="empty-hint">Ошибок доставки нет.</div>`;
+    }
+    return reasons.map((item) => `
+        <div class="interaction-reason-row">
+            <span>${escapeHtml(item.reason)}</span>
+            <strong>${escapeHtml(item.count)}</strong>
+        </div>
+    `).join("");
+}
+
+function renderInteractionRecipients(recipients) {
+    if (!recipients || !recipients.length) {
+        return `<div class="empty-hint">Получателей нет.</div>`;
+    }
+    return recipients.map((row) => {
+        const name = row.fio || row.phone || `Гость #${row.guest_id}`;
+        const nextVisit = row.next_visit_at
+            ? `${escapeHtml(row.next_visit_at)}${row.next_visit_duration_display ? ` · ${escapeHtml(row.next_visit_duration_display)}` : ""}`
+            : "не было";
+        const deliveryClass = row.delivery_status === "sent" ? "is-ok" : (row.delivery_status === "failed" ? "is-bad" : "is-wait");
+        return `
+            <div class="interaction-guest-row">
+                <div>
+                    <strong>${escapeHtml(name)}</strong>
+                    <span>${escapeHtml(row.phone || `ID ${row.guest_id}`)}</span>
+                </div>
+                <div><span class="interaction-status ${deliveryClass}">${escapeHtml(row.delivery_status || "—")}</span></div>
+                <div>${escapeHtml(nextVisit)}</div>
+                <div>${escapeHtml(row.avg_session_display || "—")}</div>
+                <div>${escapeHtml(formatValue(row.total_visits))}</div>
+                <div>${escapeHtml(formatValue(row.visits_30d_before_message))}</div>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderCrmInteractionDetail(data) {
+    const interaction = data.interaction || {};
+    const summary = data.summary || {};
+    const typeLabel = interaction.interaction_type === "giveaway" ? "Раздача" : "Рассылка";
+    const title = `${typeLabel} #${interaction.interaction_id}`;
+    crmInteractionTitle.textContent = title;
+    crmInteractionType.textContent = interaction.status || "CRM-взаимодействие";
+
+    const bonusBlock = Number(interaction.bonus_amount || 0) > 0
+        ? `<div class="interaction-kpi"><span>КБ</span><strong>+${escapeHtml(interaction.bonus_amount)}</strong></div>`
+        : "";
+
+    crmInteractionBody.innerHTML = `
+        <div class="interaction-summary-grid">
+            <div class="interaction-kpi"><span>Получателей</span><strong>${escapeHtml(summary.recipients_count || 0)}</strong></div>
+            <div class="interaction-kpi"><span>Дошло</span><strong>${escapeHtml(summary.sent_count || 0)}</strong></div>
+            <div class="interaction-kpi"><span>Не дошло</span><strong>${escapeHtml(summary.failed_count || 0)}</strong></div>
+            <div class="interaction-kpi"><span>Вернулись</span><strong>${escapeHtml(summary.returned_count || 0)} · ${escapeHtml(summary.return_rate || 0)}%</strong></div>
+            ${bonusBlock}
+        </div>
+
+        <section class="interaction-section">
+            <h3>Сообщение</h3>
+            <div class="interaction-message">${escapeHtml(interaction.message_text || "").replaceAll("\n", "<br>")}</div>
+        </section>
+
+        <section class="interaction-section">
+            <h3>Причины недоставки</h3>
+            <div class="interaction-reasons">${renderFailureReasons(summary.failure_reasons || [])}</div>
+        </section>
+
+        <section class="interaction-section">
+            <h3>Гости и визиты после сообщения</h3>
+            <div class="interaction-guest-head">
+                <div>Гость</div>
+                <div>Доставка</div>
+                <div>Следующий визит</div>
+                <div>Средний визит</div>
+                <div>Всего визитов</div>
+                <div>30 дней до</div>
+            </div>
+            <div class="interaction-guests">${renderInteractionRecipients(data.recipients || [])}</div>
+        </section>
+    `;
+}
+
+async function openCrmInteractionDetail(type, id) {
+    if (!type || !id || !crmInteractionBody) return;
+    crmInteractionBody.innerHTML = `<div class="empty-hint">Загрузка...</div>`;
+    if (crmInteractionTitle) crmInteractionTitle.textContent = "История взаимодействия";
+    if (crmInteractionType) crmInteractionType.textContent = "CRM-взаимодействие";
+    openCrmInteractionModal();
+    try {
+        const response = await fetch(`/owner/api/crm-interactions/${type}/${id}`);
+        const data = await response.json();
+        if (!data.ok) {
+            crmInteractionBody.innerHTML = `<div class="empty-hint">${escapeHtml(data.error || "Не удалось загрузить взаимодействие")}</div>`;
+            return;
+        }
+        renderCrmInteractionDetail(data);
+    } catch (error) {
+        crmInteractionBody.innerHTML = `<div class="empty-hint">Не удалось загрузить взаимодействие.</div>`;
     }
 }
 
@@ -607,7 +717,7 @@ function closeMailingAudienceHintModal() {
     if (!mailingAudienceHintModal) return;
     mailingAudienceHintModal.classList.remove("is-open");
     mailingAudienceHintModal.setAttribute("aria-hidden", "true");
-    if ((!modalEl || !modalEl.classList.contains("is-open")) && (!historyModalEl || !historyModalEl.classList.contains("is-open"))) {
+    if ((!modalEl || !modalEl.classList.contains("is-open")) && (!crmInteractionModal || !crmInteractionModal.classList.contains("is-open"))) {
         document.body.style.overflow = "";
     }
 }
@@ -629,14 +739,16 @@ if (mailingAudienceHintModal) {
     });
 }
 
-if (openHistoryBtn) {
-    openHistoryBtn.addEventListener("click", openMailingHistoryModal);
+document.querySelectorAll(".interaction-row").forEach((row) => {
+    row.addEventListener("click", () => {
+        openCrmInteractionDetail(row.dataset.interactionType, row.dataset.interactionId);
+    });
+});
+if (closeCrmInteractionBtn) {
+    closeCrmInteractionBtn.addEventListener("click", closeCrmInteractionModal);
 }
-if (closeHistoryBtn) {
-    closeHistoryBtn.addEventListener("click", closeMailingHistoryModal);
-}
-if (historyBackdrop) {
-    historyBackdrop.addEventListener("click", closeMailingHistoryModal);
+if (crmInteractionBackdrop) {
+    crmInteractionBackdrop.addEventListener("click", closeCrmInteractionModal);
 }
 
 document.addEventListener("keydown", function (event) {
@@ -645,8 +757,8 @@ document.addEventListener("keydown", function (event) {
         closeMailingAudienceHintModal();
         return;
     }
-    if (historyModalEl && historyModalEl.classList.contains("is-open")) {
-        closeMailingHistoryModal();
+    if (crmInteractionModal && crmInteractionModal.classList.contains("is-open")) {
+        closeCrmInteractionModal();
     }
     if (modalEl && modalEl.classList.contains("is-open")) {
         closeMailingModal();
