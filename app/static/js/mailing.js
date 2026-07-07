@@ -770,7 +770,39 @@ if (mailingAudienceHintModal) {
     });
 }
 
-document.querySelectorAll(".interaction-row").forEach((row) => {
+const crmInteractionRows = Array.from(document.querySelectorAll(".interaction-row"));
+const crmInteractionTypeFilter = document.getElementById("crmInteractionTypeFilter");
+const hideAutoMailingsFilter = document.getElementById("hideAutoMailingsFilter");
+const crmInteractionsFilterEmpty = document.getElementById("crmInteractionsFilterEmpty");
+
+function applyCrmInteractionFilters() {
+    const selectedType = crmInteractionTypeFilter ? crmInteractionTypeFilter.value : "all";
+    const hideAuto = Boolean(hideAutoMailingsFilter && hideAutoMailingsFilter.checked);
+    let visibleCount = 0;
+
+    crmInteractionRows.forEach((row) => {
+        const rowType = row.dataset.interactionType || "";
+        const matchesType = selectedType === "all" || rowType === selectedType;
+        const matchesAutoFilter = !(hideAuto && rowType === "auto_mailing");
+        const isVisible = matchesType && matchesAutoFilter;
+        row.hidden = !isVisible;
+        if (isVisible) visibleCount += 1;
+    });
+
+    if (crmInteractionsFilterEmpty) {
+        crmInteractionsFilterEmpty.hidden = visibleCount > 0 || crmInteractionRows.length === 0;
+    }
+}
+
+if (crmInteractionTypeFilter) {
+    crmInteractionTypeFilter.addEventListener("change", applyCrmInteractionFilters);
+}
+if (hideAutoMailingsFilter) {
+    hideAutoMailingsFilter.addEventListener("change", applyCrmInteractionFilters);
+}
+applyCrmInteractionFilters();
+
+crmInteractionRows.forEach((row) => {
     row.addEventListener("click", () => {
         openCrmInteractionDetail(row.dataset.interactionType, row.dataset.interactionId);
     });

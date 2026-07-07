@@ -514,7 +514,51 @@
 }
 
 .crm-interactions-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
     margin-bottom: 14px;
+}
+
+.crm-interactions-filters {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.crm-interactions-type-filter,
+.crm-interactions-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.crm-interactions-type-filter select {
+    min-width: 150px;
+    border: 1px solid rgba(143, 91, 255, 0.34);
+    border-radius: 12px;
+    padding: 9px 32px 9px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+    font: inherit;
+    outline: none;
+}
+
+.crm-interactions-checkbox {
+    cursor: pointer;
+    user-select: none;
+}
+
+.crm-interactions-checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: #8f5bff;
 }
 
 .crm-interaction-dialog {
@@ -844,6 +888,16 @@
 @media (max-width: 1180px) {
     .mailing-layout {
         grid-template-columns: 1fr;
+    }
+
+    .crm-interactions-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .crm-interactions-filters {
+        justify-content: flex-start;
+        width: 100%;
     }
 
     .interaction-guest-head {

@@ -178,6 +178,21 @@
                 <h3>История взаимодействий</h3>
                 <div class="crm-segments-hint">Рассылки и раздачи с доставкой, ошибками и визитами гостей после сообщения.</div>
             </div>
+            <div class="crm-interactions-filters">
+                <label class="crm-interactions-type-filter">
+                    <span>Тип</span>
+                    <select id="crmInteractionTypeFilter">
+                        <option value="all">Все</option>
+                        <option value="mailing">Рассылка</option>
+                        <option value="giveaway">Раздача</option>
+                        <option value="auto_mailing">Авторассылка</option>
+                    </select>
+                </label>
+                <label class="crm-interactions-checkbox">
+                    <input type="checkbox" id="hideAutoMailingsFilter">
+                    <span>Не показывать авторассылки</span>
+                </label>
+            </div>
         </div>
         <div class="crm-interactions-list">
             {% for item in crm_interactions %}
@@ -205,6 +220,7 @@
             {% else %}
                 <div class="empty-hint">Пока нет взаимодействий</div>
             {% endfor %}
+            <div class="empty-hint crm-interactions-filter-empty" id="crmInteractionsFilterEmpty" hidden>По выбранному фильтру взаимодействий нет</div>
         </div>
     </section>
     </div>
