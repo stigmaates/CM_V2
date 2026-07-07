@@ -539,15 +539,34 @@
     font-weight: 800;
 }
 
+.crm-interactions-type-filter {
+    position: relative;
+}
+
+.crm-interactions-type-filter::after {
+    content: "";
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--text-main);
+    border-bottom: 2px solid var(--text-main);
+    pointer-events: none;
+    transform: translateY(-65%) rotate(45deg);
+}
+
 .crm-interactions-type-filter select {
     min-width: 150px;
     border: 1px solid rgba(143, 91, 255, 0.34);
     border-radius: 12px;
-    padding: 9px 32px 9px 12px;
+    padding: 9px 38px 9px 12px;
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-main);
     font: inherit;
     outline: none;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
 .crm-interactions-checkbox {
@@ -559,6 +578,10 @@
     width: 18px;
     height: 18px;
     accent-color: #8f5bff;
+}
+
+.crm-interactions-list .is-filter-hidden {
+    display: none !important;
 }
 
 .crm-interaction-dialog {

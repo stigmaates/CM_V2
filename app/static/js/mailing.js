@@ -785,12 +785,12 @@ function applyCrmInteractionFilters() {
         const matchesType = selectedType === "all" || rowType === selectedType;
         const matchesAutoFilter = !(hideAuto && rowType === "auto_mailing");
         const isVisible = matchesType && matchesAutoFilter;
-        row.hidden = !isVisible;
+        row.classList.toggle("is-filter-hidden", !isVisible);
         if (isVisible) visibleCount += 1;
     });
 
     if (crmInteractionsFilterEmpty) {
-        crmInteractionsFilterEmpty.hidden = visibleCount > 0 || crmInteractionRows.length === 0;
+        crmInteractionsFilterEmpty.classList.toggle("is-filter-hidden", visibleCount > 0 || crmInteractionRows.length === 0);
     }
 }
 
