@@ -639,7 +639,9 @@ function renderInteractionRecipients(recipients) {
 function renderCrmInteractionDetail(data) {
     const interaction = data.interaction || {};
     const summary = data.summary || {};
-    const typeLabel = interaction.interaction_type === "giveaway" ? "Раздача" : "Рассылка";
+    const typeLabel = interaction.interaction_type === "giveaway"
+        ? "Раздача"
+        : (interaction.interaction_type === "auto_mailing" ? "Авторассылка" : "Рассылка");
     const title = `${typeLabel} #${interaction.interaction_id}`;
     crmInteractionTitle.textContent = title;
     crmInteractionType.textContent = interaction.status || "CRM-взаимодействие";

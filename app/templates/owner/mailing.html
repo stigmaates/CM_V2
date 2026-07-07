@@ -188,7 +188,15 @@
                     data-interaction-id="{{ item.interaction_id }}"
                 >
                     <div>#{{ item.interaction_id }}</div>
-                    <div>{{ 'Раздача' if item.interaction_type == 'giveaway' else 'Рассылка' }}</div>
+                    <div>
+                        {% if item.interaction_type == 'giveaway' %}
+                            Раздача
+                        {% elif item.interaction_type == 'auto_mailing' %}
+                            Авторассылка
+                        {% else %}
+                            Рассылка
+                        {% endif %}
+                    </div>
                     <div>{{ item.status }}</div>
                     <div>{% if item.bonus_amount|int > 0 %}+{{ item.bonus_amount }} КБ{% else %}—{% endif %}</div>
                     <div>{{ item.recipients_count }} чел.</div>

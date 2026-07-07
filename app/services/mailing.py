@@ -649,6 +649,42 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
              AND bg.mailing_id = m.id
             WHERE m.club_id = %s
               AND bg.id IS NULL
+              AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) IS NULL
+
+            UNION ALL
+
+            SELECT
+                CONCAT(
+                    'auto-mailing-',
+                    JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')),
+                    '-',
+                    DATE_FORMAT(MIN(m.created_at), '%%Y%%m%%d')
+                ) AS interaction_key,
+                'auto_mailing' AS interaction_type,
+                MIN(m.id) AS interaction_id,
+                NULL AS giveaway_id,
+                MIN(m.id) AS mailing_id,
+                CASE
+                    WHEN SUM(m.status IN ('queued', 'in_progress')) > 0 THEN 'in_progress'
+                    WHEN SUM(m.status = 'failed') > 0 THEN 'failed'
+                    ELSE 'completed'
+                END AS status,
+                0 AS bonus_amount,
+                SUM(COALESCE(m.recipients_count, 0)) AS recipients_count,
+                SUM(COALESCE(m.success_count, 0)) AS success_count,
+                SUM(COALESCE(m.failed_count, 0)) AS failed_count,
+                NULL AS awarded_count,
+                MIN(m.created_at) AS created_at
+            FROM mailings m
+            LEFT JOIN bonus_giveaways bg
+              ON bg.club_id = m.club_id
+             AND bg.mailing_id = m.id
+            WHERE m.club_id = %s
+              AND bg.id IS NULL
+              AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) IS NOT NULL
+            GROUP BY
+                JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')),
+                DATE(m.created_at)
 
             UNION ALL
 
@@ -674,7 +710,7 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
             ORDER BY created_at DESC
             LIMIT %s
             """,
-            (club_id, club_id, int(limit)),
+            (club_id, club_id, club_id, int(limit)),
         )
         return [_json_row(row) for row in cur.fetchall()]
 
@@ -710,6 +746,66 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
                 """,
                 (club_id, interaction_id),
             )
+        elif interaction_type == "auto_mailing":
+            cur.execute(
+                """
+                SELECT
+                    JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) AS auto_mailing_code,
+                    DATE(m.created_at) AS group_date
+                FROM mailings m
+                LEFT JOIN bonus_giveaways bg
+                  ON bg.club_id = m.club_id
+                 AND bg.mailing_id = m.id
+                WHERE m.club_id = %s
+                  AND m.id = %s
+                  AND bg.id IS NULL
+                LIMIT 1
+                """,
+                (club_id, interaction_id),
+            )
+            group_ref = cur.fetchone()
+            if not group_ref or not group_ref.get("auto_mailing_code"):
+                return None
+            cur.execute(
+                """
+                SELECT
+                    MIN(m.id) AS interaction_id,
+                    'auto_mailing' AS interaction_type,
+                    NULL AS giveaway_id,
+                    MIN(m.id) AS mailing_id,
+                    CASE
+                        WHEN SUM(m.status IN ('queued', 'in_progress')) > 0 THEN 'in_progress'
+                        WHEN SUM(m.status = 'failed') > 0 THEN 'failed'
+                        ELSE 'completed'
+                    END AS status,
+                    0 AS bonus_amount,
+                    MIN(m.message_text) AS message_text,
+                    SUM(COALESCE(m.recipients_count, 0)) AS recipients_count,
+                    NULL AS awarded_count,
+                    NULL AS skipped_count,
+                    SUM(COALESCE(m.success_count, 0)) AS success_count,
+                    SUM(COALESCE(m.failed_count, 0)) AS failed_count,
+                    MIN(m.created_at) AS created_at,
+                    MAX(m.finished_at) AS finished_at,
+                    %s AS auto_mailing_code,
+                    %s AS group_date
+                FROM mailings m
+                LEFT JOIN bonus_giveaways bg
+                  ON bg.club_id = m.club_id
+                 AND bg.mailing_id = m.id
+                WHERE m.club_id = %s
+                  AND bg.id IS NULL
+                  AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) = %s
+                  AND DATE(m.created_at) = %s
+                """,
+                (
+                    group_ref.get("auto_mailing_code"),
+                    group_ref.get("group_date"),
+                    club_id,
+                    group_ref.get("auto_mailing_code"),
+                    group_ref.get("group_date"),
+                ),
+            )
         else:
             cur.execute(
                 """
@@ -743,7 +839,7 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
 
 
 def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, interaction_id: int) -> Dict[str, Any] | None:
-    if interaction_type not in {"mailing", "giveaway"}:
+    if interaction_type not in {"mailing", "giveaway", "auto_mailing"}:
         return None
 
     ensure_bonus_giveaway_tables(conn)
@@ -751,13 +847,36 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
     if not base:
         return None
 
-    mailing_id = base.get("mailing_id")
-    if not mailing_id:
-        recipients = []
-    else:
+    if interaction_type == "auto_mailing":
         with conn.cursor() as cur:
             cur.execute(
                 """
+                SELECT m.id
+                FROM mailings m
+                LEFT JOIN bonus_giveaways bg
+                  ON bg.club_id = m.club_id
+                 AND bg.mailing_id = m.id
+                WHERE m.club_id = %s
+                  AND bg.id IS NULL
+                  AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) = %s
+                  AND DATE(m.created_at) = %s
+                ORDER BY m.id ASC
+                """,
+                (club_id, base.get("auto_mailing_code"), base.get("group_date")),
+            )
+            mailing_ids = [row.get("id") for row in cur.fetchall() if row.get("id")]
+    elif base.get("mailing_id"):
+        mailing_ids = [base.get("mailing_id")]
+    else:
+        mailing_ids = []
+
+    if not mailing_ids:
+        recipients = []
+    else:
+        with conn.cursor() as cur:
+            mailing_placeholders = ", ".join(["%s"] * len(mailing_ids))
+            cur.execute(
+                f"""
                 SELECT
                     mr.id AS recipient_id,
                     mr.guest_id,
@@ -812,14 +931,14 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                     ORDER BY s.date_start ASC
                     LIMIT 1
                   )
-                WHERE mr.mailing_id = %s
+                WHERE mr.mailing_id IN ({mailing_placeholders})
                 ORDER BY
                     CASE WHEN ns.date_start IS NULL THEN 1 ELSE 0 END,
                     ns.date_start ASC,
                     mr.id ASC
                 LIMIT 300
                 """,
-                (club_id, base.get("giveaway_id"), mailing_id),
+                (club_id, base.get("giveaway_id"), *mailing_ids),
             )
             recipients = cur.fetchall()
 
