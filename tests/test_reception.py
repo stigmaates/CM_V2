@@ -20,4 +20,12 @@ def test_reception_phone_variants_cover_common_russian_formats():
 
     assert "79871536867" in variants
     assert "89871536867" in variants
-    assert "9871536867" not in variants
+    assert "9871536867" in variants
+
+
+def test_reception_phone_variants_match_local_number_from_leading_eight():
+    variants = _phone_variants("89270086145")
+
+    assert "89270086145" in variants
+    assert "79270086145" in variants
+    assert "9270086145" in variants

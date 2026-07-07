@@ -237,6 +237,29 @@ h1 {
     margin-top: 9px;
 }
 
+.show-all-history {
+    margin-top: 10px;
+}
+
+.show-all-history summary {
+    border-radius: 16px;
+    padding: 12px;
+    color: var(--text);
+    background: var(--panel);
+    cursor: pointer;
+    font-weight: 800;
+    list-style: none;
+    text-align: center;
+}
+
+.show-all-history summary::-webkit-details-marker {
+    display: none;
+}
+
+.show-all-history[open] summary {
+    margin-bottom: 9px;
+}
+
 .amount {
     border-radius: 999px;
     padding: 8px 10px;
