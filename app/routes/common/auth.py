@@ -61,6 +61,8 @@ def login():
 
             if user["role"] == "admin":
                 return redirect(url_for("admin.dashboard"))
+            if user["role"] == "reception":
+                return redirect(url_for("reception.dashboard"))
             if user["club_id"] is None:
                 return redirect(url_for("owner.club_create"))
             return redirect(url_for("owner.dashboard"))

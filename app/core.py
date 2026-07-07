@@ -123,7 +123,12 @@ def role_required(*allowed_roles):
             if "user_id" not in session:
                 return redirect(url_for("auth.login"))
             if session.get("role") not in allowed_roles:
-                target = "admin.users_create" if session.get("role") == "admin" else "owner.dashboard"
+                if session.get("role") == "admin":
+                    target = "admin.users_create"
+                elif session.get("role") == "reception":
+                    target = "reception.dashboard"
+                else:
+                    target = "owner.dashboard"
                 return redirect(url_for(target))
             return func(*args, **kwargs)
 
@@ -134,6 +139,10 @@ def role_required(*allowed_roles):
 
 def admin_required(func):
     return role_required("admin")(func)
+
+
+def reception_required(func):
+    return role_required("reception")(func)
 
 
 def is_owner_access_session():
@@ -154,7 +163,12 @@ def owner_required(func):
         if "user_id" not in session:
             return redirect(url_for("auth.login"))
         if not is_owner_access_session():
-            target = "admin.clubs_list" if session.get("role") == "admin" else "auth.login"
+            if session.get("role") == "admin":
+                target = "admin.clubs_list"
+            elif session.get("role") == "reception":
+                target = "reception.dashboard"
+            else:
+                target = "auth.login"
             return redirect(url_for(target))
         return func(*args, **kwargs)
 
