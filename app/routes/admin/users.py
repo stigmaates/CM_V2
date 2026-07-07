@@ -22,6 +22,10 @@ def users_create():
             flash("Заполни обязательные поля", "error")
             return redirect(url_for("admin.users_create"))
 
+        if role not in {"admin", "owner", "reception"}:
+            flash("Недопустимая роль пользователя", "error")
+            return redirect(url_for("admin.users_create"))
+
         if club_id == "":
             club_id = None
         else:
@@ -30,6 +34,10 @@ def users_create():
             except ValueError:
                 flash("club_id должен быть числом", "error")
                 return redirect(url_for("admin.users_create"))
+
+        if role in {"owner", "reception"} and club_id is None:
+            flash("Для owner и reception нужно указать club_id", "error")
+            return redirect(url_for("admin.users_create"))
 
         pass_hash = generate_password_hash(password)
         conn = None
