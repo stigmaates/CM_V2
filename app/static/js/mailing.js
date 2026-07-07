@@ -657,6 +657,16 @@ function renderCrmInteractionDetail(data) {
             ${bonusBlock}
         </div>
 
+        <section class="interaction-section interaction-group-effect">
+            <h3>Эффект на группу</h3>
+            <div class="interaction-effect-grid">
+                <div><span>Вернулись после сообщения</span><strong>${escapeHtml(summary.returned_count || 0)}</strong></div>
+                <div><span>Пока не вернулись</span><strong>${escapeHtml(summary.not_returned_count || 0)}</strong></div>
+                <div><span>Среднее время до визита</span><strong>${escapeHtml(summary.avg_return_delay_display || "—")}</strong></div>
+                <div><span>Средняя длительность визита после</span><strong>${escapeHtml(summary.avg_next_visit_duration_display || "—")}</strong></div>
+            </div>
+        </section>
+
         <section class="interaction-section">
             <h3>Сообщение</h3>
             <div class="interaction-message">${escapeHtml(interaction.message_text || "").replaceAll("\n", "<br>")}</div>
@@ -667,8 +677,8 @@ function renderCrmInteractionDetail(data) {
             <div class="interaction-reasons">${renderFailureReasons(summary.failure_reasons || [])}</div>
         </section>
 
-        <section class="interaction-section">
-            <h3>Гости и визиты после сообщения</h3>
+        <details class="interaction-section interaction-guest-details">
+            <summary>Пути гостей после взаимодействия</summary>
             <div class="interaction-guest-head">
                 <div>Гость</div>
                 <div>Доставка</div>
@@ -678,7 +688,7 @@ function renderCrmInteractionDetail(data) {
                 <div>30 дней до</div>
             </div>
             <div class="interaction-guests">${renderInteractionRecipients(data.recipients || [])}</div>
-        </section>
+        </details>
     `;
 }
 
@@ -749,6 +759,17 @@ if (closeCrmInteractionBtn) {
 }
 if (crmInteractionBackdrop) {
     crmInteractionBackdrop.addEventListener("click", closeCrmInteractionModal);
+}
+if (crmInteractionModal) {
+    ["wheel", "touchmove"].forEach((eventName) => {
+        crmInteractionModal.addEventListener(eventName, function (event) {
+            if (crmInteractionBody && crmInteractionBody.contains(event.target)) {
+                event.stopPropagation();
+                return;
+            }
+            event.preventDefault();
+        }, { passive: false });
+    });
 }
 
 document.addEventListener("keydown", function (event) {

@@ -612,6 +612,19 @@ def _format_minutes(minutes) -> str | None:
     return f"{hours} ч"
 
 
+def _format_hours(*, avg_hours) -> str | None:
+    if avg_hours is None:
+        return None
+    try:
+        hours_float = float(avg_hours)
+    except (TypeError, ValueError):
+        return None
+    if hours_float < 24:
+        return f"{round(hours_float, 1)} ч"
+    days = hours_float / 24
+    return f"{round(days, 1)} дн"
+
+
 def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str, Any]]:
     ensure_bonus_giveaway_tables(conn)
     with conn.cursor() as cur:
@@ -766,6 +779,7 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                           AND s30.date_start < COALESCE(mr.sent_at, m.started_at, m.created_at)
                     ) AS visits_30d_before_message,
                     ns.date_start AS next_visit_at,
+                    TIMESTAMPDIFF(HOUR, COALESCE(mr.sent_at, m.started_at, m.created_at), ns.date_start) AS next_visit_delay_hours,
                     CASE
                         WHEN ns.date_start IS NOT NULL AND ns.date_stop IS NOT NULL
                         THEN TIMESTAMPDIFF(MINUTE, ns.date_start, ns.date_stop)
@@ -813,6 +827,19 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
     failed_count = sum(1 for row in recipients if row.get("delivery_status") == "failed")
     pending_count = sum(1 for row in recipients if row.get("delivery_status") == "pending")
     returned_count = sum(1 for row in recipients if row.get("next_visit_at") is not None)
+    returned_rows = [row for row in recipients if row.get("next_visit_at") is not None]
+    returned_duration_rows = [row for row in returned_rows if row.get("next_visit_minutes") is not None]
+    returned_delay_rows = [row for row in returned_rows if row.get("next_visit_delay_hours") is not None]
+    avg_next_visit_minutes = (
+        round(sum(int(row.get("next_visit_minutes") or 0) for row in returned_duration_rows) / len(returned_duration_rows))
+        if returned_duration_rows
+        else None
+    )
+    avg_return_delay_hours = (
+        round(sum(int(row.get("next_visit_delay_hours") or 0) for row in returned_delay_rows) / len(returned_delay_rows), 1)
+        if returned_delay_rows
+        else None
+    )
 
     failure_reasons: Dict[str, int] = {}
     for row in recipients:
@@ -826,6 +853,7 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
         item = _json_row(row)
         item["avg_session_display"] = _format_minutes(row.get("avg_session_minutes"))
         item["next_visit_duration_display"] = _format_minutes(row.get("next_visit_minutes"))
+        item["next_visit_delay_display"] = _format_hours(avg_hours=row.get("next_visit_delay_hours"))
         serialized_recipients.append(item)
 
     return {
@@ -837,6 +865,11 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
             "pending_count": pending_count,
             "returned_count": returned_count,
             "return_rate": round((returned_count / len(recipients)) * 100, 1) if recipients else 0,
+            "not_returned_count": max(len(recipients) - returned_count, 0),
+            "avg_next_visit_minutes": avg_next_visit_minutes,
+            "avg_next_visit_duration_display": _format_minutes(avg_next_visit_minutes),
+            "avg_return_delay_hours": avg_return_delay_hours,
+            "avg_return_delay_display": _format_hours(avg_hours=avg_return_delay_hours),
             "failure_reasons": [
                 {"reason": reason, "count": count}
                 for reason, count in sorted(failure_reasons.items(), key=lambda item: item[1], reverse=True)
