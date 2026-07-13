@@ -47,6 +47,101 @@
         height: 76px;
         object-fit: contain;
     }
+    .case-showcase-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
+    }
+    .case-showcase-card {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: rgba(20, 12, 36, 0.58);
+        min-width: 0;
+    }
+    .case-showcase-cover {
+        position: relative;
+        aspect-ratio: 16 / 10;
+        background:
+            radial-gradient(circle at 50% 45%, rgba(255, 212, 105, .16), transparent 34%),
+            linear-gradient(135deg, rgba(143, 91, 255, .22), rgba(20, 12, 36, .72));
+        overflow: hidden;
+    }
+    .case-showcase-cover img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+    }
+    .case-showcase-fallback {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+    }
+    .case-showcase-body {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+    }
+    .case-showcase-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .case-showcase-title {
+        min-width: 0;
+    }
+    .case-showcase-title h3 {
+        margin: 0;
+        color: var(--text-main);
+        font-size: 17px;
+        font-weight: 900;
+        line-height: 1.2;
+    }
+    .case-showcase-title span {
+        display: block;
+        margin-top: 4px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.35;
+    }
+    .case-showcase-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .case-showcase-meta div {
+        padding: 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.035);
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.25;
+    }
+    .case-showcase-meta b {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--text-main);
+        font-size: 15px;
+    }
+    .case-showcase-actions {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+    }
+    .case-config-modal .modal-panel--prize {
+        width: min(980px, calc(100vw - 28px));
+    }
 </style>
 
 
@@ -76,223 +171,255 @@
     {% endif %}
 
     {% if cases_list %}
-        <div class="case-list">
+        <div class="case-showcase-grid">
             {% for case in cases_list %}
                 {% set case_items = case.get('items') or [] %}
                 {% set active_items = case_items|selectattr('is_active')|list %}
                 {% set prob_sum = active_items|sum(attribute='probability')|float %}
                 {% set case_prob_ok = (prob_sum - 100)|abs < 0.06 %}
-                <div class="case-card">
-                    <div class="case-card-head">
-                        <h3 class="case-card-title">{{ case.name }}</h3>
-                        <span class="prize-active-badge {% if not case.is_active %}prize-active-badge--off{% endif %}">
-                            {% if case.is_active %}активен{% else %}выключен{% endif %}
-                        </span>
+                <article class="case-showcase-card">
+                    <div class="case-showcase-cover">
+                        {% if case.image_url %}
+                            <img src="{{ case.image_url }}" alt="{{ case.name }}">
+                        {% else %}
+                            <div class="case-showcase-fallback">Нет картинки</div>
+                        {% endif %}
                     </div>
-
-                    <form id="case-update-{{ case.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_update', case_id=case.id) }}">
-                        <div class="case-form-grid">
-                            <div class="form-group">
-                                <label for="case_name_{{ case.id }}">Название</label>
-                                <input class="form-input" type="text" id="case_name_{{ case.id }}" name="name" value="{{ case.name }}" required>
+                    <div class="case-showcase-body">
+                        <div class="case-showcase-head">
+                            <div class="case-showcase-title">
+                                <h3>{{ case.name }}</h3>
+                                <span>{{ case.description or case.badge_label or 'Кейс с настраиваемыми предметами' }}</span>
                             </div>
-                            <div class="form-group">
-                                <label for="case_badge_{{ case.id }}">Метка (Обычный/Редкий…)</label>
-                                <input class="form-input" type="text" id="case_badge_{{ case.id }}" name="badge_label" value="{{ case.badge_label or '' }}">
-                            </div>
-                            <div class="form-group">
-                                <label for="case_price_{{ case.id }}">Цена, жетонов</label>
-                                <input class="form-input" type="number" id="case_price_{{ case.id }}" name="price_tokens" min="0" step="1" value="{{ case.price_tokens or 0 }}">
-                            </div>
-                            <div class="form-group full">
-                                <label for="case_file_{{ case.id }}">Картинка кейса</label>
-                                {% if case.image_url %}
-                                    <div class="case-image-preview">
-                                        <img src="{{ case.image_url }}" alt="{{ case.name }}">
-                                        <label class="form-check">
-                                            <input type="checkbox" class="form-check-input" name="remove_image" value="1">
-                                            <span class="form-check-box" aria-hidden="true"></span>
-                                            <span class="form-check-text">Удалить текущую картинку</span>
-                                        </label>
-                                    </div>
-                                {% endif %}
-                                <input class="form-input" type="file" id="case_file_{{ case.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
-                                <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                                <input class="form-input" type="text" id="case_image_{{ case.id }}" name="image_url" value="{{ case.image_url or '' }}" placeholder="или внешняя https:// ссылка">
-                            </div>
-                            <div class="form-group full">
-                                <label for="case_description_{{ case.id }}">Описание</label>
-                                <textarea class="form-input" id="case_description_{{ case.id }}" name="description" rows="2">{{ case.description or '' }}</textarea>
-                            </div>
-                            <div class="form-group full">
-                                <label class="form-check" for="case_active_{{ case.id }}">
-                                    <input type="checkbox" class="form-check-input" id="case_active_{{ case.id }}" name="is_active" value="1" {% if case.is_active %}checked{% endif %}>
-                                    <span class="form-check-box" aria-hidden="true"></span>
-                                    <span class="form-check-text">Кейс включён (виден гостям)</span>
-                                </label>
-                            </div>
+                            <span class="prize-active-badge {% if not case.is_active %}prize-active-badge--off{% endif %}">
+                                {% if case.is_active %}активен{% else %}выключен{% endif %}
+                            </span>
                         </div>
-                    </form>
-
-                    <div class="case-prob-total {% if case_prob_ok %}is-ok{% else %}is-bad{% endif %}">
-                        Сумма шансов активных предметов: {{ '%.2f'|format(prob_sum) }}%
-                        {% if not case_prob_ok %} — должна быть 100%, чтобы включить кейс{% endif %}
+                        <div class="case-showcase-meta">
+                            <div><b>{{ case.price_tokens or 0 }}</b>жетонов</div>
+                            <div><b>{{ active_items|length }}</b>активных</div>
+                            <div><b>{{ '%.0f'|format(prob_sum) }}%</b>шансы</div>
+                        </div>
+                        <div class="case-showcase-actions">
+                            <button class="btn" type="button" data-open-case-config="caseConfigModal{{ case.id }}">Настроить</button>
+                            <span class="case-prob-total {% if case_prob_ok %}is-ok{% else %}is-bad{% endif %}">
+                                {% if case_prob_ok %}100%{% else %}{{ '%.2f'|format(prob_sum) }}%{% endif %}
+                            </span>
+                        </div>
                     </div>
+                </article>
 
-                    <div class="case-items-compact" data-case-items-compact="{{ case.id }}">
-                        <div class="case-item-picker">
-                            <div class="form-group">
-                                <label for="case_item_select_{{ case.id }}">Предмет кейса</label>
-                                {% if case_items %}
-                                    <select class="form-input" id="case_item_select_{{ case.id }}" data-case-item-selector data-case-id="{{ case.id }}">
-                                        {% for item in case_items %}
-                                            <option value="{{ item.id }}">
-                                                {{ loop.index }}. {{ item.name }} — {{ item.rarity_label or 'Обычный' }}{% if not item.is_active %} · выкл.{% endif %}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                {% else %}
-                                    <div class="muted">В кейсе пока нет предметов.</div>
-                                {% endif %}
-                            </div>
-                            {% if case_items %}
-                                <div class="case-item-picker-meta">
-                                    <span>Всего предметов: {{ case_items|length }}</span>
-                                    <span>Активных: {{ active_items|length }}</span>
+                <div class="modal-overlay case-config-modal" id="caseConfigModal{{ case.id }}" aria-hidden="true">
+                    <div class="modal-panel modal-panel--prize" role="dialog" aria-modal="true" aria-labelledby="caseConfigModalTitle{{ case.id }}">
+                        <div class="modal-header">
+                            <h2 class="modal-title" id="caseConfigModalTitle{{ case.id }}">Настроить кейс: {{ case.name }}</h2>
+                            <button type="button" class="modal-close" data-close-case-config aria-label="Закрыть">×</button>
+                        </div>
+
+                        <form id="case-update-{{ case.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_update', case_id=case.id) }}">
+                            <div class="case-form-grid">
+                                <div class="form-group">
+                                    <label for="case_name_{{ case.id }}">Название</label>
+                                    <input class="form-input" type="text" id="case_name_{{ case.id }}" name="name" value="{{ case.name }}" required>
                                 </div>
-                            {% endif %}
-                        </div>
-
-                        {% for item in case_items %}
-                            <div class="case-item-row case-item-row--compact"
-                                 data-case-item-editor
-                                 data-case-id="{{ case.id }}"
-                                 data-item-id="{{ item.id }}"
-                                 {% if not loop.first %}hidden{% endif %}>
-                                <form id="case-item-update-{{ item.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}">
-                                    <div class="case-item-grid">
-                                        <div class="form-group">
-                                            <label for="item_name_{{ item.id }}">Название</label>
-                                            <input class="form-input" type="text" id="item_name_{{ item.id }}" name="name" value="{{ item.name }}" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="item_prob_{{ item.id }}">Шанс, %</label>
-                                            <input class="form-input" type="number" id="item_prob_{{ item.id }}" name="probability" min="0.0001" step="0.0001" value="{{ item.probability }}" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="item_rarity_{{ item.id }}">Группа описания</label>
-                                            <select class="form-input" id="item_rarity_{{ item.id }}" name="rarity_label">
-                                                {% set item_rarity = item.rarity_label or 'Обычный' %}
-                                                {% for rarity in ['Обычный', 'Редкий', 'Очень редкий', 'Ультра редкий'] %}
-                                                    <option value="{{ rarity }}" {% if item_rarity == rarity %}selected{% endif %}>{{ rarity }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="item_bonus_{{ item.id }}">КБ</label>
-                                            <input class="form-input" type="number" id="item_bonus_{{ item.id }}" name="bonus_amount" min="0" step="1" value="{{ item.bonus_amount or 0 }}">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="item_tokens_{{ item.id }}">Жетоны</label>
-                                            <input class="form-input" type="number" id="item_tokens_{{ item.id }}" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}">
-                                        </div>
-                                        <div class="form-group full">
-                                            <label for="item_file_{{ item.id }}">Картинка предмета</label>
-                                            {% if item.image_url %}
-                                                <div class="case-image-preview case-image-preview--small">
-                                                    <img src="{{ item.image_url }}" alt="{{ item.name }}">
-                                                    <label class="form-check">
-                                                        <input type="checkbox" class="form-check-input" name="remove_image" value="1">
-                                                        <span class="form-check-box" aria-hidden="true"></span>
-                                                        <span class="form-check-text">Удалить текущую картинку</span>
-                                                    </label>
-                                                </div>
-                                            {% endif %}
-                                            <input class="form-input" type="file" id="item_file_{{ item.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
-                                            <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                                            <input class="form-input" type="text" id="item_image_{{ item.id }}" name="image_url" value="{{ item.image_url or '' }}" placeholder="или внешняя https:// ссылка">
-                                        </div>
-                                        <div class="form-group full">
-                                            <label for="item_description_{{ item.id }}">Описание</label>
-                                            <textarea class="form-input" id="item_description_{{ item.id }}" name="description" rows="2">{{ item.description or '' }}</textarea>
-                                        </div>
-                                        <div class="form-group full">
-                                            <label class="form-check" for="item_active_{{ item.id }}">
-                                                <input type="checkbox" class="form-check-input" id="item_active_{{ item.id }}" name="is_active" value="1" {% if item.is_active %}checked{% endif %}>
+                                <div class="form-group">
+                                    <label for="case_badge_{{ case.id }}">Метка (Обычный/Редкий…)</label>
+                                    <input class="form-input" type="text" id="case_badge_{{ case.id }}" name="badge_label" value="{{ case.badge_label or '' }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="case_price_{{ case.id }}">Цена, жетонов</label>
+                                    <input class="form-input" type="number" id="case_price_{{ case.id }}" name="price_tokens" min="0" step="1" value="{{ case.price_tokens or 0 }}">
+                                </div>
+                                <div class="form-group full">
+                                    <label for="case_file_{{ case.id }}">Картинка кейса</label>
+                                    {% if case.image_url %}
+                                        <div class="case-image-preview">
+                                            <img src="{{ case.image_url }}" alt="{{ case.name }}">
+                                            <label class="form-check">
+                                                <input type="checkbox" class="form-check-input" name="remove_image" value="1">
                                                 <span class="form-check-box" aria-hidden="true"></span>
-                                                <span class="form-check-text">Предмет активен</span>
+                                                <span class="form-check-text">Удалить текущую картинку</span>
                                             </label>
                                         </div>
-                                    </div>
-                                </form>
-                                <div class="prize-card-actions">
-                                    <button type="submit" class="btn" form="case-item-update-{{ item.id }}">Сохранить предмет</button>
-                                    <form method="POST" action="{{ url_for('owner.case_item_delete', case_id=case.id, item_id=item.id) }}">
-                                        <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот предмет?')">Удалить</button>
-                                    </form>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-
-                    <details style="margin-top: 12px;">
-                        <summary style="cursor:pointer; font-weight:800; color: var(--accent-strong);">+ Добавить предмет в кейс</summary>
-                        <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;">
-                            <div class="case-item-grid">
-                                <div class="form-group">
-                                    <label>Название</label>
-                                    <input class="form-input" type="text" name="name" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Шанс, %</label>
-                                    <input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Группа описания</label>
-                                    <select class="form-input" name="rarity_label">
-                                        <option value="Обычный" selected>Обычный</option>
-                                        <option value="Редкий">Редкий</option>
-                                        <option value="Очень редкий">Очень редкий</option>
-                                        <option value="Ультра редкий">Ультра редкий</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>КБ</label>
-                                    <input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="0">
-                                </div>
-                                <div class="form-group">
-                                    <label>Жетоны</label>
-                                    <input class="form-input" type="number" name="token_amount" min="0" step="1" value="0">
-                                </div>
-                                <div class="form-group full">
-                                    <label>Картинка предмета</label>
-                                    <input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp">
+                                    {% endif %}
+                                    <input class="form-input" type="file" id="case_file_{{ case.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
                                     <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                                    <input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка">
+                                    <input class="form-input" type="text" id="case_image_{{ case.id }}" name="image_url" value="{{ case.image_url or '' }}" placeholder="или внешняя https:// ссылка">
                                 </div>
                                 <div class="form-group full">
-                                    <label>Описание</label>
-                                    <textarea class="form-input" name="description" rows="2"></textarea>
+                                    <label for="case_description_{{ case.id }}">Описание</label>
+                                    <textarea class="form-input" id="case_description_{{ case.id }}" name="description" rows="2">{{ case.description or '' }}</textarea>
                                 </div>
                                 <div class="form-group full">
-                                    <label class="form-check">
-                                        <input type="checkbox" class="form-check-input" name="is_active" value="1" checked>
+                                    <label class="form-check" for="case_active_{{ case.id }}">
+                                        <input type="checkbox" class="form-check-input" id="case_active_{{ case.id }}" name="is_active" value="1" {% if case.is_active %}checked{% endif %}>
                                         <span class="form-check-box" aria-hidden="true"></span>
-                                        <span class="form-check-text">Предмет активен</span>
+                                        <span class="form-check-text">Кейс включён (виден гостям)</span>
                                     </label>
                                 </div>
                             </div>
-                            <div class="actions">
-                                <button type="submit" class="btn">Добавить предмет</button>
-                            </div>
                         </form>
-                    </details>
 
-                    <div class="prize-card-actions">
-                        <button type="submit" class="btn" form="case-update-{{ case.id }}">Сохранить кейс</button>
-                        <form method="POST" action="{{ url_for('owner.case_delete', case_id=case.id) }}">
-                            <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот кейс со всеми предметами?')">Удалить кейс</button>
-                        </form>
+                        <div class="case-prob-total {% if case_prob_ok %}is-ok{% else %}is-bad{% endif %}">
+                            Сумма шансов активных предметов: {{ '%.2f'|format(prob_sum) }}%
+                            {% if not case_prob_ok %} — должна быть 100%, чтобы включить кейс{% endif %}
+                        </div>
+
+                        <div class="case-items-compact" data-case-items-compact="{{ case.id }}">
+                            <div class="case-item-picker">
+                                <div class="form-group">
+                                    <label for="case_item_select_{{ case.id }}">Предмет кейса</label>
+                                    {% if case_items %}
+                                        <select class="form-input" id="case_item_select_{{ case.id }}" data-case-item-selector data-case-id="{{ case.id }}">
+                                            {% for item in case_items %}
+                                                <option value="{{ item.id }}">
+                                                    {{ loop.index }}. {{ item.name }} — {{ item.rarity_label or 'Обычный' }}{% if not item.is_active %} · выкл.{% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    {% else %}
+                                        <div class="muted">В кейсе пока нет предметов.</div>
+                                    {% endif %}
+                                </div>
+                                {% if case_items %}
+                                    <div class="case-item-picker-meta">
+                                        <span>Всего предметов: {{ case_items|length }}</span>
+                                        <span>Активных: {{ active_items|length }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            {% for item in case_items %}
+                                <div class="case-item-row case-item-row--compact"
+                                     data-case-item-editor
+                                     data-case-id="{{ case.id }}"
+                                     data-item-id="{{ item.id }}"
+                                     {% if not loop.first %}hidden{% endif %}>
+                                    <form id="case-item-update-{{ item.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}">
+                                        <div class="case-item-grid">
+                                            <div class="form-group">
+                                                <label for="item_name_{{ item.id }}">Название</label>
+                                                <input class="form-input" type="text" id="item_name_{{ item.id }}" name="name" value="{{ item.name }}" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="item_prob_{{ item.id }}">Шанс, %</label>
+                                                <input class="form-input" type="number" id="item_prob_{{ item.id }}" name="probability" min="0.0001" step="0.0001" value="{{ item.probability }}" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="item_rarity_{{ item.id }}">Группа описания</label>
+                                                <select class="form-input" id="item_rarity_{{ item.id }}" name="rarity_label">
+                                                    {% set item_rarity = item.rarity_label or 'Обычный' %}
+                                                    {% for rarity in ['Обычный', 'Редкий', 'Очень редкий', 'Ультра редкий'] %}
+                                                        <option value="{{ rarity }}" {% if item_rarity == rarity %}selected{% endif %}>{{ rarity }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="item_bonus_{{ item.id }}">КБ</label>
+                                                <input class="form-input" type="number" id="item_bonus_{{ item.id }}" name="bonus_amount" min="0" step="1" value="{{ item.bonus_amount or 0 }}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="item_tokens_{{ item.id }}">Жетоны</label>
+                                                <input class="form-input" type="number" id="item_tokens_{{ item.id }}" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}">
+                                            </div>
+                                            <div class="form-group full">
+                                                <label for="item_file_{{ item.id }}">Картинка предмета</label>
+                                                {% if item.image_url %}
+                                                    <div class="case-image-preview case-image-preview--small">
+                                                        <img src="{{ item.image_url }}" alt="{{ item.name }}">
+                                                        <label class="form-check">
+                                                            <input type="checkbox" class="form-check-input" name="remove_image" value="1">
+                                                            <span class="form-check-box" aria-hidden="true"></span>
+                                                            <span class="form-check-text">Удалить текущую картинку</span>
+                                                        </label>
+                                                    </div>
+                                                {% endif %}
+                                                <input class="form-input" type="file" id="item_file_{{ item.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
+                                                <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
+                                                <input class="form-input" type="text" id="item_image_{{ item.id }}" name="image_url" value="{{ item.image_url or '' }}" placeholder="или внешняя https:// ссылка">
+                                            </div>
+                                            <div class="form-group full">
+                                                <label for="item_description_{{ item.id }}">Описание</label>
+                                                <textarea class="form-input" id="item_description_{{ item.id }}" name="description" rows="2">{{ item.description or '' }}</textarea>
+                                            </div>
+                                            <div class="form-group full">
+                                                <label class="form-check" for="item_active_{{ item.id }}">
+                                                    <input type="checkbox" class="form-check-input" id="item_active_{{ item.id }}" name="is_active" value="1" {% if item.is_active %}checked{% endif %}>
+                                                    <span class="form-check-box" aria-hidden="true"></span>
+                                                    <span class="form-check-text">Предмет активен</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </form>
+                                    <div class="prize-card-actions">
+                                        <button type="submit" class="btn" form="case-item-update-{{ item.id }}">Сохранить предмет</button>
+                                        <form method="POST" action="{{ url_for('owner.case_item_delete', case_id=case.id, item_id=item.id) }}">
+                                            <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот предмет?')">Удалить</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <details style="margin-top: 12px;">
+                            <summary style="cursor:pointer; font-weight:800; color: var(--accent-strong);">+ Добавить предмет в кейс</summary>
+                            <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;">
+                                <div class="case-item-grid">
+                                    <div class="form-group">
+                                        <label>Название</label>
+                                        <input class="form-input" type="text" name="name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Шанс, %</label>
+                                        <input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Группа описания</label>
+                                        <select class="form-input" name="rarity_label">
+                                            <option value="Обычный" selected>Обычный</option>
+                                            <option value="Редкий">Редкий</option>
+                                            <option value="Очень редкий">Очень редкий</option>
+                                            <option value="Ультра редкий">Ультра редкий</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>КБ</label>
+                                        <input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Жетоны</label>
+                                        <input class="form-input" type="number" name="token_amount" min="0" step="1" value="0">
+                                    </div>
+                                    <div class="form-group full">
+                                        <label>Картинка предмета</label>
+                                        <input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp">
+                                        <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
+                                        <input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка">
+                                    </div>
+                                    <div class="form-group full">
+                                        <label>Описание</label>
+                                        <textarea class="form-input" name="description" rows="2"></textarea>
+                                    </div>
+                                    <div class="form-group full">
+                                        <label class="form-check">
+                                            <input type="checkbox" class="form-check-input" name="is_active" value="1" checked>
+                                            <span class="form-check-box" aria-hidden="true"></span>
+                                            <span class="form-check-text">Предмет активен</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="actions">
+                                    <button type="submit" class="btn">Добавить предмет</button>
+                                </div>
+                            </form>
+                        </details>
+
+                        <div class="prize-card-actions">
+                            <button type="submit" class="btn" form="case-update-{{ case.id }}">Сохранить кейс</button>
+                            <form method="POST" action="{{ url_for('owner.case_delete', case_id=case.id) }}">
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот кейс со всеми предметами?')">Удалить кейс</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             {% endfor %}
@@ -346,27 +473,56 @@
 
 <script>
     (function () {
-        const modal = document.getElementById('caseAddModal');
-        const openBtn = document.getElementById('openCaseAddModal');
-        const closeBtn = document.getElementById('closeCaseAddModal');
-        if (!modal || !openBtn || !closeBtn) return;
+        const modals = Array.from(document.querySelectorAll('#caseAddModal, .case-config-modal'));
+        let openModalCount = 0;
 
-        function openModal() {
+        function openModal(modal) {
+            if (!modal || modal.classList.contains('is-open')) return;
             modal.classList.add('is-open');
             modal.setAttribute('aria-hidden', 'false');
+            openModalCount += 1;
             document.body.style.overflow = 'hidden';
         }
-        function closeModal() {
+
+        function closeModal(modal) {
+            if (!modal || !modal.classList.contains('is-open')) return;
             modal.classList.remove('is-open');
             modal.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = '';
+            openModalCount = Math.max(0, openModalCount - 1);
+            if (openModalCount === 0) {
+                document.body.style.overflow = '';
+            }
         }
 
-        openBtn.addEventListener('click', openModal);
-        closeBtn.addEventListener('click', closeModal);
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) closeModal();
+        function stopModalBackgroundScroll(event) {
+            const panel = event.target.closest('.modal-panel--prize');
+            if (!panel) {
+                event.preventDefault();
+                return;
+            }
+            event.stopPropagation();
+        }
+
+        const openAddBtn = document.getElementById('openCaseAddModal');
+        if (openAddBtn) {
+            openAddBtn.addEventListener('click', () => openModal(document.getElementById('caseAddModal')));
+        }
+
+        document.querySelectorAll('[data-open-case-config]').forEach((button) => {
+            button.addEventListener('click', () => openModal(document.getElementById(button.dataset.openCaseConfig)));
         });
+
+        modals.forEach((modal) => {
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) closeModal(modal);
+            });
+            modal.addEventListener('wheel', stopModalBackgroundScroll, { passive: false });
+            modal.addEventListener('touchmove', stopModalBackgroundScroll, { passive: false });
+            modal.querySelectorAll('.modal-close, [data-close-case-config]').forEach((button) => {
+                button.addEventListener('click', () => closeModal(modal));
+            });
+        });
+
         document.querySelectorAll('[data-case-item-selector]').forEach((selector) => {
             selector.addEventListener('change', () => {
                 const caseId = selector.dataset.caseId;
@@ -378,7 +534,9 @@
         });
 
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+            if (event.key !== 'Escape') return;
+            const opened = modals.filter((modal) => modal.classList.contains('is-open'));
+            closeModal(opened[opened.length - 1]);
         });
     })();
 </script>
