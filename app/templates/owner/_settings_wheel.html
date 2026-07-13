@@ -11,6 +11,27 @@
         gap: 20px;
     }
 
+    .bonus-settings-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+        gap: 20px;
+        align-items: start;
+    }
+
+    .bonus-settings-main {
+        display: grid;
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .bonus-settings-side {
+        position: sticky;
+        top: 18px;
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+    }
+
     .wheel-section {
         padding: 24px;
     }
@@ -43,25 +64,25 @@
         grid-column: 1 / -1;
     }
 
-    .token-settings-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
-        gap: 18px;
-        align-items: start;
-    }
-
     .token-summary-card {
         border: 1px solid var(--border);
-        border-radius: 16px;
-        background: rgba(20, 12, 36, 0.48);
-        padding: 16px;
+        border-radius: 18px;
+        background: rgba(20, 12, 36, 0.62);
+        padding: 20px;
     }
 
     .token-summary-title {
-        margin: 0 0 12px;
+        margin: 0;
         color: var(--text-main);
         font-weight: 900;
-        font-size: 16px;
+        font-size: 22px;
+    }
+
+    .token-summary-subtitle {
+        margin: 6px 0 16px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.4;
     }
 
     .token-summary-row {
@@ -82,7 +103,7 @@
 
     .token-summary-row strong {
         color: var(--text-main);
-        font-size: 14px;
+        font-size: 15px;
         text-align: right;
         white-space: nowrap;
     }
@@ -105,6 +126,12 @@
 
     .token-summary-status.is-off {
         color: #ff8a7a;
+    }
+
+    .token-summary-save {
+        width: 100%;
+        min-height: 46px;
+        margin-top: 16px;
     }
 
     .wheel-prize-workspace {
@@ -698,8 +725,11 @@
     }
 
     @media (max-width: 1180px) {
-        .token-settings-layout {
+        .bonus-settings-shell {
             grid-template-columns: 1fr;
+        }
+        .bonus-settings-side {
+            position: static;
         }
         .case-list {
             grid-template-columns: 1fr;
@@ -725,53 +755,53 @@
 
 <div class="wheel-page">
 <div class="wheel-layout">
-    <section class="card wheel-section">
-        <div class="section-title">Бонусная механика</div>
-        <p class="wheel-subtitle">
-            Выбери, какую механику видят гости. Редакторы колеса и кейсов доступны отдельно ниже.
-        </p>
+    <div class="bonus-settings-shell">
+        <div class="bonus-settings-main">
+            <section class="card wheel-section">
+                <div class="section-title">1. Выбор механики</div>
+                <p class="wheel-subtitle">
+                    Выбери, какую механику видят гости.
+                </p>
 
-        <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
-            <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
-            <input type="hidden" name="bonus_editor" value="{{ active_bonus_editor }}">
-            <div class="game-mode-picker">
-                <label class="game-mode-choice {% if (game_mode|default('wheel')) == 'wheel' %}is-active{% endif %}">
-                    <input type="radio" name="game_mode" value="wheel" {% if (game_mode|default('wheel')) == 'wheel' %}checked{% endif %} onchange="this.form.submit()">
-                    <span class="game-mode-title">🎡 Колесо фортуны</span>
-                    <span class="game-mode-desc">Классическое колесо с призами и вероятностями</span>
-                </label>
-                <label class="game-mode-choice {% if game_mode == 'cases' %}is-active{% endif %}">
-                    <input type="radio" name="game_mode" value="cases" {% if game_mode == 'cases' %}checked{% endif %} onchange="this.form.submit()">
-                    <span class="game-mode-title">📦 Кейсы</span>
-                    <span class="game-mode-desc">Несколько кейсов со своим набором предметов и шансами</span>
-                </label>
-            </div>
-        </form>
-    </section>
+                <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
+                    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                    <input type="hidden" name="bonus_editor" value="{{ active_bonus_editor }}">
+                    <div class="game-mode-picker">
+                        <label class="game-mode-choice {% if (game_mode|default('wheel')) == 'wheel' %}is-active{% endif %}">
+                            <input type="radio" name="game_mode" value="wheel" {% if (game_mode|default('wheel')) == 'wheel' %}checked{% endif %} onchange="this.form.submit()">
+                            <span class="game-mode-title">🎡 Колесо фортуны</span>
+                            <span class="game-mode-desc">Классическое колесо с призами и вероятностями</span>
+                        </label>
+                        <label class="game-mode-choice {% if game_mode == 'cases' %}is-active{% endif %}">
+                            <input type="radio" name="game_mode" value="cases" {% if game_mode == 'cases' %}checked{% endif %} onchange="this.form.submit()">
+                            <span class="game-mode-title">📦 Кейсы</span>
+                            <span class="game-mode-desc">Несколько кейсов со своим набором предметов и шансами</span>
+                        </label>
+                    </div>
+                </form>
+            </section>
 
-    <section class="card wheel-section">
-        <div class="section-title">Что настраиваем</div>
-        <p class="wheel-subtitle">
-            Переключает только редактор на этой странице, не меняя режим для гостей.
-        </p>
-        <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
-            <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
-                Колесо
-            </a>
-            <a href="{{ url_for('owner.settings', tab='wheel', editor='cases') }}" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}">
-                Кейсы
-            </a>
-        </div>
-    </section>
+            <section class="card wheel-section">
+                <div class="section-title">2. Редактор</div>
+                <p class="wheel-subtitle">
+                    Переключает только редактор на этой странице, не меняя режим для гостей.
+                </p>
+                <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
+                    <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
+                        Колесо
+                    </a>
+                    <a href="{{ url_for('owner.settings', tab='wheel', editor='cases') }}" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}">
+                        Кейсы
+                    </a>
+                </div>
+            </section>
 
-    <section class="card wheel-section">
-        <div class="section-title">Настройки жетонов</div>
-        <p class="wheel-subtitle">
-            Жетоны используются и в колесе, и в кейсах. Здесь задается дата начала начислений и стоимость прокрута колеса;
-            цена открытия кейса настраивается в редакторе кейсов.
-        </p>
+            <section class="card wheel-section">
+                <div class="section-title">3. Настройки жетонов</div>
+                <p class="wheel-subtitle">
+                    Жетоны используются и в колесе, и в кейсах. Цена открытия кейса настраивается в редакторе кейсов.
+                </p>
 
-        <div class="token-settings-layout">
             <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm">
                 <div class="wheel-form-grid">
                     <div class="form-group">
@@ -815,14 +845,14 @@
                         </label>
                     </div>
                 </div>
-
-                <div class="actions">
-                    <button type="submit" class="btn" id="wheelSettingsSubmit">Сохранить настройки</button>
-                </div>
             </form>
+            </section>
+        </div>
 
+        <aside class="bonus-settings-side">
             <aside class="token-summary-card" aria-label="Сводка настроек жетонов">
                 <div class="token-summary-title">Сводка</div>
+                <div class="token-summary-subtitle">Текущая конфигурация механики</div>
                 <div class="token-summary-row">
                     <span>Активный режим</span>
                     <strong>{% if game_mode == 'cases' %}Кейсы{% else %}Колесо{% endif %}</strong>
@@ -841,9 +871,10 @@
                         {% if wheel_settings.is_enabled %}Активно{% else %}Выключено{% endif %}
                     </strong>
                 </div>
+                <button type="submit" form="wheelSettingsForm" class="btn token-summary-save">Сохранить</button>
             </aside>
-        </div>
-    </section>
+        </aside>
+    </div>
 
     {% if active_bonus_editor == 'wheel' %}
     <section class="wheel-prize-workspace">
