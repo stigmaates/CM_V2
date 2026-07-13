@@ -137,6 +137,137 @@
     margin-bottom: 22px;
 }
 
+.health-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.readiness-card {
+    border-color: rgba(109, 211, 159, 0.24);
+}
+
+.readiness-overall {
+    min-width: 190px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    text-align: right;
+}
+
+.readiness-overall span,
+.readiness-overall em {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.readiness-overall strong {
+    display: block;
+    margin: 4px 0;
+    font-size: 18px;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.readiness-overall.success { border-color: rgba(34, 197, 94, 0.34); }
+.readiness-overall.warning { border-color: rgba(245, 158, 11, 0.34); }
+.readiness-overall.error { border-color: rgba(239, 68, 68, 0.38); }
+
+.readiness-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.readiness-item {
+    min-height: 126px;
+    padding: 15px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    align-content: start;
+    gap: 8px;
+}
+
+.readiness-item.success { border-color: rgba(34, 197, 94, 0.28); }
+.readiness-item.warning { border-color: rgba(245, 158, 11, 0.30); }
+.readiness-item.error { border-color: rgba(239, 68, 68, 0.34); }
+
+.readiness-item strong {
+    font-size: 16px;
+    line-height: 1.25;
+}
+
+.readiness-item p {
+    margin: 0;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.health-summary-item {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.health-summary-item span {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.health-summary-item strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1;
+}
+
+.health-summary-item.success { border-color: rgba(34, 197, 94, 0.34); }
+.health-summary-item.stale { border-color: rgba(245, 158, 11, 0.34); }
+.health-summary-item.error { border-color: rgba(239, 68, 68, 0.38); }
+.health-summary-item.running { border-color: rgba(250, 204, 21, 0.34); }
+
+.alerts-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.alerts-list {
+    display: grid;
+    gap: 10px;
+}
+
+.alert-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 15px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.alert-item.error {
+    border-color: rgba(239, 68, 68, 0.36);
+}
+
+.alert-item.warning {
+    border-color: rgba(245, 158, 11, 0.34);
+}
+
 .metric-card span {
     display: block;
     color: var(--admin-muted);
@@ -172,9 +303,32 @@
     border: 1px solid var(--admin-border);
 }
 
+.admin-btn.danger {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.38);
+    box-shadow: none;
+}
+
 .admin-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
+}
+
+.service-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.service-action-form {
+    min-height: 104px;
+    padding: 15px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    align-content: space-between;
+    gap: 12px;
 }
 
 .admin-table-wrap {
@@ -199,6 +353,74 @@
     font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+}
+
+.admin-table-sub {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 4px;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.status-pill.success,
+.status-pill.ok {
+    color: #b8ffd0;
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.36);
+}
+
+.status-pill.error {
+    color: #ffd0d0;
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.38);
+}
+
+.status-pill.warning {
+    color: #ffd9ae;
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.34);
+}
+
+.status-pill.running {
+    color: #fff2ba;
+    background: rgba(250, 204, 21, 0.15);
+    border-color: rgba(250, 204, 21, 0.34);
+}
+
+.status-pill.stale,
+.status-pill.none,
+.status-pill.skipped_locked {
+    color: #ffd9ae;
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.34);
+}
+
+.sync-health-cell {
+    display: grid;
+    gap: 2px;
+}
+
+.error-text {
+    color: #ffd0d0;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .clubs-table tbody tr {
@@ -393,12 +615,17 @@
     .admin-shell { display: block; }
     .admin-sidebar { width: auto; min-height: auto; position: static; }
     .admin-main { padding: 20px; box-sizing: border-box; }
-    .admin-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .readiness-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .service-actions-grid { grid-template-columns: 1fr; }
+    .admin-metrics-grid,
+    .health-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .modal-actions { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
     .admin-metrics-grid,
+    .readiness-grid,
+    .health-summary-grid,
     .modal-actions { grid-template-columns: 1fr; }
     .admin-page-head,
     .admin-section-head { flex-direction: column; }

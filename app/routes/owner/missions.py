@@ -1,6 +1,7 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
 from app.core import owner_required, parse_datetime_local
+from app.services.audit import record_audit_event
 from app.services.clubs import get_club_info
 from app.services.missions import (
     build_mission_config_from_form,
@@ -53,6 +54,17 @@ def api_create_mission():
         token_reward=int(data.get("token_reward") or 0),
         cm_bonus_reward=int(data.get("cm_bonus_reward") or 0),
     )
+    record_audit_event(
+        action="owner.mission.create",
+        club_id=int(club_id),
+        entity_type="club_mission",
+        details={
+            "mission_template_id": data.get("mission_template_id"),
+            "target_amount": data.get("target_amount"),
+            "token_reward": int(data.get("token_reward") or 0),
+            "cm_bonus_reward": int(data.get("cm_bonus_reward") or 0),
+        },
+    )
     return {"ok": True}
 
 
@@ -79,6 +91,18 @@ def api_update_mission(mission_id):
         token_reward=int(data.get("token_reward") or 0),
         cm_bonus_reward=int(data.get("cm_bonus_reward") or 0),
     )
+    record_audit_event(
+        action="owner.mission.update",
+        club_id=int(club_id),
+        entity_type="club_mission",
+        entity_id=mission_id,
+        details={
+            "target_amount": data.get("target_amount"),
+            "is_enabled": data.get("is_enabled", 1),
+            "token_reward": int(data.get("token_reward") or 0),
+            "cm_bonus_reward": int(data.get("cm_bonus_reward") or 0),
+        },
+    )
     return {"ok": True}
 
 
@@ -87,6 +111,12 @@ def api_update_mission(mission_id):
 def api_delete_mission(mission_id):
     club_id = session.get("club_id")
     delete_club_mission(mission_id, int(club_id))
+    record_audit_event(
+        action="owner.mission.delete",
+        club_id=int(club_id),
+        entity_type="club_mission",
+        entity_id=mission_id,
+    )
     return {"ok": True}
 
 
@@ -167,6 +197,17 @@ def missions_add():
             custom_description=custom_description,
             token_reward=token_reward,
             cm_bonus_reward=cm_bonus_reward,
+        )
+        record_audit_event(
+            action="owner.mission.create",
+            club_id=int(club_id),
+            entity_type="club_mission",
+            details={
+                "mission_template_id": template_id,
+                "target_amount": target_amount,
+                "token_reward": token_reward,
+                "cm_bonus_reward": cm_bonus_reward,
+            },
         )
         flash("Задание добавлено", "success")
     except Exception as e:
@@ -249,6 +290,19 @@ def missions_update(mission_id):
             token_reward=token_reward,
             cm_bonus_reward=cm_bonus_reward,
         )
+        record_audit_event(
+            action="owner.mission.update",
+            club_id=int(club_id),
+            entity_type="club_mission",
+            entity_id=mission_id,
+            details={
+                "mission_template_id": template_id,
+                "target_amount": target_amount,
+                "is_enabled": bool(is_enabled),
+                "token_reward": token_reward,
+                "cm_bonus_reward": cm_bonus_reward,
+            },
+        )
         flash("Задание обновлено", "success")
     except Exception as e:
         flash(f"Ошибка обновления задания: {e}", "error")
@@ -266,6 +320,12 @@ def missions_disable(mission_id):
 
     try:
         disable_club_mission(mission_id, int(club_id))
+        record_audit_event(
+            action="owner.mission.disable",
+            club_id=int(club_id),
+            entity_type="club_mission",
+            entity_id=mission_id,
+        )
         flash("Задание отключено", "success")
     except Exception as e:
         flash(f"Ошибка отключения задания: {e}", "error")
@@ -282,6 +342,12 @@ def missions_delete(mission_id):
 
     try:
         delete_club_mission(mission_id, int(club_id))
+        record_audit_event(
+            action="owner.mission.delete",
+            club_id=int(club_id),
+            entity_type="club_mission",
+            entity_id=mission_id,
+        )
         flash("Задание удалено", "success")
     except Exception as e:
         flash(f"Ошибка удаления задания: {e}", "error")

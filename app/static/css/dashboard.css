@@ -1691,6 +1691,10 @@ body.modal-open { overflow: hidden; }
 .cb-main-grid {
     display: grid;
     grid-template-columns: 1.42fr .64fr .64fr;
+    grid-template-areas:
+        "survey csi mailing"
+        "survey funnel funnel";
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 18px;
     align-items: stretch;
 }
@@ -2020,7 +2024,7 @@ body.modal-open { overflow: hidden; }
     border-radius: 17px;
     border: 1px solid rgba(143, 91, 255, 0.26);
     background: rgba(18, 10, 33, 0.7);
-    min-width: 390px;
+    min-width: 450px;
 }
 
 .cb-engagement-tab {
@@ -2042,6 +2046,55 @@ body.modal-open { overflow: hidden; }
     color: #fff;
     background: linear-gradient(135deg, #8f5bff, #6f48d6);
     box-shadow: 0 0 22px rgba(143, 91, 255, 0.34);
+}
+
+.cb-case-art {
+    position: relative;
+    width: 184px;
+    height: 148px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    filter: drop-shadow(0 18px 34px rgba(143, 91, 255, 0.35));
+}
+
+.cb-case-art__body {
+    position: relative;
+    width: 148px;
+    height: 92px;
+    border-radius: 22px 22px 28px 28px;
+    background: linear-gradient(135deg, #201238, #4a2b89 52%, #1a102e);
+    border: 3px solid rgba(165, 114, 255, 0.62);
+    box-shadow: inset 0 0 24px rgba(0,0,0,.42), 0 0 34px rgba(143, 91, 255, .35);
+    display: grid;
+    place-items: center;
+    color: #f4ecff;
+    font-weight: 900;
+    letter-spacing: .08em;
+}
+
+.cb-case-art__lid {
+    position: absolute;
+    top: 24px;
+    width: 166px;
+    height: 48px;
+    border-radius: 22px 22px 14px 14px;
+    background: linear-gradient(135deg, #37205f, #7d49dd 55%, #241541);
+    border: 3px solid rgba(165, 114, 255, 0.58);
+    transform: rotate(-6deg);
+    box-shadow: 0 0 26px rgba(143, 91, 255, .36);
+}
+
+.cb-case-art__glow {
+    position: absolute;
+    left: 50%;
+    top: 72px;
+    width: 146px;
+    height: 28px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(255, 212, 105, .85), rgba(143, 91, 255, .35) 55%, transparent 72%);
+    filter: blur(1px);
 }
 
 .cb-scope-toggle {
@@ -2155,8 +2208,13 @@ body.modal-open { overflow: hidden; }
     }
     .cb-kpi-icon { width: 58px; height: 58px; border-radius: 16px; }
     .cb-sparkline { display: none; }
-    .cb-main-grid { grid-template-columns: 1fr 1fr; }
-    .cb-survey-panel { grid-column: 1 / -1; }
+    .cb-main-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "survey survey"
+            "csi mailing"
+            "funnel funnel";
+    }
     .cb-engagement-panel { grid-template-columns: 1fr; }
     .cb-wheel-art { display: none; }
     .cb-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2165,6 +2223,13 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 980px) {
     .cb-dashboard-head { flex-direction: column; align-items: flex-start; }
     .cb-kpi-grid, .cb-main-grid, .cb-survey-summary, .cb-feedback-grid { grid-template-columns: 1fr; }
+    .cb-main-grid {
+        grid-template-areas:
+            "survey"
+            "csi"
+            "mailing"
+            "funnel";
+    }
     .cb-period-switcher { width: 100%; }
     .cb-period-option { min-width: 0; flex: 1; padding-left: 10px; padding-right: 10px; }
     .cb-engagement-top { flex-direction: column; align-items: flex-start; }
@@ -2342,33 +2407,42 @@ body.modal-open { overflow: hidden; }
 }
 
 .cb-survey-panel {
-    grid-row: span 2;
+    grid-area: survey;
 }
 
 .cb-streak-funnel-card {
-    grid-column: 2 / 4;
-    min-height: 260px;
+    grid-area: funnel;
+    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.cb-csi-card {
+    grid-area: csi;
+}
+
+.cb-mailing-card {
+    grid-area: mailing;
 }
 
  .cb-funnel-chart {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    align-items: end;
+    align-items: stretch;
     gap: clamp(10px, 1.2vw, 20px);
-    min-height: 185px;
+    min-height: 260px;
     flex: 1;
-    padding: 4px 2px 0;
+    padding: clamp(18px, 3vh, 34px) 2px 0;
 }
 
 .cb-funnel-bar-item {
     min-width: 0;
     width: 100%;
     display: grid;
-    grid-template-rows: 1fr 26px;
+    grid-template-rows: minmax(260px, 1fr) 26px;
     align-items: end;
     justify-items: center;
     height: 100%;
@@ -2376,8 +2450,9 @@ body.modal-open { overflow: hidden; }
 
 .cb-funnel-bar-wrap {
     width: 100%;
-    height: 150px;
-    padding-top: 30px;
+    height: 100%;
+    min-height: 260px;
+    padding-top: 34px;
     display: flex;
     align-items: flex-end;
     justify-content: center;
@@ -3279,5 +3354,406 @@ body.modal-open { overflow: hidden; }
     }
     .settings-page .settings-card--pc-names .pc-names-list {
         grid-template-columns: 1fr !important;
+    }
+}
+
+
+/* Case openings histogram shown only when the Cases engagement tab is active. */
+.cb-case-openings-panel {
+    padding: 28px 30px 30px;
+    overflow: hidden;
+}
+
+.cb-case-openings-head {
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.cb-case-openings-total {
+    min-width: 154px;
+    padding: 14px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(143, 91, 255, 0.26);
+    background: rgba(18, 10, 33, 0.68);
+    text-align: right;
+}
+
+.cb-case-openings-total b {
+    display: block;
+    color: #fff;
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 900;
+}
+
+.cb-case-openings-total span {
+    display: block;
+    margin-top: 6px;
+    color: #a999ca;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.cb-case-openings-chart {
+    display: grid;
+    gap: 16px;
+}
+
+.cb-case-openings-row {
+    min-width: 0;
+}
+
+.cb-case-openings-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 8px;
+}
+
+.cb-case-openings-meta span {
+    min-width: 0;
+    overflow: hidden;
+    color: #eee7fb;
+    font-size: 14px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cb-case-openings-meta b {
+    flex: 0 0 auto;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.cb-case-openings-track {
+    position: relative;
+    height: 18px;
+    overflow: hidden;
+    border-radius: 999px;
+    border: 1px solid rgba(143, 91, 255, 0.16);
+    background: rgba(17, 9, 31, 0.88);
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.34);
+}
+
+.cb-case-openings-bar {
+    min-width: 8px;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #6f48d6, #a572ff 68%, #d3b8ff);
+    box-shadow: 0 0 18px rgba(143, 91, 255, 0.46);
+    transition: width 0.28s ease;
+}
+
+.cb-case-openings-bar.is-empty {
+    min-width: 0;
+    box-shadow: none;
+}
+
+.cb-case-openings-note,
+.cb-case-openings-empty {
+    margin-top: 22px;
+    color: #8f80ad;
+    font-size: 12px;
+    line-height: 1.5;
+    font-weight: 600;
+}
+
+.cb-case-openings-empty {
+    min-height: 130px;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    border-radius: 18px;
+    border: 1px dashed rgba(143, 91, 255, 0.25);
+    background: rgba(18, 10, 33, 0.42);
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .cb-case-openings-panel {
+        padding: 20px;
+    }
+
+    .cb-case-openings-head {
+        align-items: flex-start;
+    }
+
+    .cb-case-openings-total {
+        min-width: 128px;
+        padding: 12px 14px;
+    }
+
+    .cb-case-openings-total b {
+        font-size: 24px;
+    }
+}
+
+/* Owner dashboard lower cases showcase */
+.cb-engagement-panel {
+    min-height: 320px;
+    grid-template-columns: 340px minmax(0, 1fr);
+    align-items: center;
+}
+
+.cb-engagement-visual {
+    min-height: 260px;
+}
+
+.cb-case-art {
+    width: 250px;
+    height: 190px;
+}
+
+.cb-case-art__lid {
+    width: 226px;
+    height: 62px;
+}
+
+.cb-case-art__body {
+    width: 204px;
+    height: 126px;
+    font-size: 30px;
+}
+
+.cb-case-art__glow {
+    width: 210px;
+    height: 42px;
+}
+
+.cb-engagement-tabs {
+    min-width: min(520px, 100%);
+}
+
+.cb-metric-grid {
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.cb-metric-card {
+    min-height: 112px;
+    padding: 20px 22px;
+    grid-template-columns: 58px 1fr;
+    border-radius: 20px;
+}
+
+.cb-metric-icon {
+    width: 58px;
+    height: 58px;
+    font-size: 26px;
+    border-radius: 17px;
+}
+
+.cb-metric-card span {
+    font-size: 15px;
+}
+
+.cb-metric-card b {
+    font-size: 32px;
+}
+
+.cb-case-openings-panel {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.cb-case-openings-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2.7fr) minmax(280px, 0.95fr);
+    gap: 22px;
+}
+
+.cb-case-openings-list-panel,
+.cb-case-openings-summary {
+    border: 1px solid rgba(143, 91, 255, 0.28);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(143, 91, 255, 0.20), transparent 40%),
+        linear-gradient(180deg, rgba(28, 17, 52, 0.94), rgba(18, 10, 33, 0.96));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 18px 42px rgba(7, 2, 16, 0.30);
+}
+
+.cb-case-openings-list-panel {
+    padding: 26px 30px 28px;
+}
+
+.cb-case-openings-head {
+    margin-bottom: 22px;
+}
+
+.cb-case-openings-column-label {
+    color: #a999ca;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.cb-case-openings-chart {
+    gap: 8px;
+}
+
+.cb-case-openings-row {
+    display: grid;
+    grid-template-columns: 48px 78px minmax(160px, 1fr) 52px minmax(240px, 0.9fr);
+    align-items: center;
+    gap: 18px;
+    min-height: 72px;
+    padding: 8px 10px 8px 12px;
+    border: 1px solid rgba(143, 91, 255, 0.20);
+    border-radius: 18px;
+    background: rgba(18, 10, 33, 0.58);
+}
+
+.cb-case-openings-rank {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: rgba(143, 91, 255, 0.18);
+    color: #f4ecff;
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.cb-case-openings-thumb {
+    width: 78px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(143, 91, 255, 0.22);
+    background:
+        radial-gradient(circle at 50% 50%, rgba(165, 114, 255, 0.42), transparent 62%),
+        linear-gradient(135deg, rgba(55, 32, 95, 0.94), rgba(20, 11, 37, 0.95));
+}
+
+.cb-case-openings-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cb-case-openings-thumb span {
+    color: #f4ecff;
+    font-weight: 900;
+    letter-spacing: .08em;
+}
+
+.cb-case-openings-thumb--mission span {
+    font-size: 24px;
+    letter-spacing: 0;
+}
+
+.cb-case-openings-name {
+    min-width: 0;
+    color: #eee7fb;
+    font-size: 16px;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cb-case-openings-count {
+    color: #f4ecff;
+    font-size: 18px;
+    font-weight: 900;
+    text-align: right;
+}
+
+.cb-case-openings-track {
+    height: 14px;
+    border: 0;
+    background: rgba(143, 91, 255, 0.14);
+}
+
+.cb-case-openings-summary {
+    min-height: 100%;
+    padding: 48px 46px;
+    display: grid;
+    align-content: center;
+    gap: 34px;
+}
+
+.cb-case-openings-summary-row {
+    display: grid;
+    grid-template-columns: 68px 1fr;
+    align-items: center;
+    gap: 24px;
+}
+
+.cb-case-openings-summary-icon {
+    width: 68px;
+    height: 68px;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    border: 1px solid rgba(165, 114, 255, 0.26);
+    background: linear-gradient(180deg, rgba(93, 59, 154, 0.54), rgba(45, 27, 82, 0.88));
+    color: #f4ecff;
+    font-size: 28px;
+    box-shadow: inset 0 0 18px rgba(165, 114, 255, 0.12);
+}
+
+.cb-case-openings-summary-row b {
+    display: block;
+    color: #fff;
+    font-size: 48px;
+    line-height: 1;
+    font-weight: 900;
+}
+
+.cb-case-openings-summary-row span {
+    display: block;
+    margin-top: 10px;
+    color: #a999ca;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.cb-case-openings-summary-separator {
+    height: 1px;
+    background: rgba(165, 114, 255, 0.22);
+}
+
+@media (max-width: 1320px) {
+    .cb-engagement-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .cb-engagement-visual {
+        display: none;
+    }
+
+    .cb-case-openings-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .cb-case-openings-summary {
+        grid-template-columns: 1fr 1px 1fr;
+        min-height: 0;
+    }
+
+    .cb-case-openings-summary-separator {
+        width: 1px;
+        height: auto;
+    }
+}
+
+@media (max-width: 900px) {
+    .cb-case-openings-row {
+        grid-template-columns: 42px 64px minmax(0, 1fr) 42px;
+    }
+
+    .cb-case-openings-track {
+        grid-column: 3 / -1;
+        width: 100%;
     }
 }

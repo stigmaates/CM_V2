@@ -108,3 +108,43 @@ CM_V2/
 └── README.md
 ```
 
+---
+
+## Коммерческая готовность
+
+Для доведения проекта до стабильной продуктовой версии заведены рабочие документы:
+
+- [Product maturity roadmap](docs/PRODUCT_MATURITY_ROADMAP.md) — план доведения продукта до уровня 9/10.
+- [Production readiness checklist](docs/PRODUCTION_READINESS_CHECKLIST.md) — проверка перед подключением платного клуба.
+- [Club onboarding runbook](docs/CLUB_ONBOARDING_RUNBOOK.md) — пошаговое подключение нового клуба.
+- [Pilot onboarding checklist](docs/PILOT_ONBOARDING_CHECKLIST.md) — чеклист ручного запуска первых пилотных клубов.
+- [Database migrations](docs/DATABASE_MIGRATIONS.md) — как применять и добавлять миграции базы.
+- [Safe rollout plan](docs/SAFE_ROLLOUT_PLAN.md) — как выпускать изменения, не ломая текущую рабочую версию.
+- [Backup and restore](docs/BACKUP_RESTORE.md) — как создавать и проверять резервные копии.
+- [Deployment runbook](docs/DEPLOYMENT_RUNBOOK.md) — staging/production-регламент релиза.
+- [systemd service templates](docs/SYSTEMD_SERVICES.md) — шаблоны сервисов и таймеров.
+- [Nginx template](docs/NGINX_TEMPLATE.md) — шаблон reverse proxy, static и uploads.
+- [Staging smoke tests](docs/STAGING_SMOKE_TESTS.md) — быстрые проверки после деплоя.
+- [Release candidate checklist](docs/RELEASE_CANDIDATE_CHECKLIST.md) — финальная проверка перед релизом.
+- [Stage server runbook](docs/STAGE_SERVER_RUNBOOK.md) — инструкции для текущего stage-сервера.
+
+В production-окружении обязательно указывать `APP_ENV=production` и все критичные переменные из `.env.example`.
+
+Перед запуском новой версии в production примените миграции базы данных:
+
+```bash
+python3 scripts/migrate.py
+```
+
+Локальные smoke-проверки:
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Проверка окружения перед staging/production:
+
+```bash
+python3 scripts/check_environment.py --env-file .env
+```

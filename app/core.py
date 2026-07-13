@@ -1,13 +1,74 @@
+import hmac
+import secrets
 from datetime import datetime, timedelta
 from functools import wraps
 from urllib.parse import quote_plus
 
 import pymysql
-from flask import Flask, redirect, session, url_for
+from flask import Flask, abort, jsonify, redirect, request, session, url_for
 from pymysql.cursors import DictCursor
 from sqlalchemy import create_engine
 
-from app.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, SECRET_KEY
+from app.config import (
+    CLUBMODULE_IMAGE_MAX_MB,
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWORD,
+    DB_PORT,
+    DB_USER,
+    IS_PRODUCTION,
+    SECRET_KEY,
+)
+
+CSRF_SESSION_KEY = "_csrf_token"
+CSRF_FORM_FIELD = "csrf_token"
+CSRF_HEADER_NAMES = ("X-CSRFToken", "X-CSRF-Token")
+CSRF_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def generate_csrf_token() -> str:
+    token = session.get(CSRF_SESSION_KEY)
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[CSRF_SESSION_KEY] = token
+    return token
+
+
+def _get_request_csrf_token() -> str:
+    for header_name in CSRF_HEADER_NAMES:
+        token = request.headers.get(header_name)
+        if token:
+            return token
+    return request.form.get(CSRF_FORM_FIELD, "")
+
+
+def validate_csrf_token() -> bool:
+    expected = session.get(CSRF_SESSION_KEY)
+    supplied = _get_request_csrf_token()
+    return bool(expected and supplied and hmac.compare_digest(str(expected), str(supplied)))
+
+
+def _csrf_error_response():
+    if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+        return jsonify({"ok": False, "error": "csrf_failed"}), 400
+    abort(400, description="CSRF token is missing or invalid")
+
+
+def register_csrf_protection(flask_app: Flask) -> None:
+    @flask_app.before_request
+    def csrf_protect():
+        if request.method not in CSRF_UNSAFE_METHODS:
+            return None
+        if validate_csrf_token():
+            return None
+        return _csrf_error_response()
+
+    @flask_app.context_processor
+    def inject_csrf_token():
+        return {
+            "csrf_token": generate_csrf_token,
+            "csrf_field_name": CSRF_FORM_FIELD,
+        }
 
 
 def create_flask_app():
@@ -15,6 +76,10 @@ def create_flask_app():
     app.secret_key = SECRET_KEY
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
+    # Limit image upload requests at Flask level. Per-club quota is checked separately.
+    app.config["MAX_CONTENT_LENGTH"] = int(CLUBMODULE_IMAGE_MAX_MB or 5) * 1024 * 1024 + 1024 * 1024
+    register_csrf_protection(app)
     return app
 
 
@@ -58,7 +123,12 @@ def role_required(*allowed_roles):
             if "user_id" not in session:
                 return redirect(url_for("auth.login"))
             if session.get("role") not in allowed_roles:
-                target = "admin.users_create" if session.get("role") == "admin" else "owner.dashboard"
+                if session.get("role") == "admin":
+                    target = "admin.users_create"
+                elif session.get("role") == "reception":
+                    target = "reception.dashboard"
+                else:
+                    target = "owner.dashboard"
                 return redirect(url_for(target))
             return func(*args, **kwargs)
 
@@ -69,6 +139,10 @@ def role_required(*allowed_roles):
 
 def admin_required(func):
     return role_required("admin")(func)
+
+
+def reception_required(func):
+    return role_required("reception")(func)
 
 
 def is_owner_access_session():
@@ -89,7 +163,12 @@ def owner_required(func):
         if "user_id" not in session:
             return redirect(url_for("auth.login"))
         if not is_owner_access_session():
-            target = "admin.clubs_list" if session.get("role") == "admin" else "auth.login"
+            if session.get("role") == "admin":
+                target = "admin.clubs_list"
+            elif session.get("role") == "reception":
+                target = "reception.dashboard"
+            else:
+                target = "auth.login"
             return redirect(url_for(target))
         return func(*args, **kwargs)
 

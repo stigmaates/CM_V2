@@ -1,5 +1,6 @@
 {% set prize_icon_choices = prize_icon_choices|default(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']) %}
 {% set prob_ok = (wheel_active_prob_sum|float - 100)|abs < 0.06 %}
+{% set active_bonus_editor = bonus_editor|default('wheel') %}
 <style>
     .wheel-page {
         width: 100%;
@@ -8,6 +9,27 @@
     .wheel-layout {
         display: grid;
         gap: 20px;
+    }
+
+    .bonus-settings-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+        gap: 20px;
+        align-items: start;
+    }
+
+    .bonus-settings-main {
+        display: grid;
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .bonus-settings-side {
+        position: sticky;
+        top: 18px;
+        display: grid;
+        gap: 14px;
+        min-width: 0;
     }
 
     .wheel-section {
@@ -40,6 +62,76 @@
 
     .wheel-form-grid .full {
         grid-column: 1 / -1;
+    }
+
+    .token-summary-card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: rgba(20, 12, 36, 0.62);
+        padding: 20px;
+    }
+
+    .token-summary-title {
+        margin: 0;
+        color: var(--text-main);
+        font-weight: 900;
+        font-size: 22px;
+    }
+
+    .token-summary-subtitle {
+        margin: 6px 0 16px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    .token-summary-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 0;
+        border-top: 1px solid rgba(255,255,255,.08);
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+
+    .token-summary-row:first-of-type {
+        border-top: 0;
+        padding-top: 0;
+    }
+
+    .token-summary-row strong {
+        color: var(--text-main);
+        font-size: 15px;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .token-summary-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #70e08a;
+    }
+
+    .token-summary-status::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+        box-shadow: 0 0 12px currentColor;
+    }
+
+    .token-summary-status.is-off {
+        color: #ff8a7a;
+    }
+
+    .token-summary-save {
+        width: 100%;
+        min-height: 46px;
+        margin-top: 16px;
     }
 
     .wheel-prize-workspace {
@@ -382,76 +474,409 @@
         }
     }
 
-    @media (max-width: 920px) {
-        .prize-list,
-        .wheel-form-grid {
+    .game-mode-picker {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 12px;
+        width: min(100%, 980px);
+    }
+
+    .game-mode-choice {
+        position: relative;
+        display: grid;
+        gap: 5px;
+        min-height: 82px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: rgba(20, 12, 36, 0.56);
+        cursor: pointer;
+        transition: border-color .16s ease, background .16s ease;
+    }
+
+    .game-mode-choice input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .game-mode-choice.is-active {
+        border-color: rgba(165, 114, 255, 0.55);
+        background: linear-gradient(135deg, rgba(143, 91, 255, 0.16), rgba(255, 212, 105, 0.08));
+    }
+
+    .game-mode-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .game-mode-desc {
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    .bonus-editor-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: min(100%, 520px);
+        padding: 4px;
+        margin-top: 12px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(20, 12, 36, 0.42);
+    }
+
+    .bonus-editor-switch a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 8px 14px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--text-main);
+        text-decoration: none;
+        font-weight: 900;
+        transition: border-color .16s ease, background .16s ease;
+    }
+
+    .bonus-editor-switch a:hover {
+        border-color: rgba(165, 114, 255, 0.28);
+        background: rgba(143, 91, 255, 0.12);
+    }
+
+    .bonus-editor-switch a.is-active {
+        border-color: rgba(165, 114, 255, 0.55);
+        background: linear-gradient(135deg, rgba(143, 91, 255, 0.16), rgba(255, 212, 105, 0.08));
+    }
+
+    .case-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+        gap: 18px;
+        align-items: start;
+    }
+
+    .case-card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        background: rgba(20, 12, 36, 0.56);
+        min-width: 0;
+    }
+
+    .case-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .case-card-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .case-items-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .case-item-row {
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(255,255,255,0.035);
+    }
+
+    .case-items-compact {
+        display: grid;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .case-item-picker {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(255,255,255,0.035);
+    }
+
+    .case-item-picker .form-group {
+        margin-bottom: 0;
+    }
+
+    .case-item-picker-meta {
+        display: grid;
+        gap: 4px;
+        justify-items: end;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.25;
+        padding-bottom: 4px;
+        white-space: nowrap;
+    }
+
+    .case-item-row--compact[hidden] {
+        display: none !important;
+    }
+
+    .case-item-row--compact {
+        overflow: hidden;
+    }
+
+    .case-item-row--compact .prize-card-actions {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .case-item-row--compact .prize-card-actions .btn,
+    .case-item-row--compact .prize-card-actions form {
+        min-width: 0;
+    }
+
+
+    .case-item-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+
+    .case-item-grid > .form-group:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .case-item-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .case-item-grid .form-group,
+    .case-form-grid .form-group {
+        margin-bottom: 0;
+        min-width: 0;
+    }
+
+    .case-item-grid label,
+    .case-form-grid label {
+        display: block;
+        margin-bottom: 6px;
+        line-height: 1.25;
+    }
+
+    .case-item-grid .form-input,
+    .case-form-grid .form-input {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    .case-form-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(120px, .7fr) minmax(120px, .7fr);
+        gap: 10px;
+        align-items: start;
+    }
+
+    .case-form-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .case-prob-total {
+        font-weight: 800;
+        font-size: 13px;
+        margin: 8px 0 4px;
+    }
+
+    .case-prob-total.is-ok { color: #63d67e; }
+    .case-prob-total.is-bad { color: #ff6f61; }
+
+    .case-add-trigger {
+        flex-shrink: 0;
+        white-space: nowrap;
+        font-weight: 800;
+        padding: 11px 14px;
+        border: 1px solid rgba(165, 114, 255, 0.32);
+        border-radius: 14px;
+        background: rgba(143, 91, 255, 0.12);
+        color: var(--accent-strong);
+        cursor: pointer;
+    }
+
+    .case-add-trigger:hover {
+        color: var(--text-main);
+        border-color: rgba(165, 114, 255, 0.55);
+        background: rgba(143, 91, 255, 0.2);
+    }
+
+    @media (max-width: 1180px) {
+        .bonus-settings-shell {
             grid-template-columns: 1fr;
         }
-        .prize-compact-grid {
+        .bonus-settings-side {
+            position: static;
+        }
+        .case-list {
             grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 920px) {
+        .game-mode-picker,
+        .bonus-editor-switch {
+            grid-template-columns: 1fr;
+        }
+        .case-item-grid,
+        .case-form-grid,
+        .case-item-picker {
+            grid-template-columns: 1fr;
+        }
+        .case-item-picker-meta {
+            justify-items: start;
+            white-space: normal;
         }
     }
 </style>
 
 <div class="wheel-page">
 <div class="wheel-layout">
-    <section class="card wheel-section">
-        <div class="section-title">Настройки колеса</div>
-        <p class="wheel-subtitle">
-            Здесь задается дата начала начисления жетонов, стоимость прокрута и состояние колеса.
-            Жетоны считаются по уникальным дням посещения после выбранной даты.
-        </p>
+    <div class="bonus-settings-shell">
+        <div class="bonus-settings-main">
+            <section class="card wheel-section">
+                <div class="section-title">1. Выбор механики</div>
+                <p class="wheel-subtitle">
+                    Выбери, какую механику видят гости.
+                </p>
 
-        <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm">
-            <div class="wheel-form-grid">
-                <div class="form-group">
-                    <label for="tokens_start_date">Дата начала начисления жетонов</label>
-                    <input
-                        class="form-input"
-                        type="datetime-local"
-                        id="tokens_start_date"
-                        name="tokens_start_date"
-                        value="{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
-                        required
-                    >
+                <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
+                    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                    <input type="hidden" name="bonus_editor" value="{{ active_bonus_editor }}">
+                    <div class="game-mode-picker">
+                        <label class="game-mode-choice {% if (game_mode|default('wheel')) == 'wheel' %}is-active{% endif %}">
+                            <input type="radio" name="game_mode" value="wheel" {% if (game_mode|default('wheel')) == 'wheel' %}checked{% endif %} onchange="this.form.submit()">
+                            <span class="game-mode-title">🎡 Колесо фортуны</span>
+                            <span class="game-mode-desc">Классическое колесо с призами и вероятностями</span>
+                        </label>
+                        <label class="game-mode-choice {% if game_mode == 'cases' %}is-active{% endif %}">
+                            <input type="radio" name="game_mode" value="cases" {% if game_mode == 'cases' %}checked{% endif %} onchange="this.form.submit()">
+                            <span class="game-mode-title">📦 Кейсы</span>
+                            <span class="game-mode-desc">Несколько кейсов со своим набором предметов и шансами</span>
+                        </label>
+                    </div>
+                </form>
+            </section>
+
+            <section class="card wheel-section">
+                <div class="section-title">2. Редактор</div>
+                <p class="wheel-subtitle">
+                    Переключает только редактор на этой странице, не меняя режим для гостей.
+                </p>
+                <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
+                    <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
+                        Колесо
+                    </a>
+                    <a href="{{ url_for('owner.settings', tab='wheel', editor='cases') }}" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}">
+                        Кейсы
+                    </a>
                 </div>
+            </section>
 
-                <div class="form-group">
-                    <label for="spin_cost">Стоимость одного прокрута</label>
-                    <input
-                        class="form-input"
-                        type="number"
-                        id="spin_cost"
-                        name="spin_cost"
-                        min="1"
-                        step="1"
-                        value="{{ wheel_settings.spin_cost or 1 }}"
-                        required
-                    >
-                </div>
+            <section class="card wheel-section">
+                <div class="section-title">3. Настройки жетонов</div>
+                <p class="wheel-subtitle">
+                    Жетоны используются и в колесе, и в кейсах. Цена открытия кейса настраивается в редакторе кейсов.
+                </p>
 
-                <div class="form-group full">
-                    <label class="form-check" for="is_enabled">
+            <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm">
+                <div class="wheel-form-grid">
+                    <div class="form-group">
+                        <label for="tokens_start_date">Дата начала начисления жетонов</label>
                         <input
-                            type="checkbox"
-                            class="form-check-input"
-                            id="is_enabled"
-                            name="is_enabled"
-                            value="1"
-                            {% if wheel_settings.is_enabled %}checked{% endif %}
+                            class="form-input"
+                            type="datetime-local"
+                            id="tokens_start_date"
+                            name="tokens_start_date"
+                            value="{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+                            required
                         >
-                        <span class="form-check-box" aria-hidden="true"></span>
-                        <span class="form-check-text">Колесо включено</span>
-                    </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="spin_cost">Стоимость прокрута колеса</label>
+                        <input
+                            class="form-input"
+                            type="number"
+                            id="spin_cost"
+                            name="spin_cost"
+                            min="1"
+                            step="1"
+                            value="{{ wheel_settings.spin_cost or 1 }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group full">
+                        <label class="form-check" for="is_enabled">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                id="is_enabled"
+                                name="is_enabled"
+                                value="1"
+                                {% if wheel_settings.is_enabled %}checked{% endif %}
+                            >
+                            <span class="form-check-box" aria-hidden="true"></span>
+                            <span class="form-check-text">Начислять жетоны за посещения</span>
+                        </label>
+                    </div>
                 </div>
-            </div>
+            </form>
+            </section>
+        </div>
 
-            <div class="actions">
-                <button type="submit" class="btn" id="wheelSettingsSubmit">Сохранить настройки</button>
-            </div>
-        </form>
-    </section>
+        <aside class="bonus-settings-side">
+            <aside class="token-summary-card" aria-label="Сводка настроек жетонов">
+                <div class="token-summary-title">Сводка</div>
+                <div class="token-summary-subtitle">Текущая конфигурация механики</div>
+                <div class="token-summary-row">
+                    <span>Активный режим</span>
+                    <strong>{% if game_mode == 'cases' %}Кейсы{% else %}Колесо{% endif %}</strong>
+                </div>
+                <div class="token-summary-row">
+                    <span>Старт жетонов</span>
+                    <strong>{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%d.%m.%Y') }}{% else %}не задан{% endif %}</strong>
+                </div>
+                <div class="token-summary-row">
+                    <span>За первое посещение</span>
+                    <strong>+1 жетон</strong>
+                </div>
+                <div class="token-summary-row">
+                    <span>Начисление</span>
+                    <strong class="token-summary-status {% if not wheel_settings.is_enabled %}is-off{% endif %}">
+                        {% if wheel_settings.is_enabled %}Активно{% else %}Выключено{% endif %}
+                    </strong>
+                </div>
+                <button type="submit" form="wheelSettingsForm" class="btn token-summary-save">Сохранить</button>
+            </aside>
+        </aside>
+    </div>
 
+    {% if active_bonus_editor == 'wheel' %}
     <section class="wheel-prize-workspace">
         <div class="card wheel-section wheel-prizes-panel">
             <div class="wheel-prizes-head">
@@ -575,6 +1000,12 @@
             {% endif %}
         </aside>
     </section>
+
+    {% endif %}
+
+    {% if active_bonus_editor == 'cases' %}
+        {% include "owner/_settings_cases.html" %}
+    {% endif %}
 </div>
 </div>
 

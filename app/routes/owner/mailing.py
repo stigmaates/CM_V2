@@ -11,8 +11,10 @@ from app.services.mailing import (
     delete_segment,
     get_filter_fields,
     get_crm_segment_options,
+    get_crm_interaction_detail,
     list_auto_mailings,
     list_bonus_giveaways,
+    list_crm_interactions,
     list_mailings,
     list_segments,
     preview_recipients_count,
@@ -81,6 +83,7 @@ def mailing_page():
         mailings = list_mailings(conn, club_id)
         auto_mailings = list_auto_mailings(conn, club_id)
         bonus_giveaways = list_bonus_giveaways(conn, club_id)
+        crm_interactions = list_crm_interactions(conn, club_id)
     finally:
         conn.close()
 
@@ -92,6 +95,7 @@ def mailing_page():
         mailings=mailings,
         auto_mailings=auto_mailings,
         bonus_giveaways=bonus_giveaways,
+        crm_interactions=crm_interactions,
     )
 
 
@@ -311,3 +315,19 @@ def api_bonus_giveaways_create():
         _start_mailing_worker(result["mailing_id"])
 
     return jsonify({"ok": True, "started": start_now, **result})
+
+
+@owner_bp.route('/api/crm-interactions/<interaction_type>/<int:interaction_id>')
+@owner_required
+def api_crm_interaction_detail(interaction_type, interaction_id):
+    club_id = get_current_club_id()
+    conn = get_db_connection()
+    try:
+        detail = get_crm_interaction_detail(conn, club_id, interaction_type, interaction_id)
+    finally:
+        conn.close()
+
+    if not detail:
+        return jsonify({"ok": False, "error": "Взаимодействие не найдено"}), 404
+
+    return jsonify({"ok": True, **detail})

@@ -3,10 +3,19 @@ from datetime import datetime
 from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import guest_required
+from app.config import BOT_USERNAME
+from app.services.rate_limit import client_ip, is_rate_limited
 from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_token
 from app.services.missions import get_guest_missions_with_progress
 from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, get_cm_bonus_redeem_history, redeem_cm_bonuses
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
+from app.services.cases import (
+    get_cases,
+    get_game_mode,
+    get_guest_case_history,
+    open_case,
+    serialize_case,
+)
 from app.services.wheel import (
     choose_wheel_prize,
     get_guest_profile_stats,
@@ -40,6 +49,9 @@ def dashboard():
     wheel_settings = get_wheel_settings(guest["club_id"])
     wheel_prizes = [serialize_wheel_prize(p) for p in get_wheel_prizes(guest["club_id"])]
     wheel_history = get_guest_wheel_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=8)
+    game_mode = get_game_mode(guest["club_id"])
+    cases = [serialize_case(c) for c in get_cases(guest["club_id"])]
+    case_history = get_guest_case_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=8)
     token_balance = get_guest_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
     token_history = get_guest_token_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=20)
     streak_info = get_guest_streak_info(guest_id=guest["guest_id"], club_id=guest["club_id"])
@@ -52,10 +64,14 @@ def dashboard():
         guest_name=session.get("guest_name"),
         guest_id=session.get("guest_id"),
         missions=missions,
+        guest_missions=missions,
         profile_stats=profile_stats,
         wheel_settings=wheel_settings,
         wheel_prizes=wheel_prizes,
         wheel_history=wheel_history,
+        game_mode=game_mode,
+        cases=cases,
+        case_history=case_history,
         token_balance=token_balance,
         token_history=token_history,
         streak_info=streak_info,
@@ -70,6 +86,10 @@ def check_login():
     token = request.args.get("token", "").strip()
     if not token:
         return {"ok": False, "error": "token_required"}, 400
+    ip = client_ip()
+    token_prefix = token[:12]
+    if is_rate_limited(f"guest.check_login:{ip}:{token_prefix}", limit=30, window_seconds=60):
+        return {"ok": False, "error": "rate_limited"}, 429
 
     token_row = get_guest_login_token(token)
     if not token_row:
@@ -102,7 +122,7 @@ def check_login():
 
 @guest_bp.route('/login')
 def login():
-    bot_username = "club_module_bot"
+    bot_username = BOT_USERNAME
     token = create_guest_login_token()
     bot_link = f"https://t.me/{bot_username}?start=login_{token}"
     return render_template("guest/guest_login.html", bot_link=bot_link, token=token)
@@ -192,6 +212,52 @@ def api_wheel_spin():
     }
 
 
+@guest_bp.route('/api/cases')
+@guest_required
+def api_cases():
+    guest_id = session.get("guest_id")
+    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
+    if not guest:
+        return {"error": "guest_not_found"}, 404
+
+    club_id = guest["club_id"]
+    return {
+        "game_mode": get_game_mode(club_id),
+        "cases": [serialize_case(c) for c in get_cases(club_id)],
+        "tokens": get_guest_tokens(guest_id, club_id),
+    }
+
+
+@guest_bp.route('/api/cases/<int:case_id>/open', methods=['POST'])
+@guest_required
+def api_case_open(case_id):
+    guest_id = session.get("guest_id")
+    guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
+    if not guest:
+        return {"error": "guest_not_found"}, 404
+
+    club_id = guest["club_id"]
+
+    if get_game_mode(club_id) != "cases":
+        return {"error": "cases_disabled"}, 400
+
+    try:
+        result = open_case(guest_id=guest_id, club_id=club_id, case_id=case_id)
+    except ValueError as e:
+        code = str(e)
+        if code == "no_tokens":
+            return {"error": "no_tokens"}, 400
+        if code == "case_not_found":
+            return {"error": "case_not_found"}, 404
+        if code == "no_items":
+            return {"error": "no_items"}, 400
+        return {"error": "invalid_items_config"}, 400
+
+    result["ok"] = True
+    result["tokens_after"] = get_guest_tokens(guest_id, club_id)
+    return result
+
+
 @guest_bp.route('/api/cm-bonuses')
 @guest_required
 def api_cm_bonuses():
@@ -223,6 +289,7 @@ def api_cm_bonuses_redeem():
         return {"error": "redeem_failed", "message": str(e)}, 500
 
     return result
+
 
 
 @guest_bp.route('/logout')

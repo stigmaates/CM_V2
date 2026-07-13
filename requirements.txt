@@ -1,7 +1,9 @@
 Flask
+gunicorn
 SQLAlchemy
 PyMySQL
 python-dotenv
 python-telegram-bot==20.8
 httpx
 Werkzeug
+Pillow

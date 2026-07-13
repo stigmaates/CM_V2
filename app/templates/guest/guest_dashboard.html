@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Cyber Bonus — Кабинет гостя</title>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
@@ -47,12 +48,16 @@
         .layout {
             display: grid;
             grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
+            grid-template-areas:
+                "left-top wheel"
+                "left-top history";
             gap: 24px;
             align-items: stretch;
             justify-content: center;
             min-height: min(920px, calc(100vh - 140px));
         }
-        .left-column { min-height: 0; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+        .left-column { grid-area: left-top; min-height: 0; display: flex; flex-direction: column; gap: 16px; flex: 1; align-self: start; }
+        .right-column { display: contents; }
         .panel {
             border: 1px solid var(--border);
             border-radius: 18px;
@@ -340,7 +345,7 @@
         .missions-panel {
             padding: 22px;
             margin-top: 0;
-            flex: 1;
+            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -480,9 +485,11 @@
         }
 
         .wheel-panel {
-            padding: 28px;
+            grid-area: wheel;
+            align-self: stretch;
+            padding: 26px 28px 24px;
             height: 100%;
-            min-height: 0;
+            min-height: 760px;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -499,7 +506,7 @@
             align-items: center;
             justify-content: center;
             min-height: 0;
-            padding: 20px 0 32px;
+            padding: 10px 0 14px;
         }
         .wheel-panel::before {
             content: "";
@@ -536,10 +543,10 @@
             transform: translateY(-1px);
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
         }
-        .wheel-area { display: flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 auto; }
+        .wheel-area { display: flex; align-items: center; justify-content: center; padding: 0; flex: 1 1 auto; width: 100%; min-height: 0; }
         .wheel-wrap {
             position: relative;
-            width: min(620px, 92vw);
+            width: min(860px, 96%);
             aspect-ratio: 1;
             display: grid;
             place-items: center;
@@ -678,6 +685,223 @@
         }
         .wheel-footnote { text-align: center; color: var(--text-muted); font-weight: 700; margin-top: 14px; padding-bottom: 2px; font-size: 13px; flex-shrink: 0; }
 
+        .cases-panel {
+            grid-area: wheel;
+            align-self: start;
+            padding: 26px 28px 24px;
+            height: auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            isolation: isolate;
+            background:
+                radial-gradient(circle at 78% 14%, rgba(126, 235, 70, 0.18), transparent 35%),
+                radial-gradient(circle at 14% 88%, rgba(70, 207, 255, 0.16), transparent 30%),
+                linear-gradient(180deg, rgba(30, 17, 52, 0.96), rgba(15, 10, 28, 0.98));
+        }
+        .cases-subtitle { color: var(--text-muted); font-weight: 600; margin: 4px 0 16px; font-size: 14px; line-height: 1.4; }
+        .cases-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            overflow: visible;
+            padding-right: 0;
+            flex: 0 0 auto;
+            align-content: start;
+        }
+        .case-tile {
+            position: relative;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .case-tile:hover {
+            transform: translateY(-2px);
+            border-color: rgba(165, 114, 255, 0.45);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+        }
+        .case-tile-badge {
+            align-self: flex-start;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .03em;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(165, 114, 255, 0.18);
+            border: 1px solid rgba(165, 114, 255, 0.32);
+            color: #e6d9ff;
+        }
+        .case-tile-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 120px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.04);
+            overflow: hidden;
+        }
+        .case-tile-image img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
+        .case-tile-fallback { font-size: 52px; line-height: 1; }
+        .case-tile-name { font-weight: 800; font-size: 15px; }
+        .case-tile-desc { color: var(--text-muted); font-size: 12px; line-height: 1.35; flex: 1 1 auto; }
+        .case-open-btn {
+            border: 0;
+            border-radius: 12px;
+            padding: 11px 12px;
+            color: #fff;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), #6a45bf);
+            transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+        }
+        .case-open-btn:not(:disabled):hover {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(95, 58, 166, 0.4);
+        }
+        .case-open-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+        .app-modal--case { width: min(720px, 96%); }
+        .case-reel-viewport {
+            position: relative;
+            height: 140px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.28);
+            border: 1px solid var(--border);
+            margin-bottom: 18px;
+        }
+        .case-reel-viewport::before, .case-reel-viewport::after {
+            content: "";
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 60px;
+            z-index: 3;
+            pointer-events: none;
+        }
+        .case-reel-viewport::before { left: 0; background: linear-gradient(90deg, rgba(15,10,28,0.95), transparent); }
+        .case-reel-viewport::after { right: 0; background: linear-gradient(-90deg, rgba(15,10,28,0.95), transparent); }
+        .case-reel-pointer {
+            position: absolute;
+            top: 0; bottom: 0;
+            left: 50%;
+            width: 3px;
+            margin-left: -1.5px;
+            background: #ffd469;
+            box-shadow: 0 0 14px rgba(255, 212, 105, 0.65);
+            z-index: 4;
+        }
+        .case-reel-track {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            will-change: transform;
+        }
+        .case-reel-item {
+            flex: 0 0 124px;
+            width: 124px;
+            height: 124px;
+            margin: 0 6px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .case-reel-item img { width: 100%; height: 100%; object-fit: contain; }
+        .case-reel-item span { font-size: 46px; }
+        .case-reel-item.is-winner { border-color: rgba(255, 212, 105, 0.65); box-shadow: 0 0 22px rgba(255, 212, 105, 0.35); }
+        .case-reel-track.is-idle {
+            animation: caseReelIdle 18s linear infinite;
+        }
+        @keyframes caseReelIdle {
+            from { transform: translateX(0); }
+            to { transform: translateX(-816px); }
+        }
+        .case-preview-panel {
+            display: grid;
+            gap: 12px;
+            margin: 0 0 16px;
+        }
+        .case-preview-title {
+            color: var(--text-main);
+            font-weight: 900;
+            font-size: 15px;
+        }
+        .case-preview-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            max-height: 260px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+        .case-preview-item {
+            display: grid;
+            grid-template-columns: 46px 1fr;
+            gap: 10px;
+            align-items: center;
+            min-height: 62px;
+            padding: 9px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.09);
+            background: rgba(255,255,255,0.045);
+        }
+        .case-preview-thumb {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background: rgba(0,0,0,.18);
+            border: 1px solid rgba(255,255,255,.08);
+            font-size: 22px;
+        }
+        .case-preview-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .case-preview-name {
+            color: #fff;
+            font-weight: 900;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+        .case-preview-reward {
+            color: var(--text-muted);
+            font-size: 11px;
+            line-height: 1.25;
+            margin-top: 3px;
+        }
+        .case-modal-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .case-modal-actions .claim-btn {
+            width: auto;
+            flex: 1 1 180px;
+        }
+        .case-modal-actions .claim-btn.secondary {
+            background: rgba(255,255,255,.09);
+            color: #f4ecff;
+            border: 1px solid rgba(255,255,255,.14);
+            box-shadow: none;
+        }
+
+
         .modal-backdrop {
             position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 18px;
             background: rgba(8, 4, 15, 0.74); backdrop-filter: blur(8px);
@@ -692,7 +916,7 @@
             pointer-events: auto;
         }
         .app-modal {
-            width: min(680px, 100%); border: 1px solid var(--border); border-radius: 20px;
+            width: min(860px, 96%); border: 1px solid var(--border); border-radius: 20px;
             background: linear-gradient(180deg, rgba(43, 25, 80, 0.97), rgba(22, 12, 40, 0.97));
             box-shadow: var(--shadow); padding: 22px; position: relative;
             transform: translateY(20px) scale(0.94);
@@ -712,7 +936,7 @@
         }
         .modal-title { margin: 0 0 16px; font-size: 24px; font-weight: 800; }
         .app-modal--streak {
-            width: min(560px, 100%);
+            width: min(860px, 96%);
             max-height: min(780px, calc(100vh - 36px));
             padding: 0;
             overflow: hidden;
@@ -864,6 +1088,25 @@
         .history-status--issued { color: #d8ffe6; background: rgba(73, 207, 130, .13); border-color: rgba(120, 238, 170, .26); }
         .history-status--pending { color: #fff2c8; background: rgba(255, 202, 92, .12); border-color: rgba(255, 218, 132, .28); }
         .history-status--cancelled { color: #ffd6dc; background: rgba(255, 92, 125, .13); border-color: rgba(255, 132, 158, .28); }
+        .win-modal-grid .history-status {
+            margin-bottom: 14px;
+        }
+
+        .win-modal-grid .claim-btn {
+            margin-top: 8px;
+        }
+        .wheel-history-panel {
+            grid-area: history;
+            align-self: stretch;
+            padding: 16px;
+            display: grid;
+            align-content: start;
+            gap: 12px;
+            background: linear-gradient(180deg, rgba(43, 25, 80, 0.78), rgba(31, 18, 58, 0.9));
+        }
+        .wheel-history-panel .section-title { margin: 0; font-size: 20px; }
+        .wheel-history-panel .history-list { max-height: 280px; }
+        .wheel-history-panel .empty { min-height: auto; padding: 18px; }
         .redeem-history-list { display: grid; gap: 10px; max-height: 460px; overflow: auto; padding-right: 4px; }
         .redeem-history-list::-webkit-scrollbar { width: 8px; }
         .redeem-history-list::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 999px; }
@@ -1020,6 +1263,9 @@
             }
         }
 
+
+        .modal-empty-state { color: var(--text-muted); font-size: 14px; line-height: 1.45; margin-top: 10px; }
+
         @media (max-width: 420px) {
             .guest-page {
                 padding-left: 12px;
@@ -1059,11 +1305,829 @@
             }
         }
 
+
+        @media (max-width: 1180px) {
+            .layout {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "left-top"
+                    "wheel"
+                    "history";
+            }
+            .wheel-panel { height: auto; min-height: auto; }
+            .wheel-wrap { width: min(560px, 86vw); }
+        }
+    
+        /* Adaptive layout for game mode: Cases.
+           The right side shares the desktop row with the left column.
+           The cases panel itself no longer becomes a huge empty rectangle; instead, the
+           visible group "Cases + History" is centered inside the available height.
+        */
+        .layout.layout--cases {
+            grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr);
+            grid-template-areas:
+                "left-top right-stack";
+            grid-template-rows: auto auto;
+            align-items: stretch;
+            align-content: stretch;
+        }
+
+        .layout.layout--cases .right-column {
+            grid-area: right-stack;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: stretch;
+            gap: 18px;
+            align-self: stretch;
+            min-height: 100%;
+        }
+
+        .layout.layout--cases .right-column > .wheel-panel[style*="display:none"],
+        .layout.layout--cases .right-column > .wheel-history-panel[style*="display:none"],
+        .layout.layout--cases .right-column > .cases-panel[style*="display:none"] {
+            display: none !important;
+        }
+
+        .layout.layout--cases .cases-panel,
+        .layout.layout--cases .right-column > .wheel-history-panel {
+            grid-area: auto;
+            width: 100%;
+            height: auto;
+            min-height: 0;
+            max-height: none;
+            align-self: stretch;
+            flex: 0 0 auto;
+        }
+
+        .layout.layout--cases .cases-panel {
+            --case-thumb-height: 130px;
+            padding: 26px 28px 24px;
+        }
+
+        .layout.layout--cases .cases-subtitle {
+            margin: 4px 0 18px;
+        }
+
+        .layout.layout--cases .cases-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+            align-items: stretch;
+            align-content: start;
+            justify-content: center;
+            overflow: visible;
+            padding-right: 0;
+            height: auto;
+            min-height: 0;
+            max-height: none;
+        }
+
+        .layout.layout--cases .case-tile {
+            min-height: 0;
+            height: auto;
+            padding: 16px;
+            gap: 10px;
+        }
+
+        .layout.layout--cases .case-tile-desc {
+            flex: 0 0 auto;
+        }
+
+        .layout.layout--cases .case-tile-image {
+            height: var(--case-thumb-height);
+        }
+
+        .layout.layout--cases .case-tile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+
+        /* 1 case: one large hero card. */
+        .layout.layout--cases .cases-grid[data-count="1"] {
+            --case-thumb-height: 260px;
+            grid-template-columns: minmax(320px, 460px);
+            max-width: 500px;
+            margin-inline: auto;
+        }
+
+        .layout.layout--cases .cases-grid[data-count="1"] .case-tile-name {
+            font-size: 22px;
+        }
+
+        .layout.layout--cases .cases-grid[data-count="1"] .case-tile-desc {
+            font-size: 15px;
+        }
+
+        .layout.layout--cases .cases-grid[data-count="1"] .case-open-btn {
+            min-height: 58px;
+            font-size: 17px;
+        }
+
+        /* 2 cases: two prominent cards instead of a tiny row with empty space below. */
+        .layout.layout--cases .cases-grid[data-count="2"] {
+            --case-thumb-height: 220px;
+            grid-template-columns: repeat(2, minmax(250px, 1fr));
+            max-width: 820px;
+            margin-inline: auto;
+        }
+
+        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-name {
+            font-size: 20px;
+        }
+
+        .layout.layout--cases .cases-grid[data-count="2"] .case-tile-desc {
+            font-size: 14px;
+        }
+
+        .layout.layout--cases .cases-grid[data-count="2"] .case-open-btn {
+            min-height: 54px;
+            font-size: 16px;
+        }
+
+        /* 3 cases: one row of three medium cards. */
+        .layout.layout--cases .cases-grid[data-count="3"] {
+            --case-thumb-height: 190px;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            max-width: 900px;
+            margin-inline: auto;
+        }
+
+        /* 4 cases: balanced 2 x 2 grid. */
+        .layout.layout--cases .cases-grid[data-count="4"] {
+            --case-thumb-height: 200px;
+            grid-template-columns: repeat(2, minmax(240px, 1fr));
+            max-width: 820px;
+            margin-inline: auto;
+        }
+
+        /* 5+ cases: compact grid, close to the previous dense layout. */
+        .layout.layout--cases .cases-grid[data-count="5"],
+        .layout.layout--cases .cases-grid[data-count="6"],
+        .layout.layout--cases .cases-grid[data-count="7"],
+        .layout.layout--cases .cases-grid[data-count="8"],
+        .layout.layout--cases .cases-grid[data-count="9"] {
+            --case-thumb-height: 130px;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            max-width: none;
+            margin-inline: 0;
+        }
+
+        .layout.layout--cases .right-column > .wheel-history-panel {
+            padding: 20px 22px;
+        }
+
+        .layout.layout--cases .wheel-history-panel .history-list {
+            max-height: 360px;
+        }
+
+        @media (max-width: 1180px) {
+            .layout.layout--cases {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "left-top"
+                    "right-stack";
+                min-height: 0;
+                align-items: start;
+                align-content: start;
+            }
+
+            .layout.layout--cases .right-column {
+                justify-content: flex-start;
+                min-height: 0;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .layout.layout--cases .cases-panel {
+                padding: 20px 16px;
+            }
+
+            .layout.layout--cases .cases-grid,
+            .layout.layout--cases .cases-grid[data-count="1"],
+            .layout.layout--cases .cases-grid[data-count="2"],
+            .layout.layout--cases .cases-grid[data-count="3"],
+            .layout.layout--cases .cases-grid[data-count="4"] {
+                grid-template-columns: 1fr;
+                max-width: none;
+                margin-inline: 0;
+            }
+
+            .layout.layout--cases .cases-grid[data-count="1"],
+            .layout.layout--cases .cases-grid[data-count="2"],
+            .layout.layout--cases .cases-grid[data-count="3"],
+            .layout.layout--cases .cases-grid[data-count="4"] {
+                --case-thumb-height: 170px;
+            }
+        }
+
+
+        /* case-layout-hard-fix-v6: финальный фикс режима «Кейсы».
+           Важно: это намеренно стоит в самом конце style-блока и дублируется JS-страховкой ниже,
+           чтобы старые правила .wheel-panel/.right-column/display:contents не могли снова растянуть cases-panel. */
+        @media (min-width: 1181px) {
+            body .layout.layout--cases.case-layout-hard-fix-v6 {
+                grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+                grid-template-areas:
+                    "left-top right-stack" !important;
+                grid-template-rows: auto auto !important;
+                align-items: stretch !important;
+                align-content: stretch !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: stretch !important;
+                gap: 18px !important;
+                align-self: stretch !important;
+                min-height: 0 !important;
+                height: 100% !important;
+            }
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+            display: none !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-panel,
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel {
+            grid-area: auto !important;
+            align-self: stretch !important;
+            flex: 0 0 auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            width: 100% !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-panel {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            padding: 26px 28px 24px !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v6 .cases-grid {
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            align-content: start !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile {
+            height: auto !important;
+            min-height: 0 !important;
+        }
+
+        body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile-image img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            display: block !important;
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-hard-fix-v6 {
+                grid-template-columns: 1fr !important;
+                grid-template-areas:
+                    "left-top"
+                    "right-stack" !important;
+                min-height: 0 !important;
+                align-items: start !important;
+                align-content: start !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                gap: 16px !important;
+                min-height: 0 !important;
+            }
+        }
+
+        /* case-layout-hard-fix-v6: кейсы сверху, история под ними.
+           На десктопе правая колонка растягивается на всю высоту двух левых блоков,
+           а история занимает оставшееся пространство. */
+        @media (min-width: 1181px) {
+            body .layout.layout--cases.case-layout-hard-fix-v6 {
+                grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+                grid-template-areas:
+                    "left-top right-stack" !important;
+                grid-template-rows: auto auto !important;
+                align-items: stretch !important;
+                align-content: stretch !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                align-items: stretch !important;
+                gap: 18px !important;
+                align-self: stretch !important;
+                min-height: 100% !important;
+                height: 100% !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-panel {
+                flex: 0 0 auto !important;
+                height: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel .history-list {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                overflow: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel .empty {
+                flex: 1 1 auto !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .cases-grid {
+                align-items: stretch !important;
+                grid-auto-rows: 1fr !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile {
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100% !important;
+                min-height: 0 !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .case-open-btn {
+                margin-top: auto !important;
+            }
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column {
+                grid-area: right-stack !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                gap: 16px !important;
+                min-height: 0 !important;
+                height: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel {
+                display: block !important;
+                flex: 0 0 auto !important;
+                overflow: visible !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 > .right-column > .cases-history-panel .history-list {
+                max-height: 360px !important;
+                overflow: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .cases-grid {
+                grid-auto-rows: auto !important;
+            }
+
+            body .layout.layout--cases.case-layout-hard-fix-v6 .case-tile {
+                height: auto !important;
+            }
+        }
+
+    
+        /* case-layout-adaptive-v7:
+           adaptive case cards by amount:
+           1-2 = big showcase cards; 3-4 = medium cards; 5-8 = normal compact grid;
+           9+ = dense grid so 12 cases fit without giant cards or wasted wheel-sized area. */
+        body .layout.layout--cases.case-layout-adaptive-v7 {
+            grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+            grid-template-areas:
+                "left-top right-stack" !important;
+            grid-template-rows: auto auto !important;
+            align-items: start !important;
+            align-content: start !important;
+            min-height: 0 !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column {
+            grid-area: right-stack !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-items: stretch !important;
+            align-self: start !important;
+            gap: 18px !important;
+            min-height: 0 !important;
+            height: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+            display: none !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-panel,
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-history-panel {
+            grid-area: auto !important;
+            align-self: stretch !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            flex: 0 0 auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-panel {
+            --case-grid-gap: 16px;
+            --case-card-padding: 14px;
+            --case-thumb-height: 170px;
+            --case-name-size: 15px;
+            --case-desc-size: 12px;
+            --case-button-padding: 11px 12px;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid {
+            display: grid !important;
+            gap: var(--case-grid-gap) !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding-right: 0 !important;
+            align-content: start !important;
+            align-items: stretch !important;
+            grid-auto-rows: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile {
+            height: auto !important;
+            min-height: 0 !important;
+            padding: var(--case-card-padding) !important;
+            gap: 8px !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-image {
+            height: var(--case-thumb-height) !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-image img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            display: block !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-name {
+            font-size: var(--case-name-size) !important;
+            line-height: 1.18 !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-tile-desc {
+            font-size: var(--case-desc-size) !important;
+            line-height: 1.3 !important;
+        }
+
+        body .layout.layout--cases.case-layout-adaptive-v7 .case-open-btn {
+            margin-top: auto !important;
+            padding: var(--case-button-padding) !important;
+        }
+
+        /* CSS fallback by exact count; JS below may refine columns by real container width. */
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="1"] {
+            grid-template-columns: minmax(320px, 520px) !important;
+            max-width: 560px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="2"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            max-width: 860px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="3"] {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            max-width: 900px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="4"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            max-width: 860px !important;
+            margin-inline: auto !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="5"],
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="6"] {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="7"],
+        body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count="8"] {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-adaptive-v7 {
+                grid-template-columns: 1fr !important;
+                grid-template-areas:
+                    "left-top"
+                    "right-stack" !important;
+            }
+        }
+
+        @media (max-width: 760px) {
+            body .layout.layout--cases.case-layout-adaptive-v7 > .right-column > .cases-panel {
+                padding: 20px 16px !important;
+            }
+            body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid,
+            body .layout.layout--cases.case-layout-adaptive-v7 .cases-grid[data-count] {
+                grid-template-columns: 1fr !important;
+                max-width: none !important;
+                margin-inline: 0 !important;
+            }
+        }
+
+    
+        /* case-layout-profile-sync-v11:
+           Cases panel is never lower than the profile panel.
+           Right history fills the remaining right column height down to the missions bottom.
+           Cards adapt by case count: few = larger, many = denser. */
+        body .layout.layout--cases.case-layout-profile-sync-v11 {
+            grid-template-columns: minmax(460px, 0.95fr) minmax(640px, 1.05fr) !important;
+            grid-template-areas:
+                "left-top right-stack" !important;
+            grid-template-rows: auto auto !important;
+            align-items: stretch !important;
+            align-content: stretch !important;
+            min-height: 0 !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column {
+            grid-area: right-stack !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-items: stretch !important;
+            align-self: stretch !important;
+            gap: 18px !important;
+            min-height: 0 !important;
+            height: 100% !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .wheel-panel[style*="display:none"],
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .wheel-history-panel[style*="display:none"]:not(.cases-history-panel) {
+            display: none !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-panel {
+            --case-grid-gap: 16px;
+            --case-card-padding: 14px;
+            --case-thumb-height: 170px;
+            --case-name-size: 15px;
+            --case-desc-size: 12px;
+            --case-button-padding: 11px 12px;
+            grid-area: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-self: stretch !important;
+            flex: 0 0 auto !important;
+            height: auto !important;
+            min-height: var(--cases-profile-min-height, 0px) !important;
+            max-height: none !important;
+            width: 100% !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-history-panel {
+            grid-area: auto !important;
+            align-self: stretch !important;
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            height: auto !important;
+            width: 100% !important;
+            overflow: hidden !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-history-panel .history-list {
+            flex: 1 1 auto !important;
+            max-height: none !important;
+            min-height: 0 !important;
+            overflow: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-history-panel .empty {
+            flex: 1 1 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .cases-grid {
+            display: grid !important;
+            gap: var(--case-grid-gap) !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding-right: 0 !important;
+            align-content: start !important;
+            align-items: stretch !important;
+            grid-auto-rows: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .case-tile {
+            display: flex !important;
+            flex-direction: column !important;
+            height: auto !important;
+            min-height: 0 !important;
+            padding: var(--case-card-padding) !important;
+            gap: 8px !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .case-tile-image {
+            height: var(--case-thumb-height) !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .case-tile-image img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            display: block !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .case-tile-name {
+            font-size: var(--case-name-size) !important;
+            line-height: 1.18 !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .case-tile-desc {
+            font-size: var(--case-desc-size) !important;
+            line-height: 1.3 !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .case-open-btn {
+            margin-top: auto !important;
+            padding: var(--case-button-padding) !important;
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-profile-sync-v11 {
+                grid-template-columns: 1fr !important;
+                grid-template-areas:
+                    "left-top"
+                    "right-stack" !important;
+                align-items: start !important;
+                align-content: start !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column {
+                align-self: start !important;
+                height: auto !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-panel {
+                min-height: 0 !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-history-panel {
+                display: block !important;
+                flex: 0 0 auto !important;
+                overflow: visible !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-history-panel .history-list {
+                max-height: 360px !important;
+            }
+        }
+
+        @media (max-width: 760px) {
+            body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column > .cases-panel {
+                padding: 20px 16px !important;
+            }
+            body .layout.layout--cases.case-layout-profile-sync-v11 .cases-grid,
+            body .layout.layout--cases.case-layout-profile-sync-v11 .cases-grid[data-count] {
+                grid-template-columns: 1fr !important;
+                max-width: none !important;
+                margin-inline: 0 !important;
+            }
+        }
+
+    
+        /* case-layout-profile-sync-v11-border-lock:
+           For 1-4 cases the external bottom border of the Cases panel must exactly match
+           the external bottom border of the Profile panel. The exact value is measured in JS
+           and applied with !important, because older experimental fixes had height:auto!important. */
+        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-lte-4:not(.case-count-1) > .right-column > .cases-panel {
+            box-sizing: border-box !important;
+            height: var(--cases-profile-height, auto) !important;
+            min-height: var(--cases-profile-height, 0px) !important;
+            max-height: var(--cases-profile-height, none) !important;
+            flex: 0 0 var(--cases-profile-height, auto) !important;
+            overflow: hidden !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-1 > .right-column > .cases-panel {
+            box-sizing: border-box !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            flex: 0 0 auto !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-1 .cases-grid {
+            grid-template-columns: minmax(280px, 380px) !important;
+            max-width: 420px !important;
+            margin-inline: auto !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11.case-count-gt-4 > .right-column > .cases-panel {
+            box-sizing: border-box !important;
+            height: auto !important;
+            min-height: var(--cases-profile-height, 0px) !important;
+            max-height: none !important;
+            flex: 0 0 auto !important;
+            overflow: visible !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column {
+            height: var(--cases-left-column-height, auto) !important;
+            min-height: var(--cases-left-column-height, 0px) !important;
+        }
+
+        @media (max-width: 1180px) {
+            body .layout.layout--cases.case-layout-profile-sync-v11 > .right-column,
+            body .layout.layout--cases.case-layout-profile-sync-v11.case-count-lte-4 > .right-column > .cases-panel,
+            body .layout.layout--cases.case-layout-profile-sync-v11.case-count-gt-4 > .right-column > .cases-panel {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                flex: 0 0 auto !important;
+                overflow: visible !important;
+            }
+        }
+
+
+        /* Compact two-column layout without an empty grid row. */
+        .layout {
+            grid-template-areas:
+                "left-top wheel"
+                "left-top history";
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 {
+            grid-template-areas: "left-top right-stack" !important;
+            grid-template-rows: auto !important;
+        }
+
+        @media (max-width: 1180px) {
+            .layout {
+                grid-template-areas:
+                    "left-top"
+                    "wheel"
+                    "history";
+            }
+
+            body .layout.layout--cases.case-layout-profile-sync-v11 {
+                grid-template-areas:
+                    "left-top"
+                    "right-stack" !important;
+                grid-template-rows: auto !important;
+            }
+        }
+
     </style>
 </head>
 <body>
+    {% if request.host.startswith('stage.') %}
+    <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
+    {% endif %}
     {% set profile = profile_stats|default({"total_hours": 0, "bonus_balance_placeholder": "—", "loyalty_level_placeholder": "—"}) %}
-    {% set missions_list = missions|default([]) %}
+    {% set missions_list = guest_missions|default([], true) %}
     {% set prizes_list = wheel_prizes|default([]) %}
     {% set history_list = wheel_history|default([]) %}
     {% set spin_cost = wheel_settings.spin_cost if wheel_settings else 2 %}
@@ -1081,7 +2145,11 @@
             </div>
         </header>
 
-        <main class="layout">
+        <!-- guest-layout-v20260612-wheel-big-strict -->
+        <!-- case-layout-profile-sync-v11 -->
+        <!-- case-right-column-real-fix-20260614 -->
+        <!-- case-area-strict-fix-20260614 -->
+        <main class="layout {% if game_mode == 'cases' %}layout--cases case-layout-profile-sync-v11{% endif %}" data-case-layout-fix="v11">
             <div class="left-column">
                 <section class="panel profile-panel">
                     <div class="profile-header-row">
@@ -1136,6 +2204,7 @@
                                 <button class="cm-bonus-history-btn" id="openCmBonusRedeemHistoryBtn" type="button">История переводов</button>
                             </div>
                         </div>
+
                     </div>
                 </section>
 
@@ -1170,33 +2239,131 @@
                         <div class="empty">Для твоего клуба пока нет активных заданий.</div>
                     {% endif %}
                 </section>
+
+
             </div>
 
-            <section class="panel wheel-panel">
-                <div class="wheel-head">
-                    <div class="section-title" style="margin:0;">Колесо фортуны</div>
-                    <button type="button" class="wheel-history-btn" id="openMyHistoryBtn" title="Открыть историю выпадений" aria-label="История выпадений">История выпадений</button>
-                </div>
+            <div class="right-column" data-case-right-column="v11">
+                <section class="panel wheel-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
+                    <div class="wheel-head">
+                        <div class="section-title" style="margin:0;">Колесо фортуны</div>
+                    </div>
 
-                <div class="wheel-center-stage">
-                    <div class="wheel-area">
-                        <div class="wheel-wrap">
-                            <div class="wheel-pointer"></div>
-                            <div class="wheel" id="wheel">
-                                <svg id="wheelSvg" class="wheel-svg" viewBox="0 0 1000 1000" aria-label="Колесо фортуны"></svg>
+                    <div class="wheel-center-stage">
+                        <div class="wheel-area">
+                            <div class="wheel-wrap">
+                                <div class="wheel-pointer"></div>
+                                <div class="wheel" id="wheel">
+                                    <svg id="wheelSvg" class="wheel-svg" viewBox="0 0 1000 1000" aria-label="Колесо фортуны"></svg>
+                                </div>
+                                <div class="wheel-axle" aria-hidden="true"><span class="wheel-axle__mark">КБ</span></div>
                             </div>
-                            <div class="wheel-axle" aria-hidden="true"><span class="wheel-axle__mark">КБ</span></div>
                         </div>
                     </div>
-                </div>
 
-                <div class="spin-controls">
-                    <button class="spin-btn" id="spinBtn" onclick="spinWheel()">Крутить</button>
-                </div>
-                <div class="wheel-footnote">Крутка стоит {{ spin_cost }} жетонов • недельная серия даёт от 1 до 7 жетонов • приз сохраняется сразу</div>
-            </section>
+                    <div class="spin-controls">
+                        <button class="spin-btn" id="spinBtn" onclick="spinWheel()">Крутить</button>
+                    </div>
+                    <div class="wheel-footnote">Крутка стоит {{ spin_cost }} жетонов • недельная серия даёт от 1 до 7 жетонов • приз сохраняется сразу</div>
+                </section>
+
+                <section class="panel wheel-history-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
+                    <div class="section-title">
+                        <span>История выпадений</span>
+                    </div>
+                    {% if history_list %}
+                        <div class="history-list" id="historyList">
+                            {% for item in history_list %}
+                                <div class="history-item">
+                                    <div class="history-thumb" aria-hidden="true">
+                                        <span class="history-thumb-placeholder">{{ item.icon_emoji or '🎁' }}</span>
+                                    </div>
+                                    <div>
+                                        <div class="history-title">{{ item.name }}</div>
+                                        <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
+                                        {% if item.prize_status_label %}
+                                            {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
+                                            <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty" id="historyEmpty">Пока нет побед. Крути колесо и получай призы!</div>
+                        <div class="history-list" id="historyList"></div>
+                    {% endif %}
+                </section>
+
+                <section class="panel cases-panel" data-cases-count="{{ (cases|default([]))|length }}" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                    <div class="wheel-head">
+                        <div class="section-title" style="margin:0;">Кейсы</div>
+                    </div>
+                    <p class="cases-subtitle">Открывай кейсы и получай призы! Приз начисляется сразу или передаётся администратору на выдачу.</p>
+
+                    {% set cases_list = cases|default([]) %}
+                    {% set cases_count = cases_list|length %}
+                    {% set cases_density = 'single' if cases_count == 1 else ('few' if cases_count <= 2 else ('medium' if cases_count <= 4 else ('normal' if cases_count <= 8 else 'compact'))) %}
+                    {% if cases_list %}
+                        <div class="cases-grid cases-grid--{{ cases_density }}" id="casesGrid" data-count="{{ cases_count }}" data-density="{{ cases_density }}">
+                            {% for case in cases_list %}
+                                <div class="case-tile" data-case-id="{{ case.id }}">
+                                    {% if case.badge_label %}<div class="case-tile-badge">{{ case.badge_label }}</div>{% endif %}
+                                    <div class="case-tile-image">
+                                        {% if case.image_url %}
+                                            <img src="{{ case.image_url }}" alt="{{ case.name }}">
+                                        {% else %}
+                                            <span class="case-tile-fallback">📦</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="case-tile-name">{{ case.name }}</div>
+                                    {% if case.description %}<div class="case-tile-desc">{{ case.description }}</div>{% endif %}
+                                    <button class="case-open-btn" data-case-id="{{ case.id }}" onclick="previewCase({{ case.id }})">
+                                        {% if case.price_tokens %}Открыть за {{ case.price_tokens }} жет.{% else %}Открыть бесплатно{% endif %}
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty">Владелец клуба пока не добавил кейсы.</div>
+                    {% endif %}
+                </section>
+
+                <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
+                    <div class="section-title">
+                        <span>История открытий</span>
+                    </div>
+                    {% set case_history_list = case_history|default([]) %}
+                    {% if case_history_list %}
+                        <div class="history-list" id="caseHistoryList">
+                            {% for item in case_history_list %}
+                                <div class="history-item">
+                                    <div class="history-thumb" aria-hidden="true">
+                                        {% if item.image_url %}
+                                            <img class="history-thumb-img" src="{{ item.image_url }}" alt="{{ item.name }}">
+                                        {% else %}
+                                            <span class="history-thumb-placeholder">🎁</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="history-title">{{ item.name }}</div>
+                                        <div class="history-date">{{ item.case_name }}{% if item.description %} • {{ item.description }}{% endif %}</div>
+                                        <div class="history-status {{ 'history-status--issued' if (item.bonus_amount|int > 0 or item.token_amount|int > 0 or item.claim_status == 'issued') else ('history-status--cancelled' if item.claim_status == 'cancelled' else 'history-status--pending') }}">{{ item.prize_status_label }}</div>
+                                    </div>
+                                    <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty" id="caseHistoryEmpty">Пока нет открытий. Открой кейс и получи приз!</div>
+                        <div class="history-list" id="caseHistoryList"></div>
+                    {% endif %}
+                </section>
+            </div>
         </main>
     </div>
+
 
     <div class="modal-backdrop" id="winModal">
         <div class="app-modal">
@@ -1212,6 +2379,40 @@
                     <div class="win-desc" id="winDescription">Поздравляем! Твой приз сохранён за тобой.</div>
                     <div class="history-status history-status--pending" id="winClaimStatus" style="display:none;"></div>
                     <button class="claim-btn" onclick="closeModal('winModal')">Отлично</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="caseOpenModal">
+        <div class="app-modal app-modal--case">
+            <button class="modal-close" onclick="closeModal('caseOpenModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title" id="caseOpenTitle">Открыть кейс?</h2>
+            <div class="case-reel-viewport">
+                <div class="case-reel-track" id="caseReelTrack"></div>
+                <div class="case-reel-pointer" aria-hidden="true"></div>
+            </div>
+
+            <div class="case-preview-panel" id="casePreviewPanel">
+                <div class="case-preview-title">Что может выпасть</div>
+                <div class="case-preview-items" id="casePreviewItems"></div>
+            </div>
+
+            <div class="case-modal-actions" id="caseModalActions">
+                <button class="claim-btn" type="button" id="caseConfirmOpenBtn">Открыть</button>
+                <button class="claim-btn secondary" type="button" id="caseChooseAnotherBtn">Открыть другой кейс</button>
+            </div>
+
+            <div class="win-modal-grid" id="caseResult" style="display:none;">
+                <div class="win-image-box">
+                    <img class="win-image" id="caseWinImage" src="" alt="Приз" style="display:none;">
+                    <div id="caseWinFallback" style="font-size:70px;">🎁</div>
+                </div>
+                <div>
+                    <div class="win-name" id="caseWinName">Приз</div>
+                    <div class="win-desc" id="caseWinDescription">Поздравляем! Твой приз сохранён за тобой.</div>
+                    <div class="history-status history-status--pending" id="caseWinClaimStatus" style="display:none;"></div>
+                    <button class="claim-btn" onclick="closeModal('caseOpenModal')">Отлично</button>
                 </div>
             </div>
         </div>
@@ -1294,36 +2495,7 @@
         </div>
     </div>
 
-    <div class="modal-backdrop" id="myHistoryModal">
-        <div class="app-modal">
-            <button class="modal-close" onclick="closeModal('myHistoryModal')" aria-label="Закрыть">×</button>
-            <h2 class="modal-title">Моя история выпадений</h2>
-            {% if history_list %}
-                <div class="history-list" id="historyList">
-                    {% for item in history_list %}
-                        <div class="history-item">
-                            <div class="history-thumb" aria-hidden="true">
-                                <span class="history-thumb-placeholder">{{ item.icon_emoji or '🎁' }}</span>
-                            </div>
-                            <div>
-                                <div class="history-title">{{ item.name }}</div>
-                                <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
-                                {% if item.prize_status_label %}
-                                    {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
-                                    <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="empty" id="historyEmpty">Пока нет побед. Крути колесо и получай призы!</div>
-                <div class="history-list" id="historyList"></div>
-            {% endif %}
-        </div>
-    </div>
-
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script>
         const wheel = document.getElementById('wheel');
         const wheelPointer = document.querySelector('.wheel-pointer');
@@ -1350,6 +2522,25 @@
         const initialTokens = Number({{ tokens_balance|default(0) }});
         const initialCmBonusBalance = Number({{ cm_balance|default(0) }});
         const prizes = {{ prizes_list|tojson }};
+        const gameMode = {{ game_mode|default('wheel')|tojson }};
+        const casesData = {{ cases|default([])|tojson }};
+        const caseReelTrack = document.getElementById('caseReelTrack');
+        const caseOpenTitle = document.getElementById('caseOpenTitle');
+        const casePreviewPanel = document.getElementById('casePreviewPanel');
+        const casePreviewItems = document.getElementById('casePreviewItems');
+        const caseModalActions = document.getElementById('caseModalActions');
+        const caseConfirmOpenBtn = document.getElementById('caseConfirmOpenBtn');
+        const caseChooseAnotherBtn = document.getElementById('caseChooseAnotherBtn');
+        const caseResult = document.getElementById('caseResult');
+        const caseWinImage = document.getElementById('caseWinImage');
+        const caseWinFallback = document.getElementById('caseWinFallback');
+        const caseWinName = document.getElementById('caseWinName');
+        const caseWinDescription = document.getElementById('caseWinDescription');
+        const caseWinClaimStatus = document.getElementById('caseWinClaimStatus');
+        const caseHistoryList = document.getElementById('caseHistoryList');
+        const caseHistoryEmpty = document.getElementById('caseHistoryEmpty');
+        let isCaseOpening = false;
+        let selectedCaseId = null;
         let currentRotation = 0;
         let isSpinning = false;
         let pointerTickRaf = null;
@@ -1367,6 +2558,10 @@
         function closeModal(id) {
             const modal = document.getElementById(id);
             if (modal) modal.classList.remove('show');
+            if (id === 'caseOpenModal' && !isCaseOpening) {
+                stopIdleCaseReel();
+                selectedCaseId = null;
+            }
         }
 
         function setTokens(tokens) {
@@ -2062,9 +3257,272 @@
             }
         }
 
-        if (openMyHistoryBtn) {
-            openMyHistoryBtn.addEventListener('click', () => openModal('myHistoryModal'));
+        function reelItemMarkup(item, extraClass) {
+            const cls = `case-reel-item${extraClass ? ' ' + extraClass : ''}`;
+            if (item && item.image_url) {
+                return `<div class="${cls}"><img src="${item.image_url}" alt=""></div>`;
+            }
+            return `<div class="${cls}"><span>🎁</span></div>`;
         }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function caseRarityText(item) {
+            return (item && item.rarity_label) ? String(item.rarity_label) : 'Обычный';
+        }
+
+        function renderCasePreviewItems(caseObj) {
+            if (!casePreviewItems) return;
+            const items = (caseObj && caseObj.items && caseObj.items.length) ? caseObj.items : [];
+            if (!items.length) {
+                casePreviewItems.innerHTML = '<div class="modal-empty-state">В этом кейсе пока нет предметов.</div>';
+                return;
+            }
+            casePreviewItems.innerHTML = items.map((item) => {
+                const thumb = item.image_url
+                    ? `<img src="${escapeHtml(item.image_url)}" alt="">`
+                    : '<span>🎁</span>';
+                return `
+                    <div class="case-preview-item">
+                        <div class="case-preview-thumb">${thumb}</div>
+                        <div>
+                            <div class="case-preview-name">${escapeHtml(item.name || 'Приз')}</div>
+                            <div class="case-preview-reward">${escapeHtml(caseRarityText(item))}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function stopIdleCaseReel() {
+            if (!caseReelTrack) return;
+            caseReelTrack.classList.remove('is-idle');
+            caseReelTrack.style.animation = '';
+        }
+
+        function startIdleCaseReel(caseObj) {
+            if (!caseReelTrack) return;
+            const pool = (caseObj && caseObj.items && caseObj.items.length) ? caseObj.items : [{ name: 'Приз', image_url: null }];
+            const totalCells = 28;
+            let html = '';
+            for (let i = 0; i < totalCells; i += 1) {
+                const item = pool[i % pool.length];
+                html += reelItemMarkup(item);
+            }
+            stopIdleCaseReel();
+            caseReelTrack.innerHTML = html;
+            caseReelTrack.style.transition = 'none';
+            caseReelTrack.style.transform = 'translateX(0px)';
+            caseReelTrack.classList.remove('is-idle');
+            void caseReelTrack.offsetWidth;
+            caseReelTrack.classList.add('is-idle');
+        }
+
+        function previewCase(caseId) {
+            if (isCaseOpening) return;
+            const caseObj = casesData.find((c) => Number(c.id) === Number(caseId));
+            if (!caseObj) {
+                showWinModal({ name: 'Ошибка', description: 'Кейс не найден' });
+                return;
+            }
+
+            selectedCaseId = caseId;
+            caseOpenTitle.textContent = caseObj.name ? `Кейс: ${caseObj.name}` : 'Открыть кейс?';
+            if (caseResult) caseResult.style.display = 'none';
+            if (casePreviewPanel) casePreviewPanel.style.display = 'grid';
+            if (caseModalActions) caseModalActions.style.display = 'flex';
+            if (caseConfirmOpenBtn) {
+                const price = Number(caseObj.price_tokens || 0);
+                caseConfirmOpenBtn.disabled = false;
+                caseConfirmOpenBtn.textContent = price > 0 ? `Открыть за ${price} жет.` : 'Открыть бесплатно';
+            }
+            renderCasePreviewItems(caseObj);
+            startIdleCaseReel(caseObj);
+            openModal('caseOpenModal');
+        }
+
+        function buildAndPlayReel(caseObj, wonItem, onDone) {
+            const pool = (caseObj && caseObj.items && caseObj.items.length) ? caseObj.items : [wonItem];
+            const totalCells = 36;
+            const winnerIndex = totalCells - 6;
+            let html = '';
+            for (let i = 0; i < totalCells; i += 1) {
+                if (i === winnerIndex) {
+                    // Не подсвечиваем выигрышную ячейку заранее: пока лента летит,
+                    // это обычная ячейка. Подсветка включается только после остановки.
+                    html += reelItemMarkup(wonItem, 'js-case-winner');
+                } else {
+                    const randomItem = pool[Math.floor(Math.random() * pool.length)];
+                    html += reelItemMarkup(randomItem);
+                }
+            }
+            caseReelTrack.innerHTML = html;
+            caseReelTrack.style.transition = 'none';
+            caseReelTrack.style.transform = 'translateX(0px)';
+
+            const cellWidth = 124 + 12; // width + margins
+            const viewportWidth = caseReelTrack.parentElement.clientWidth;
+            const targetOffset = (winnerIndex * cellWidth + cellWidth / 2) - (viewportWidth / 2);
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    caseReelTrack.style.transition = 'transform 3.6s cubic-bezier(0.12, 0.78, 0.15, 1)';
+                    caseReelTrack.style.transform = `translateX(-${targetOffset}px)`;
+                });
+            });
+
+            setTimeout(() => {
+                const winnerCell = caseReelTrack.querySelector('.js-case-winner');
+                if (winnerCell) winnerCell.classList.add('is-winner');
+                onDone();
+            }, 3700);
+        }
+
+        function showCaseResult(item, claim = null) {
+            caseOpenTitle.textContent = 'Тебе выпало!';
+            caseResult.style.display = 'grid';
+            caseWinName.textContent = item.name || 'Приз получен';
+            caseWinDescription.textContent = item.description || 'Поздравляем! Твой приз сохранён за тобой.';
+            if (item.image_url) {
+                caseWinImage.src = item.image_url;
+                caseWinImage.style.display = 'block';
+                caseWinFallback.style.display = 'none';
+            } else {
+                caseWinImage.removeAttribute('src');
+                caseWinImage.style.display = 'none';
+                caseWinFallback.style.display = 'block';
+            }
+            if (caseWinClaimStatus) {
+                if (claim) {
+                    caseWinClaimStatus.style.display = 'inline-flex';
+                    caseWinClaimStatus.className = `history-status ${claimStatusClass(claim.status)}`;
+                    caseWinClaimStatus.textContent = `Заявка #${claim.id}: ${claim.status_label || 'ожидает выдачи'}`;
+                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0) {
+                    caseWinClaimStatus.style.display = 'inline-flex';
+                    caseWinClaimStatus.className = 'history-status history-status--issued';
+                    caseWinClaimStatus.textContent = 'Начислено автоматически';
+                } else {
+                    caseWinClaimStatus.style.display = 'none';
+                    caseWinClaimStatus.textContent = '';
+                }
+            }
+        }
+
+        function prependCaseHistory(caseObj, item, claim = null) {
+            if (!caseHistoryList) return;
+            if (caseHistoryEmpty) caseHistoryEmpty.style.display = 'none';
+            const row = document.createElement('div');
+            row.className = 'history-item';
+            const imageHtml = item.image_url
+                ? `<div class="history-thumb" aria-hidden="true"><img class="history-thumb-img" src="${item.image_url}" alt=""></div>`
+                : `<div class="history-thumb" aria-hidden="true"><span class="history-thumb-placeholder">🎁</span></div>`;
+            row.innerHTML = `
+                ${imageHtml}
+                <div>
+                    <div class="history-title"></div>
+                    <div class="history-date"></div>
+                    <div class="history-status" style="display:none;"></div>
+                </div>
+                <div class="history-date">сейчас</div>
+            `;
+            row.querySelector('.history-title').textContent = item.name || 'Приз';
+            row.querySelectorAll('.history-date')[0].textContent = (caseObj && caseObj.name) ? caseObj.name : 'Кейс';
+            const statusBadge = row.querySelector('.history-status');
+            if (statusBadge) {
+                if (claim) {
+                    statusBadge.style.display = 'inline-flex';
+                    statusBadge.className = `history-status ${claimStatusClass(claim.status)}`;
+                    statusBadge.textContent = claim.status_label || 'ожидает выдачи';
+                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0) {
+                    statusBadge.style.display = 'inline-flex';
+                    statusBadge.className = 'history-status history-status--issued';
+                    statusBadge.textContent = 'начислено автоматически';
+                }
+            }
+            caseHistoryList.prepend(row);
+        }
+
+        async function openCase(caseId) {
+            if (isCaseOpening) return;
+            isCaseOpening = true;
+
+            stopIdleCaseReel();
+            document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = true; });
+            if (caseConfirmOpenBtn) {
+                caseConfirmOpenBtn.disabled = true;
+                caseConfirmOpenBtn.textContent = 'Открываем...';
+            }
+            if (caseModalActions) caseModalActions.style.display = 'none';
+            if (casePreviewPanel) casePreviewPanel.style.display = 'none';
+            caseOpenTitle.textContent = 'Открываем кейс...';
+            caseResult.style.display = 'none';
+
+            const caseObj = casesData.find((c) => Number(c.id) === Number(caseId));
+
+            try {
+                const response = await fetch(`/guest/api/cases/${caseId}/open`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    let errorText = 'Не удалось открыть кейс';
+                    if (data.error === 'no_tokens') errorText = 'Недостаточно жетонов для открытия';
+                    if (data.error === 'cases_disabled') errorText = 'Кейсы сейчас отключены';
+                    if (data.error === 'case_not_found') errorText = 'Кейс не найден';
+                    if (data.error === 'no_items' || data.error === 'invalid_items_config') errorText = 'Кейс пока не настроен';
+                    if (data.error === 'unauthorized') errorText = 'Нужно заново войти в кабинет';
+                    closeModal('caseOpenModal');
+                    showWinModal({ name: 'Ошибка', description: errorText });
+                    isCaseOpening = false;
+                    document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
+                    await loadTokens();
+                    return;
+                }
+
+                const item = data.item || {};
+                buildAndPlayReel(caseObj, item, async () => {
+                    showCaseResult(item, data.claim || null);
+                    prependCaseHistory(caseObj, item, data.claim || null);
+                    if (data.tokens_after !== undefined) setTokens(data.tokens_after);
+                    await loadTokens();
+                    await loadCmBonuses();
+                    isCaseOpening = false;
+                    selectedCaseId = null;
+                    document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
+                });
+            } catch (error) {
+                closeModal('caseOpenModal');
+                showWinModal({ name: 'Ошибка', description: 'Что-то пошло не так при открытии кейса' });
+                isCaseOpening = false;
+                document.querySelectorAll('.case-open-btn').forEach((btn) => { btn.disabled = false; });
+                await loadTokens();
+            }
+        }
+
+        if (caseConfirmOpenBtn) {
+            caseConfirmOpenBtn.addEventListener('click', () => {
+                if (selectedCaseId !== null) openCase(selectedCaseId);
+            });
+        }
+
+        if (caseChooseAnotherBtn) {
+            caseChooseAnotherBtn.addEventListener('click', () => {
+                closeModal('caseOpenModal');
+            });
+        }
+
+
+
 
         if (openCmBonusRedeemHistoryBtn) {
             openCmBonusRedeemHistoryBtn.addEventListener('click', () => openModal('cmBonusRedeemHistoryModal'));
@@ -2082,6 +3540,293 @@
             }
         });
 
+        function applyCasesLayoutProfileSyncV11() {
+            if (gameMode !== 'cases') return;
+
+            const layout = document.querySelector('.layout.layout--cases');
+            const rightColumn = document.querySelector('[data-case-right-column="v11"]') || document.querySelector('[data-case-right-column="v9"]') || document.querySelector('[data-case-right-column="v8"]') || document.querySelector('.right-column');
+            const leftColumn = document.querySelector('.left-column');
+            const profilePanel = document.querySelector('.profile-panel');
+            const casesPanel = document.querySelector('.cases-panel');
+            const historyPanel = document.querySelector('.cases-history-panel');
+            const casesGrid = document.getElementById('casesGrid');
+            if (!layout || !rightColumn || !casesPanel) return;
+
+            layout.classList.remove('case-layout-hard-fix-v6', 'case-layout-adaptive-v7', 'case-layout-profile-sync-v8', 'case-layout-profile-sync-v9', 'case-layout-profile-sync-v10', 'case-count-1', 'case-count-lte-4', 'case-count-gt-4');
+            layout.classList.add('case-layout-profile-sync-v11');
+            layout.dataset.caseLayoutFix = 'v11';
+
+            const desktop = window.innerWidth > 1180;
+            const count = casesGrid ? Number(casesGrid.dataset.count || '0') : 0;
+
+            if (desktop) {
+                layout.style.gridTemplateColumns = 'minmax(460px, 0.95fr) minmax(640px, 1.05fr)';
+                layout.style.gridTemplateAreas = '"left-top right-stack"';
+                layout.style.gridTemplateRows = 'auto';
+                layout.style.alignItems = 'stretch';
+                layout.style.alignContent = 'stretch';
+            } else {
+                layout.style.gridTemplateColumns = '1fr';
+                layout.style.gridTemplateAreas = '"left-top" "right-stack"';
+                layout.style.gridTemplateRows = 'auto';
+                layout.style.alignItems = 'start';
+                layout.style.alignContent = 'start';
+            }
+            layout.style.minHeight = '0';
+
+            const profileHeight = profilePanel ? Math.ceil(profilePanel.offsetHeight || profilePanel.getBoundingClientRect().height) : 0;
+            const leftHeight = leftColumn ? Math.ceil(leftColumn.offsetHeight || leftColumn.getBoundingClientRect().height) : 0;
+            const syncCasesToProfile = desktop && profileHeight > 0 && count >= 2 && count <= 4;
+
+            layout.classList.toggle('case-count-1', desktop && count === 1);
+            layout.classList.toggle('case-count-lte-4', desktop && count > 0 && count <= 4);
+            layout.classList.toggle('case-count-gt-4', desktop && count > 4);
+            layout.style.setProperty('--cases-profile-height', profileHeight ? `${profileHeight}px` : 'auto');
+            layout.style.setProperty('--cases-left-column-height', leftHeight ? `${leftHeight}px` : 'auto');
+
+            rightColumn.style.gridArea = 'right-stack';
+            rightColumn.style.display = 'flex';
+            rightColumn.style.flexDirection = 'column';
+            rightColumn.style.justifyContent = 'flex-start';
+            rightColumn.style.alignItems = 'stretch';
+            rightColumn.style.gap = desktop ? '18px' : '16px';
+            rightColumn.style.alignSelf = desktop ? 'stretch' : 'start';
+            rightColumn.style.setProperty('box-sizing', 'border-box', 'important');
+            rightColumn.style.setProperty('min-height', desktop && leftHeight ? `${leftHeight}px` : '0', 'important');
+            rightColumn.style.setProperty('height', desktop && leftHeight ? `${leftHeight}px` : 'auto', 'important');
+
+            casesPanel.style.gridArea = 'auto';
+            casesPanel.style.display = 'flex';
+            casesPanel.style.flexDirection = 'column';
+            casesPanel.style.justifyContent = 'flex-start';
+            casesPanel.style.alignSelf = 'stretch';
+            casesPanel.style.width = '100%';
+            casesPanel.style.overflow = 'visible';
+            casesPanel.style.setProperty('box-sizing', 'border-box', 'important');
+            casesPanel.style.setProperty('flex', '0 0 auto', 'important');
+            casesPanel.style.setProperty('min-height', desktop && profileHeight && count !== 1 ? `${profileHeight}px` : '0', 'important');
+            if (syncCasesToProfile) {
+                casesPanel.style.setProperty('height', `${profileHeight}px`, 'important');
+                casesPanel.style.setProperty('max-height', `${profileHeight}px`, 'important');
+                casesPanel.style.setProperty('flex-basis', `${profileHeight}px`, 'important');
+                casesPanel.style.setProperty('overflow', 'hidden', 'important');
+            } else {
+                casesPanel.style.setProperty('height', 'auto', 'important');
+                casesPanel.style.setProperty('max-height', 'none', 'important');
+                casesPanel.style.setProperty('flex-basis', 'auto', 'important');
+                casesPanel.style.setProperty('overflow', 'visible', 'important');
+            }
+
+            if (historyPanel) {
+                historyPanel.style.gridArea = 'auto';
+                historyPanel.style.alignSelf = 'stretch';
+                historyPanel.style.width = '100%';
+                historyPanel.style.minHeight = '0';
+                if (desktop) {
+                    historyPanel.style.display = 'flex';
+                    historyPanel.style.flexDirection = 'column';
+                    historyPanel.style.flex = '1 1 auto';
+                    historyPanel.style.overflow = 'hidden';
+                } else {
+                    historyPanel.style.display = 'block';
+                    historyPanel.style.flex = '0 0 auto';
+                    historyPanel.style.overflow = 'visible';
+                }
+                const historyList = historyPanel.querySelector('.history-list');
+                if (historyList) {
+                    historyList.style.flex = desktop ? '1 1 auto' : '';
+                    historyList.style.minHeight = desktop ? '0' : '';
+                    historyList.style.maxHeight = desktop ? 'none' : '360px';
+                    historyList.style.overflow = 'auto';
+                }
+            }
+
+            if (!casesGrid) return;
+
+            const gridWidth = casesGrid.clientWidth || casesPanel.clientWidth || 720;
+            let columns = 2;
+            let imageHeight = 160;
+            let gap = 16;
+            let cardPadding = 14;
+            let nameSize = 15;
+            let descSize = 12;
+            let buttonPadding = '11px 12px';
+            let hideDesc = false;
+            let maxWidth = 'none';
+            let marginInline = '0';
+
+            if (window.innerWidth <= 760) {
+                columns = 1;
+                imageHeight = count <= 2 ? 190 : 165;
+            } else if (count <= 1) {
+                columns = 1;
+                imageHeight = 180;
+                maxWidth = '420px';
+                marginInline = 'auto';
+                cardPadding = 14;
+                nameSize = 16;
+                descSize = 13;
+                buttonPadding = '11px 12px';
+            } else if (count === 2) {
+                columns = 2;
+                imageHeight = syncCasesToProfile ? Math.max(170, Math.min(220, profileHeight - 260)) : 210;
+                maxWidth = '900px';
+                marginInline = 'auto';
+                cardPadding = 16;
+                nameSize = 16;
+                descSize = 13;
+                buttonPadding = '13px 14px';
+            } else if (count === 3) {
+                columns = gridWidth >= 560 ? 3 : 2;
+                imageHeight = syncCasesToProfile ? Math.max(115, Math.min(158, profileHeight - 318)) : 155;
+                maxWidth = 'none';
+                marginInline = '0';
+                cardPadding = 12;
+                nameSize = 14;
+                descSize = 11;
+                buttonPadding = '10px 10px';
+            } else if (count === 4) {
+                columns = gridWidth >= 620 ? 4 : 2;
+                if (columns === 4) {
+                    imageHeight = syncCasesToProfile ? Math.max(98, Math.min(132, profileHeight - 340)) : 132;
+                    cardPadding = 11;
+                    gap = 12;
+                    nameSize = 13;
+                    descSize = 11;
+                    buttonPadding = '9px 10px';
+                } else {
+                    imageHeight = 95;
+                    cardPadding = 10;
+                    gap = 10;
+                    nameSize = 13;
+                    descSize = 10;
+                    buttonPadding = '8px 9px';
+                    hideDesc = true;
+                }
+                maxWidth = 'none';
+                marginInline = '0';
+            } else if (count <= 6) {
+                columns = gridWidth >= 620 ? 3 : 2;
+                imageHeight = 135;
+                gap = 14;
+                cardPadding = 12;
+                nameSize = 14;
+                descSize = 11;
+                buttonPadding = '10px 10px';
+            } else if (count <= 8) {
+                columns = gridWidth >= 650 ? 4 : 3;
+                imageHeight = 115;
+                gap = 12;
+                cardPadding = 11;
+                nameSize = 13;
+                descSize = 11;
+                buttonPadding = '9px 10px';
+                hideDesc = true;
+            } else if (count <= 12) {
+                columns = gridWidth >= 620 ? 4 : 3;
+                imageHeight = 92;
+                gap = 10;
+                cardPadding = 10;
+                nameSize = 12;
+                descSize = 10;
+                buttonPadding = '8px 8px';
+                hideDesc = true;
+            } else {
+                columns = gridWidth >= 720 ? 5 : 4;
+                imageHeight = 82;
+                gap = 8;
+                cardPadding = 9;
+                nameSize = 12;
+                descSize = 10;
+                buttonPadding = '8px 8px';
+                hideDesc = true;
+            }
+
+            casesPanel.style.setProperty('--case-grid-gap', `${gap}px`);
+            casesPanel.style.setProperty('--case-card-padding', `${cardPadding}px`);
+            casesPanel.style.setProperty('--case-thumb-height', `${imageHeight}px`);
+            casesPanel.style.setProperty('--case-name-size', `${nameSize}px`);
+            casesPanel.style.setProperty('--case-desc-size', `${descSize}px`);
+            casesPanel.style.setProperty('--case-button-padding', buttonPadding);
+
+            casesGrid.style.display = 'grid';
+            casesGrid.style.gridTemplateColumns = `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`;
+            casesGrid.style.gap = `${gap}px`;
+            casesGrid.style.height = 'auto';
+            casesGrid.style.minHeight = '0';
+            casesGrid.style.maxHeight = 'none';
+            casesGrid.style.overflow = 'visible';
+            casesGrid.style.alignContent = 'start';
+            casesGrid.style.alignItems = 'stretch';
+            casesGrid.style.paddingRight = '0';
+            casesGrid.style.gridAutoRows = 'auto';
+            casesGrid.style.maxWidth = maxWidth;
+            casesGrid.style.marginInline = marginInline;
+
+            casesGrid.querySelectorAll('.case-tile').forEach((tile) => {
+                tile.style.display = 'flex';
+                tile.style.flexDirection = 'column';
+                tile.style.height = 'auto';
+                tile.style.minHeight = '0';
+                tile.style.padding = `${cardPadding}px`;
+                tile.style.gap = count >= 9 ? '6px' : '8px';
+            });
+
+            casesGrid.querySelectorAll('.case-tile-image').forEach((imageBox) => {
+                imageBox.style.height = `${imageHeight}px`;
+            });
+
+            casesGrid.querySelectorAll('.case-tile-image img').forEach((img) => {
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                img.style.objectPosition = 'center';
+                img.style.display = 'block';
+            });
+
+            casesGrid.querySelectorAll('.case-tile-name').forEach((name) => {
+                name.style.fontSize = `${nameSize}px`;
+                name.style.lineHeight = '1.18';
+            });
+
+            casesGrid.querySelectorAll('.case-tile-desc').forEach((desc) => {
+                desc.style.display = hideDesc ? 'none' : '';
+                desc.style.fontSize = `${descSize}px`;
+            });
+
+            casesGrid.querySelectorAll('.case-open-btn').forEach((button) => {
+                button.style.marginTop = 'auto';
+                button.style.padding = buttonPadding;
+                button.style.fontSize = count >= 9 ? '12px' : '13px';
+            });
+
+            casesGrid.querySelectorAll('.case-tile-badge').forEach((badge) => {
+                badge.style.fontSize = count >= 9 ? '10px' : '11px';
+                badge.style.padding = count >= 9 ? '3px 8px' : '4px 10px';
+            });
+        }
+
+        window.addEventListener('resize', applyCasesLayoutProfileSyncV11);
+        window.addEventListener('load', () => {
+            applyCasesLayoutProfileSyncV11();
+            setTimeout(applyCasesLayoutProfileSyncV11, 80);
+            setTimeout(applyCasesLayoutProfileSyncV11, 250);
+        });
+        document.querySelectorAll('.case-tile-image img').forEach((img) => {
+            if (!img.complete) img.addEventListener('load', applyCasesLayoutProfileSyncV11, { once: true });
+        });
+        if (window.ResizeObserver) {
+            const profileResizeObserver = new ResizeObserver(() => applyCasesLayoutProfileSyncV11());
+            const profilePanelForResize = document.querySelector('.profile-panel');
+            const leftColumnForResize = document.querySelector('.left-column');
+            if (profilePanelForResize) profileResizeObserver.observe(profilePanelForResize);
+            if (leftColumnForResize) profileResizeObserver.observe(leftColumnForResize);
+        }
+
+
+
+
+        applyCasesLayoutProfileSyncV11();
         renderWheelSvg();
         setTokens(initialTokens);
         setCmBonuses(initialCmBonusBalance);

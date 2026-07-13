@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>WALLZ - Кабинет гостя</title>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
@@ -229,6 +230,9 @@
     </style>
 </head>
 <body>
+    {% if request.host.startswith('stage.') %}
+    <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
+    {% endif %}
     {% set profile = profile_stats|default({
         "total_hours": 0,
         "bonus_balance_placeholder": "-",
@@ -377,6 +381,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script>
         const wheel = document.getElementById('wheel');
         const spinBtn = document.getElementById('spinBtn');

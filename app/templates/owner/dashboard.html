@@ -9,6 +9,7 @@
 {% block content %}
 {% set engagement_data = engagement|default({
     "wheel": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
+    "cases": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
     "missions": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0}
 }) %}
 {% set survey = first_visit_feedback|default({
@@ -195,7 +196,7 @@
                     <div class="cb-funnel-bar-item" title="{{ item.label }}: {{ item.count }} гостей">
                         <div class="cb-funnel-bar-wrap">
                             <div class="cb-funnel-bar-area">
-                                <div class="cb-funnel-bar-stack" style="height: {{ item.height }}%">
+                                <div class="cb-funnel-bar-stack" style="height: {{ [item.height * 1.65, 100]|min }}%">
                                     <div class="cb-funnel-bar-value">{{ item.count }}</div>
                                     <span class="cb-funnel-bar"></span>
                                 </div>
@@ -219,6 +220,13 @@
                 <b></b>
             </div>
         </div>
+        <div class="cb-engagement-visual cb-engagement-visual--cases hidden-block" data-engagement-visual="cases" aria-hidden="true">
+            <div class="cb-case-art">
+                <div class="cb-case-art__lid"></div>
+                <div class="cb-case-art__body"><span>CB</span></div>
+                <div class="cb-case-art__glow"></div>
+            </div>
+        </div>
         <div class="cb-engagement-visual cb-engagement-visual--missions hidden-block" data-engagement-visual="missions" aria-hidden="true">
             <div class="cb-trophy-art">
                 <div class="cb-trophy-art__cup">★</div>
@@ -232,6 +240,7 @@
             <div class="cb-engagement-top">
                 <div class="cb-engagement-tabs" role="tablist" aria-label="Метрики вовлечения">
                     <button type="button" class="cb-engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
+                    <button type="button" class="cb-engagement-tab" data-engagement-tab="cases" aria-selected="false">Кейсы</button>
                     <button type="button" class="cb-engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
                 </div>
                 <button type="button" class="cb-scope-toggle" id="engagementScopeToggle" aria-pressed="false" title="По умолчанию блок считает только гостей, зарегистрированных за выбранный период. Включи, чтобы показать всех гостей за всё время.">
@@ -241,14 +250,21 @@
             </div>
             <div class="cb-engagement-hint" id="engagementScopeHint">Показаны гости, зарегистрированные за последние {{ stats.period_days }} дней.</div>
 
-            <div id="wheelMetrics" class="cb-metric-grid">
+            <div id="wheelMetrics" class="cb-metric-grid" data-engagement-metrics="wheel">
                 <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="wheel.total_guests">{{ engagement_data.wheel.total_guests }}</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">🎡</div><div><span>Крутили колесо</span><b data-engagement-value="wheel.involved_guests">{{ engagement_data.wheel.involved_guests }}</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Вовлеченность</span><b><span data-engagement-value="wheel.engagement_percent">{{ engagement_data.wheel.engagement_percent }}</span>%</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">↻</div><div><span>Вернулись после прокрута</span><b data-engagement-value="wheel.returned_guests">{{ engagement_data.wheel.returned_guests }}</b></div></div>
             </div>
 
-            <div id="missionMetrics" class="cb-metric-grid hidden-block">
+            <div id="caseMetrics" class="cb-metric-grid hidden-block" data-engagement-metrics="cases">
+                <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="cases.total_guests">{{ engagement_data.cases.total_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">💼</div><div><span>Открывали кейсы</span><b data-engagement-value="cases.involved_guests">{{ engagement_data.cases.involved_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Вовлеченность</span><b><span data-engagement-value="cases.engagement_percent">{{ engagement_data.cases.engagement_percent }}</span>%</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">↻</div><div><span>Вернулись после открытия</span><b data-engagement-value="cases.returned_guests">{{ engagement_data.cases.returned_guests }}</b></div></div>
+            </div>
+
+            <div id="missionMetrics" class="cb-metric-grid hidden-block" data-engagement-metrics="missions">
                 <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="missions.total_guests">{{ engagement_data.missions.total_guests }}</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">☑</div><div><span>Выполнили задание</span><b data-engagement-value="missions.involved_guests">{{ engagement_data.missions.involved_guests }}</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Вовлеченность</span><b><span data-engagement-value="missions.engagement_percent">{{ engagement_data.missions.engagement_percent }}</span>%</b></div></div>
@@ -256,6 +272,139 @@
             </div>
         </div>
     </section>
+
+
+    <section
+        class="cb-panel cb-case-openings-panel hidden-block"
+        id="caseOpeningsChartPanel"
+        data-engagement-extra="cases"
+        aria-label="Статистика открытий кейсов"
+    >
+        {% set opened_cases_count = case_openings_chart['items']|selectattr('openings')|list|length %}
+        <div class="cb-case-openings-layout">
+            <div class="cb-case-openings-list-panel">
+                <div class="cb-panel-head cb-case-openings-head">
+                    <div>
+                        <h2>Открытия кейсов</h2>
+                        <p>Топ кейсов за последние {{ case_openings_chart.period_days }} дней</p>
+                    </div>
+                    <span class="cb-case-openings-column-label">Открытий</span>
+                </div>
+
+                {% if case_openings_chart['items'] %}
+                <div class="cb-case-openings-chart">
+                    {% for item in case_openings_chart['items'] %}
+                    <div class="cb-case-openings-row" title="{{ item.name }}: {{ item.openings }} открытий">
+                        <div class="cb-case-openings-rank">{{ loop.index }}</div>
+                        <div class="cb-case-openings-thumb">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.name }}">
+                            {% else %}
+                                <span>CB</span>
+                            {% endif %}
+                        </div>
+                        <div class="cb-case-openings-name">{{ item.name }}</div>
+                        <b class="cb-case-openings-count">{{ item.openings }}</b>
+                        <div class="cb-case-openings-track" aria-hidden="true">
+                            <div
+                                class="cb-case-openings-bar {% if item.openings == 0 %}is-empty{% endif %}"
+                                style="width: {{ item.width }}%"
+                            ></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="cb-case-openings-empty">
+                    Кейсы пока не созданы. После добавления кейсов здесь появится статистика открытий.
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="cb-case-openings-summary">
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">◇</div>
+                    <div>
+                        <b>{{ case_openings_chart.total_openings }}</b>
+                        <span>всего открытий</span>
+                    </div>
+                </div>
+                <div class="cb-case-openings-summary-separator"></div>
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">💼</div>
+                    <div>
+                        <b>{{ opened_cases_count }}</b>
+                        <span>кейсов открывали</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <section
+        class="cb-panel cb-case-openings-panel hidden-block"
+        id="missionCompletionsChartPanel"
+        data-engagement-extra="missions"
+        aria-label="Статистика выполнений заданий"
+    >
+        {% set completed_missions_count = mission_completions_chart['items']|selectattr('completions')|list|length %}
+        <div class="cb-case-openings-layout">
+            <div class="cb-case-openings-list-panel">
+                <div class="cb-panel-head cb-case-openings-head">
+                    <div>
+                        <h2>Выполнения заданий</h2>
+                        <p>Топ заданий за последние {{ mission_completions_chart.period_days }} дней</p>
+                    </div>
+                    <span class="cb-case-openings-column-label">Выполнений</span>
+                </div>
+
+                {% if mission_completions_chart['items'] %}
+                <div class="cb-case-openings-chart">
+                    {% for item in mission_completions_chart['items'] %}
+                    <div class="cb-case-openings-row" title="{{ item.name }}: {{ item.completions }} выполнений">
+                        <div class="cb-case-openings-rank">{{ loop.index }}</div>
+                        <div class="cb-case-openings-thumb cb-case-openings-thumb--mission">
+                            <span>✓</span>
+                        </div>
+                        <div class="cb-case-openings-name">{{ item.name }}</div>
+                        <b class="cb-case-openings-count">{{ item.completions }}</b>
+                        <div class="cb-case-openings-track" aria-hidden="true">
+                            <div
+                                class="cb-case-openings-bar {% if item.completions == 0 %}is-empty{% endif %}"
+                                style="width: {{ item.width }}%"
+                            ></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="cb-case-openings-empty">
+                    Задания пока не созданы. После добавления заданий здесь появится статистика выполнений.
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="cb-case-openings-summary">
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">☑</div>
+                    <div>
+                        <b>{{ mission_completions_chart.total_completions }}</b>
+                        <span>всего выполнений</span>
+                    </div>
+                </div>
+                <div class="cb-case-openings-summary-separator"></div>
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">★</div>
+                    <div>
+                        <b>{{ completed_missions_count }}</b>
+                        <span>заданий выполняли</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+
 </main>
 
 <div class="feedback-modal-overlay" id="feedbackModalOverlay" hidden></div>
@@ -315,12 +464,12 @@
     const engagementPeriodDays = {{ stats.period_days|tojson|safe }};
     let engagementAllTimeMode = false;
 
-    const wheelMetrics = document.getElementById('wheelMetrics');
-    const missionMetrics = document.getElementById('missionMetrics');
+    const engagementMetricBlocks = document.querySelectorAll('[data-engagement-metrics]');
     const engagementTabs = document.querySelectorAll('[data-engagement-tab]');
     const engagementScopeToggle = document.getElementById('engagementScopeToggle');
     const engagementScopeHint = document.getElementById('engagementScopeHint');
     const engagementVisuals = document.querySelectorAll('[data-engagement-visual]');
+    const engagementExtras = document.querySelectorAll('[data-engagement-extra]');
 
     function getNestedValue(source, path) {
         return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : 0), source);
@@ -343,17 +492,16 @@
     }
 
     function setEngagementMode(mode) {
-        const missionsMode = mode === 'missions';
-        if (missionsMode) {
-            if (wheelMetrics) wheelMetrics.classList.add('hidden-block');
-            if (missionMetrics) missionMetrics.classList.remove('hidden-block');
-        } else {
-            if (missionMetrics) missionMetrics.classList.add('hidden-block');
-            if (wheelMetrics) wheelMetrics.classList.remove('hidden-block');
-        }
+        engagementMetricBlocks.forEach((block) => {
+            block.classList.toggle('hidden-block', block.dataset.engagementMetrics !== mode);
+        });
 
         engagementVisuals.forEach((visual) => {
             visual.classList.toggle('hidden-block', visual.dataset.engagementVisual !== mode);
+        });
+
+        engagementExtras.forEach((extra) => {
+            extra.classList.toggle('hidden-block', extra.dataset.engagementExtra !== mode);
         });
 
         engagementTabs.forEach((tab) => {

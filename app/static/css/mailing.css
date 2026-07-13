@@ -490,6 +490,298 @@
     font-size: 14px;
 }
 
+.interaction-row {
+    width: 100%;
+    border: 1px solid rgba(143, 91, 255, 0.26);
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.interaction-row:hover {
+    transform: translateY(-1px);
+    border-color: rgba(165, 114, 255, 0.68);
+    background: rgba(143, 91, 255, 0.11);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+}
+
+.crm-interactions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.crm-interactions-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.crm-interactions-filters {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.crm-interactions-type-filter,
+.crm-interactions-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.crm-interactions-type-filter {
+    position: relative;
+}
+
+.crm-interactions-type-filter::after {
+    content: "";
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--text-main);
+    border-bottom: 2px solid var(--text-main);
+    pointer-events: none;
+    transform: translateY(-65%) rotate(45deg);
+}
+
+.crm-interactions-type-filter select {
+    min-width: 150px;
+    border: 1px solid rgba(143, 91, 255, 0.34);
+    border-radius: 12px;
+    padding: 9px 38px 9px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+    font: inherit;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.crm-interactions-checkbox {
+    cursor: pointer;
+    user-select: none;
+}
+
+.crm-interactions-checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: #8f5bff;
+}
+
+.crm-interactions-list .is-filter-hidden {
+    display: none !important;
+}
+
+.crm-interaction-dialog {
+    width: min(1360px, 96vw);
+    overscroll-behavior: contain;
+}
+
+.crm-interaction-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+}
+
+.interaction-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.interaction-kpi {
+    border: 1px solid rgba(143, 91, 255, 0.26);
+    border-radius: 16px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.interaction-kpi span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.interaction-kpi strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-main);
+    font-size: 24px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.interaction-section {
+    border: 1px solid rgba(143, 91, 255, 0.22);
+    border-radius: 18px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.interaction-section h3 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    color: var(--text-main);
+}
+
+.interaction-effect-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.interaction-effect-grid > div {
+    border-radius: 14px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.interaction-effect-grid span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.interaction-effect-grid strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-main);
+    font-size: 22px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.interaction-message {
+    color: var(--text-main);
+    line-height: 1.55;
+    white-space: normal;
+}
+
+.interaction-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.interaction-reason-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.interaction-reason-row span {
+    overflow-wrap: anywhere;
+}
+
+.interaction-guest-head,
+.interaction-guest-row {
+    display: grid;
+    grid-template-columns: minmax(190px, 1.1fr) 130px minmax(210px, 1.25fr) minmax(210px, 1.25fr) 135px 100px 100px;
+    gap: 10px;
+    align-items: center;
+    text-align: center;
+}
+
+.interaction-guest-head {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    padding: 0 10px 8px;
+}
+
+.interaction-guests {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 460px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.interaction-guest-row {
+    border-radius: 14px;
+    padding: 12px 10px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.045);
+    font-size: 13px;
+}
+
+.interaction-guest-row strong,
+.interaction-guest-row span {
+    display: block;
+}
+
+.interaction-guest-row strong {
+    color: var(--text-main);
+    margin-bottom: 3px;
+}
+
+.interaction-date,
+.interaction-duration,
+.interaction-muted {
+    display: block;
+    line-height: 1.35;
+}
+
+.interaction-date {
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.interaction-duration {
+    margin-top: 3px;
+}
+
+.interaction-status {
+    display: inline-flex;
+    width: max-content;
+    margin: 0 auto;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-weight: 900;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.interaction-status.is-ok {
+    color: #d8ffe6;
+    background: rgba(73, 207, 130, 0.14);
+}
+
+.interaction-status.is-bad {
+    color: #ffd6dc;
+    background: rgba(255, 92, 125, 0.14);
+}
+
+.interaction-status.is-wait {
+    color: #fff2c8;
+    background: rgba(255, 202, 92, 0.14);
+}
+
 .file-item {
     display: flex;
     align-items: center;
@@ -575,6 +867,11 @@
     transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+.mailing-history-modal__dialog.crm-interaction-dialog {
+    width: min(1360px, 96vw);
+    max-height: min(820px, calc(100vh - 48px));
+}
+
 .mailing-history-modal__head {
     display: flex;
     align-items: flex-start;
@@ -608,10 +905,29 @@
     overflow: auto;
     min-height: 0;
     padding-right: 4px;
+    overscroll-behavior: contain;
 }
 
 @media (max-width: 1180px) {
     .mailing-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .crm-interactions-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .crm-interactions-filters {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .interaction-guest-head {
+        display: none;
+    }
+
+    .interaction-guest-row {
         grid-template-columns: 1fr;
     }
 
