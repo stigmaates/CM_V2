@@ -43,3 +43,25 @@ def test_bonus_settings_shows_wheel_editor_by_default():
     assert "Призы колеса" in html
     assert "openPrizeAddModal" in html
     assert "openCaseAddModal" not in html
+
+
+def test_bonus_settings_token_summary_uses_shared_token_language():
+    with app.test_request_context("/owner/settings?tab=wheel"):
+        html = render_template(
+            "owner/_settings_wheel.html",
+            wheel_settings=SimpleNamespace(tokens_start_date=None, spin_cost=2, is_enabled=True),
+            prizes=[],
+            wheel_active_prob_sum=0,
+            prize_icon_choices=["gift"],
+            game_mode="cases",
+            bonus_editor="cases",
+            cases=[],
+            case_upload_usage=None,
+        )
+
+    assert "Активный режим" in html
+    assert "Старт жетонов" in html
+    assert "За первое посещение" in html
+    assert "+1 жетон" in html
+    assert "Начислять жетоны за посещения" in html
+    assert "Колесо включено" not in html

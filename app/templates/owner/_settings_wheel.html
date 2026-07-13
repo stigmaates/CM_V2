@@ -43,6 +43,70 @@
         grid-column: 1 / -1;
     }
 
+    .token-settings-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+        gap: 18px;
+        align-items: start;
+    }
+
+    .token-summary-card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(20, 12, 36, 0.48);
+        padding: 16px;
+    }
+
+    .token-summary-title {
+        margin: 0 0 12px;
+        color: var(--text-main);
+        font-weight: 900;
+        font-size: 16px;
+    }
+
+    .token-summary-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 0;
+        border-top: 1px solid rgba(255,255,255,.08);
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+
+    .token-summary-row:first-of-type {
+        border-top: 0;
+        padding-top: 0;
+    }
+
+    .token-summary-row strong {
+        color: var(--text-main);
+        font-size: 14px;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .token-summary-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #70e08a;
+    }
+
+    .token-summary-status::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+        box-shadow: 0 0 12px currentColor;
+    }
+
+    .token-summary-status.is-off {
+        color: #ff8a7a;
+    }
+
     .wheel-prize-workspace {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
@@ -634,6 +698,9 @@
     }
 
     @media (max-width: 1180px) {
+        .token-settings-layout {
+            grid-template-columns: 1fr;
+        }
         .case-list {
             grid-template-columns: 1fr;
         }
@@ -700,58 +767,82 @@
     <section class="card wheel-section">
         <div class="section-title">Настройки жетонов</div>
         <p class="wheel-subtitle">
-            Здесь задается дата начала начисления жетонов, стоимость прокрута колеса и состояние колеса.
-            Жетоны считаются по уникальным дням посещения после выбранной даты.
+            Жетоны используются и в колесе, и в кейсах. Здесь задается дата начала начислений и стоимость прокрута колеса;
+            цена открытия кейса настраивается в редакторе кейсов.
         </p>
 
-        <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm">
-            <div class="wheel-form-grid">
-                <div class="form-group">
-                    <label for="tokens_start_date">Дата начала начисления жетонов</label>
-                    <input
-                        class="form-input"
-                        type="datetime-local"
-                        id="tokens_start_date"
-                        name="tokens_start_date"
-                        value="{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
-                        required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="spin_cost">Стоимость одного прокрута колеса</label>
-                    <input
-                        class="form-input"
-                        type="number"
-                        id="spin_cost"
-                        name="spin_cost"
-                        min="1"
-                        step="1"
-                        value="{{ wheel_settings.spin_cost or 1 }}"
-                        required
-                    >
-                </div>
-
-                <div class="form-group full">
-                    <label class="form-check" for="is_enabled">
+        <div class="token-settings-layout">
+            <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm">
+                <div class="wheel-form-grid">
+                    <div class="form-group">
+                        <label for="tokens_start_date">Дата начала начисления жетонов</label>
                         <input
-                            type="checkbox"
-                            class="form-check-input"
-                            id="is_enabled"
-                            name="is_enabled"
-                            value="1"
-                            {% if wheel_settings.is_enabled %}checked{% endif %}
+                            class="form-input"
+                            type="datetime-local"
+                            id="tokens_start_date"
+                            name="tokens_start_date"
+                            value="{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+                            required
                         >
-                        <span class="form-check-box" aria-hidden="true"></span>
-                        <span class="form-check-text">Колесо включено{% if game_mode == 'cases' %} (применится при возврате к режиму «Колесо фортуны»){% endif %}</span>
-                    </label>
-                </div>
-            </div>
+                    </div>
 
-            <div class="actions">
-                <button type="submit" class="btn" id="wheelSettingsSubmit">Сохранить настройки</button>
-            </div>
-        </form>
+                    <div class="form-group">
+                        <label for="spin_cost">Стоимость прокрута колеса</label>
+                        <input
+                            class="form-input"
+                            type="number"
+                            id="spin_cost"
+                            name="spin_cost"
+                            min="1"
+                            step="1"
+                            value="{{ wheel_settings.spin_cost or 1 }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group full">
+                        <label class="form-check" for="is_enabled">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                id="is_enabled"
+                                name="is_enabled"
+                                value="1"
+                                {% if wheel_settings.is_enabled %}checked{% endif %}
+                            >
+                            <span class="form-check-box" aria-hidden="true"></span>
+                            <span class="form-check-text">Начислять жетоны за посещения</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button type="submit" class="btn" id="wheelSettingsSubmit">Сохранить настройки</button>
+                </div>
+            </form>
+
+            <aside class="token-summary-card" aria-label="Сводка настроек жетонов">
+                <div class="token-summary-title">Сводка</div>
+                <div class="token-summary-row">
+                    <span>Активный режим</span>
+                    <strong>{% if game_mode == 'cases' %}Кейсы{% else %}Колесо{% endif %}</strong>
+                </div>
+                <div class="token-summary-row">
+                    <span>Старт жетонов</span>
+                    <strong>{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%d.%m.%Y') }}{% else %}не задан{% endif %}</strong>
+                </div>
+                <div class="token-summary-row">
+                    <span>За первое посещение</span>
+                    <strong>+1 жетон</strong>
+                </div>
+                <div class="token-summary-row">
+                    <span>Начисление</span>
+                    <strong class="token-summary-status {% if not wheel_settings.is_enabled %}is-off{% endif %}">
+                        {% if wheel_settings.is_enabled %}Активно{% else %}Выключено{% endif %}
+                    </strong>
+                </div>
+            </aside>
+        </div>
     </section>
 
     {% if active_bonus_editor == 'wheel' %}
