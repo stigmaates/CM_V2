@@ -118,6 +118,7 @@ First make sure `.env` contains:
 ```bash
 TECH_ALERT_BOT_TOKEN=<technical alert bot token>
 TECH_ALERT_CHAT_ID=<technical alert chat id>
+TECH_ALERT_PROXY_URL=
 ```
 
 Then install and enable the stage timer:

@@ -100,6 +100,39 @@ def test_send_telegram_message_posts_payload():
     assert calls[0][1]["chat_id"] == "-1"
 
 
+def test_send_telegram_message_uses_dedicated_proxy_only(monkeypatch):
+    client_kwargs = []
+
+    class _Client:
+        def __init__(self, **kwargs):
+            client_kwargs.append(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, url, json):
+            return _Response()
+
+    monkeypatch.setattr(tech_alerts.httpx, "Client", _Client)
+
+    monkeypatch.setattr(tech_alerts, "TECH_ALERT_PROXY_URL", "")
+    ok, error = tech_alerts.send_telegram_message("hello", token="token", chat_id="-1")
+
+    assert ok is True
+    assert error is None
+    assert "proxy" not in client_kwargs[-1]
+
+    monkeypatch.setattr(tech_alerts, "TECH_ALERT_PROXY_URL", "http://alerts-proxy:8080")
+    ok, error = tech_alerts.send_telegram_message("hello", token="token", chat_id="-1")
+
+    assert ok is True
+    assert error is None
+    assert client_kwargs[-1]["proxy"] == "http://alerts-proxy:8080"
+
+
 def test_send_test_alert_posts_explicit_test_message(monkeypatch):
     messages = []
 
