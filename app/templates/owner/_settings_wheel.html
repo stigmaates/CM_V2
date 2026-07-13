@@ -620,8 +620,8 @@
     <section class="card wheel-section">
         <div class="section-title">Бонусная механика</div>
         <p class="wheel-subtitle">
-            Выбери, какую бонусную механику видят гости в личном кабинете: классическое колесо фортуны или кейсы с настраиваемым содержимым.
-            Жетоны для крутки/открытия начисляются по тем же правилам недельной серии, заданным ниже.
+            Выбери, какую бонусную механику видят гости в личном кабинете. Настройки колеса и кейсов доступны ниже всегда:
+            можно заранее собрать кейсы, оставить гостям колесо, а затем переключить режим в один клик.
         </p>
 
         <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
@@ -644,7 +644,7 @@
     <section class="card wheel-section">
         <div class="section-title">Настройки жетонов</div>
         <p class="wheel-subtitle">
-            Здесь задается дата начала начисления жетонов, стоимость прокрута колеса (для режима «Колесо фортуны») и состояние колеса.
+            Здесь задается дата начала начисления жетонов, стоимость прокрута колеса и состояние колеса.
             Жетоны считаются по уникальным дням посещения после выбранной даты.
         </p>
 
@@ -698,9 +698,6 @@
         </form>
     </section>
 
-    {% if game_mode == 'cases' %}
-        {% include "owner/_settings_cases.html" %}
-    {% else %}
     <section class="wheel-prize-workspace">
         <div class="card wheel-section wheel-prizes-panel">
             <div class="wheel-prizes-head">
@@ -824,7 +821,8 @@
             {% endif %}
         </aside>
     </section>
-    {% endif %}
+
+    {% include "owner/_settings_cases.html" %}
 </div>
 </div>
 
