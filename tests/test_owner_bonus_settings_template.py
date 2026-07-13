@@ -6,7 +6,7 @@ from app.main import app
 
 
 def test_bonus_settings_shows_case_editor_while_wheel_mode_is_active():
-    with app.test_request_context("/owner/settings?tab=wheel"):
+    with app.test_request_context("/owner/settings?tab=wheel&editor=cases"):
         html = render_template(
             "owner/_settings_wheel.html",
             wheel_settings=SimpleNamespace(tokens_start_date=None, spin_cost=2, is_enabled=True),
@@ -14,6 +14,7 @@ def test_bonus_settings_shows_case_editor_while_wheel_mode_is_active():
             wheel_active_prob_sum=0,
             prize_icon_choices=["gift"],
             game_mode="wheel",
+            bonus_editor="cases",
             cases=[],
             case_upload_usage=None,
         )
@@ -22,3 +23,23 @@ def test_bonus_settings_shows_case_editor_while_wheel_mode_is_active():
     assert "Кейсы" in html
     assert "openCaseAddModal" in html
     assert "Добавить кейс" in html
+    assert "Призы колеса" not in html
+
+
+def test_bonus_settings_shows_wheel_editor_by_default():
+    with app.test_request_context("/owner/settings?tab=wheel"):
+        html = render_template(
+            "owner/_settings_wheel.html",
+            wheel_settings=SimpleNamespace(tokens_start_date=None, spin_cost=2, is_enabled=True),
+            prizes=[],
+            wheel_active_prob_sum=0,
+            prize_icon_choices=["gift"],
+            game_mode="wheel",
+            bonus_editor="wheel",
+            cases=[],
+            case_upload_usage=None,
+        )
+
+    assert "Призы колеса" in html
+    assert "openPrizeAddModal" in html
+    assert "openCaseAddModal" not in html

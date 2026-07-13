@@ -1,5 +1,6 @@
 {% set prize_icon_choices = prize_icon_choices|default(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']) %}
 {% set prob_ok = (wheel_active_prob_sum|float - 100)|abs < 0.06 %}
+{% set active_bonus_editor = bonus_editor|default('wheel') %}
 <style>
     .wheel-page {
         width: 100%;
@@ -423,6 +424,38 @@
         line-height: 1.4;
     }
 
+    .bonus-editor-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .bonus-editor-switch a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 52px;
+        padding: 12px 16px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(20, 12, 36, 0.56);
+        color: var(--text-main);
+        text-decoration: none;
+        font-weight: 900;
+        transition: border-color .16s ease, background .16s ease;
+    }
+
+    .bonus-editor-switch a:hover {
+        border-color: rgba(165, 114, 255, 0.45);
+        background: rgba(143, 91, 255, 0.12);
+    }
+
+    .bonus-editor-switch a.is-active {
+        border-color: rgba(165, 114, 255, 0.55);
+        background: linear-gradient(135deg, rgba(143, 91, 255, 0.16), rgba(255, 212, 105, 0.08));
+    }
+
     .case-list {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
@@ -600,7 +633,8 @@
     }
 
     @media (max-width: 920px) {
-        .game-mode-picker {
+        .game-mode-picker,
+        .bonus-editor-switch {
             grid-template-columns: 1fr;
         }
         .case-item-grid,
@@ -626,6 +660,7 @@
 
         <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
             <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+            <input type="hidden" name="bonus_editor" value="{{ active_bonus_editor }}">
             <div class="game-mode-picker">
                 <label class="game-mode-choice {% if (game_mode|default('wheel')) == 'wheel' %}is-active{% endif %}">
                     <input type="radio" name="game_mode" value="wheel" {% if (game_mode|default('wheel')) == 'wheel' %}checked{% endif %} onchange="this.form.submit()">
@@ -639,6 +674,21 @@
                 </label>
             </div>
         </form>
+    </section>
+
+    <section class="card wheel-section">
+        <div class="section-title">Что настраиваем</div>
+        <p class="wheel-subtitle">
+            Это не меняет режим для гостей. Переключай редактор, чтобы отдельно подготовить колесо или кейсы.
+        </p>
+        <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
+            <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
+                Колесо
+            </a>
+            <a href="{{ url_for('owner.settings', tab='wheel', editor='cases') }}" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}">
+                Кейсы
+            </a>
+        </div>
     </section>
 
     <section class="card wheel-section">
@@ -698,6 +748,7 @@
         </form>
     </section>
 
+    {% if active_bonus_editor == 'wheel' %}
     <section class="wheel-prize-workspace">
         <div class="card wheel-section wheel-prizes-panel">
             <div class="wheel-prizes-head">
@@ -822,7 +873,11 @@
         </aside>
     </section>
 
-    {% include "owner/_settings_cases.html" %}
+    {% endif %}
+
+    {% if active_bonus_editor == 'cases' %}
+        {% include "owner/_settings_cases.html" %}
+    {% endif %}
 </div>
 </div>
 

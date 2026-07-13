@@ -14,6 +14,7 @@ from . import owner_bp
 
 
 SETTINGS_TABS = {"club", "missions", "wheel"}
+BONUS_EDITORS = {"wheel", "cases"}
 
 
 @owner_bp.route("/settings/pc-names", methods=["POST"])
@@ -63,6 +64,9 @@ def settings():
     active_tab = request.args.get("tab", "club").strip()
     if active_tab not in SETTINGS_TABS:
         active_tab = "club"
+    bonus_editor = request.args.get("editor", "wheel").strip()
+    if bonus_editor not in BONUS_EDITORS:
+        bonus_editor = "wheel"
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -137,6 +141,7 @@ def settings():
             "wheel_active_prob_sum": wheel_active_prob_sum,
             "prize_icon_choices": ['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕'],
             "game_mode": get_game_mode(club_id_int),
+            "bonus_editor": bonus_editor,
             "cases": get_cases_for_admin(club_id_int),
             "case_upload_usage": get_club_upload_usage_info(club_id_int),
         })

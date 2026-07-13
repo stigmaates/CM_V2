@@ -26,8 +26,15 @@ from app.services.upload_storage import (
 from . import owner_bp
 
 
-def _redirect_wheel():
-    return redirect(url_for("owner.settings", tab="wheel"))
+def _redirect_bonus_editor(editor: str = "cases"):
+    if editor not in {"wheel", "cases"}:
+        editor = "cases"
+    return redirect(url_for("owner.settings", tab="wheel", editor=editor))
+
+
+def _current_bonus_editor(default: str = "cases") -> str:
+    editor = request.form.get("bonus_editor", default).strip()
+    return editor if editor in {"wheel", "cases"} else default
 
 
 def _require_club_id():
@@ -135,7 +142,7 @@ def game_mode_save():
     except Exception as e:
         flash(f"Ошибка сохранения режима: {e}", "error")
 
-    return _redirect_wheel()
+    return _redirect_bonus_editor(_current_bonus_editor(mode if mode in {"wheel", "cases"} else "wheel"))
 
 
 @owner_bp.route('/cases/add', methods=['POST'])
@@ -152,14 +159,14 @@ def case_add():
 
     if not name:
         flash("Укажи название кейса", "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     try:
         price_tokens = _parse_int(price_raw, "Цена в жетонах")
         image_url = _get_uploaded_image_url(club_id=club_id, kind="case_cover")
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     try:
         sort_order = len(get_cases_for_admin(club_id)) + 1
@@ -185,7 +192,7 @@ def case_add():
         delete_local_upload(image_url)
         flash(f"Ошибка добавления кейса: {e}", "error")
 
-    return _redirect_wheel()
+    return _redirect_bonus_editor("cases")
 
 
 @owner_bp.route('/cases/<int:case_id>/update', methods=['POST'])
@@ -198,7 +205,7 @@ def case_update(case_id):
     case = get_case_by_id(case_id, club_id)
     if not case:
         flash("Кейс не найден", "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
@@ -208,7 +215,7 @@ def case_update(case_id):
 
     if not name:
         flash("Укажи название кейса", "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     old_image_url = case.get("image_url")
 
@@ -221,7 +228,7 @@ def case_update(case_id):
         )
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     try:
         update_case(
@@ -250,7 +257,7 @@ def case_update(case_id):
             delete_local_upload(image_url)
         flash(f"Ошибка обновления кейса: {e}", "error")
 
-    return _redirect_wheel()
+    return _redirect_bonus_editor("cases")
 
 
 @owner_bp.route('/cases/<int:case_id>/delete', methods=['POST'])
@@ -276,7 +283,7 @@ def case_delete(case_id):
     except Exception as e:
         flash(f"Ошибка удаления кейса: {e}", "error")
 
-    return _redirect_wheel()
+    return _redirect_bonus_editor("cases")
 
 
 @owner_bp.route('/cases/<int:case_id>/items/add', methods=['POST'])
@@ -289,7 +296,7 @@ def case_item_add(case_id):
     case = get_case_by_id(case_id, club_id)
     if not case:
         flash("Кейс не найден", "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
@@ -301,7 +308,7 @@ def case_item_add(case_id):
 
     if not name:
         flash("Укажи название предмета", "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     try:
         probability = _parse_probability(probability_raw)
@@ -310,7 +317,7 @@ def case_item_add(case_id):
         image_url = _get_uploaded_image_url(club_id=club_id, kind="case_item")
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     try:
         items = case.get("items") or []
@@ -345,7 +352,7 @@ def case_item_add(case_id):
         delete_local_upload(image_url)
         flash(f"Ошибка добавления предмета: {e}", "error")
 
-    return _redirect_wheel()
+    return _redirect_bonus_editor("cases")
 
 
 @owner_bp.route('/cases/<int:case_id>/items/<int:item_id>/update', methods=['POST'])
@@ -358,7 +365,7 @@ def case_item_update(case_id, item_id):
     item = get_case_item_by_id(item_id, club_id)
     if not item or int(item.get("case_id")) != int(case_id):
         flash("Предмет не найден", "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
@@ -370,7 +377,7 @@ def case_item_update(case_id, item_id):
 
     if not name:
         flash("Укажи название предмета", "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     old_image_url = item.get("image_url")
 
@@ -385,7 +392,7 @@ def case_item_update(case_id, item_id):
         )
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
-        return _redirect_wheel()
+        return _redirect_bonus_editor("cases")
 
     try:
         update_case_item(
@@ -421,7 +428,7 @@ def case_item_update(case_id, item_id):
             delete_local_upload(image_url)
         flash(f"Ошибка обновления предмета: {e}", "error")
 
-    return _redirect_wheel()
+    return _redirect_bonus_editor("cases")
 
 
 @owner_bp.route('/cases/<int:case_id>/items/<int:item_id>/delete', methods=['POST'])
@@ -448,4 +455,4 @@ def case_item_delete(case_id, item_id):
     except Exception as e:
         flash(f"Ошибка удаления предмета: {e}", "error")
 
-    return _redirect_wheel()
+    return _redirect_bonus_editor("cases")

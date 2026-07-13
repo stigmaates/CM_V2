@@ -17,6 +17,10 @@ from app.services.wheel import (
 from . import owner_bp
 
 
+def _redirect_wheel_editor():
+    return redirect(url_for("owner.settings", tab="wheel", editor="wheel"))
+
+
 @owner_bp.route('/wheel', methods=['GET', 'POST'])
 @owner_required
 def wheel_settings():
@@ -34,23 +38,23 @@ def wheel_settings():
 
         if not tokens_start_date_raw:
             flash("Укажи дату начала начисления жетонов", "error")
-            return redirect(url_for("owner.settings", tab="wheel"))
+            return _redirect_wheel_editor()
 
         try:
             tokens_start_date = parse_datetime_local(tokens_start_date_raw)
         except ValueError as e:
             flash(str(e), "error")
-            return redirect(url_for("owner.settings", tab="wheel"))
+            return _redirect_wheel_editor()
 
         try:
             spin_cost = int(spin_cost_raw)
         except ValueError:
             flash("Стоимость прокрута должна быть числом", "error")
-            return redirect(url_for("owner.settings", tab="wheel"))
+            return _redirect_wheel_editor()
 
         if spin_cost <= 0:
             flash("Стоимость прокрута должна быть больше 0", "error")
-            return redirect(url_for("owner.settings", tab="wheel"))
+            return _redirect_wheel_editor()
 
         try:
             if is_enabled:
@@ -76,9 +80,9 @@ def wheel_settings():
         except Exception as e:
             flash(f"Ошибка сохранения настроек колеса: {e}", "error")
 
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
-    return redirect(url_for("owner.settings", tab="wheel"))
+    return _redirect_wheel_editor()
 
 
 
@@ -136,24 +140,24 @@ def wheel_prize_add():
 
     if not name:
         flash("Укажи название приза", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     try:
         probability = float(probability_raw.replace(",", "."))
     except ValueError:
         flash("Вероятность должна быть числом", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     if probability <= 0:
         flash("Вероятность должна быть больше 0", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     try:
         bonus_amount = _parse_bonus_amount(bonus_amount_raw)
         token_amount = _parse_token_amount(token_amount_raw)
     except ValueError as e:
         flash(str(e), "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     try:
         sort_order = len(get_wheel_prizes_for_admin(club_id_int)) + 1
@@ -180,7 +184,7 @@ def wheel_prize_add():
     except Exception as e:
         flash(f"Ошибка добавления приза: {e}", "error")
 
-    return redirect(url_for("owner.settings", tab="wheel"))
+    return _redirect_wheel_editor()
 
 
 @owner_bp.route('/wheel/prizes/<int:prize_id>/update', methods=['POST'])
@@ -196,7 +200,7 @@ def wheel_prize_update(prize_id):
     prize = get_wheel_prize_by_id(prize_id, club_id_int)
     if not prize:
         flash("Приз не найден", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
@@ -209,24 +213,24 @@ def wheel_prize_update(prize_id):
 
     if not name:
         flash("Укажи название приза", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     try:
         probability = float(probability_raw.replace(",", "."))
     except ValueError:
         flash("Вероятность должна быть числом", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     if probability <= 0:
         flash("Вероятность должна быть больше 0", "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     try:
         bonus_amount = _parse_bonus_amount(bonus_amount_raw)
         token_amount = _parse_token_amount(token_amount_raw)
     except ValueError as e:
         flash(str(e), "error")
-        return redirect(url_for("owner.settings", tab="wheel"))
+        return _redirect_wheel_editor()
 
     try:
         sort_order = int(prize.get("sort_order") or 0)
@@ -254,7 +258,7 @@ def wheel_prize_update(prize_id):
     except Exception as e:
         flash(f"Ошибка обновления приза: {e}", "error")
 
-    return redirect(url_for("owner.settings", tab="wheel"))
+    return _redirect_wheel_editor()
 
 
 @owner_bp.route('/wheel/prizes/<int:prize_id>/delete', methods=['POST'])
@@ -279,4 +283,4 @@ def wheel_prize_delete(prize_id):
     except Exception as e:
         flash(f"Ошибка удаления приза: {e}", "error")
 
-    return redirect(url_for("owner.settings", tab="wheel"))
+    return _redirect_wheel_editor()
