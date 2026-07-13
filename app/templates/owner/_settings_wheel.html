@@ -386,16 +386,18 @@
     .game-mode-picker {
         display: grid;
         grid-template-columns: repeat(2, minmax(220px, 1fr));
-        gap: 14px;
+        gap: 12px;
+        width: min(100%, 980px);
     }
 
     .game-mode-choice {
         position: relative;
         display: grid;
-        gap: 6px;
-        padding: 16px 18px;
+        gap: 5px;
+        min-height: 82px;
+        padding: 14px 16px;
         border: 1px solid var(--border);
-        border-radius: 16px;
+        border-radius: 14px;
         background: rgba(20, 12, 36, 0.56);
         cursor: pointer;
         transition: border-color .16s ease, background .16s ease;
@@ -413,33 +415,38 @@
     }
 
     .game-mode-title {
-        font-size: 17px;
+        font-size: 16px;
         font-weight: 800;
         color: var(--text-main);
     }
 
     .game-mode-desc {
         color: var(--text-muted);
-        font-size: 13px;
+        font-size: 12px;
         line-height: 1.4;
     }
 
     .bonus-editor-switch {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 14px;
+        gap: 6px;
+        width: min(100%, 520px);
+        padding: 4px;
+        margin-top: 12px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(20, 12, 36, 0.42);
     }
 
     .bonus-editor-switch a {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 52px;
-        padding: 12px 16px;
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        background: rgba(20, 12, 36, 0.56);
+        min-height: 40px;
+        padding: 8px 14px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
         color: var(--text-main);
         text-decoration: none;
         font-weight: 900;
@@ -447,7 +454,7 @@
     }
 
     .bonus-editor-switch a:hover {
-        border-color: rgba(165, 114, 255, 0.45);
+        border-color: rgba(165, 114, 255, 0.28);
         background: rgba(143, 91, 255, 0.12);
     }
 
@@ -654,8 +661,7 @@
     <section class="card wheel-section">
         <div class="section-title">Бонусная механика</div>
         <p class="wheel-subtitle">
-            Выбери, какую бонусную механику видят гости в личном кабинете. Настройки колеса и кейсов доступны ниже всегда:
-            можно заранее собрать кейсы, оставить гостям колесо, а затем переключить режим в один клик.
+            Выбери, какую механику видят гости. Редакторы колеса и кейсов доступны отдельно ниже.
         </p>
 
         <form method="POST" action="{{ url_for('owner.game_mode_save') }}" id="gameModeForm">
@@ -679,7 +685,7 @@
     <section class="card wheel-section">
         <div class="section-title">Что настраиваем</div>
         <p class="wheel-subtitle">
-            Это не меняет режим для гостей. Переключай редактор, чтобы отдельно подготовить колесо или кейсы.
+            Переключает только редактор на этой странице, не меняя режим для гостей.
         </p>
         <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
             <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
