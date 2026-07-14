@@ -1,5 +1,6 @@
 from app.config import BOT_USERNAME
 from datetime import datetime
+from urllib.parse import quote_plus
 
 from flask import flash, redirect, render_template, request, session, url_for
 
@@ -72,10 +73,19 @@ def guest_check_login():
 
 
 def guest_login():
-    bot_username = BOT_USERNAME
+    bot_username = BOT_USERNAME.lstrip("@")
     token = create_guest_login_token()
-    bot_link = f"https://t.me/{bot_username}?start=login_{token}"
-    return render_template("guest_login.html", bot_link=bot_link, token=token)
+    start_payload = f"login_{token}"
+    bot_link = f"https://t.me/{bot_username}?start={start_payload}"
+    telegram_link = f"tg://resolve?domain={bot_username}&start={start_payload}"
+    qr_link = quote_plus(telegram_link)
+    return render_template(
+        "guest_login.html",
+        bot_link=bot_link,
+        telegram_link=telegram_link,
+        qr_link=qr_link,
+        token=token,
+    )
 
 
 def api_guest_tokens():

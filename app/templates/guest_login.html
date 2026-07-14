@@ -20,13 +20,16 @@
 
             <div class="qr-box">
                 <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data={{ bot_link }}"
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data={{ qr_link }}"
                     alt="QR-код"
                 >
             </div>
 
-            <div>
-                <a class="link" href="{{ bot_link }}" target="_blank">{{ bot_link }}</a>
+            <div class="guest-login-actions">
+                <a class="btn" href="{{ telegram_link }}">Открыть в Telegram</a>
+                <a class="link guest-login-fallback" href="{{ bot_link }}" target="_blank" rel="noopener">
+                    Запасная ссылка: {{ bot_link }}
+                </a>
             </div>
 
             <div style="margin-top: 20px; font-size: 15px; font-weight: 700;" id="status">Ожидаем подтверждение в Telegram…</div>
