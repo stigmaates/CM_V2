@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
@@ -5,6 +7,17 @@ from app.core import get_db_connection
 from app.services.rate_limit import client_ip, is_rate_limited
 
 from . import auth_bp
+
+
+def _mark_user_last_login(cursor, user_id: int) -> None:
+    try:
+        cursor.execute(
+            "UPDATE users SET last_login_at = %s WHERE user_id = %s",
+            (datetime.utcnow(), user_id),
+        )
+    except Exception:
+        # Compatibility for deployments where code is pulled before migrations run.
+        return
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -51,6 +64,10 @@ def login():
             if not check_password_hash(user["pass_hash"], password):
                 flash("Неверный пароль", "error")
                 return redirect(url_for("auth.login"))
+
+            with conn.cursor() as cursor:
+                _mark_user_last_login(cursor, user["user_id"])
+            conn.commit()
 
             session["user_id"] = user["user_id"]
             session["role"] = user["role"]

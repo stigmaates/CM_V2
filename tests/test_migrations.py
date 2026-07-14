@@ -36,6 +36,17 @@ def test_operational_alert_notifications_migration_exports_revision_and_upgrade(
     )
 
 
+def test_admin_user_last_login_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0004_admin_user_last_login")
+
+    assert migration.revision == "0004_admin_user_last_login"
+    assert callable(migration.upgrade)
+    assert any(
+        isinstance(value, str) and "last_login_at" in value
+        for value in migration.upgrade.__code__.co_consts
+    )
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False
