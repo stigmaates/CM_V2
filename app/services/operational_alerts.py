@@ -175,10 +175,19 @@ def _fetch_problem_jobs(cursor, *, limit: int) -> list[dict[str, Any]]:
     ensure_background_job_runs_table(cursor)
     cursor.execute(
         """
-        SELECT id, job_type, club_id, status, started_at, error_text
-        FROM background_job_runs
-        WHERE status IN ('error', 'stale')
-        ORDER BY started_at DESC
+        SELECT r.id, r.job_type, r.club_id, r.status, r.started_at, r.error_text
+        FROM background_job_runs r
+        INNER JOIN (
+            SELECT club_id, job_type, MAX(started_at) AS latest_started_at
+            FROM background_job_runs
+            WHERE club_id IS NOT NULL
+            GROUP BY club_id, job_type
+        ) latest
+          ON latest.club_id = r.club_id
+         AND latest.job_type = r.job_type
+         AND latest.latest_started_at = r.started_at
+        WHERE r.status IN ('error', 'stale')
+        ORDER BY r.started_at DESC
         LIMIT %s
         """,
         (limit,),
