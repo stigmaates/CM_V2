@@ -12,7 +12,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+from app.config import (
+    DB_CONNECT_TIMEOUT,
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWORD,
+    DB_PORT,
+    DB_READ_TIMEOUT,
+    DB_USER,
+    DB_WRITE_TIMEOUT,
+)
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 
@@ -32,9 +41,9 @@ def get_db_connection():
         charset="utf8mb4",
         cursorclass=DictCursor,
         ssl={"check_hostname": False},
-        connect_timeout=15,
-        read_timeout=60,
-        write_timeout=60,
+        connect_timeout=DB_CONNECT_TIMEOUT,
+        read_timeout=DB_READ_TIMEOUT,
+        write_timeout=DB_WRITE_TIMEOUT,
         autocommit=False
     )
 
