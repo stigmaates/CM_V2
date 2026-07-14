@@ -44,3 +44,40 @@ def test_admin_dashboard_renders_readiness_items():
     assert "Готовность системы" in html
     assert "База данных" in html
     assert "Управление сервисами" in html
+
+
+def test_admin_users_page_renders_selected_user_card():
+    with app.test_request_context("/admin/users?user_id=7"):
+        html = render_template(
+            "admin/users.html",
+            users=[
+                {
+                    "user_id": 7,
+                    "role": "owner",
+                    "name": "Иван Иванов",
+                    "login": "ivan",
+                    "club_id": 1,
+                    "club_name": "Cyber Club",
+                    "created_at": None,
+                    "last_login_at": None,
+                }
+            ],
+            selected_user={
+                "user_id": 7,
+                "role": "owner",
+                "name": "Иван Иванов",
+                "login": "ivan",
+                "club_id": 1,
+                "club_name": "Cyber Club",
+                "created_at": None,
+                "last_login_at": None,
+            },
+            active_page="users",
+        )
+
+    assert "Пользователи" in html
+    assert "Иван Иванов" in html
+    assert "@ivan" in html
+    assert "Последний вход" in html
+    assert "Сбросить пароль" in html
+    assert "/admin/users/7/reset-password" in html

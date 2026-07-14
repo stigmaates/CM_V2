@@ -611,10 +611,112 @@
     margin-bottom: 16px;
 }
 
+.admin-users-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 22px;
+    align-items: start;
+}
+
+.admin-section-head.compact {
+    margin-bottom: 14px;
+}
+
+.admin-section-head.compact h2 {
+    font-size: 22px;
+}
+
+.admin-users-table tbody tr {
+    cursor: pointer;
+    transition: 0.16s ease;
+}
+
+.admin-users-table tbody tr:hover,
+.admin-users-table tbody tr.active {
+    background: rgba(143, 91, 255, 0.13);
+}
+
+.admin-user-card {
+    position: sticky;
+    top: 24px;
+}
+
+.admin-user-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.admin-user-card-head h2 {
+    margin: 12px 0 4px;
+    font-size: 28px;
+    line-height: 1.1;
+}
+
+.admin-user-card-head p {
+    margin: 0;
+    color: var(--admin-muted);
+}
+
+.admin-user-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 22px;
+    display: grid;
+    place-items: center;
+    font-size: 28px;
+    font-weight: 900;
+    background: linear-gradient(135deg, rgba(143, 91, 255, 0.55), rgba(99, 214, 126, 0.26));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.admin-user-facts {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.admin-user-facts div {
+    padding: 13px 14px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-user-facts span {
+    display: block;
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-user-facts strong {
+    display: block;
+    margin-top: 5px;
+    line-height: 1.25;
+}
+
+.admin-reset-form {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.reset-form-note {
+    color: var(--admin-muted);
+    line-height: 1.4;
+}
+
 @media (max-width: 920px) {
     .admin-shell { display: block; }
     .admin-sidebar { width: auto; min-height: auto; position: static; }
     .admin-main { padding: 20px; box-sizing: border-box; }
+    .admin-users-layout { grid-template-columns: 1fr; }
+    .admin-user-card { position: static; }
     .readiness-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .service-actions-grid { grid-template-columns: 1fr; }
     .admin-metrics-grid,
