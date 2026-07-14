@@ -75,6 +75,27 @@ def test_build_operational_alerts_reports_problem_jobs_and_stuck_mailings():
     assert alerts[1]["metadata"]["mailing_id"] == 15
 
 
+def test_fetch_problem_jobs_only_considers_latest_job_per_club_and_type():
+    class Cursor:
+        def __init__(self):
+            self.executed = []
+
+        def execute(self, query, params=None):
+            self.executed.append((query, params))
+
+        def fetchall(self):
+            return []
+
+    cursor = Cursor()
+    rows = operational_alerts._fetch_problem_jobs(cursor, limit=20)
+
+    assert rows == []
+    problem_query = cursor.executed[-1][0]
+    assert "MAX(started_at) AS latest_started_at" in problem_query
+    assert "GROUP BY club_id, job_type" in problem_query
+    assert "WHERE r.status IN ('error', 'stale')" in problem_query
+
+
 def test_build_operational_alerts_reports_backup_problem():
     alerts = operational_alerts.build_operational_alerts(
         clubs=[],
