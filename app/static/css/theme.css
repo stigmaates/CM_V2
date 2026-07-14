@@ -371,6 +371,19 @@ label {
     word-break: break-all;
 }
 
+.guest-login-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.guest-login-fallback {
+    font-size: 13px;
+    line-height: 1.4;
+    max-width: 320px;
+}
+
 .auth-form .form-group {
     margin-bottom: 18px;
 }
