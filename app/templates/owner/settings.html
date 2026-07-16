@@ -354,7 +354,7 @@
         <div class="settings-tabs card">
             <a href="{{ url_for('owner.settings', tab='club') }}" class="settings-tab {% if active_tab == 'club' %}active{% endif %}">Клуб</a>
             <a href="{{ url_for('owner.settings', tab='missions') }}" class="settings-tab {% if active_tab == 'missions' %}active{% endif %}">Задания</a>
-            <a href="{{ url_for('owner.settings', tab='wheel') }}" class="settings-tab {% if active_tab == 'wheel' %}active{% endif %}">Колесо фортуны</a>
+            <a href="{{ url_for('owner.settings', tab='wheel') }}" class="settings-tab {% if active_tab == 'wheel' %}active{% endif %}">Бонусная механика</a>
         </div>
 
         {% if active_tab == 'club' %}

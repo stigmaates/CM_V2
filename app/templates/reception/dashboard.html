@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Reception · Cyber Bonus</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/reception.css') }}">
+</head>
+<body>
+    <main class="reception-shell">
+        <header class="reception-topbar">
+            <div>
+                <div class="reception-kicker">{{ header_club_name or 'Клуб' }}</div>
+                <h1>Проверка гостя</h1>
+            </div>
+            <a class="reception-logout" href="{{ url_for('auth.logout') }}">Выйти</a>
+        </header>
+
+        <section class="lookup-panel">
+            <form class="lookup-form" method="GET" action="{{ url_for('reception.dashboard') }}">
+                <label for="phone">Номер телефона гостя</label>
+                <div class="lookup-input-row">
+                    <input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        value="{{ phone }}"
+                        placeholder="Например, 89871536867"
+                        autocomplete="off"
+                        inputmode="tel"
+                        autofocus
+                    >
+                    <button type="submit">Проверить</button>
+                </div>
+            </form>
+            <p>Показываем только данные гостя из текущего клуба: балансы, Telegram, транзакции и заявки на перевод КБ.</p>
+        </section>
+
+        {% if setup_error %}
+            <section class="state-card error-state">{{ setup_error }}</section>
+        {% elif lookup and not lookup.found %}
+            <section class="state-card">Гость с таким номером не найден в этом клубе.</section>
+        {% elif lookup and lookup.found %}
+            {% set guest = lookup.guest %}
+            <section class="guest-summary">
+                <div class="guest-card guest-main-card">
+                    <span>Гость</span>
+                    <strong>{{ guest.fio or 'Без имени' }}</strong>
+                    <small>{{ guest.phone or 'телефон не указан' }} · ID {{ guest.guest_id }}</small>
+                </div>
+                <div class="guest-card">
+                    <span>КБ</span>
+                    <strong>{{ guest.bonus_balance }}</strong>
+                    <small>текущий баланс</small>
+                </div>
+                <div class="guest-card">
+                    <span>Жетоны</span>
+                    <strong>{{ guest.token_balance }}</strong>
+                    <small>текущий баланс</small>
+                </div>
+                <div class="guest-card {{ 'ok' if guest.has_telegram else 'warn' }}">
+                    <span>Telegram</span>
+                    <strong>{{ 'Привязан' if guest.has_telegram else 'Не привязан' }}</strong>
+                    <small>{% if guest.telegram_id %}ID {{ guest.telegram_id }}{% else %}рассылки не дойдут{% endif %}</small>
+                </div>
+            </section>
+
+            <section class="history-grid">
+                <div class="history-panel">
+                    <div class="history-head">
+                        <h2>История КБ</h2>
+                        <span>{{ lookup.bonus_transactions|length }}</span>
+                    </div>
+                    {% for item in lookup.bonus_transactions[:5] %}
+                        <div class="history-row">
+                            <div class="amount {{ 'plus' if item.amount|int > 0 else 'minus' }}">{{ '%+d'|format(item.amount|int) }}</div>
+                            <div>
+                                <strong>{{ item.reason }}</strong>
+                                <small>Баланс после: {{ item.balance_after }}</small>
+                            </div>
+                            <time>{{ item.created_at }}</time>
+                        </div>
+                    {% else %}
+                        <div class="empty">Транзакций КБ нет.</div>
+                    {% endfor %}
+                    {% if lookup.bonus_transactions|length > 5 %}
+                        <details class="show-all-history">
+                            <summary>Показать все транзакции</summary>
+                            {% for item in lookup.bonus_transactions[5:] %}
+                                <div class="history-row">
+                                    <div class="amount {{ 'plus' if item.amount|int > 0 else 'minus' }}">{{ '%+d'|format(item.amount|int) }}</div>
+                                    <div>
+                                        <strong>{{ item.reason }}</strong>
+                                        <small>Баланс после: {{ item.balance_after }}</small>
+                                    </div>
+                                    <time>{{ item.created_at }}</time>
+                                </div>
+                            {% endfor %}
+                        </details>
+                    {% endif %}
+                </div>
+
+                <div class="history-panel">
+                    <div class="history-head">
+                        <h2>История жетонов</h2>
+                        <span>{{ lookup.token_transactions|length }}</span>
+                    </div>
+                    {% for item in lookup.token_transactions[:5] %}
+                        <div class="history-row">
+                            <div class="amount {{ 'plus' if item.amount|int > 0 else 'minus' }}">{{ '%+d'|format(item.amount|int) }}</div>
+                            <div>
+                                <strong>{{ item.reason }}</strong>
+                                <small>Баланс после: {{ item.balance_after }}</small>
+                            </div>
+                            <time>{{ item.created_at }}</time>
+                        </div>
+                    {% else %}
+                        <div class="empty">Транзакций жетонов нет.</div>
+                    {% endfor %}
+                    {% if lookup.token_transactions|length > 5 %}
+                        <details class="show-all-history">
+                            <summary>Показать все транзакции</summary>
+                            {% for item in lookup.token_transactions[5:] %}
+                                <div class="history-row">
+                                    <div class="amount {{ 'plus' if item.amount|int > 0 else 'minus' }}">{{ '%+d'|format(item.amount|int) }}</div>
+                                    <div>
+                                        <strong>{{ item.reason }}</strong>
+                                        <small>Баланс после: {{ item.balance_after }}</small>
+                                    </div>
+                                    <time>{{ item.created_at }}</time>
+                                </div>
+                            {% endfor %}
+                        </details>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="history-panel redeem-panel">
+                <div class="history-head">
+                    <h2>Заявки на перевод КБ</h2>
+                    <span>{{ lookup.redeem_requests|length }}</span>
+                </div>
+                {% for item in lookup.redeem_requests %}
+                    <div class="redeem-row">
+                        <div>
+                            <strong>Заявка №{{ item.id }} · {{ item.amount }} КБ</strong>
+                            <small>Статус: {{ item.status_label }}</small>
+                        </div>
+                        <div>
+                            <time>создана: {{ item.requested_at }}</time>
+                            {% if item.processed_at %}<time>обработана: {{ item.processed_at }}</time>{% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="empty">Заявок на перевод КБ нет.</div>
+                {% endfor %}
+            </section>
+        {% endif %}
+    </main>
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
+</body>
+</html>

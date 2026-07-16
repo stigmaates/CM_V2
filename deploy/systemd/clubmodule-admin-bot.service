@@ -1,0 +1,15 @@
+[Unit]
+Description=ClubModule Production Admin Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/cm_v2/CM_V2
+EnvironmentFile=/root/cm_v2/CM_V2/.env
+ExecStart=/root/cm_v2/CM_V2/venv/bin/python -m bot.admin_main
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

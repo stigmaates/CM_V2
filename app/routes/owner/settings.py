@@ -1,16 +1,20 @@
 from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import owner_required
+from app.services.audit import record_audit_event
 from app.services.clubs import get_club_info, update_club_info
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
+from app.services.cases import get_cases_for_admin, get_game_mode
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 from app.services.system_status import get_owner_settings_system_status
+from app.services.upload_storage import get_club_upload_usage_info
 
 from . import owner_bp
 
 
 SETTINGS_TABS = {"club", "missions", "wheel"}
+BONUS_EDITORS = {"wheel", "cases"}
 
 
 @owner_bp.route("/settings/pc-names", methods=["POST"])
@@ -35,11 +39,18 @@ def settings_pc_names_save():
 
     try:
         save_pc_name_settings(int(club_id), items)
+        record_audit_event(
+            action="owner.pc_names.update",
+            club_id=int(club_id),
+            entity_type="club_pc_names",
+            details={"items_count": len(items)},
+        )
         flash("Названия ПК сохранены", "success")
     except Exception as exc:
         flash(f"Ошибка сохранения ПК: {exc}", "error")
 
     return redirect(url_for("owner.settings", tab="club") + "#pc-names")
+
 
 
 @owner_bp.route("/settings", methods=["GET", "POST"])
@@ -53,6 +64,9 @@ def settings():
     active_tab = request.args.get("tab", "club").strip()
     if active_tab not in SETTINGS_TABS:
         active_tab = "club"
+    bonus_editor = request.args.get("editor", "wheel").strip()
+    if bonus_editor not in BONUS_EDITORS:
+        bonus_editor = "wheel"
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -73,6 +87,26 @@ def settings():
         try:
             update_club_info(club_id, name, lg_api_key, secret, cm_bonus_admin_chat_id, instagram_url, youtube_url, vk_url, telegram_channel_url, yandex_maps_url, two_gis_url)
             session["club_name"] = name
+            record_audit_event(
+                action="owner.club_settings.update",
+                club_id=int(club_id),
+                entity_type="club",
+                entity_id=club_id,
+                details={
+                    "name": name,
+                    "has_lg_api_key": bool(lg_api_key),
+                    "has_secret": bool(secret),
+                    "has_bonus_admin_chat": bool(cm_bonus_admin_chat_id),
+                    "social_links": {
+                        "instagram": bool(instagram_url),
+                        "youtube": bool(youtube_url),
+                        "vk": bool(vk_url),
+                        "telegram": bool(telegram_channel_url),
+                        "yandex_maps": bool(yandex_maps_url),
+                        "two_gis": bool(two_gis_url),
+                    },
+                },
+            )
             flash("Настройки клуба обновлены", "success")
             return redirect(url_for("owner.settings", tab="club"))
         except Exception as e:
@@ -106,6 +140,10 @@ def settings():
             "prizes": prizes,
             "wheel_active_prob_sum": wheel_active_prob_sum,
             "prize_icon_choices": ['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕'],
+            "game_mode": get_game_mode(club_id_int),
+            "bonus_editor": bonus_editor,
+            "cases": get_cases_for_admin(club_id_int),
+            "case_upload_usage": get_club_upload_usage_info(club_id_int),
         })
 
     return render_template("owner/settings.html", **context)

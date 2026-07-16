@@ -1,0 +1,15 @@
+[Unit]
+Description=ClubModule Stage Guest Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/cm_stage/CM_V2
+EnvironmentFile=/root/cm_stage/CM_V2/.env
+ExecStart=/root/cm_stage/CM_V2/venv/bin/python -m bot.main
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

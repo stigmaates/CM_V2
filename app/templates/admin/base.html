@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Admin — Cyber Bonus{% endblock %}</title>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
@@ -25,6 +26,7 @@
         <nav class="admin-nav">
             <a class="admin-nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="{{ url_for('admin.dashboard') }}">Дашборд</a>
             <a class="admin-nav-link {% if active_page == 'clubs' %}active{% endif %}" href="{{ url_for('admin.clubs_list') }}">Клубы</a>
+            <a class="admin-nav-link {% if active_page == 'users' %}active{% endif %}" href="{{ url_for('admin.users_list') }}">Пользователи</a>
             <a class="admin-nav-link {% if active_page == 'users_create' %}active{% endif %}" href="{{ url_for('admin.users_create') }}">Создать пользователя</a>
             <a class="admin-nav-link {% if active_page == 'club_create' %}active{% endif %}" href="{{ url_for('admin.create_club') }}">Создать клуб</a>
         </nav>
@@ -48,6 +50,7 @@
         {% block content %}{% endblock %}
     </main>
 
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

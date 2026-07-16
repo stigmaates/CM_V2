@@ -12,6 +12,8 @@ load_dotenv()
 from app.config import AUTO_MAILING_TIMEZONE
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.job_locks import job_lock
+from app.services.job_runs import finish_job_run, start_job_run
 from app.services.mailing import (
     create_mailing_for_recipients,
     get_inactive_auto_mailing_recipients,
@@ -465,18 +467,53 @@ def process_auto_mailings() -> dict:
 
         for setting in settings:
             code = setting.get("code")
-            if code == "inactive_14_bonus":
-                created = process_inactive_14_bonus(conn, setting)
+            club_id = int(setting["club_id"])
+            lock = job_lock("process_auto_mailing", club_id=club_id, resource_id=code, ttl_minutes=60)
+            acquired_lock = lock.__enter__()
+            job_run_id = start_job_run(
+                "process_auto_mailing",
+                club_id=club_id,
+                metadata={"code": code, "setting_id": setting.get("id")},
+            )
+            if not acquired_lock.acquired:
+                finish_job_run(
+                    job_run_id,
+                    "skipped_locked",
+                    metadata={"code": code, "reason": "auto mailing already running"},
+                )
+                lock.__exit__(None, None, None)
+                continue
+            try:
+                if code == "inactive_14_bonus":
+                    created = process_inactive_14_bonus(conn, setting)
+                elif code == "first_visit_survey":
+                    created = process_first_visit_survey(conn, setting)
+                elif code == "streak_expiring_reminder":
+                    created = process_streak_expiring_reminder(conn, setting)
+                else:
+                    finish_job_run(
+                        job_run_id,
+                        "success",
+                        rows_received=0,
+                        rows_saved=0,
+                        metadata={"code": code, "skipped": "unknown_code"},
+                    )
+                    continue
+
                 total_created += created
-                processed.append({"club_id": setting["club_id"], "code": code, "recipients": created})
-            elif code == "first_visit_survey":
-                created = process_first_visit_survey(conn, setting)
-                total_created += created
-                processed.append({"club_id": setting["club_id"], "code": code, "recipients": created})
-            elif code == "streak_expiring_reminder":
-                created = process_streak_expiring_reminder(conn, setting)
-                total_created += created
-                processed.append({"club_id": setting["club_id"], "code": code, "recipients": created})
+                processed.append({"club_id": club_id, "code": code, "recipients": created})
+                finish_job_run(
+                    job_run_id,
+                    "success",
+                    rows_received=created,
+                    rows_saved=created,
+                    metadata={"code": code, "setting_id": setting.get("id")},
+                )
+            except Exception as exc:
+                finish_job_run(job_run_id, "error", error_text=str(exc), metadata={"code": code})
+                raise
+            finally:
+                lock.__exit__(None, None, None)
 
         return {"processed": processed, "recipients_created": total_created}
     finally:

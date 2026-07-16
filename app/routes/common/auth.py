@@ -1,14 +1,33 @@
+from datetime import datetime
+
 from flask import flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 from app.core import get_db_connection
+from app.services.rate_limit import client_ip, is_rate_limited
 
 from . import auth_bp
+
+
+def _mark_user_last_login(cursor, user_id: int) -> None:
+    try:
+        cursor.execute(
+            "UPDATE users SET last_login_at = %s WHERE user_id = %s",
+            (datetime.utcnow(), user_id),
+        )
+    except Exception:
+        # Compatibility for deployments where code is pulled before migrations run.
+        return
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        ip = client_ip()
+        if is_rate_limited(f"auth.login:{ip}", limit=10, window_seconds=300):
+            flash("Слишком много попыток входа. Попробуйте позже.", "error")
+            return redirect(url_for("auth.login"))
+
         login_value = request.form.get("login", "").strip()
         password = request.form.get("password", "").strip()
 
@@ -46,6 +65,10 @@ def login():
                 flash("Неверный пароль", "error")
                 return redirect(url_for("auth.login"))
 
+            with conn.cursor() as cursor:
+                _mark_user_last_login(cursor, user["user_id"])
+            conn.commit()
+
             session["user_id"] = user["user_id"]
             session["role"] = user["role"]
             session["name"] = user["name"]
@@ -55,6 +78,8 @@ def login():
 
             if user["role"] == "admin":
                 return redirect(url_for("admin.dashboard"))
+            if user["role"] == "reception":
+                return redirect(url_for("reception.dashboard"))
             if user["club_id"] is None:
                 return redirect(url_for("owner.club_create"))
             return redirect(url_for("owner.dashboard"))

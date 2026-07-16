@@ -2,13 +2,30 @@ import argparse
 import hashlib
 import logging
 import re
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pymysql
 from pymysql.cursors import DictCursor
 
-from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.config import (
+    DB_CONNECT_TIMEOUT,
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWORD,
+    DB_PORT,
+    DB_READ_TIMEOUT,
+    DB_USER,
+    DB_WRITE_TIMEOUT,
+)
+from app.services.job_locks import job_lock
+from app.services.job_runs import finish_job_run, start_job_run
 
 
 logging.basicConfig(level=logging.INFO)
@@ -28,9 +45,9 @@ def get_db_connection():
         charset="utf8mb4",
         cursorclass=DictCursor,
         ssl={"check_hostname": False},
-        connect_timeout=15,
-        read_timeout=60,
-        write_timeout=60,
+        connect_timeout=DB_CONNECT_TIMEOUT,
+        read_timeout=DB_READ_TIMEOUT,
+        write_timeout=DB_WRITE_TIMEOUT,
         autocommit=False
     )
 
@@ -221,14 +238,43 @@ def sync_operations_incremental(club_id=None):
         current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
+        lock = job_lock("sync_operations_incremental", club_id=current_club_id, ttl_minutes=60)
+        acquired_lock = lock.__enter__()
+        job_run_id = start_job_run(
+            "sync_operations_incremental",
+            club_id=current_club_id,
+            metadata={"source": "langame", "date_from": date_from, "date_to": date_to},
+        )
+        if not acquired_lock.acquired:
+            finish_job_run(
+                job_run_id,
+                "skipped_locked",
+                metadata={"reason": "sync_operations_incremental already running"},
+            )
+            summary.append({"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to})
+            lock.__exit__(None, None, None)
+            continue
 
         logging.info(f"Клуб {current_club_id} | Langame secret={secret} | {date_from} → {date_to}")
 
-        operations = fetch_operations(secret, api_key, current_club_id, date_from, date_to)
-        logging.info(f"Получено операций: {len(operations)}")
+        try:
+            operations = fetch_operations(secret, api_key, current_club_id, date_from, date_to)
+            logging.info(f"Получено операций: {len(operations)}")
 
-        saved = save_operations(current_club_id, operations)
-        summary.append({"club_id": current_club_id, "received": len(operations), "saved": saved, "date_from": date_from, "date_to": date_to})
+            saved = save_operations(current_club_id, operations)
+            finish_job_run(
+                job_run_id,
+                "success",
+                rows_received=len(operations),
+                rows_saved=saved,
+                metadata={"date_from": date_from, "date_to": date_to},
+            )
+            summary.append({"club_id": current_club_id, "received": len(operations), "saved": saved, "date_from": date_from, "date_to": date_to})
+        except Exception as exc:
+            finish_job_run(job_run_id, "error", error_text=str(exc))
+            raise
+        finally:
+            lock.__exit__(None, None, None)
 
     logging.info("=== END OPERATIONS SYNC ===")
     return summary

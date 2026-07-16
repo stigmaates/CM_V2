@@ -1,0 +1,117 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin — Пользователи{% endblock %}
+{% set active_page = 'users' %}
+{% block content %}
+<section class="admin-page-head">
+    <div>
+        <h1>Пользователи</h1>
+        <p>Аккаунты панели управления: владельцы, reception и технические админы.</p>
+    </div>
+    <a class="admin-btn" href="{{ url_for('admin.users_create') }}">Создать пользователя</a>
+</section>
+
+<section class="admin-users-layout">
+    <div class="admin-card">
+        <div class="admin-section-head compact">
+            <div>
+                <h2>Список пользователей</h2>
+                <p>{{ users|length }} аккаунтов</p>
+            </div>
+        </div>
+
+        <div class="admin-table-wrap">
+            <table class="admin-table admin-users-table">
+                <thead>
+                    <tr>
+                        <th>Пользователь</th>
+                        <th>Роль</th>
+                        <th>Клуб</th>
+                        <th>Создан</th>
+                        <th>Последний вход</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr class="{% if selected_user and selected_user.user_id == user.user_id %}active{% endif %}" onclick="window.location='{{ url_for('admin.users_list', user_id=user.user_id) }}'">
+                            <td>
+                                <strong>{{ user.name or 'Без имени' }}</strong>
+                                <span class="admin-table-sub">@{{ user.login }} · ID {{ user.user_id }}</span>
+                            </td>
+                            <td><span class="status-pill">{{ user.role }}</span></td>
+                            <td>
+                                {% if user.club_id %}
+                                    {{ user.club_name or ('Клуб #' ~ user.club_id) }}
+                                    <span class="admin-table-sub">ID {{ user.club_id }}</span>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else '—' }}</td>
+                            <td>{{ user.last_login_at.strftime('%d.%m.%Y %H:%M') if user.last_login_at else 'не входил' }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="empty-cell">Пользователей пока нет.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <aside class="admin-card admin-user-card">
+        {% if selected_user %}
+            <div class="admin-user-card-head">
+                <div>
+                    <span class="status-pill">{{ selected_user.role }}</span>
+                    <h2>{{ selected_user.name or 'Без имени' }}</h2>
+                    <p>@{{ selected_user.login }}</p>
+                </div>
+                <div class="admin-user-avatar">{{ (selected_user.name or selected_user.login or '?')[0]|upper }}</div>
+            </div>
+
+            <div class="admin-user-facts">
+                <div><span>ID</span><strong>{{ selected_user.user_id }}</strong></div>
+                <div><span>Клуб</span><strong>{% if selected_user.club_id %}{{ selected_user.club_name or ('#' ~ selected_user.club_id) }}{% else %}—{% endif %}</strong></div>
+                <div><span>Создан</span><strong>{{ selected_user.created_at.strftime('%d.%m.%Y %H:%M') if selected_user.created_at else '—' }}</strong></div>
+                <div><span>Последний вход</span><strong>{{ selected_user.last_login_at.strftime('%d.%m.%Y %H:%M') if selected_user.last_login_at else 'не входил' }}</strong></div>
+            </div>
+
+            <button class="admin-btn danger" type="button" id="openResetPassword">Сбросить пароль</button>
+
+            <form class="admin-form admin-reset-form" id="resetPasswordForm" method="POST" action="{{ url_for('admin.user_reset_password', user_id=selected_user.user_id) }}" hidden>
+                <div class="reset-form-note">Введите новый пароль для пользователя <strong>@{{ selected_user.login }}</strong>.</div>
+                <div>
+                    <label for="password">Новый пароль</label>
+                    <input type="password" id="password" name="password" minlength="6" required>
+                </div>
+                <div>
+                    <label for="password_confirm">Повторите пароль</label>
+                    <input type="password" id="password_confirm" name="password_confirm" minlength="6" required>
+                </div>
+                <button class="admin-btn danger" type="submit">Сохранить новый пароль</button>
+            </form>
+        {% else %}
+            <div class="empty-logs">Выберите пользователя из списка.</div>
+        {% endif %}
+    </aside>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        const openButton = document.getElementById('openResetPassword');
+        const form = document.getElementById('resetPasswordForm');
+        if (!openButton || !form) return;
+
+        openButton.addEventListener('click', function () {
+            if (!window.confirm('Сбросить пароль этому пользователю?')) return;
+            form.hidden = false;
+            openButton.hidden = true;
+            const input = form.querySelector('input[name="password"]');
+            if (input) input.focus();
+        });
+    }());
+</script>
+{% endblock %}

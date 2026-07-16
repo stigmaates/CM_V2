@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Cyber Bonus mailing processor every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=cyber-bonus-mailings.service
+
+[Install]
+WantedBy=timers.target

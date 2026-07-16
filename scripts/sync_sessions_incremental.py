@@ -1,12 +1,29 @@
 import argparse
 import logging
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pymysql
 from pymysql.cursors import DictCursor
 
-from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.config import (
+    DB_CONNECT_TIMEOUT,
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWORD,
+    DB_PORT,
+    DB_READ_TIMEOUT,
+    DB_USER,
+    DB_WRITE_TIMEOUT,
+)
+from app.services.job_locks import job_lock
+from app.services.job_runs import finish_job_run, start_job_run
 
 
 logging.basicConfig(level=logging.INFO)
@@ -24,9 +41,9 @@ def get_db_connection():
         charset="utf8mb4",
         cursorclass=DictCursor,
         ssl={"check_hostname": False},
-        connect_timeout=15,
-        read_timeout=60,
-        write_timeout=60,
+        connect_timeout=DB_CONNECT_TIMEOUT,
+        read_timeout=DB_READ_TIMEOUT,
+        write_timeout=DB_WRITE_TIMEOUT,
         autocommit=False
     )
 
@@ -156,32 +173,63 @@ def sync_sessions_incremental(club_id=None):
         current_club_id = int(club["club_id"])
         api_key = club["lg_api_key"]
         secret = club["secret"]
+        lock = job_lock("sync_sessions_incremental", club_id=current_club_id, ttl_minutes=60)
+        acquired_lock = lock.__enter__()
+        job_run_id = start_job_run(
+            "sync_sessions_incremental",
+            club_id=current_club_id,
+            metadata={"source": "langame", "date_from": date_from, "date_to": date_to},
+        )
+        if not acquired_lock.acquired:
+            finish_job_run(
+                job_run_id,
+                "skipped_locked",
+                metadata={"reason": "sync_sessions_incremental already running"},
+            )
+            summary.append({"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to})
+            lock.__exit__(None, None, None)
+            continue
 
         logging.info(f"Клуб {current_club_id} | Langame secret={secret} | {date_from} → {date_to}")
 
-        page = 1
-        total_saved = 0
+        try:
+            page = 1
+            total_saved = 0
+            total_received = 0
 
-        while True:
-            data = fetch_sessions(secret, api_key, page, date_from, date_to)
+            while True:
+                data = fetch_sessions(secret, api_key, page, date_from, date_to)
 
-            sessions = data.get("data", [])
-            total_pages = data.get("total_pages", 1)
+                sessions = data.get("data", [])
+                total_pages = data.get("total_pages", 1)
 
-            if not sessions:
-                break
+                if not sessions:
+                    break
 
-            saved = save_sessions(current_club_id, sessions)
-            total_saved += saved
+                total_received += len(sessions)
+                saved = save_sessions(current_club_id, sessions)
+                total_saved += saved
 
-            logging.info(f"Клуб {current_club_id} | page {page}/{total_pages}: {len(sessions)} | сохранено: {saved}")
+                logging.info(f"Клуб {current_club_id} | page {page}/{total_pages}: {len(sessions)} | сохранено: {saved}")
 
-            if page >= total_pages:
-                break
+                if page >= total_pages:
+                    break
 
-            page += 1
+                page += 1
 
-        summary.append({"club_id": current_club_id, "saved": total_saved, "date_from": date_from, "date_to": date_to})
+            finish_job_run(
+                job_run_id,
+                "success",
+                rows_received=total_received,
+                rows_saved=total_saved,
+                metadata={"date_from": date_from, "date_to": date_to},
+            )
+            summary.append({"club_id": current_club_id, "saved": total_saved, "date_from": date_from, "date_to": date_to})
+        except Exception as exc:
+            finish_job_run(job_run_id, "error", error_text=str(exc))
+            raise
+        finally:
+            lock.__exit__(None, None, None)
 
     logging.info("=== END SYNC ===")
     return summary

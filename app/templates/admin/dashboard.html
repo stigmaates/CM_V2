@@ -15,6 +15,208 @@
     <div class="admin-card metric-card"><span>Админов</span><strong>{{ metrics.admins_count }}</strong></div>
 </section>
 
+<section class="admin-card readiness-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Готовность системы</h2>
+            <p>Короткая проверка перед раскаткой и подключением клубов.</p>
+        </div>
+        <div class="readiness-overall {{ readiness.overall_status }}">
+            <span>{{ readiness.overall_label }}</span>
+            <strong>{{ readiness.environment }}</strong>
+            {% if readiness.release.commit %}
+                <em>{{ readiness.release.commit[:7] }}</em>
+            {% endif %}
+        </div>
+    </div>
+    <div class="readiness-grid">
+        {% for item in readiness["items"] %}
+            <div class="readiness-item {{ item.status }}">
+                <span class="status-pill {{ item.status }}">{{ item.status }}</span>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.message }}</p>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="admin-card service-control-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Управление сервисами</h2>
+            <p>Быстрый перезапуск разрешённых stage-сервисов без входа на сервер.</p>
+        </div>
+        <span class="status-pill {{ 'success' if restart_controls.available else 'stale' }}">
+            {{ 'включено' if restart_controls.available else 'выключено' }}
+        </span>
+    </div>
+
+    {% if restart_controls.available %}
+        <div class="service-actions-grid">
+            {% for service in restart_controls.targets %}
+                <form method="post" action="{{ url_for('admin.restart_service', service_name=service.name) }}" class="service-action-form">
+                    <div>
+                        <strong>{{ service.label }}</strong>
+                        <span class="admin-table-sub">{{ service.name }}</span>
+                    </div>
+                    <button class="admin-btn danger" type="submit">Перезапустить</button>
+                </form>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-logs">Перезапуск из админки не настроен</div>
+    {% endif %}
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Техническое состояние</h2>
+            <p>Сводка по свежести фоновых синхронизаций.</p>
+        </div>
+    </div>
+    <div class="health-summary-grid">
+        <div class="health-summary-item success"><span>OK</span><strong>{{ sync_health_summary.success }}</strong></div>
+        <div class="health-summary-item stale"><span>Устарело/нет данных</span><strong>{{ sync_health_summary.stale }}</strong></div>
+        <div class="health-summary-item error"><span>Ошибки</span><strong>{{ sync_health_summary.error }}</strong></div>
+        <div class="health-summary-item running"><span>В работе</span><strong>{{ sync_health_summary.running }}</strong></div>
+    </div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Операционные предупреждения</h2>
+            <p>Ошибки и риски, которые требуют внимания технического админа.</p>
+        </div>
+        <div class="alerts-summary">
+            <span class="status-pill error">Ошибки: {{ operational_alert_summary.error }}</span>
+            <span class="status-pill stale">Предупреждения: {{ operational_alert_summary.warning }}</span>
+        </div>
+    </div>
+
+    <div class="alerts-list">
+        {% for alert in operational_alerts %}
+            <div class="alert-item {{ alert.severity }}">
+                <div>
+                    <strong>{{ alert.message }}</strong>
+                    <span class="admin-table-sub">
+                        {{ alert.code }}
+                        {% if alert.club_id %} · клуб {{ alert.club_id }}{% endif %}
+                        {% if alert.age_minutes is not none %} · {{ alert.age_minutes }} мин{% endif %}
+                    </span>
+                </div>
+                <span class="status-pill {{ 'error' if alert.severity == 'error' else 'stale' }}">{{ alert.severity }}</span>
+            </div>
+        {% else %}
+            <div class="empty-logs">Активных предупреждений нет</div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Состояние синхронизаций</h2>
+            <p>Последние фоновые обновления данных по каждому клубу.</p>
+        </div>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table sync-health-table">
+            <thead>
+                <tr>
+                    <th>Клуб</th>
+                    <th>Общий статус</th>
+                    <th>Гости</th>
+                    <th>Сессии</th>
+                    <th>Операции</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for club in club_sync_health %}
+                    <tr>
+                        <td>
+                            <strong>{{ club.name or ('Клуб #' ~ club.club_id) }}</strong>
+                            <span class="admin-table-sub">ID {{ club.club_id }}</span>
+                        </td>
+                        <td><span class="status-pill {{ club.overall }}">{{ club.overall }}</span></td>
+                        {% for job in club.jobs %}
+                            <td>
+                                <div class="sync-health-cell">
+                                    <span class="status-pill {{ job.status }}">{{ job.status_label }}</span>
+                                    <span class="admin-table-sub">{{ job.age_label }}</span>
+                                    {% if job.rows_saved is not none %}
+                                        <span class="admin-table-sub">сохранено: {{ job.rows_saved }}</span>
+                                    {% endif %}
+                                    {% if job.error_text %}
+                                        <span class="admin-table-sub error-text">{{ job.error_text }}</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-cell">Клубов пока нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="admin-card">
+    <div class="admin-section-head">
+        <div>
+            <h2>Последние фоновые задачи</h2>
+            <p>Свежие запуски синхронизаций и сервисных процессов.</p>
+        </div>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Задача</th>
+                    <th>Клуб</th>
+                    <th>Статус</th>
+                    <th>Старт</th>
+                    <th>Длительность</th>
+                    <th>Строки</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in recent_job_runs %}
+                    <tr>
+                        <td>
+                            {{ job.job_label }}
+                            <span class="admin-table-sub">{{ job.job_type }}</span>
+                        </td>
+                        <td>{{ job.club_id or '—' }}</td>
+                        <td><span class="status-pill {{ job.status }}">{{ job.status }}</span></td>
+                        <td>{{ job.started_at or '—' }}</td>
+                        <td>
+                            {% if job.duration_ms is not none %}
+                                {{ (job.duration_ms / 1000)|round(1) }} сек
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if job.rows_received is not none or job.rows_saved is not none %}
+                                {{ job.rows_received or 0 }} / {{ job.rows_saved or 0 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-cell">Фоновые задачи ещё не запускались</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <section class="admin-card">
     <div class="admin-section-head">
         <div>

@@ -12,3 +12,5 @@ __pycache__/
 .mypy_cache/
 __MACOSX/
 *.log
+.env.backup
+backups/

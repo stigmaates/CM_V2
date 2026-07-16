@@ -312,6 +312,131 @@ def get_unique_guests_chart(club_id: int, period_days: int):
         conn.close()
 
 
+
+def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
+    """Return case opening counts for the selected dashboard period."""
+    if not club_id:
+        return {"items": [], "total_openings": 0, "period_days": period_days}
+
+    period_days = period_days if period_days in (7, 30, 90) else 30
+    current_end = datetime.now()
+    current_start = current_end - timedelta(days=period_days)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    c.id AS case_id,
+                    c.name AS case_name,
+                    c.image_url AS case_image_url,
+                    c.sort_order,
+                    COUNT(o.id) AS openings_count
+                FROM club_cases c
+                LEFT JOIN guest_case_openings o
+                  ON o.club_id = c.club_id
+                 AND o.case_id = c.id
+                 AND o.created_at >= %s
+                 AND o.created_at < %s
+                WHERE c.club_id = %s
+                GROUP BY c.id, c.name, c.image_url, c.sort_order
+                ORDER BY openings_count DESC, c.sort_order ASC, c.id ASC
+                """,
+                (current_start, current_end, club_id),
+            )
+            rows = cursor.fetchall() or []
+    finally:
+        conn.close()
+
+    max_openings = max((int(row.get("openings_count") or 0) for row in rows), default=0)
+    items = []
+    for row in rows:
+        openings = int(row.get("openings_count") or 0)
+        width = round((openings / max_openings) * 100, 1) if max_openings else 0
+        items.append(
+            {
+                "case_id": int(row.get("case_id") or 0),
+                "name": row.get("case_name") or "Без названия",
+                "image_url": row.get("case_image_url") or "",
+                "openings": openings,
+                "width": width,
+            }
+        )
+
+    return {
+        "items": items,
+        "total_openings": sum(item["openings"] for item in items),
+        "period_days": period_days,
+    }
+
+
+def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
+    """Return completion counts by mission for the selected dashboard period."""
+    if not club_id:
+        return {"items": [], "total_completions": 0, "period_days": period_days}
+
+    period_days = period_days if period_days in (7, 30, 90) else 30
+    ranges = get_period_range(period_days)
+    current_start = ranges["current_start"]
+    current_end = ranges["current_end"]
+
+    active_missions = get_club_missions(club_id)
+    if not active_missions:
+        return {"items": [], "total_completions": 0, "period_days": period_days}
+
+    guest_ids = _get_guest_ids_for_engagement_scope(
+        club_id,
+        current_start=current_start,
+        current_end=current_end,
+        all_time=False,
+    )
+    sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
+    spins_by_guest = _get_wheel_spins_by_guest(club_id, guest_ids)
+
+    completion_counts = defaultdict(int)
+    completion_cache = {}
+
+    for guest_id in guest_ids:
+        guest_sessions = sessions_by_guest.get(guest_id, [])
+        guest_spins = spins_by_guest.get(guest_id, [])
+
+        for mission in active_missions:
+            completed_at = _get_mission_completion_at_from_preloaded(
+                guest_id,
+                club_id,
+                mission,
+                guest_sessions,
+                guest_spins,
+                active_missions,
+                completion_cache,
+            )
+            if completed_at and current_start <= completed_at < current_end:
+                completion_counts[mission.get("id")] += 1
+
+    max_completions = max(completion_counts.values(), default=0)
+    items = []
+    for mission in active_missions:
+        mission_id = mission.get("id")
+        completions = int(completion_counts.get(mission_id, 0))
+        width = round((completions / max_completions) * 100, 1) if max_completions else 0
+        items.append(
+            {
+                "mission_id": int(mission_id or 0),
+                "name": mission.get("display_name") or mission.get("name") or "Без названия",
+                "completions": completions,
+                "width": width,
+            }
+        )
+
+    items.sort(key=lambda item: (-item["completions"], item["name"]))
+
+    return {
+        "items": items,
+        "total_completions": sum(item["completions"] for item in items),
+        "period_days": period_days,
+    }
+
 def get_dashboard_stats(club_id: int, period_days: int = 30):
     if not club_id:
         return None
@@ -651,9 +776,18 @@ def _get_guest_ids_for_engagement_scope(club_id: int, current_start=None, curren
                         WHERE club_id = %s
                           AND created_at >= %s
                           AND created_at < %s
+
+                        UNION
+
+                        SELECT guest_id
+                        FROM guest_case_openings
+                        WHERE club_id = %s
+                          AND created_at >= %s
+                          AND created_at < %s
                     ) scope_guests
                     """,
                     (
+                        club_id, current_start, current_end,
                         club_id, current_start, current_end,
                         club_id, current_start, current_end,
                         club_id, current_start, current_end,
@@ -883,6 +1017,32 @@ def _get_wheel_spins_by_guest(club_id: int, guest_ids=None):
     finally:
         conn.close()
 
+def _get_case_openings_by_guest(club_id: int, guest_ids=None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            guest_filter_sql, guest_filter_params = _build_guest_filter_sql(guest_ids)
+            cursor.execute(
+                f"""
+                SELECT guest_id, created_at
+                FROM guest_case_openings
+                WHERE club_id = %s
+                  AND created_at IS NOT NULL
+                  {guest_filter_sql}
+                ORDER BY guest_id, created_at
+                """,
+                [club_id] + guest_filter_params,
+            )
+            rows = cursor.fetchall() or []
+
+        openings_by_guest = defaultdict(list)
+        for row in rows:
+            openings_by_guest[row["guest_id"]].append(row["created_at"])
+        return openings_by_guest
+    finally:
+        conn.close()
+
+
 
 def _get_mission_completion_at_from_preloaded(
     guest_id,
@@ -1020,6 +1180,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     total_guests = len(guest_ids)
     sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
     spins_by_guest = _get_wheel_spins_by_guest(club_id, guest_ids)
+    case_openings_by_guest = _get_case_openings_by_guest(club_id, guest_ids)
 
     # -------------------------
     # WHEEL
@@ -1043,6 +1204,29 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
             wheel_returned_guests += 1
 
     wheel_engagement_percent = _round_display((wheel_spun_guests / total_guests) * 100) if total_guests > 0 else 0
+
+    # -------------------------
+    # CASES
+    # -------------------------
+    first_case_opening_by_guest = {
+        guest_id: min(opening_dates)
+        for guest_id, opening_dates in case_openings_by_guest.items()
+        if opening_dates
+    }
+
+    case_opened_guests = len(first_case_opening_by_guest)
+    case_returned_guests = 0
+
+    for guest_id, first_case_opened_at in first_case_opening_by_guest.items():
+        guest_sessions = sessions_by_guest.get(guest_id, [])
+        returned = any(
+            session_row["date_start"] and session_row["date_start"] > first_case_opened_at
+            for session_row in guest_sessions
+        )
+        if returned:
+            case_returned_guests += 1
+
+    case_engagement_percent = _round_display((case_opened_guests / total_guests) * 100) if total_guests > 0 else 0
 
     # -------------------------
     # MISSIONS
@@ -1093,6 +1277,12 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
             "involved_guests": wheel_spun_guests,
             "engagement_percent": wheel_engagement_percent,
             "returned_guests": wheel_returned_guests,
+        },
+        "cases": {
+            "total_guests": total_guests,
+            "involved_guests": case_opened_guests,
+            "engagement_percent": case_engagement_percent,
+            "returned_guests": case_returned_guests,
         },
         "missions": {
             "total_guests": total_guests,
