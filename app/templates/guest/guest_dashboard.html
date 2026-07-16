@@ -1998,6 +1998,24 @@
             padding: var(--case-button-padding) !important;
         }
 
+        body .layout.layout--cases.case-layout-profile-sync-v11 .cases-grid[data-count="2"] {
+            width: 100% !important;
+            max-width: 760px !important;
+            overflow: hidden !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .cases-grid[data-count="2"] .case-tile {
+            min-width: 0 !important;
+            overflow: hidden !important;
+        }
+
+        body .layout.layout--cases.case-layout-profile-sync-v11 .cases-grid[data-count="2"] .case-tile-desc {
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden !important;
+        }
+
         @media (max-width: 1180px) {
             body .layout.layout--cases.case-layout-profile-sync-v11 {
                 grid-template-columns: 1fr !important;
@@ -3669,13 +3687,15 @@
                 buttonPadding = '11px 12px';
             } else if (count === 2) {
                 columns = 2;
-                imageHeight = syncCasesToProfile ? Math.max(170, Math.min(220, profileHeight - 260)) : 210;
-                maxWidth = '900px';
+                imageHeight = syncCasesToProfile ? Math.max(112, Math.min(152, profileHeight - 300)) : 180;
+                maxWidth = '760px';
                 marginInline = 'auto';
-                cardPadding = 16;
-                nameSize = 16;
-                descSize = 13;
-                buttonPadding = '13px 14px';
+                gap = 12;
+                cardPadding = 12;
+                nameSize = 15;
+                descSize = 12;
+                buttonPadding = '10px 12px';
+                hideDesc = syncCasesToProfile && profileHeight < 560;
             } else if (count === 3) {
                 columns = gridWidth >= 560 ? 3 : 2;
                 imageHeight = syncCasesToProfile ? Math.max(115, Math.min(158, profileHeight - 318)) : 155;

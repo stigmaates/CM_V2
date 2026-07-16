@@ -1,4 +1,4 @@
-from flask import flash, redirect, request, session, url_for
+from flask import flash, jsonify, redirect, request, session, url_for
 
 from app.core import owner_required
 from app.services.audit import record_audit_event
@@ -11,6 +11,7 @@ from app.services.cases import (
     get_case_by_id,
     get_case_item_by_id,
     get_cases_for_admin,
+    serialize_case_item,
     save_game_mode,
     update_case,
     update_case_item,
@@ -35,6 +36,20 @@ def _redirect_bonus_editor(editor: str = "cases"):
 def _current_bonus_editor(default: str = "cases") -> str:
     editor = request.form.get("bonus_editor", default).strip()
     return editor if editor in {"wheel", "cases"} else default
+
+
+def _wants_json() -> bool:
+    return (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.accept_mimetypes.best == "application/json"
+    )
+
+
+def _case_item_json_response(*, ok: bool, message: str, item=None, status: int = 200):
+    payload = {"ok": ok, "message": message}
+    if item is not None:
+        payload["item"] = serialize_case_item(item)
+    return jsonify(payload), status
 
 
 def _require_club_id():
@@ -126,6 +141,8 @@ def _delete_case_images_after_delete(case_id: int, club_id: int):
 def game_mode_save():
     club_id = _require_club_id()
     if club_id is None:
+        if _wants_json():
+            return _case_item_json_response(ok=False, message="Сначала создайте клуб", status=400)
         return redirect(url_for("owner.club_create"))
 
     mode = request.form.get("game_mode", "wheel").strip()
@@ -205,6 +222,8 @@ def case_update(case_id):
     case = get_case_by_id(case_id, club_id)
     if not case:
         flash("Кейс не найден", "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message="Кейс не найден", status=404)
         return _redirect_bonus_editor("cases")
 
     name = request.form.get("name", "").strip()
@@ -308,6 +327,8 @@ def case_item_add(case_id):
 
     if not name:
         flash("Укажи название предмета", "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message="Укажи название предмета", status=400)
         return _redirect_bonus_editor("cases")
 
     try:
@@ -317,6 +338,8 @@ def case_item_add(case_id):
         image_url = _get_uploaded_image_url(club_id=club_id, kind="case_item")
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message=str(e), status=400)
         return _redirect_bonus_editor("cases")
 
     try:
@@ -335,6 +358,7 @@ def case_item_add(case_id):
             is_active=is_active,
             sort_order=sort_order,
         )
+        item = get_case_item_by_id(item_id, club_id)
         record_audit_event(
             action="owner.case_item.create",
             club_id=club_id,
@@ -348,9 +372,13 @@ def case_item_add(case_id):
             },
         )
         flash("Предмет добавлен в кейс", "success")
+        if _wants_json():
+            return _case_item_json_response(ok=True, message="Предмет добавлен в кейс", item=item)
     except Exception as e:
         delete_local_upload(image_url)
         flash(f"Ошибка добавления предмета: {e}", "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message=f"Ошибка добавления предмета: {e}", status=500)
 
     return _redirect_bonus_editor("cases")
 
@@ -360,11 +388,15 @@ def case_item_add(case_id):
 def case_item_update(case_id, item_id):
     club_id = _require_club_id()
     if club_id is None:
+        if _wants_json():
+            return _case_item_json_response(ok=False, message="Сначала создайте клуб", status=400)
         return redirect(url_for("owner.club_create"))
 
     item = get_case_item_by_id(item_id, club_id)
     if not item or int(item.get("case_id")) != int(case_id):
         flash("Предмет не найден", "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message="Предмет не найден", status=404)
         return _redirect_bonus_editor("cases")
 
     name = request.form.get("name", "").strip()
@@ -377,6 +409,8 @@ def case_item_update(case_id, item_id):
 
     if not name:
         flash("Укажи название предмета", "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message="Укажи название предмета", status=400)
         return _redirect_bonus_editor("cases")
 
     old_image_url = item.get("image_url")
@@ -392,6 +426,8 @@ def case_item_update(case_id, item_id):
         )
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message=str(e), status=400)
         return _redirect_bonus_editor("cases")
 
     try:
@@ -410,6 +446,7 @@ def case_item_update(case_id, item_id):
             sort_order=int(item.get("sort_order") or 0),
         )
         _delete_old_image_if_replaced(old_image_url, image_url)
+        updated_item = get_case_item_by_id(item_id, club_id)
         record_audit_event(
             action="owner.case_item.update",
             club_id=club_id,
@@ -423,10 +460,14 @@ def case_item_update(case_id, item_id):
             },
         )
         flash("Предмет обновлён", "success")
+        if _wants_json():
+            return _case_item_json_response(ok=True, message="Предмет обновлён", item=updated_item)
     except Exception as e:
         if image_url != old_image_url:
             delete_local_upload(image_url)
         flash(f"Ошибка обновления предмета: {e}", "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message=f"Ошибка обновления предмета: {e}", status=500)
 
     return _redirect_bonus_editor("cases")
 
@@ -436,6 +477,8 @@ def case_item_update(case_id, item_id):
 def case_item_delete(case_id, item_id):
     club_id = _require_club_id()
     if club_id is None:
+        if _wants_json():
+            return _case_item_json_response(ok=False, message="Сначала создайте клуб", status=400)
         return redirect(url_for("owner.club_create"))
 
     item = get_case_item_by_id(item_id, club_id)
@@ -452,7 +495,11 @@ def case_item_delete(case_id, item_id):
             details={"case_id": case_id},
         )
         flash("Предмет удалён", "success")
+        if _wants_json():
+            return _case_item_json_response(ok=True, message="Предмет удалён")
     except Exception as e:
         flash(f"Ошибка удаления предмета: {e}", "error")
+        if _wants_json():
+            return _case_item_json_response(ok=False, message=f"Ошибка удаления предмета: {e}", status=500)
 
     return _redirect_bonus_editor("cases")
