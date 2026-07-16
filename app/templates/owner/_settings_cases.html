@@ -362,7 +362,11 @@
                                     {% if case_items %}
                                         <select class="form-input" id="case_item_select_{{ case.id }}" data-case-item-selector data-case-id="{{ case.id }}">
                                             {% for item in case_items %}
-                                                <option value="{{ item.id }}">
+                                                <option value="{{ item.id }}"
+                                                        data-name="{{ item.name }}"
+                                                        data-rarity-label="{{ item.rarity_label or 'Обычный' }}"
+                                                        data-is-active="{{ 1 if item.is_active else 0 }}"
+                                                        data-sort-order="{{ item.sort_order or loop.index }}">
                                                     {{ loop.index }}. {{ item.name }} — {{ item.rarity_label or 'Обычный' }}{% if not item.is_active %} · выкл.{% endif %}
                                                 </option>
                                             {% endfor %}
@@ -411,6 +415,10 @@
                                             <div class="form-group">
                                                 <label for="item_tokens_{{ item.id }}">Жетоны</label>
                                                 <input class="form-input" type="number" id="item_tokens_{{ item.id }}" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="item_sort_{{ item.id }}">Порядок</label>
+                                                <input class="form-input" type="number" id="item_sort_{{ item.id }}" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}">
                                             </div>
                                             <div class="form-group full">
                                                 <label for="item_file_{{ item.id }}">Картинка предмета</label>
@@ -480,6 +488,10 @@
                                     <div class="form-group">
                                         <label>Жетоны</label>
                                         <input class="form-input" type="number" name="token_amount" min="0" step="1" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Порядок</label>
+                                        <input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ case_items|length + 1 }}">
                                     </div>
                                     <div class="form-group full">
                                         <label>Картинка предмета</label>
@@ -646,6 +658,27 @@
             return `${index}. ${item.name} — ${item.rarity_label || 'Обычный'}${disabled}`;
         }
 
+        function sortSelectorOptions(selector) {
+            if (!selector) return;
+            const selectedValue = selector.value;
+            const options = Array.from(selector.options);
+            options.sort((left, right) => {
+                const leftOrder = Number(left.dataset.sortOrder || 0);
+                const rightOrder = Number(right.dataset.sortOrder || 0);
+                if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+                return (left.dataset.name || '').localeCompare(right.dataset.name || '', 'ru');
+            });
+            options.forEach((option, index) => {
+                selector.appendChild(option);
+                option.textContent = optionLabel({
+                    name: option.dataset.name || 'Предмет',
+                    rarity_label: option.dataset.rarityLabel || 'Обычный',
+                    is_active: option.dataset.isActive === '1',
+                }, index + 1);
+            });
+            selector.value = selectedValue;
+        }
+
         function setStatus(container, message, type) {
             const status = container ? container.querySelector('[data-case-item-status], [data-case-add-status]') : null;
             if (!status) return;
@@ -662,8 +695,13 @@
                 option.value = item.id;
                 selector.appendChild(option);
             }
+            option.dataset.name = item.name || '';
+            option.dataset.rarityLabel = item.rarity_label || 'Обычный';
+            option.dataset.isActive = item.is_active ? '1' : '0';
+            option.dataset.sortOrder = item.sort_order || 0;
             option.textContent = optionLabel(item, Array.from(selector.options).indexOf(option) + 1);
             selector.value = String(item.id);
+            sortSelectorOptions(selector);
         }
 
         function bindItemSelector(selector) {
@@ -708,6 +746,10 @@
                         <div class="form-group">
                             <label>Жетоны</label>
                             <input class="form-input" type="number" name="token_amount" min="0" step="1" value="${item.token_amount || 0}">
+                        </div>
+                        <div class="form-group">
+                            <label>Порядок</label>
+                            <input class="form-input" type="number" name="sort_order" min="0" step="1" value="${item.sort_order || 0}">
                         </div>
                         <div class="form-group full">
                             <label>Картинка предмета</label>

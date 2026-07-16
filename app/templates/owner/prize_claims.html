@@ -58,6 +58,9 @@
                         </td>
                         <td>
                             {% if claim.status != 'issued' and claim.status != 'cancelled' %}
+                                <form method="post" action="{{ url_for('owner.prize_claim_notify', claim_id=claim.id, status=selected_status) }}" style="display:inline;">
+                                    <button class="btn" type="submit">Повторить уведомление</button>
+                                </form>
                                 <form method="post" action="{{ url_for('owner.prize_claim_issue', claim_id=claim.id, status=selected_status) }}" style="display:inline;">
                                     <button class="btn btn-primary" type="submit">Выдать</button>
                                 </form>

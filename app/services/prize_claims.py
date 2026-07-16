@@ -6,7 +6,7 @@ from html import escape
 
 import httpx
 
-from app.config import BOT_TOKEN, CM_BONUS_BOT_TOKEN, TG_PROXY_URL
+from app.config import BOT_TOKEN, CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL
 from app.core import get_db_connection
 from app.services.cm_bonuses import get_cm_bonus_admin_chat_id_for_club
 
@@ -283,8 +283,9 @@ def _notify_claim_admin_chat(claim: dict[str, Any]) -> tuple[bool, int | None, s
     }
     try:
         client_kwargs: dict[str, Any] = {"timeout": 20.0}
-        if TG_PROXY_URL:
-            client_kwargs["proxy"] = TG_PROXY_URL
+        proxy_url = (CM_BONUS_PROXY_URL or TG_PROXY_URL or "").strip()
+        if proxy_url:
+            client_kwargs["proxy"] = proxy_url
         with httpx.Client(**client_kwargs) as client:
             response = client.post(url, json=payload)
         data = response.json()
@@ -316,7 +317,7 @@ def notify_prize_claim_admin_chat(claim_id: int) -> dict[str, Any]:
                     notify_error = %s,
                     notified_at = %s
                 WHERE id = %s
-                  AND status IN ('pending', 'notify_failed')
+                  AND status IN ('pending', 'notified', 'notify_failed')
                 """,
                 (
                     "notified" if sent else "notify_failed",
