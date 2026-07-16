@@ -452,6 +452,7 @@ def serialize_case_item(item):
         "probability": float(item.get("probability") or 0),
         "rarity_label": item.get("rarity_label") or "Обычный",
         "is_active": bool(item.get("is_active")),
+        "sort_order": int(item.get("sort_order") or 0),
     }
 
 

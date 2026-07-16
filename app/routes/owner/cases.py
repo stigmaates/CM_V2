@@ -322,6 +322,7 @@ def case_item_add(case_id):
     bonus_raw = request.form.get("bonus_amount", "").strip()
     token_raw = request.form.get("token_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
+    sort_raw = request.form.get("sort_order", "").strip()
     rarity_label = _parse_rarity_label(request.form.get("rarity_label", "Обычный"))
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
@@ -335,6 +336,8 @@ def case_item_add(case_id):
         probability = _parse_probability(probability_raw)
         bonus_amount = _parse_int(bonus_raw, "Количество КБ")
         token_amount = _parse_int(token_raw, "Количество жетонов")
+        items = case.get("items") or []
+        sort_order = _parse_int(sort_raw, "Порядок") if sort_raw else len(items) + 1
         image_url = _get_uploaded_image_url(club_id=club_id, kind="case_item")
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
@@ -343,8 +346,6 @@ def case_item_add(case_id):
         return _redirect_bonus_editor("cases")
 
     try:
-        items = case.get("items") or []
-        sort_order = len(items) + 1
         item_id = create_case_item(
             case_id=case_id,
             club_id=club_id,
@@ -404,6 +405,7 @@ def case_item_update(case_id, item_id):
     bonus_raw = request.form.get("bonus_amount", "").strip()
     token_raw = request.form.get("token_amount", "").strip()
     probability_raw = request.form.get("probability", "").strip()
+    sort_raw = request.form.get("sort_order", "").strip()
     rarity_label = _parse_rarity_label(request.form.get("rarity_label", "Обычный"))
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
@@ -419,6 +421,7 @@ def case_item_update(case_id, item_id):
         probability = _parse_probability(probability_raw)
         bonus_amount = _parse_int(bonus_raw, "Количество КБ")
         token_amount = _parse_int(token_raw, "Количество жетонов")
+        sort_order = _parse_int(sort_raw, "Порядок") if sort_raw else int(item.get("sort_order") or 0)
         image_url = _get_uploaded_image_url(
             club_id=club_id,
             kind="case_item",
@@ -443,7 +446,7 @@ def case_item_update(case_id, item_id):
             probability=probability,
             rarity_label=rarity_label,
             is_active=is_active,
-            sort_order=int(item.get("sort_order") or 0),
+            sort_order=sort_order,
         )
         _delete_old_image_if_replaced(old_image_url, image_url)
         updated_item = get_case_item_by_id(item_id, club_id)
