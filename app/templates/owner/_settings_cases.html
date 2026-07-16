@@ -147,6 +147,12 @@
         overflow: hidden;
         align-items: center;
     }
+    html.case-editor-modal-open,
+    body.case-editor-modal-open {
+        overflow: hidden !important;
+        height: 100% !important;
+        overscroll-behavior: none !important;
+    }
     #caseAddModal .modal-panel--prize,
     .case-config-modal .modal-panel--prize {
         display: flex;
@@ -557,13 +563,39 @@
     (function () {
         const modals = Array.from(document.querySelectorAll('#caseAddModal, .case-config-modal'));
         let openModalCount = 0;
+        let previousBodyOverflow = '';
+        let previousHtmlOverflow = '';
+        let previousBodyPaddingRight = '';
+
+        function lockPageScroll() {
+            if (openModalCount > 0) return;
+            previousBodyOverflow = document.body.style.overflow;
+            previousHtmlOverflow = document.documentElement.style.overflow;
+            previousBodyPaddingRight = document.body.style.paddingRight;
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+            document.documentElement.classList.add('case-editor-modal-open');
+            document.body.classList.add('case-editor-modal-open');
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+            if (scrollbarWidth > 0) {
+                document.body.style.paddingRight = `${scrollbarWidth}px`;
+            }
+        }
+
+        function unlockPageScroll() {
+            document.documentElement.classList.remove('case-editor-modal-open');
+            document.body.classList.remove('case-editor-modal-open');
+            document.documentElement.style.overflow = previousHtmlOverflow;
+            document.body.style.overflow = previousBodyOverflow;
+            document.body.style.paddingRight = previousBodyPaddingRight;
+        }
 
         function openModal(modal) {
             if (!modal || modal.classList.contains('is-open')) return;
+            lockPageScroll();
             modal.classList.add('is-open');
             modal.setAttribute('aria-hidden', 'false');
             openModalCount += 1;
-            document.body.style.overflow = 'hidden';
         }
 
         function closeModal(modal) {
@@ -572,7 +604,7 @@
             modal.setAttribute('aria-hidden', 'true');
             openModalCount = Math.max(0, openModalCount - 1);
             if (openModalCount === 0) {
-                document.body.style.overflow = '';
+                unlockPageScroll();
             }
         }
 
