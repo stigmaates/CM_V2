@@ -79,6 +79,7 @@ Production:
 /root/cm_v2/CM_V2
 clubmodule.service
 clubmodule-bot.service
+clubmodule-admin-bot.service
 ```
 
 Stage:
@@ -87,6 +88,7 @@ Stage:
 /root/cm_stage/CM_V2
 clubmodule-stage.service
 clubmodule-stage-bot.service
+clubmodule-stage-admin-bot.service
 ```
 
 Stage команды и stage units не применять к production без проверки путей, environment files, service names и домена.
@@ -226,6 +228,7 @@ venv/bin/python scripts/migrate.py
 venv/bin/python -m compileall -q app bot scripts migrations tests
 systemctl restart clubmodule.service
 systemctl restart clubmodule-bot.service
+systemctl restart clubmodule-admin-bot.service
 ```
 
 Если production использует отдельные worker/timer services, перезапустить их по production runbook.
@@ -259,6 +262,7 @@ git checkout <previous_good_commit>
 venv/bin/python -m compileall -q app bot scripts migrations tests
 systemctl restart clubmodule.service
 systemctl restart clubmodule-bot.service
+systemctl restart clubmodule-admin-bot.service
 ```
 
 Если проблема в миграции/данных:
@@ -283,4 +287,3 @@ systemctl restart clubmodule-bot.service
 - rollback commit известен;
 - есть доступ к journal/systemctl;
 - есть человек, который мониторит первые 30-60 минут после релиза.
-
