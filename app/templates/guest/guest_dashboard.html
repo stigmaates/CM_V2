@@ -703,12 +703,14 @@
         .cases-subtitle { color: var(--text-muted); font-weight: 600; margin: 4px 0 16px; font-size: 14px; line-height: 1.4; }
         .cases-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
             gap: 16px;
             overflow: visible;
             padding-right: 0;
             flex: 0 0 auto;
             align-content: start;
+            width: 100%;
+            max-width: 100%;
         }
         .case-tile {
             position: relative;
@@ -720,6 +722,8 @@
             gap: 8px;
             background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
             transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+            min-width: 0;
+            max-width: 100%;
         }
         .case-tile:hover {
             transform: translateY(-2px);
@@ -748,8 +752,8 @@
         }
         .case-tile-image img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
         .case-tile-fallback { font-size: 52px; line-height: 1; }
-        .case-tile-name { font-weight: 800; font-size: 15px; }
-        .case-tile-desc { color: var(--text-muted); font-size: 12px; line-height: 1.35; flex: 1 1 auto; }
+        .case-tile-name { font-weight: 800; font-size: 15px; overflow-wrap: anywhere; }
+        .case-tile-desc { color: var(--text-muted); font-size: 12px; line-height: 1.35; flex: 1 1 auto; overflow-wrap: anywhere; }
         .case-open-btn {
             border: 0;
             border-radius: 12px;
@@ -3594,7 +3598,7 @@
 
             const profileHeight = profilePanel ? Math.ceil(profilePanel.offsetHeight || profilePanel.getBoundingClientRect().height) : 0;
             const leftHeight = leftColumn ? Math.ceil(leftColumn.offsetHeight || leftColumn.getBoundingClientRect().height) : 0;
-            const syncCasesToProfile = desktop && profileHeight > 0 && count >= 2 && count <= 4;
+            const syncCasesToProfile = desktop && profileHeight > 0 && count >= 2 && count <= 3;
 
             layout.classList.toggle('case-count-1', desktop && count === 1);
             layout.classList.toggle('case-count-lte-4', desktop && count > 0 && count <= 4);
@@ -3662,6 +3666,12 @@
             if (!casesGrid) return;
 
             const gridWidth = casesGrid.clientWidth || casesPanel.clientWidth || 720;
+            const columnsFor = (desired, minCardWidth, nextGap = 16) => {
+                if (window.innerWidth <= 760) return 1;
+                const available = Math.max(1, gridWidth + nextGap);
+                const byWidth = Math.max(1, Math.floor(available / (minCardWidth + nextGap)));
+                return Math.max(1, Math.min(desired, byWidth));
+            };
             let columns = 2;
             let imageHeight = 160;
             let gap = 16;
@@ -3686,7 +3696,7 @@
                 descSize = 13;
                 buttonPadding = '11px 12px';
             } else if (count === 2) {
-                columns = 2;
+                columns = columnsFor(2, 240, 12);
                 imageHeight = syncCasesToProfile ? Math.max(112, Math.min(152, profileHeight - 300)) : 180;
                 maxWidth = '760px';
                 marginInline = 'auto';
@@ -3697,7 +3707,7 @@
                 buttonPadding = '10px 12px';
                 hideDesc = syncCasesToProfile && profileHeight < 560;
             } else if (count === 3) {
-                columns = gridWidth >= 560 ? 3 : 2;
+                columns = columnsFor(3, 185, 12);
                 imageHeight = syncCasesToProfile ? Math.max(115, Math.min(158, profileHeight - 318)) : 155;
                 maxWidth = 'none';
                 marginInline = '0';
@@ -3706,27 +3716,17 @@
                 descSize = 11;
                 buttonPadding = '10px 10px';
             } else if (count === 4) {
-                columns = gridWidth >= 620 ? 4 : 2;
-                if (columns === 4) {
-                    imageHeight = syncCasesToProfile ? Math.max(98, Math.min(132, profileHeight - 340)) : 132;
-                    cardPadding = 11;
-                    gap = 12;
-                    nameSize = 13;
-                    descSize = 11;
-                    buttonPadding = '9px 10px';
-                } else {
-                    imageHeight = 95;
-                    cardPadding = 10;
-                    gap = 10;
-                    nameSize = 13;
-                    descSize = 10;
-                    buttonPadding = '8px 9px';
-                    hideDesc = true;
-                }
+                columns = columnsFor(2, 230, 12);
+                imageHeight = 150;
+                cardPadding = 12;
+                gap = 12;
+                nameSize = 14;
+                descSize = 11;
+                buttonPadding = '10px 10px';
                 maxWidth = 'none';
                 marginInline = '0';
             } else if (count <= 6) {
-                columns = gridWidth >= 620 ? 3 : 2;
+                columns = columnsFor(3, 190, 14);
                 imageHeight = 135;
                 gap = 14;
                 cardPadding = 12;
@@ -3734,7 +3734,7 @@
                 descSize = 11;
                 buttonPadding = '10px 10px';
             } else if (count <= 8) {
-                columns = gridWidth >= 650 ? 4 : 3;
+                columns = columnsFor(4, 150, 12);
                 imageHeight = 115;
                 gap = 12;
                 cardPadding = 11;
@@ -3743,7 +3743,7 @@
                 buttonPadding = '9px 10px';
                 hideDesc = true;
             } else if (count <= 12) {
-                columns = gridWidth >= 620 ? 4 : 3;
+                columns = columnsFor(4, 140, 10);
                 imageHeight = 92;
                 gap = 10;
                 cardPadding = 10;
@@ -3752,7 +3752,7 @@
                 buttonPadding = '8px 8px';
                 hideDesc = true;
             } else {
-                columns = gridWidth >= 720 ? 5 : 4;
+                columns = columnsFor(5, 124, 8);
                 imageHeight = 82;
                 gap = 8;
                 cardPadding = 9;
