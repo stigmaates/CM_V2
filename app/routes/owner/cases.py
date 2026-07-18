@@ -8,6 +8,7 @@ from app.services.cases import (
     create_case_item,
     delete_case,
     delete_case_item,
+    duplicate_case,
     get_case_by_id,
     get_case_item_by_id,
     get_cases_for_admin,
@@ -301,6 +302,29 @@ def case_delete(case_id):
         flash("Кейс удалён", "success")
     except Exception as e:
         flash(f"Ошибка удаления кейса: {e}", "error")
+
+    return _redirect_bonus_editor("cases")
+
+
+@owner_bp.route('/cases/<int:case_id>/duplicate', methods=['POST'])
+@owner_required
+def case_duplicate(case_id):
+    club_id = _require_club_id()
+    if club_id is None:
+        return redirect(url_for("owner.club_create"))
+
+    try:
+        new_case_id = duplicate_case(case_id, club_id)
+        record_audit_event(
+            action="owner.case.duplicate",
+            club_id=club_id,
+            entity_type="club_case",
+            entity_id=new_case_id,
+            details={"source_case_id": case_id},
+        )
+        flash("Кейс скопирован. Копия выключена для гостей — проверь название и включи, когда будет готова.", "success")
+    except Exception as e:
+        flash(f"Ошибка копирования кейса: {e}", "error")
 
     return _redirect_bonus_editor("cases")
 
