@@ -347,6 +347,76 @@ def delete_case(case_id: int, club_id: int):
         conn.close()
 
 
+def duplicate_case(case_id: int, club_id: int) -> int:
+    """Copy a case with all items. The duplicate is disabled by default."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_case_tables(cursor)
+            cursor.execute(
+                f"SELECT {CASE_FIELDS} FROM club_cases WHERE id = %s AND club_id = %s LIMIT 1",
+                (case_id, club_id),
+            )
+            source_case = cursor.fetchone()
+            if not source_case:
+                raise ValueError("Кейс не найден")
+
+            cursor.execute(
+                """
+                SELECT COALESCE(MAX(sort_order), 0) AS max_sort_order
+                FROM club_cases
+                WHERE club_id = %s
+                """,
+                (club_id,),
+            )
+            sort_row = cursor.fetchone() or {}
+            new_sort_order = int(sort_row.get("max_sort_order") or 0) + 1
+
+            copy_name = f"{source_case.get('name') or 'Кейс'} (копия)"
+            cursor.execute(
+                """
+                INSERT INTO club_cases (
+                    club_id, name, description, image_url, badge_label,
+                    price_tokens, is_active, sort_order
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, 0, %s)
+                """,
+                (
+                    club_id,
+                    copy_name,
+                    source_case.get("description"),
+                    source_case.get("image_url"),
+                    source_case.get("badge_label"),
+                    int(source_case.get("price_tokens") or 0),
+                    new_sort_order,
+                ),
+            )
+            new_case_id = int(cursor.lastrowid)
+
+            cursor.execute(
+                """
+                INSERT INTO club_case_items (
+                    case_id, club_id, name, description, image_url,
+                    bonus_amount, token_amount, probability, rarity_label,
+                    is_active, sort_order
+                )
+                SELECT
+                    %s, club_id, name, description, image_url,
+                    bonus_amount, token_amount, probability, rarity_label,
+                    is_active, sort_order
+                FROM club_case_items
+                WHERE case_id = %s
+                  AND club_id = %s
+                ORDER BY sort_order, id
+                """,
+                (new_case_id, case_id, club_id),
+            )
+        conn.commit()
+        return new_case_id
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Case items CRUD
 # ---------------------------------------------------------------------------

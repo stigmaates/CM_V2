@@ -292,6 +292,9 @@
                         </div>
                         <div class="case-showcase-actions">
                             <button class="btn" type="button" data-open-case-config="caseConfigModal{{ case.id }}">Настроить</button>
+                            <form method="POST" action="{{ url_for('owner.case_duplicate', case_id=case.id) }}" style="display:inline;">
+                                <button class="btn" type="submit" onclick="return confirm('Скопировать этот кейс со всеми предметами? Копия будет выключена для гостей.')">Дублировать</button>
+                            </form>
                             <span class="case-prob-total {% if case_prob_ok %}is-ok{% else %}is-bad{% endif %}">
                                 {% if case_prob_ok %}100%{% else %}{{ '%.2f'|format(prob_sum) }}%{% endif %}
                             </span>
