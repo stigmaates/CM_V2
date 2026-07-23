@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from zoneinfo import ZoneInfo
 
 from app.core import get_db_connection
+from app.services.job_runs import get_latest_job_runs_by_club
 from app.services.mailing import ensure_auto_mailings
 
 MSK_TZ = ZoneInfo("Europe/Moscow")
@@ -15,18 +16,21 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 UPDATE_TASKS = [
     {
         "key": "guests",
+        "job_type": "sync_guests_incremental",
         "title": "Обновление гостей",
         "log_file": "sync_guests_incremental.log",
         "ok_after_minutes": 30,
     },
     {
         "key": "sessions",
+        "job_type": "sync_sessions_incremental",
         "title": "Обновление сессий",
         "log_file": "sync_sessions_incremental.log",
         "ok_after_minutes": 10,
     },
     {
         "key": "operations",
+        "job_type": "sync_operations_incremental",
         "title": "Обновление операций",
         "log_file": "sync_operations_incremental.log",
         "ok_after_minutes": 10,
@@ -77,7 +81,28 @@ def _minutes_since(dt: datetime | None) -> float | None:
     return (datetime.now(MSK_TZ) - dt).total_seconds() / 60
 
 
-def _build_update_status(item: Dict[str, Any]) -> Dict[str, Any]:
+def _build_update_status(
+    item: Dict[str, Any],
+    latest_jobs_by_type: Dict[str, Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    job_type = item.get("job_type")
+    job_row = (latest_jobs_by_type or {}).get(job_type)
+    if job_row:
+        last_run = _to_msk(job_row.get("finished_at") or job_row.get("started_at"))
+        minutes = _minutes_since(last_run)
+        is_ok = (
+            (job_row.get("status") or "").lower() == "success"
+            and minutes is not None
+            and minutes <= int(item["ok_after_minutes"])
+        )
+        return {
+            "key": item["key"],
+            "title": item["title"],
+            "status": "работает" if is_ok else "не работает",
+            "status_class": "ok" if is_ok else "bad",
+            "last_run": _format_msk(last_run),
+        }
+
     log_path = LOGS_DIR / item["log_file"]
     last_run = _file_mtime_msk(log_path)
     minutes = _minutes_since(last_run)
@@ -119,7 +144,12 @@ def _build_auto_status(row: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
     """Compact status block for owner settings. All displayed times are MSK."""
-    updates = [_build_update_status(item) for item in UPDATE_TASKS]
+    job_types = [item["job_type"] for item in UPDATE_TASKS]
+    try:
+        latest_jobs_by_type = get_latest_job_runs_by_club(job_types).get(int(club_id), {})
+    except Exception:
+        latest_jobs_by_type = {}
+    updates = [_build_update_status(item, latest_jobs_by_type) for item in UPDATE_TASKS]
 
     conn = get_db_connection()
     try:
