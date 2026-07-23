@@ -49,7 +49,6 @@ def build_alert_key(alert: dict[str, Any]) -> str:
         "club_id": alert.get("club_id"),
         "job_type": alert.get("job_type"),
         "mailing_id": (alert.get("metadata") or {}).get("mailing_id"),
-        "job_run_id": (alert.get("metadata") or {}).get("job_run_id"),
     }
     raw = json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

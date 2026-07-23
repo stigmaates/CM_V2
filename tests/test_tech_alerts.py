@@ -72,6 +72,13 @@ def test_build_alert_key_is_stable_for_same_alert():
     assert len(first) == 64
 
 
+def test_build_alert_key_ignores_background_job_run_id():
+    first = tech_alerts.build_alert_key(_alert(metadata={"job_run_id": 101, "error_text": "403"}))
+    second = tech_alerts.build_alert_key(_alert(metadata={"job_run_id": 102, "error_text": "403"}))
+
+    assert first == second
+
+
 def test_format_tech_alert_message_escapes_html():
     message = tech_alerts.format_tech_alert_message(_alert(club_name="<club>", metadata={"error_text": "<bad>"}))
 
