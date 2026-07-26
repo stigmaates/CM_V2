@@ -49,12 +49,14 @@
     }
     .case-showcase-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 360px));
+        justify-content: start;
         gap: 16px;
         width: 100%;
         max-width: 100%;
     }
     .case-showcase-card {
+        width: 100%;
         overflow: hidden;
         border: 1px solid var(--border);
         border-radius: 18px;
