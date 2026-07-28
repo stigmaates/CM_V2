@@ -482,11 +482,29 @@ def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[
         return cur.fetchall()
 
 
+def _looks_like_patronymic(value: str) -> bool:
+    lower = (value or "").lower()
+    return lower.endswith(("ич", "вна", "чна", "инична", "овна", "евна"))
+
+
+def _looks_like_surname(value: str) -> bool:
+    lower = (value or "").lower()
+    return lower.endswith(("ов", "ова", "ев", "ева", "ёв", "ёва", "ин", "ина", "ын", "ына", "ский", "ская", "цкий", "цкая"))
+
+
 def _first_name(fio: str | None) -> str:
     value = (fio or "").strip()
     if not value:
         return ""
-    return value.split()[0]
+    parts = value.split()
+    if len(parts) >= 3:
+        if _looks_like_patronymic(parts[1]):
+            return parts[0]
+        if _looks_like_patronymic(parts[2]):
+            return parts[1]
+    if len(parts) == 2 and _looks_like_surname(parts[0]):
+        return parts[1]
+    return parts[0]
 
 
 def _format_variable_value(value: Any) -> str:
@@ -1670,6 +1688,7 @@ def create_bonus_giveaway(
                     )
                     if awarded:
                         awarded_count += 1
+                        row["cm_bonus_balance"] = int(row.get("cm_bonus_balance") or 0) + bonus_amount
                     else:
                         status = "skipped"
                         error_text = "Дубликат операции"
@@ -1690,6 +1709,7 @@ def create_bonus_giveaway(
                     )
                     if token_awarded:
                         token_awarded_count += 1
+                        row["token_balance"] = int(row.get("token_balance") or 0) + token_amount
                     else:
                         token_status = "skipped"
                         token_error_text = "Дубликат операции"
