@@ -276,9 +276,9 @@ def fetch_auto_events(conn, launch: datetime, club_id: int | None) -> list[dict[
                 WHERE cbt.club_id = aml.club_id
                   AND cbt.guest_id = aml.guest_id
                   AND cbt.amount > 0
-                  AND cbt.source_type = 'auto_mailing'
+                  AND cbt.source_type COLLATE utf8mb4_unicode_ci = _utf8mb4'auto_mailing' COLLATE utf8mb4_unicode_ci
                   AND (
-                        cbt.source_id = CAST(aml.mailing_id AS CHAR)
+                        cbt.source_id COLLATE utf8mb4_unicode_ci = CAST(aml.mailing_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
                         OR cbt.created_at BETWEEN DATE_SUB(aml.created_at, INTERVAL 15 MINUTE)
                                           AND DATE_ADD(aml.created_at, INTERVAL 15 MINUTE)
                   )
