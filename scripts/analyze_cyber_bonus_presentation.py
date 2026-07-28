@@ -242,7 +242,8 @@ def fetch_auto_events(conn, launch: datetime, club_id: int | None) -> list[dict[
         code_parts.append("aml.automation_code")
     if "auto_mailing_code" in columns:
         code_parts.append("aml.auto_mailing_code")
-    code_expr = "COALESCE(" + ", ".join(code_parts) + ")" if len(code_parts) > 1 else (code_parts[0] if code_parts else "NULL")
+    raw_code_expr = "COALESCE(" + ", ".join(code_parts) + ")" if len(code_parts) > 1 else (code_parts[0] if code_parts else "NULL")
+    code_expr = f"CAST(({raw_code_expr}) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci"
 
     params: list[Any] = [launch]
     club_filter = ""
@@ -285,7 +286,7 @@ def fetch_auto_events(conn, launch: datetime, club_id: int | None) -> list[dict[
         FROM auto_mailing_logs aml
         LEFT JOIN auto_mailing_settings ams
           ON ams.club_id = aml.club_id
-         AND ams.code = {code_expr}
+         AND ams.code COLLATE utf8mb4_unicode_ci = {code_expr}
         LEFT JOIN mailings m
           ON m.id = aml.mailing_id
          AND m.club_id = aml.club_id
@@ -298,7 +299,10 @@ def fetch_auto_events(conn, launch: datetime, club_id: int | None) -> list[dict[
         LEFT JOIN clubs c
           ON c.club_id = aml.club_id
         WHERE aml.created_at >= %s
-          AND {code_expr} IN ('inactive_14_bonus', 'streak_expiring_reminder')
+          AND {code_expr} IN (
+              _utf8mb4'inactive_14_bonus' COLLATE utf8mb4_unicode_ci,
+              _utf8mb4'streak_expiring_reminder' COLLATE utf8mb4_unicode_ci
+          )
           {club_filter}
         ORDER BY aml.created_at
         """,
