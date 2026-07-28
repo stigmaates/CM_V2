@@ -47,6 +47,16 @@ def test_admin_user_last_login_migration_exports_revision_and_upgrade():
     )
 
 
+def test_giveaway_tokens_and_personal_messages_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0005_giveaway_tokens_and_personal_messages")
+
+    assert migration.revision == "0005_giveaway_tokens_and_personal_messages"
+    assert callable(migration.upgrade)
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("message_text" in value for value in constants)
+    assert any("token_amount" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

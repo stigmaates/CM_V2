@@ -10,6 +10,7 @@ from app.services.mailing import (
     create_bonus_giveaway,
     delete_segment,
     get_filter_fields,
+    get_message_variables,
     get_crm_segment_options,
     get_crm_interaction_detail,
     list_auto_mailings,
@@ -90,6 +91,7 @@ def mailing_page():
     return render_template(
         "owner/mailing.html",
         filter_fields=get_filter_fields(),
+        message_variables=get_message_variables(),
         crm_segments=crm_segments,
         segments=segments,
         mailings=mailings,
@@ -277,6 +279,7 @@ def api_bonus_giveaways_create():
     data = request.get_json(force=True)
     rules = data.get("rules", [])
     bonus_amount_raw = data.get("bonus_amount")
+    token_amount_raw = data.get("token_amount")
     message_text = (data.get("message_text") or "").strip()
     start_now = bool(data.get("start_now"))
 
@@ -285,8 +288,19 @@ def api_bonus_giveaways_create():
     except (TypeError, ValueError):
         return jsonify({"ok": False, "error": "Количество бонусов должно быть числом"}), 400
 
-    if bonus_amount <= 0:
-        return jsonify({"ok": False, "error": "Количество бонусов должно быть больше 0"}), 400
+    try:
+        token_amount = int(token_amount_raw or 0)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Количество жетонов должно быть числом"}), 400
+
+    if bonus_amount < 0:
+        return jsonify({"ok": False, "error": "Количество бонусов не может быть отрицательным"}), 400
+
+    if token_amount < 0:
+        return jsonify({"ok": False, "error": "Количество жетонов не может быть отрицательным"}), 400
+
+    if bonus_amount <= 0 and token_amount <= 0:
+        return jsonify({"ok": False, "error": "Укажи бонусы или жетоны больше 0"}), 400
 
     if not message_text:
         return jsonify({"ok": False, "error": "Сообщение пустое"}), 400
@@ -298,6 +312,7 @@ def api_bonus_giveaways_create():
             club_id=club_id,
             rules=rules,
             bonus_amount=bonus_amount,
+            token_amount=token_amount,
             message_text=message_text,
             parse_mode="HTML",
         )

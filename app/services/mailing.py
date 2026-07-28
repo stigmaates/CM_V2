@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Tuple
 from werkzeug.utils import secure_filename
 
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.wheel import _add_token_transaction, ensure_token_tables
 
 AUTO_MAILING_DEFAULTS = {
     "inactive_14_bonus": {
@@ -67,6 +68,21 @@ FILTER_FIELDS = {
     "visits_7d": {"type": "number", "column": "up.visits_7d", "label": "Визиты за 7 дней"},
     "visits_30d": {"type": "number", "column": "up.visits_30d", "label": "Визиты за 30 дней"},
     "visits_90d": {"type": "number", "column": "up.visits_90d", "label": "Визиты за 90 дней"},
+    "sessions_7d": {
+        "type": "number",
+        "column": "(SELECT COUNT(*) FROM guest_sessions gs7 WHERE gs7.club_id = up.club_id AND gs7.guest_id = up.guest_id AND gs7.date_start >= DATE_SUB(NOW(), INTERVAL 7 DAY))",
+        "label": "Сессии за 7 дней",
+    },
+    "sessions_30d": {
+        "type": "number",
+        "column": "(SELECT COUNT(*) FROM guest_sessions gs30 WHERE gs30.club_id = up.club_id AND gs30.guest_id = up.guest_id AND gs30.date_start >= DATE_SUB(NOW(), INTERVAL 30 DAY))",
+        "label": "Сессии за 30 дней",
+    },
+    "sessions_90d": {
+        "type": "number",
+        "column": "(SELECT COUNT(*) FROM guest_sessions gs90 WHERE gs90.club_id = up.club_id AND gs90.guest_id = up.guest_id AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY))",
+        "label": "Сессии за 90 дней",
+    },
     "total_visits": {"type": "number", "column": "up.total_visits", "label": "Всего визитов"},
     "avg_visits_per_month": {"type": "number", "column": "up.avg_visits_per_month", "label": "Среднее визитов в месяц"},
     "avg_session_minutes": {"type": "number", "column": "up.avg_session_minutes", "label": "Средняя длина сессии"},
@@ -114,6 +130,16 @@ FILTER_FIELDS = {
         ],
     },
 }
+
+MESSAGE_VARIABLES = [
+    {"key": "first_name", "label": "Имя", "token": "{first_name}", "description": "Первое слово из ФИО"},
+    {"key": "fio", "label": "ФИО", "token": "{fio}", "description": "Полное имя гостя"},
+    {"key": "cm_bonus_balance", "label": "Баланс КБ", "token": "{cm_bonus_balance}", "description": "Текущий баланс КБ"},
+    {"key": "token_balance", "label": "Баланс жетонов", "token": "{token_balance}", "description": "Текущий баланс жетонов"},
+    {"key": "sessions_7d", "label": "Сессии за 7 дней", "token": "{sessions_7d}", "description": "Сырые Langame-сессии"},
+    {"key": "sessions_30d", "label": "Сессии за 30 дней", "token": "{sessions_30d}", "description": "Сырые Langame-сессии"},
+    {"key": "sessions_90d", "label": "Сессии за 90 дней", "token": "{sessions_90d}", "description": "Сырые Langame-сессии"},
+]
 
 ALLOWED_NUMBER_OPS = {"=", "!=", ">", ">=", "<", "<=", "between"}
 ALLOWED_DATE_OPS = {"=", "!=", ">", ">=", "<", "<=", "between", "is_null", "is_not_null"}
@@ -177,6 +203,11 @@ def get_filter_fields() -> List[Dict[str, Any]]:
             item["options"] = meta["options"]
         result.append(item)
     return result
+
+
+def get_message_variables() -> List[Dict[str, Any]]:
+    return [dict(item) for item in MESSAGE_VARIABLES]
+
 
 def ensure_auto_mailings(conn, club_id: int) -> None:
     """
@@ -403,18 +434,114 @@ def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]]) ->
 
 
 def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    with conn.cursor() as cur:
+        ensure_cm_bonus_tables(cur)
+        ensure_token_tables(cur)
+
     where_sql, params = build_where_clause(club_id, rules)
     sql = f"""
         SELECT
             up.guest_id,
-            g.telegram_id
+            g.telegram_id,
+            g.fio,
+            COALESCE(cbb.balance, 0) AS cm_bonus_balance,
+            COALESCE(gwtb.balance, 0) AS token_balance,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs7
+                WHERE gs7.club_id = up.club_id
+                  AND gs7.guest_id = up.guest_id
+                  AND gs7.date_start >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ) AS sessions_7d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs30
+                WHERE gs30.club_id = up.club_id
+                  AND gs30.guest_id = up.guest_id
+                  AND gs30.date_start >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            ) AS sessions_30d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs90
+                WHERE gs90.club_id = up.club_id
+                  AND gs90.guest_id = up.guest_id
+                  AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+            ) AS sessions_90d
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
+        LEFT JOIN cm_bonus_balances cbb
+          ON cbb.club_id = up.club_id
+         AND cbb.guest_id = up.guest_id
+        LEFT JOIN guest_wheel_token_balances gwtb
+          ON gwtb.club_id = up.club_id
+         AND gwtb.guest_id = up.guest_id
         {where_sql}
     """
     with conn.cursor() as cur:
         cur.execute(sql, params)
         return cur.fetchall()
+
+
+def _first_name(fio: str | None) -> str:
+    value = (fio or "").strip()
+    if not value:
+        return ""
+    return value.split()[0]
+
+
+def _format_variable_value(value: Any) -> str:
+    if value is None:
+        return "0"
+    if isinstance(value, Decimal):
+        if value == value.to_integral_value():
+            return str(int(value))
+        return str(value.normalize())
+    if isinstance(value, float):
+        return str(int(value)) if value.is_integer() else str(round(value, 2))
+    return str(value)
+
+
+def render_message_template(message_text: str, recipient: Dict[str, Any]) -> str:
+    values = {
+        "fio": recipient.get("fio") or "",
+        "name": _first_name(recipient.get("fio")),
+        "first_name": _first_name(recipient.get("fio")),
+        "cm_bonus_balance": recipient.get("cm_bonus_balance") or 0,
+        "kb_balance": recipient.get("cm_bonus_balance") or 0,
+        "token_balance": recipient.get("token_balance") or 0,
+        "tokens_balance": recipient.get("token_balance") or 0,
+        "sessions_7d": recipient.get("sessions_7d") or 0,
+        "sessions_30d": recipient.get("sessions_30d") or 0,
+        "sessions_90d": recipient.get("sessions_90d") or 0,
+    }
+
+    def replace(match):
+        key = match.group(1)
+        if key not in values:
+            return match.group(0)
+        return _format_variable_value(values[key])
+
+    return re.sub(r"\{([a-zA-Z0-9_]+)\}", replace, message_text or "")
+
+
+def _ensure_table_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND COLUMN_NAME = %s
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone() or {}
+    if int(row.get("cnt") or 0) == 0:
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
+
+
+def _ensure_mailing_recipient_message_column(cursor) -> None:
+    _ensure_table_column(cursor, "mailing_recipients", "message_text", "TEXT NULL AFTER telegram_id")
 
 
 def list_segments(conn, club_id: int) -> List[Dict[str, Any]]:
@@ -488,6 +615,7 @@ def create_mailing(
     recipients_count = len(recipients)
 
     with conn.cursor() as cur:
+        _ensure_mailing_recipient_message_column(cur)
         cur.execute(
             """
             INSERT INTO mailings (
@@ -541,15 +669,17 @@ def create_mailing(
                     mailing_id,
                     guest_id,
                     telegram_id,
+                    message_text,
                     status
                 )
-                VALUES (%s, %s, %s, 'pending')
+                VALUES (%s, %s, %s, %s, 'pending')
                 """,
                 [
                     (
                         mailing_id,
                         row["guest_id"],
                         row["telegram_id"],
+                        render_message_template(message_text, row),
                     )
                     for row in recipients
                 ],
@@ -638,10 +768,12 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
                 m.id AS mailing_id,
                 m.status,
                 0 AS bonus_amount,
+                0 AS token_amount,
                 m.recipients_count,
                 m.success_count,
                 m.failed_count,
                 NULL AS awarded_count,
+                NULL AS token_awarded_count,
                 m.created_at
             FROM mailings m
             LEFT JOIN bonus_giveaways bg
@@ -670,10 +802,12 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
                     ELSE 'completed'
                 END AS status,
                 0 AS bonus_amount,
+                0 AS token_amount,
                 SUM(COALESCE(m.recipients_count, 0)) AS recipients_count,
                 SUM(COALESCE(m.success_count, 0)) AS success_count,
                 SUM(COALESCE(m.failed_count, 0)) AS failed_count,
                 NULL AS awarded_count,
+                NULL AS token_awarded_count,
                 MIN(m.created_at) AS created_at
             FROM mailings m
             LEFT JOIN bonus_giveaways bg
@@ -696,10 +830,12 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
                 bg.mailing_id,
                 COALESCE(m.status, bg.status) AS status,
                 bg.bonus_amount,
+                bg.token_amount,
                 bg.recipients_count,
                 COALESCE(m.success_count, 0) AS success_count,
                 COALESCE(m.failed_count, 0) AS failed_count,
                 bg.awarded_count,
+                bg.token_awarded_count,
                 bg.created_at
             FROM bonus_giveaways bg
             LEFT JOIN mailings m
@@ -728,9 +864,11 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
                     bg.mailing_id,
                     COALESCE(m.status, bg.status) AS status,
                     bg.bonus_amount,
+                    bg.token_amount,
                     bg.message_text,
                     bg.recipients_count,
                     bg.awarded_count,
+                    bg.token_awarded_count,
                     bg.skipped_count,
                     COALESCE(m.success_count, 0) AS success_count,
                     COALESCE(m.failed_count, 0) AS failed_count,
@@ -779,9 +917,11 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
                         ELSE 'completed'
                     END AS status,
                     0 AS bonus_amount,
+                    0 AS token_amount,
                     MIN(m.message_text) AS message_text,
                     SUM(COALESCE(m.recipients_count, 0)) AS recipients_count,
                     NULL AS awarded_count,
+                    NULL AS token_awarded_count,
                     NULL AS skipped_count,
                     SUM(COALESCE(m.success_count, 0)) AS success_count,
                     SUM(COALESCE(m.failed_count, 0)) AS failed_count,
@@ -816,9 +956,11 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
                     m.id AS mailing_id,
                     m.status,
                     0 AS bonus_amount,
+                    0 AS token_amount,
                     m.message_text,
                     m.recipients_count,
                     NULL AS awarded_count,
+                    NULL AS token_awarded_count,
                     NULL AS skipped_count,
                     m.success_count,
                     m.failed_count,
@@ -912,7 +1054,10 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                     END AS next_visit_minutes,
                     bgr.transaction_status AS bonus_status,
                     bgr.bonus_amount AS recipient_bonus_amount,
-                    bgr.error_text AS bonus_error_text
+                    bgr.error_text AS bonus_error_text,
+                    bgr.token_transaction_status AS token_status,
+                    bgr.token_amount AS recipient_token_amount,
+                    bgr.token_error_text
                 FROM mailing_recipients mr
                 JOIN mailings m
                   ON m.id = mr.mailing_id
@@ -1277,6 +1422,7 @@ def create_mailing_for_recipients(
     recipients_count = len(recipients)
 
     with conn.cursor() as cur:
+        _ensure_mailing_recipient_message_column(cur)
         cur.execute(
             """
             INSERT INTO mailings (
@@ -1307,15 +1453,17 @@ def create_mailing_for_recipients(
                     mailing_id,
                     guest_id,
                     telegram_id,
+                    message_text,
                     status
                 )
-                VALUES (%s, %s, %s, 'pending')
+                VALUES (%s, %s, %s, %s, 'pending')
                 """,
                 [
                     (
                         mailing_id,
                         row["guest_id"],
                         row["telegram_id"],
+                        render_message_template(message_text, row),
                     )
                     for row in recipients
                 ],
@@ -1334,6 +1482,7 @@ def ensure_bonus_giveaway_tables(conn) -> None:
     """
     with conn.cursor() as cur:
         ensure_cm_bonus_tables(cur)
+        ensure_token_tables(cur)
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS bonus_giveaways (
@@ -1341,11 +1490,13 @@ def ensure_bonus_giveaway_tables(conn) -> None:
                 club_id INT NOT NULL,
                 filters_json JSON NULL,
                 bonus_amount INT NOT NULL,
+                token_amount INT NOT NULL DEFAULT 0,
                 message_text TEXT NOT NULL,
                 mailing_id INT NULL,
                 status VARCHAR(40) NOT NULL DEFAULT 'created',
                 recipients_count INT NOT NULL DEFAULT 0,
                 awarded_count INT NOT NULL DEFAULT 0,
+                token_awarded_count INT NOT NULL DEFAULT 0,
                 skipped_count INT NOT NULL DEFAULT 0,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 finished_at DATETIME NULL,
@@ -1363,10 +1514,14 @@ def ensure_bonus_giveaway_tables(conn) -> None:
                 guest_id INT NOT NULL,
                 telegram_id BIGINT NULL,
                 bonus_amount INT NOT NULL,
+                token_amount INT NOT NULL DEFAULT 0,
                 transaction_status VARCHAR(40) NOT NULL DEFAULT 'pending',
+                token_transaction_status VARCHAR(40) NOT NULL DEFAULT 'pending',
                 transaction_id INT NULL,
+                token_transaction_id INT NULL,
                 mailing_recipient_id INT NULL,
                 error_text TEXT NULL,
+                token_error_text TEXT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 awarded_at DATETIME NULL,
                 UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, club_id, guest_id),
@@ -1375,6 +1530,12 @@ def ensure_bonus_giveaway_tables(conn) -> None:
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
+        _ensure_table_column(cur, "bonus_giveaways", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount")
+        _ensure_table_column(cur, "bonus_giveaways", "token_awarded_count", "INT NOT NULL DEFAULT 0 AFTER awarded_count")
+        _ensure_table_column(cur, "bonus_giveaway_recipients", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount")
+        _ensure_table_column(cur, "bonus_giveaway_recipients", "token_transaction_status", "VARCHAR(40) NOT NULL DEFAULT 'pending' AFTER transaction_status")
+        _ensure_table_column(cur, "bonus_giveaway_recipients", "token_transaction_id", "INT NULL AFTER transaction_id")
+        _ensure_table_column(cur, "bonus_giveaway_recipients", "token_error_text", "TEXT NULL AFTER error_text")
         cur.execute(
             """
             SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols
@@ -1403,9 +1564,11 @@ def list_bonus_giveaways(conn, club_id: int) -> List[Dict[str, Any]]:
             SELECT
                 id,
                 bonus_amount,
+                token_amount,
                 status,
                 recipients_count,
                 awarded_count,
+                token_awarded_count,
                 skipped_count,
                 mailing_id,
                 created_at,
@@ -1426,16 +1589,22 @@ def create_bonus_giveaway(
     rules: List[Dict[str, Any]],
     bonus_amount: int,
     message_text: str,
+    token_amount: int = 0,
     parse_mode: str = "HTML",
 ) -> Dict[str, Any]:
-    """Начисляет КБ выбранной аудитории и создаёт Telegram-рассылку.
+    """Начисляет КБ/жетоны выбранной аудитории и создаёт Telegram-рассылку.
 
     Фильтры используются ровно те же, что и в сегментах/ручной рассылке.
     Возвращает id раздачи, id рассылки и количество получателей.
     """
     bonus_amount = int(bonus_amount or 0)
-    if bonus_amount <= 0:
-        raise ValueError("Количество бонусов должно быть больше 0")
+    token_amount = int(token_amount or 0)
+    if bonus_amount < 0:
+        raise ValueError("Количество бонусов не может быть отрицательным")
+    if token_amount < 0:
+        raise ValueError("Количество жетонов не может быть отрицательным")
+    if bonus_amount <= 0 and token_amount <= 0:
+        raise ValueError("Укажи бонусы или жетоны больше 0")
 
     message_text = (message_text or "").strip()
     if not message_text:
@@ -1444,7 +1613,12 @@ def create_bonus_giveaway(
     ensure_bonus_giveaway_tables(conn)
     recipients = get_recipient_rows(conn, club_id, rules)
     recipients_count = len(recipients)
-    filters_json = {"rules": rules, "type": "bonus_giveaway", "bonus_amount": bonus_amount}
+    filters_json = {
+        "rules": rules,
+        "type": "bonus_giveaway",
+        "bonus_amount": bonus_amount,
+        "token_amount": token_amount,
+    }
 
     with conn.cursor() as cur:
         cur.execute(
@@ -1453,16 +1627,18 @@ def create_bonus_giveaway(
                 club_id,
                 filters_json,
                 bonus_amount,
+                token_amount,
                 message_text,
                 status,
                 recipients_count
             )
-            VALUES (%s, %s, %s, %s, 'processing', %s)
+            VALUES (%s, %s, %s, %s, %s, 'processing', %s)
             """,
             (
                 club_id,
                 json.dumps(filters_json, ensure_ascii=False),
                 bonus_amount,
+                token_amount,
                 message_text,
                 recipients_count,
             ),
@@ -1470,33 +1646,61 @@ def create_bonus_giveaway(
         giveaway_id = cur.lastrowid
 
         awarded_count = 0
+        token_awarded_count = 0
         skipped_count = 0
         for row in recipients:
             guest_id = int(row["guest_id"])
             telegram_id = row.get("telegram_id")
             error_text = None
-            status = "awarded"
-            try:
-                awarded = add_cm_bonus_transaction(
-                    cursor=cur,
-                    guest_id=guest_id,
-                    club_id=club_id,
-                    amount=bonus_amount,
-                    source_type="bonus_giveaway",
-                    source_id=str(giveaway_id),
-                    description=f"Раздача бонусов #{giveaway_id}",
-                    status="done",
-                )
-                if awarded:
-                    awarded_count += 1
-                else:
-                    status = "skipped"
-                    skipped_count += 1
-                    error_text = "Дубликат операции"
-            except Exception as exc:
-                status = "failed"
+            token_error_text = None
+            status = "skipped" if bonus_amount <= 0 else "awarded"
+            token_status = "skipped" if token_amount <= 0 else "awarded"
+
+            if bonus_amount > 0:
+                try:
+                    awarded = add_cm_bonus_transaction(
+                        cursor=cur,
+                        guest_id=guest_id,
+                        club_id=club_id,
+                        amount=bonus_amount,
+                        source_type="bonus_giveaway",
+                        source_id=str(giveaway_id),
+                        description=f"Раздача бонусов #{giveaway_id}",
+                        status="done",
+                    )
+                    if awarded:
+                        awarded_count += 1
+                    else:
+                        status = "skipped"
+                        error_text = "Дубликат операции"
+                except Exception as exc:
+                    status = "failed"
+                    error_text = str(exc)[:1000]
+
+            if token_amount > 0:
+                try:
+                    token_awarded = _add_token_transaction(
+                        cursor=cur,
+                        guest_id=guest_id,
+                        club_id=club_id,
+                        amount=token_amount,
+                        source_type="bonus_giveaway",
+                        source_id=str(giveaway_id),
+                        description=f"Раздача жетонов #{giveaway_id}",
+                    )
+                    if token_awarded:
+                        token_awarded_count += 1
+                    else:
+                        token_status = "skipped"
+                        token_error_text = "Дубликат операции"
+                except Exception as exc:
+                    token_status = "failed"
+                    token_error_text = str(exc)[:1000]
+
+            bonus_problem = bonus_amount > 0 and status != "awarded"
+            token_problem = token_amount > 0 and token_status != "awarded"
+            if bonus_problem or token_problem:
                 skipped_count += 1
-                error_text = str(exc)[:1000]
 
             cur.execute(
                 """
@@ -1506,11 +1710,14 @@ def create_bonus_giveaway(
                     guest_id,
                     telegram_id,
                     bonus_amount,
+                    token_amount,
                     transaction_status,
+                    token_transaction_status,
                     error_text,
+                    token_error_text,
                     awarded_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, IF(%s = 'awarded', NOW(), NULL))
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, IF(%s = 'awarded' OR %s = 'awarded', NOW(), NULL))
                 """,
                 (
                     giveaway_id,
@@ -1518,9 +1725,13 @@ def create_bonus_giveaway(
                     guest_id,
                     telegram_id,
                     bonus_amount,
+                    token_amount,
                     status,
+                    token_status,
                     error_text,
+                    token_error_text,
                     status,
+                    token_status,
                 ),
             )
 
@@ -1541,11 +1752,12 @@ def create_bonus_giveaway(
             SET mailing_id = %s,
                 status = 'completed',
                 awarded_count = %s,
+                token_awarded_count = %s,
                 skipped_count = %s,
                 finished_at = NOW()
             WHERE id = %s AND club_id = %s
             """,
-            (mailing_id, awarded_count, skipped_count, giveaway_id, club_id),
+            (mailing_id, awarded_count, token_awarded_count, skipped_count, giveaway_id, club_id),
         )
 
     return {
@@ -1553,6 +1765,8 @@ def create_bonus_giveaway(
         "mailing_id": mailing_id,
         "recipients_count": recipients_count,
         "awarded_count": awarded_count,
+        "token_awarded_count": token_awarded_count,
         "skipped_count": skipped_count,
         "bonus_amount": bonus_amount,
+        "token_amount": token_amount,
     }
