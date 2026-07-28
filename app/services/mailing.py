@@ -1717,7 +1717,7 @@ def create_bonus_giveaway(
                     token_error_text,
                     awarded_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, IF(%s = 'awarded' OR %s = 'awarded', NOW(), NULL))
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, IF(%s = 'awarded' OR %s = 'awarded', NOW(), NULL))
                 """,
                 (
                     giveaway_id,

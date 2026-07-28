@@ -1,5 +1,7 @@
 from decimal import Decimal
+import re
 
+import app.services.mailing as mailing_service
 from app.services.mailing import render_message_template
 
 
@@ -17,3 +19,19 @@ def test_render_message_template_replaces_guest_metrics():
 
 def test_render_message_template_keeps_unknown_variables():
     assert render_message_template("Привет, {club_name}", {}) == "Привет, {club_name}"
+
+
+def test_bonus_giveaway_recipient_insert_has_placeholder_for_token_error_text():
+    source = mailing_service.create_bonus_giveaway.__code__.co_consts
+    sql = next(
+        value
+        for value in source
+        if isinstance(value, str) and "INSERT INTO bonus_giveaway_recipients" in value
+    )
+
+    columns_part = sql.split("(", 1)[1].split(")", 1)[0]
+    values_part = sql.split("VALUES", 1)[1]
+    columns_count = len([line for line in columns_part.splitlines() if line.strip().rstrip(",")])
+
+    assert "token_error_text" in columns_part
+    assert len(re.findall(r"%s", values_part)) == columns_count + 1
