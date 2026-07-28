@@ -2,7 +2,7 @@ from decimal import Decimal
 import re
 
 import app.services.mailing as mailing_service
-from app.services.mailing import render_message_template
+from app.services.mailing import build_where_clause, render_message_template
 
 
 def test_render_message_template_replaces_guest_metrics():
@@ -23,6 +23,14 @@ def test_render_message_template_detects_first_name_in_surname_first_fio():
 
 def test_render_message_template_keeps_unknown_variables():
     assert render_message_template("Привет, {club_name}", {}) == "Привет, {club_name}"
+
+
+def test_mailing_recipients_require_real_telegram_id_not_cached_portrait_flag():
+    where_sql, params = build_where_clause(1, [])
+
+    assert "g.telegram_id IS NOT NULL" in where_sql
+    assert "up.has_telegram = 1" not in where_sql
+    assert params == [1]
 
 
 def test_bonus_giveaway_recipient_insert_has_placeholder_for_token_error_text():

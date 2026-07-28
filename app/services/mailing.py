@@ -263,7 +263,6 @@ def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         WHERE up.club_id = %s
-          AND up.has_telegram = 1
           AND g.telegram_id IS NOT NULL
           AND up.crm_type IS NOT NULL
         GROUP BY up.crm_type
@@ -404,7 +403,6 @@ def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
 def build_where_clause(club_id: int, rules: List[Dict[str, Any]]) -> Tuple[str, List[Any]]:
     where_parts = [
         "up.club_id = %s",
-        "up.has_telegram = 1",
         "g.telegram_id IS NOT NULL",
     ]
     params: List[Any] = [club_id]
@@ -1412,7 +1410,6 @@ def get_inactive_auto_mailing_recipients(
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         WHERE up.club_id = %s
-          AND up.has_telegram = 1
           AND g.telegram_id IS NOT NULL
           AND up.days_since_last_visit >= %s
           AND NOT EXISTS (
