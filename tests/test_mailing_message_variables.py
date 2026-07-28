@@ -17,6 +17,10 @@ def test_render_message_template_replaces_guest_metrics():
     assert render_message_template(text, recipient) == "Дмитрий, привет! У тебя 7 сессий, 150 КБ и 3 жет."
 
 
+def test_render_message_template_detects_first_name_in_surname_first_fio():
+    assert render_message_template("Привет, {first_name}!", {"fio": "Морозов Дмитрий Антонович"}) == "Привет, Дмитрий!"
+
+
 def test_render_message_template_keeps_unknown_variables():
     assert render_message_template("Привет, {club_name}", {}) == "Привет, {club_name}"
 
