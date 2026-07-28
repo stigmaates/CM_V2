@@ -1415,6 +1415,22 @@
     width: 100%;
 }
 
+.message-variable-picker {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    margin: 10px 0 12px;
+}
+
+.message-variable-select {
+    min-width: 0;
+}
+
+.message-variable-insert {
+    white-space: nowrap;
+}
+
 .bonus-giveaway-field--full {
     margin-top: 14px;
 }
@@ -1545,6 +1561,14 @@
 }
 
 @media (max-width: 860px) {
+    .message-variable-picker {
+        grid-template-columns: 1fr;
+    }
+
+    .message-variable-insert {
+        width: 100%;
+    }
+
     .bonus-giveaway-filter-actions {
         justify-content: stretch;
     }

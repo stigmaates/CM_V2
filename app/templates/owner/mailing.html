@@ -103,6 +103,11 @@
                     <button type="button" id="insertLinkBtn">Ссылка</button>
                 </div>
 
+                <div class="message-variable-picker">
+                    <select id="messageVariableSelect" class="message-variable-select" aria-label="Данные гостя для вставки"></select>
+                    <button type="button" class="btn btn-secondary message-variable-insert" id="insertMessageVariableBtn">Вставить</button>
+                </div>
+
                 <textarea id="messageText" class="message-textarea" placeholder="Текст сообщения"></textarea>
             </section>
 
@@ -123,8 +128,8 @@
     <section class="mailing-box bonus-giveaway-box">
         <div class="message-box-head">
             <div>
-                <h3>Раздача бонусов</h3>
-                <div class="crm-segments-hint">Начислит выбранной аудитории КБ и отправит Telegram-сообщение.</div>
+                <h3>Раздача бонусов и жетонов</h3>
+                <div class="crm-segments-hint">Начислит выбранной аудитории КБ, жетоны или оба типа награды и отправит Telegram-сообщение.</div>
             </div>
             <div class="message-audience" role="status">
                 <span class="message-audience__label">Получателей:</span>
@@ -155,13 +160,22 @@
             <div class="bonus-giveaway-side">
                 <div class="bonus-giveaway-form">
                     <label class="bonus-giveaway-field bonus-giveaway-field--amount">
-                        <span>Кол-во бонусов</span>
-                        <input type="number" id="giveawayBonusAmount" min="1" step="1" placeholder="Например, 200" autocomplete="off">
+                        <span>Кол-во КБ</span>
+                        <input type="number" id="giveawayBonusAmount" min="0" step="1" placeholder="Например, 200" autocomplete="off">
+                    </label>
+
+                    <label class="bonus-giveaway-field bonus-giveaway-field--amount">
+                        <span>Кол-во жетонов</span>
+                        <input type="number" id="giveawayTokenAmount" min="0" step="1" placeholder="Например, 1" autocomplete="off">
                     </label>
 
                     <label class="bonus-giveaway-field bonus-giveaway-field--message">
                         <span>Сообщение гостям</span>
-                        <textarea id="giveawayMessageText" class="message-textarea bonus-giveaway-textarea" placeholder="Например: Мы начислили тебе 200 бонусов — залетай играть!"></textarea>
+                        <div class="message-variable-picker">
+                            <select id="giveawayVariableSelect" class="message-variable-select" aria-label="Данные гостя для вставки в раздачу"></select>
+                            <button type="button" class="btn btn-secondary message-variable-insert" id="insertGiveawayVariableBtn">Вставить</button>
+                        </div>
+                        <textarea id="giveawayMessageText" class="message-textarea bonus-giveaway-textarea" placeholder="Например: {first_name}, мы начислили тебе 200 КБ и 1 жетон — залетай играть!"></textarea>
                     </label>
 
                     <div class="bonus-giveaway-actions">
@@ -213,7 +227,12 @@
                         {% endif %}
                     </div>
                     <div>{{ item.status }}</div>
-                    <div>{% if item.bonus_amount|int > 0 %}+{{ item.bonus_amount }} КБ{% else %}—{% endif %}</div>
+                    <div>
+                        {% set rewards = [] %}
+                        {% if item.bonus_amount|int > 0 %}{% set _ = rewards.append('+' ~ item.bonus_amount ~ ' КБ') %}{% endif %}
+                        {% if item.token_amount|default(0)|int > 0 %}{% set _ = rewards.append('+' ~ item.token_amount ~ ' жет.') %}{% endif %}
+                        {{ rewards|join(' · ') if rewards else '—' }}
+                    </div>
                     <div>{{ item.recipients_count }} чел.</div>
                     <div>{{ item.created_at }}</div>
                 </button>
@@ -382,6 +401,7 @@
 
 <script>
     window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
+    window.MAILING_VARIABLES = {{ message_variables | tojson | safe }};
 </script>
 <script src="{{ url_for('static', filename='js/mailing.js') }}"></script>
 {% endblock %}

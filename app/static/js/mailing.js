@@ -1,4 +1,5 @@
 const fieldsMeta = window.MAILING_FIELDS || [];
+const messageVariablesMeta = window.MAILING_VARIABLES || [];
 const rulesContainer = document.getElementById("rulesContainer");
 const audienceCountEl = document.getElementById("audienceCount");
 const giveawayAudienceCountEl = document.getElementById("giveawayAudienceCount");
@@ -7,10 +8,15 @@ const addGiveawayRuleBtn = document.getElementById("addGiveawayRuleBtn");
 const previewGiveawayBtn = document.getElementById("previewGiveawayBtn");
 const copyMailingRulesToGiveawayBtn = document.getElementById("copyMailingRulesToGiveawayBtn");
 const giveawayBonusAmountEl = document.getElementById("giveawayBonusAmount");
+const giveawayTokenAmountEl = document.getElementById("giveawayTokenAmount");
 const giveawayMessageTextEl = document.getElementById("giveawayMessageText");
 const sendBonusGiveawayBtn = document.getElementById("sendBonusGiveawayBtn");
 const filesListEl = document.getElementById("filesList");
 const messageTextEl = document.getElementById("messageText");
+const messageVariableSelect = document.getElementById("messageVariableSelect");
+const insertMessageVariableBtn = document.getElementById("insertMessageVariableBtn");
+const giveawayVariableSelect = document.getElementById("giveawayVariableSelect");
+const insertGiveawayVariableBtn = document.getElementById("insertGiveawayVariableBtn");
 const modalEl = document.getElementById("mailingConfirmModal");
 const modalRecipientsCountEl = document.getElementById("modalRecipientsCount");
 const modalFilesCountEl = document.getElementById("modalFilesCount");
@@ -25,6 +31,28 @@ function createOption(value, label) {
     option.value = value;
     option.textContent = label;
     return option;
+}
+
+function populateVariableSelect(selectEl) {
+    if (!selectEl) return;
+    selectEl.innerHTML = "";
+    messageVariablesMeta.forEach((item) => {
+        const label = item.description ? `${item.label} · ${item.token}` : `${item.label}`;
+        selectEl.appendChild(createOption(item.token, label));
+    });
+}
+
+function insertAtCursor(textarea, value) {
+    if (!textarea || !value) return;
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    textarea.setRangeText(value, start, end, "end");
+    textarea.focus();
+}
+
+function insertSelectedVariable(selectEl, textarea) {
+    if (!selectEl || !textarea) return;
+    insertAtCursor(textarea, selectEl.value);
 }
 
 const OPERATOR_LABELS = {
@@ -394,10 +422,21 @@ async function createBonusGiveaway() {
     }
 
     const bonusAmount = Number(giveawayBonusAmountEl.value || 0);
+    const tokenAmount = Number(giveawayTokenAmountEl ? giveawayTokenAmountEl.value || 0 : 0);
     const messageText = giveawayMessageTextEl.value.trim();
 
-    if (!Number.isFinite(bonusAmount) || bonusAmount <= 0) {
-        alert("Укажи количество бонусов больше 0");
+    if (!Number.isFinite(bonusAmount) || bonusAmount < 0) {
+        alert("Количество КБ не может быть отрицательным");
+        return;
+    }
+
+    if (!Number.isFinite(tokenAmount) || tokenAmount < 0) {
+        alert("Количество жетонов не может быть отрицательным");
+        return;
+    }
+
+    if (bonusAmount <= 0 && tokenAmount <= 0) {
+        alert("Укажи КБ или жетоны больше 0");
         return;
     }
 
@@ -419,7 +458,10 @@ async function createBonusGiveaway() {
         return;
     }
 
-    const confirmed = confirm(`Начислить ${bonusAmount} бонусов ${recipientsCount} гостям и отправить им сообщение?`);
+    const rewardParts = [];
+    if (bonusAmount > 0) rewardParts.push(`${bonusAmount} КБ`);
+    if (tokenAmount > 0) rewardParts.push(`${tokenAmount} жет.`);
+    const confirmed = confirm(`Начислить ${rewardParts.join(" и ")} ${recipientsCount} гостям и отправить им сообщение?`);
     if (!confirmed) {
         return;
     }
@@ -434,6 +476,7 @@ async function createBonusGiveaway() {
             body: JSON.stringify({
                 rules: getRules(giveawayRulesContainer),
                 bonus_amount: bonusAmount,
+                token_amount: tokenAmount,
                 message_text: messageText,
                 start_now: true,
             }),
@@ -444,7 +487,7 @@ async function createBonusGiveaway() {
             return;
         }
 
-        alert(`Раздача запущена. Получателей: ${data.recipients_count}. Начислено: ${data.awarded_count}.`);
+        alert(`Раздача запущена. Получателей: ${data.recipients_count}. КБ: ${data.awarded_count}. Жетоны: ${data.token_awarded_count || 0}.`);
         window.location.reload();
     } catch (error) {
         alert(error.message || "Не удалось запустить раздачу");
@@ -561,6 +604,14 @@ document.querySelectorAll(".editor-toolbar button[data-tag]").forEach((btn) => {
 });
 
 document.getElementById("insertLinkBtn").addEventListener("click", insertLink);
+populateVariableSelect(messageVariableSelect);
+populateVariableSelect(giveawayVariableSelect);
+if (insertMessageVariableBtn) {
+    insertMessageVariableBtn.addEventListener("click", () => insertSelectedVariable(messageVariableSelect, messageTextEl));
+}
+if (insertGiveawayVariableBtn) {
+    insertGiveawayVariableBtn.addEventListener("click", () => insertSelectedVariable(giveawayVariableSelect, giveawayMessageTextEl));
+}
 document.getElementById("modalConfirmSendBtn").addEventListener("click", createMailing);
 document.getElementById("modalEditBtn").addEventListener("click", closeMailingModal);
 document.getElementById("mailingModalClose").addEventListener("click", closeMailingModal);
@@ -648,9 +699,12 @@ function renderInteractionRecipients(recipients) {
         const previousVisit = renderVisitCell(row.previous_visit_at, row.previous_visit_duration_display);
         const nextVisit = renderVisitCell(row.next_visit_at, row.next_visit_duration_display);
         const deliveryClass = row.delivery_status === "sent" ? "is-ok" : (row.delivery_status === "failed" ? "is-bad" : "is-wait");
+        const rewardParts = [];
+        if (Number(row.recipient_bonus_amount || 0) > 0) rewardParts.push(`+${row.recipient_bonus_amount} КБ`);
+        if (Number(row.recipient_token_amount || 0) > 0) rewardParts.push(`+${row.recipient_token_amount} жет.`);
         const deliveryDetail = row.error_text
             ? `<span>${escapeHtml(row.error_text)}</span>`
-            : (row.recipient_bonus_amount ? `<span>+${escapeHtml(row.recipient_bonus_amount)} КБ</span>` : "");
+            : (rewardParts.length ? `<span>${escapeHtml(rewardParts.join(" · "))}</span>` : "");
         return `
             <div class="interaction-guest-row">
                 <div>
@@ -685,6 +739,9 @@ function renderCrmInteractionDetail(data) {
     const bonusBlock = Number(interaction.bonus_amount || 0) > 0
         ? `<div class="interaction-kpi"><span>КБ</span><strong>+${escapeHtml(interaction.bonus_amount)}</strong></div>`
         : "";
+    const tokenBlock = Number(interaction.token_amount || 0) > 0
+        ? `<div class="interaction-kpi"><span>Жетоны</span><strong>+${escapeHtml(interaction.token_amount)}</strong></div>`
+        : "";
 
     crmInteractionBody.innerHTML = `
         <div class="interaction-summary-grid">
@@ -693,6 +750,7 @@ function renderCrmInteractionDetail(data) {
             <div class="interaction-kpi"><span>Не дошло</span><strong>${escapeHtml(summary.failed_count || 0)}</strong></div>
             <div class="interaction-kpi"><span>Вернулись</span><strong>${escapeHtml(summary.returned_count || 0)} · ${escapeHtml(summary.return_rate || 0)}%</strong></div>
             ${bonusBlock}
+            ${tokenBlock}
         </div>
 
         <section class="interaction-section interaction-guest-table">

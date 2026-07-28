@@ -129,7 +129,7 @@ def process_one_mailing(conn, mailing_id: int):
 
             cur.execute(
                 """
-                SELECT id, guest_id, telegram_id
+                SELECT id, guest_id, telegram_id, message_text
                 FROM mailing_recipients
                 WHERE mailing_id = %s AND status = 'pending'
                 ORDER BY id
@@ -160,7 +160,7 @@ def process_one_mailing(conn, mailing_id: int):
                 try:
                     response = send_single_message(
                         telegram_id=telegram_id,
-                        text=mailing["message_text"],
+                        text=rec.get("message_text") or mailing["message_text"],
                         parse_mode=mailing["parse_mode"],
                         attachments=attachments,
                     )
