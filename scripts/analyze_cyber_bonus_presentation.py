@@ -515,9 +515,10 @@ def main() -> None:
     inactive_candidates.sort(key=lambda r: (-(r.get("prev_gap_days") or 0), r.get("next_delay_hours") or 99999))
     print("## Кейсы: вернулся после `давно тебя не было`")
     print(markdown_table(
-        ["Клуб", "Гость", "Телефон", "Не был, дней", "Сообщение", "Бонус", "Следующий визит", "Задержка", "Длительность"],
+        ["Клуб", "guest_id", "Гость", "Телефон", "Не был, дней", "Сообщение", "Бонус", "Следующий визит", "Задержка", "Длительность"],
         [[
             f"{r['club_id']} · {r.get('club_name') or '-'}",
+            r["guest_id"],
             r.get("fio") or r["guest_id"],
             r.get("phone") or "-",
             r.get("prev_gap_days"),
@@ -549,9 +550,10 @@ def main() -> None:
     wheel_examples.sort(key=lambda r: (-as_float(r.get("spins_count")), as_float(r.get("bonus_per_spin")), -as_float(r.get("spend_after"))))
     print("## Кейсы: много крутил рулетку, мало КБ, но много ходил")
     print(markdown_table(
-        ["Клуб", "Гость", "Телефон", "Прокрутов", "КБ из рулетки", "КБ/прокрут", "Визитов после запуска", "Оценка оплат после запуска"],
+        ["Клуб", "guest_id", "Гость", "Телефон", "Прокрутов", "КБ из рулетки", "КБ/прокрут", "Визитов после запуска", "Оценка оплат после запуска"],
         [[
             f"{r['club_id']} · {r.get('club_name') or '-'}",
+            r["guest_id"],
             r.get("fio") or r["guest_id"],
             r.get("phone") or "-",
             int(r.get("spins_count") or 0),
@@ -572,9 +574,10 @@ def main() -> None:
     streak_candidates.sort(key=lambda r: (r.get("next_delay_hours") or 99999, -(r.get("prev_gap_days") or 0)))
     print("## Кейсы: вернулся после напоминания о сгорающем стрике")
     print(markdown_table(
-        ["Клуб", "Гость", "Телефон", "Предыдущий визит", "Сообщение", "Следующий визит", "Через часов", "Длительность"],
+        ["Клуб", "guest_id", "Гость", "Телефон", "Предыдущий визит", "Сообщение", "Следующий визит", "Через часов", "Длительность"],
         [[
             f"{r['club_id']} · {r.get('club_name') or '-'}",
+            r["guest_id"],
             r.get("fio") or r["guest_id"],
             r.get("phone") or "-",
             fmt_dt(r["previous_visit"].start if r.get("previous_visit") else None),
