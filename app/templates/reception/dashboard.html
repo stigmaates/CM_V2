@@ -5,15 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Reception · Cyber Bonus</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260729">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reception.css') }}">
 </head>
 <body>
     <main class="reception-shell">
         <header class="reception-topbar">
-            <div>
-                <div class="reception-kicker">{{ header_club_name or 'Клуб' }}</div>
-                <h1>Проверка гостя</h1>
+            <div class="reception-heading">
+                <a class="reception-brand-mark" href="/" aria-label="На главную">
+                    <img src="{{ url_for('static', filename='img/cyber-bonus-mark.png') }}" alt="Cyber Bonus">
+                </a>
+                <div>
+                    <div class="reception-kicker">{{ header_club_name or 'Клуб' }}</div>
+                    <h1>Проверка гостя</h1>
+                </div>
             </div>
             <a class="reception-logout" href="{{ url_for('auth.logout') }}">Выйти</a>
         </header>

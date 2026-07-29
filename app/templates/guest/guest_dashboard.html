@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Cyber Bonus — Кабинет гостя</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
-    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260729">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
@@ -24,7 +24,8 @@
             padding: 28px 32px 48px;
         }
         .guest-topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
-        .guest-logo { font-size: 42px; line-height: 1; font-weight: 800; color: var(--accent-strong); letter-spacing: 1px; }
+        .guest-logo { display: inline-flex; align-items: center; width: 58px; height: 58px; border-radius: 18px; overflow: hidden; text-decoration: none; box-shadow: 0 10px 28px rgba(147, 69, 255, 0.24); }
+        .guest-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .top-actions { display: flex; align-items: center; gap: 12px; }
         .token-pill, .logout-link, .mini-btn {
             border: 1px solid var(--border);
@@ -2159,7 +2160,9 @@
 
     <div class="guest-page">
         <header class="guest-topbar">
-            <div class="guest-logo">Cyber Bonus</div>
+            <a class="guest-logo" href="/" aria-label="На главную">
+                <img src="{{ url_for('static', filename='img/cyber-bonus-mark.png') }}" alt="Cyber Bonus">
+            </a>
             <div class="top-actions">
                 <div class="token-pill">💎 <span id="cmBonusTop">{{ cm_balance }}</span> КБ</div>
                 <div class="token-pill">🪙 <span id="tokensCount">{{ tokens_balance }}</span> жет.</div>

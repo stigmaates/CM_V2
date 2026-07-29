@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>WALLZ - Кабинет гостя</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
-    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260729">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
@@ -28,9 +28,21 @@
         }
 
         .guest-logo {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--accent-strong);
+            display: inline-flex;
+            align-items: center;
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            overflow: hidden;
+            text-decoration: none;
+            box-shadow: 0 10px 28px rgba(147, 69, 255, 0.24);
+        }
+
+        .guest-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .logout-link {
@@ -242,7 +254,9 @@
 
     <div class="guest-page">
         <div class="guest-topbar">
-            <div class="guest-logo">WALLZ</div>
+            <a class="guest-logo" href="/" aria-label="На главную">
+                <img src="{{ url_for('static', filename='img/cyber-bonus-mark.png') }}" alt="Cyber Bonus">
+            </a>
             <a class="logout-link" href="{{ url_for('guest_logout') }}">Выйти</a>
         </div>
 
