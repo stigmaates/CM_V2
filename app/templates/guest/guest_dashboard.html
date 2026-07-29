@@ -24,8 +24,8 @@
             padding: 28px 32px 48px;
         }
         .guest-topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
-        .guest-logo { display: inline-flex; align-items: center; width: 58px; height: 58px; border-radius: 18px; overflow: hidden; text-decoration: none; box-shadow: 0 10px 28px rgba(147, 69, 255, 0.24); }
-        .guest-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .guest-logo { display: inline-flex; align-items: center; width: 54px; height: 64px; text-decoration: none; filter: drop-shadow(0 10px 24px rgba(147, 69, 255, 0.32)); }
+        .guest-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
         .top-actions { display: flex; align-items: center; gap: 12px; }
         .token-pill, .logout-link, .mini-btn {
             border: 1px solid var(--border);
@@ -2161,7 +2161,7 @@
     <div class="guest-page">
         <header class="guest-topbar">
             <a class="guest-logo" href="/" aria-label="На главную">
-                <img src="{{ url_for('static', filename='img/cyber-bonus-mark.png') }}" alt="Cyber Bonus">
+                <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="Cyber Bonus">
             </a>
             <div class="top-actions">
                 <div class="token-pill">💎 <span id="cmBonusTop">{{ cm_balance }}</span> КБ</div>

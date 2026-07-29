@@ -30,18 +30,16 @@
         .guest-logo {
             display: inline-flex;
             align-items: center;
-            width: 54px;
-            height: 54px;
-            border-radius: 16px;
-            overflow: hidden;
+            width: 50px;
+            height: 60px;
             text-decoration: none;
-            box-shadow: 0 10px 28px rgba(147, 69, 255, 0.24);
+            filter: drop-shadow(0 10px 24px rgba(147, 69, 255, 0.32));
         }
 
         .guest-logo img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             display: block;
         }
 
@@ -255,7 +253,7 @@
     <div class="guest-page">
         <div class="guest-topbar">
             <a class="guest-logo" href="/" aria-label="На главную">
-                <img src="{{ url_for('static', filename='img/cyber-bonus-mark.png') }}" alt="Cyber Bonus">
+                <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="Cyber Bonus">
             </a>
             <a class="logout-link" href="{{ url_for('guest_logout') }}">Выйти</a>
         </div>

@@ -60,25 +60,22 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
-    overflow: hidden;
+    width: 54px;
+    height: 64px;
     text-decoration: none;
-    box-shadow: 0 10px 28px rgba(147, 69, 255, 0.24);
-    transition: transform 0.16s ease, box-shadow 0.16s ease;
+    transition: transform 0.16s ease, filter 0.16s ease;
 }
 
 .brand-mark:hover {
     transform: translateY(-1px);
-    box-shadow: 0 14px 34px rgba(147, 69, 255, 0.34);
+    filter: drop-shadow(0 10px 24px rgba(147, 69, 255, 0.42));
 }
 
 .brand-mark img {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .nav {
@@ -625,7 +622,7 @@ label {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    min-width: 72px;
+    min-width: 64px;
     flex: 0 0 auto;
 }
 
