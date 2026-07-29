@@ -43,6 +43,25 @@ body {
     letter-spacing: 1px;
 }
 
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    overflow: hidden;
+    text-decoration: none;
+    box-shadow: 0 10px 28px rgba(147, 69, 255, 0.24);
+}
+
+.brand-mark img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .period-switcher-title {
     font-size: 28px;
     color: #b32017;

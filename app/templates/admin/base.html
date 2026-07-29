@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Admin — Cyber Bonus{% endblock %}</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260604">
-    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260604">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260729">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
@@ -16,7 +16,9 @@
 <body class="admin-shell">
     <aside class="admin-sidebar">
         <div class="admin-brand">
-            <div class="admin-burger">☰</div>
+            <a class="admin-brand-mark" href="/" aria-label="На главную">
+                <img src="{{ url_for('static', filename='img/cyber-bonus-mark.png') }}" alt="Cyber Bonus">
+            </a>
             <div>
                 <div class="admin-logo">Cyber Bonus Admin</div>
                 <div class="admin-subtitle">control panel</div>
