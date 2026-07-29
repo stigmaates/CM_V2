@@ -51,16 +51,17 @@
 }
 
 .admin-brand-mark {
-    overflow: hidden;
     text-decoration: none;
-    box-shadow: 0 10px 28px rgba(147, 69, 255, 0.2);
+    background: transparent;
+    border-color: transparent;
+    filter: drop-shadow(0 8px 18px rgba(147, 69, 255, 0.28));
 }
 
 .admin-brand-mark img {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .admin-logo {
