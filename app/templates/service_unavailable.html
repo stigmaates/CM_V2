@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доступ временно ограничен</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260729">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+</head>
+<body>
+    <main class="center-wrap">
+        <section class="card center-card" style="text-align: center;">
+            <div style="width: 72px; height: 72px; margin: 0 auto 18px;">
+                <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="Cyber Bonus" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+            <h1 class="auth-title">Пожалуйста, свяжитесь с нами</h1>
+            <p class="auth-text">
+                Доступ к модулю для клуба{% if club_name %} «{{ club_name }}»{% endif %} временно ограничен.
+            </p>
+        </section>
+    </main>
+</body>
+</html>

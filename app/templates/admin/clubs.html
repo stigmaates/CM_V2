@@ -13,7 +13,7 @@
     <div class="admin-table-wrap">
         <table class="admin-table clubs-table">
             <thead>
-                <tr><th>ID</th><th>Название</th><th>Owner</th><th>Дата создания</th></tr>
+                <tr><th>ID</th><th>Название</th><th>Owner</th><th>Обслуживание</th><th>Дата создания</th></tr>
             </thead>
             <tbody>
                 {% for club in clubs %}
@@ -21,10 +21,15 @@
                         <td>{{ club.club_id }}</td>
                         <td>{{ club.name }}</td>
                         <td>{{ club.owner_name or club.owner_login or '—' }}</td>
+                        <td>
+                            <span class="club-service-badge {{ 'enabled' if club.service_enabled else 'disabled' }}">
+                                {{ 'Включено' if club.service_enabled else 'Выключено' }}
+                            </span>
+                        </td>
                         <td>{{ club.created_at or '—' }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="4" class="empty-cell">Клубов пока нет</td></tr>
+                    <tr><td colspan="5" class="empty-cell">Клубов пока нет</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -49,6 +54,17 @@
             <form id="impersonateForm" method="post" action="#">
                 <button type="submit" class="admin-btn admin-btn--accent">Открыть как владелец</button>
             </form>
+        </div>
+
+        <div class="club-service-control">
+            <div>
+                <div class="modal-owner-access__title">Обслуживание клуба</div>
+                <div class="modal-owner-access__text" id="clubServiceText">—</div>
+            </div>
+            <label class="admin-switch">
+                <input type="checkbox" id="clubServiceToggle">
+                <span></span>
+            </label>
         </div>
 
         <div class="modal-actions sync-groups">
@@ -90,9 +106,22 @@ let currentClubId = null;
 const modal = document.getElementById('clubModal');
 const closeBtn = document.getElementById('clubModalClose');
 const resultBox = document.getElementById('syncResult');
+const serviceToggle = document.getElementById('clubServiceToggle');
+const serviceText = document.getElementById('clubServiceText');
 
 function formatValue(value) {
     return value || '—';
+}
+
+function serviceEnabledValue(value) {
+    return value === true || value === 1 || value === '1';
+}
+
+function updateServiceUi(enabled) {
+    serviceToggle.checked = enabled;
+    serviceText.textContent = enabled
+        ? 'Клиенты и сотрудники клуба могут пользоваться модулем.'
+        : 'Клиенты и сотрудники увидят экран “Пожалуйста, свяжитесь с нами”.';
 }
 
 function renderLogs(logs) {
@@ -127,6 +156,7 @@ async function openClubModal(clubId) {
     document.getElementById('modalClubName').textContent = club.name || 'Клуб';
     document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Создан: ${formatValue(club.created_at)}`;
     document.getElementById('impersonateForm').action = `/admin/clubs/${club.club_id}/impersonate`;
+    updateServiceUi(serviceEnabledValue(club.service_enabled));
     renderLogs(data.logs);
     modal.hidden = false;
 }
@@ -143,6 +173,40 @@ document.querySelectorAll('.club-row').forEach(row => {
 closeBtn.addEventListener('click', closeModal);
 modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModal();
+});
+
+serviceToggle.addEventListener('change', async () => {
+    if (!currentClubId) return;
+    const enabled = serviceToggle.checked;
+    serviceToggle.disabled = true;
+    resultBox.hidden = false;
+    resultBox.className = 'sync-result';
+    resultBox.textContent = enabled ? 'Включаем обслуживание клуба...' : 'Выключаем обслуживание клуба...';
+
+    try {
+        const resp = await fetch(`/admin/clubs/${currentClubId}/service`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled}),
+        });
+        const data = await resp.json();
+        if (!data.status) throw new Error(data.message || 'Не удалось изменить обслуживание');
+        updateServiceUi(Boolean(data.service_enabled));
+        resultBox.className = 'sync-result success';
+        resultBox.textContent = data.message || 'Готово';
+
+        const row = document.querySelector(`.club-row[data-club-id="${currentClubId}"] .club-service-badge`);
+        if (row) {
+            row.className = `club-service-badge ${data.service_enabled ? 'enabled' : 'disabled'}`;
+            row.textContent = data.service_enabled ? 'Включено' : 'Выключено';
+        }
+    } catch (e) {
+        serviceToggle.checked = !enabled;
+        resultBox.className = 'sync-result error';
+        resultBox.textContent = e.message || 'Ошибка запроса';
+    } finally {
+        serviceToggle.disabled = false;
+    }
 });
 
 document.querySelectorAll('.sync-btn').forEach(btn => {

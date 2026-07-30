@@ -68,6 +68,17 @@ def test_guest_balance_topups_migration_exports_revision_and_upgrade():
     )
 
 
+def test_club_service_enabled_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0007_club_service_enabled")
+
+    assert migration.revision == "0007_club_service_enabled"
+    assert callable(migration.upgrade)
+    assert any(
+        isinstance(value, str) and "service_enabled" in value
+        for value in migration.upgrade.__code__.co_consts
+    )
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False
