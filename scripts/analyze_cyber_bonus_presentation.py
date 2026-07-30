@@ -182,7 +182,7 @@ def fetch_sessions(conn, history_start: datetime, club_id: int | None) -> tuple[
     return merged, guests
 
 
-def fetch_operations(conn, start: datetime, club_id: int | None) -> dict[tuple[int, str], list[dict[str, Any]]]:
+def fetch_topups(conn, start: datetime, club_id: int | None) -> dict[tuple[int, int], list[dict[str, Any]]]:
     params: list[Any] = [start]
     club_filter = ""
     if club_id is not None:
@@ -192,30 +192,26 @@ def fetch_operations(conn, start: datetime, club_id: int | None) -> dict[tuple[i
     rows = fetch_all(
         conn,
         f"""
-        SELECT club_id, phone, type, `sum`, date_normal
-        FROM operations_log
-        WHERE date_normal >= %s
-          AND phone IS NOT NULL
+        SELECT club_id, guest_id, amount, topup_at
+        FROM guest_balance_topups
+        WHERE topup_at >= %s
+          AND guest_id IS NOT NULL
           {club_filter}
         """,
         tuple(params),
     )
-    result: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
+    result: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        phone = normalize_phone(row.get("phone"))
-        if not phone:
-            continue
-        result[(int(row["club_id"]), phone)].append(row)
+        result[(int(row["club_id"]), int(row["guest_id"]))].append(row)
     return result
 
 
-def spent_for_guest(operations_by_phone: dict[tuple[int, str], list[dict[str, Any]]], club_id: int, phone: str, start: datetime, end: datetime) -> float:
+def topups_for_guest(topups_by_guest: dict[tuple[int, int], list[dict[str, Any]]], club_id: int, guest_id: int, start: datetime, end: datetime) -> float:
     total = 0.0
-    for row in operations_by_phone.get((club_id, normalize_phone(phone)), []):
-        dt = as_dt(row.get("date_normal"))
-        op_type = str(row.get("type") or "").strip().lower()
-        if dt and start <= dt < end and op_type == "minus":
-            total += as_float(row.get("sum"))
+    for row in topups_by_guest.get((club_id, guest_id), []):
+        dt = as_dt(row.get("topup_at"))
+        if dt and start <= dt < end:
+            total += as_float(row.get("amount"))
     return total
 
 
@@ -434,7 +430,7 @@ def main() -> None:
     conn = get_db_connection()
     try:
         visits_by_guest, guests = fetch_sessions(conn, history_start, args.club_id)
-        operations_by_phone = fetch_operations(conn, before_start, args.club_id)
+        topups_by_guest = fetch_topups(conn, before_start, args.club_id)
         auto_events = fetch_auto_events(conn, launch, args.club_id)
         wheel_rows = fetch_wheel_rows(conn, launch, args.club_id)
         prize_rows = fetch_wheel_prize_distribution(conn, launch, args.club_id)
@@ -536,7 +532,7 @@ def main() -> None:
         key = (int(row["club_id"]), int(row["guest_id"]))
         guest = guests.get(key, {})
         visits_after = count_visits(visits_by_guest.get(key, []), launch, now)
-        spend_after = spent_for_guest(operations_by_phone, int(row["club_id"]), row.get("phone") or guest.get("phone"), launch, now)
+        topups_after = topups_for_guest(topups_by_guest, int(row["club_id"]), int(row["guest_id"]), launch, now)
         spins = int(row.get("spins_count") or 0)
         wheel_bonus = as_float(row.get("prize_bonus_sum"))
         bonus_per_spin = wheel_bonus / spins if spins else 0
@@ -544,13 +540,13 @@ def main() -> None:
             wheel_examples.append({
                 **row,
                 "visits_after": visits_after,
-                "spend_after": spend_after,
+                "topups_after": topups_after,
                 "bonus_per_spin": bonus_per_spin,
             })
-    wheel_examples.sort(key=lambda r: (-as_float(r.get("spins_count")), as_float(r.get("bonus_per_spin")), -as_float(r.get("spend_after"))))
+    wheel_examples.sort(key=lambda r: (-as_float(r.get("spins_count")), as_float(r.get("bonus_per_spin")), -as_float(r.get("topups_after"))))
     print("## Кейсы: много крутил рулетку, мало КБ, но много ходил")
     print(markdown_table(
-        ["Клуб", "guest_id", "Гость", "Телефон", "Прокрутов", "КБ из рулетки", "КБ/прокрут", "Визитов после запуска", "Оценка оплат после запуска"],
+        ["Клуб", "guest_id", "Гость", "Телефон", "Прокрутов", "КБ из рулетки", "КБ/прокрут", "Визитов после запуска", "Пополнения после запуска"],
         [[
             f"{r['club_id']} · {r.get('club_name') or '-'}",
             r["guest_id"],
@@ -560,7 +556,7 @@ def main() -> None:
             money(as_float(r.get("prize_bonus_sum"))),
             f"{as_float(r.get('bonus_per_spin')):.1f}",
             r.get("visits_after"),
-            money(r.get("spend_after") or 0),
+            money(r.get("topups_after") or 0),
         ] for r in wheel_examples[:args.top]],
     ))
     print()
@@ -630,11 +626,11 @@ def main() -> None:
 
     total_spins = sum(int(row.get("spins_count") or 0) for row in wheel_rows)
     total_wheel_bonus = sum(as_float(row.get("prize_bonus_sum")) for row in wheel_rows)
-    total_wheel_spend = sum(float(row.get("spend_after") or 0) for row in wheel_examples)
+    total_wheel_topups = sum(float(row.get("topups_after") or 0) for row in wheel_examples)
     print("## Инсайты для презентации")
     print(f"- После запуска зафиксировано **{total_spins}** прокрутов рулетки и выдано примерно **{money(total_wheel_bonus)} КБ** через призы рулетки.")
-    if total_wheel_spend:
-        print(f"- У гостей, активно крутивших рулетку, оценка оплат после запуска: **{money(total_wheel_spend)}**; это можно сопоставлять с выданными КБ как стоимостью удержания.")
+    if total_wheel_topups:
+        print(f"- У гостей, активно крутивших рулетку, пополнения после запуска: **{money(total_wheel_topups)}**; это можно сопоставлять с выданными КБ как стоимостью удержания.")
     for code, title in AUTO_CODES.items():
         rows = [row for row in enriched_auto if row["code"] == code]
         returned_7d = [row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 7 * 24]

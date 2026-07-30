@@ -87,7 +87,9 @@ clubmodule/
 │   ├── sync_sessions_initial.py
 │   ├── sync_sessions_incremental.py
 │   ├── sync_operations_initial.py
-│   └── sync_operations_incremental.py
+│   ├── sync_operations_incremental.py
+│   ├── sync_balance_topups_initial.py
+│   └── sync_balance_topups_incremental.py
 │
 ├── alembic/
 ├── .env.example

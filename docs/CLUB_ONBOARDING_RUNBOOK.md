@@ -55,6 +55,7 @@ cd /root/cm_stage/CM_V2
 venv/bin/python scripts/sync_guests.py <CLUB_ID>
 venv/bin/python scripts/sync_sessions_initial.py <CLUB_ID>
 venv/bin/python scripts/sync_operations_initial.py <CLUB_ID>
+venv/bin/python scripts/sync_balance_topups_initial.py --club-id <CLUB_ID>
 ```
 
 Then check:

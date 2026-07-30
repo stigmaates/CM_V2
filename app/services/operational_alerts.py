@@ -12,18 +12,21 @@ SYNC_JOB_TYPES = [
     "sync_guests_incremental",
     "sync_sessions_incremental",
     "sync_operations_incremental",
+    "sync_balance_topups_incremental",
 ]
 
 SYNC_JOB_LABELS = {
     "sync_guests_incremental": "Гости",
     "sync_sessions_incremental": "Сессии",
     "sync_operations_incremental": "Операции",
+    "sync_balance_topups_incremental": "Пополнения",
 }
 
 SYNC_MAX_AGE_HOURS = {
     "sync_guests_incremental": 24,
     "sync_sessions_incremental": 8,
     "sync_operations_incremental": 8,
+    "sync_balance_topups_incremental": 8,
 }
 
 

@@ -57,6 +57,17 @@ def test_giveaway_tokens_and_personal_messages_migration_exports_revision_and_up
     assert any("token_amount" in value for value in constants)
 
 
+def test_guest_balance_topups_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0006_guest_balance_topups")
+
+    assert migration.revision == "0006_guest_balance_topups"
+    assert callable(migration.upgrade)
+    assert any(
+        isinstance(value, str) and "guest_balance_topups" in value
+        for value in migration.upgrade.__code__.co_consts
+    )
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

@@ -14,12 +14,14 @@ SYNC_JOB_TYPES = [
     "sync_guests_incremental",
     "sync_sessions_incremental",
     "sync_operations_incremental",
+    "sync_balance_topups_incremental",
 ]
 
 SYNC_JOB_LABELS = {
     "sync_guests_incremental": "Гости",
     "sync_sessions_incremental": "Сессии",
     "sync_operations_incremental": "Операции",
+    "sync_balance_topups_incremental": "Пополнения",
 }
 
 JOB_TYPE_LABELS = {
@@ -33,6 +35,7 @@ SYNC_STALE_HOURS = {
     "sync_guests_incremental": 24,
     "sync_sessions_incremental": 8,
     "sync_operations_incremental": 8,
+    "sync_balance_topups_incremental": 8,
 }
 
 
@@ -375,6 +378,17 @@ def run_operations_initial(club_id: int):
     return f"Период: {date_from} — {date_to}. Initial sync операций завершён."
 
 
+def run_balance_topups_initial(club_id: int):
+    from scripts.sync_balance_topups_initial import sync_balance_topups_initial
+
+    today = datetime.now().date()
+    date_from = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+    date_to = today.strftime("%Y-%m-%d")
+
+    result = sync_balance_topups_initial(club_id, date_from=date_from, date_to=date_to)
+    return f"Период: {date_from} — {date_to}. Получено пополнений: {result.get('received', 0)}. Сохранено: {result.get('saved', 0)}."
+
+
 def run_guests_incremental_for_club(club_id: int):
     from scripts.sync_guests_incremental import sync_guests_incremental
 
@@ -397,6 +411,14 @@ def run_operations_incremental_for_club(club_id: int):
     result = sync_operations_incremental(club_id)
     item = result[0] if result else {"received": 0, "saved": 0, "date_from": "", "date_to": ""}
     return f"Период: {item.get('date_from')} — {item.get('date_to')}. Получено операций: {item.get('received', 0)}. Сохранено: {item.get('saved', 0)}."
+
+
+def run_balance_topups_incremental_for_club(club_id: int):
+    from scripts.sync_balance_topups_incremental import sync_balance_topups_incremental
+
+    result = sync_balance_topups_incremental(club_id)
+    item = result[0] if result else {"received": 0, "saved": 0, "date_from": "", "date_to": ""}
+    return f"Период: {item.get('date_from')} — {item.get('date_to')}. Получено пополнений: {item.get('received', 0)}. Сохранено: {item.get('saved', 0)}."
 
 
 @admin_bp.route("/")
@@ -536,6 +558,8 @@ def club_sync(club_id: int, sync_type: str):
         "sessions-incremental": ("sessions", "incremental", run_sessions_incremental_for_club),
         "operations-initial": ("operations", "initial", run_operations_initial),
         "operations-incremental": ("operations", "incremental", run_operations_incremental_for_club),
+        "balance-topups-initial": ("balance_topups", "initial", run_balance_topups_initial),
+        "balance-topups-incremental": ("balance_topups", "incremental", run_balance_topups_incremental_for_club),
     }
 
     if sync_type not in actions:
