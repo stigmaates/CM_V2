@@ -76,7 +76,7 @@
                 <svg viewBox="0 0 24 24"><path d="M4 4h14a2 2 0 0 1 2 2v7h-2V6H6v12h7v2H4V4Zm3 4h8v2H7V8Zm0 4h6v2H7v-2Zm12.6 3.2 1.4 1.4-5.2 5.2-3.1-3.1 1.4-1.4 1.7 1.7 3.8-3.8Z"/></svg>
             </div>
             <div class="cb-kpi-body">
-                <div class="cb-kpi-title">Средний чек<br>за последние {{ stats.period_days }} дней</div>
+                <div class="cb-kpi-title">Среднее пополнение<br>за последние {{ stats.period_days }} дней</div>
                 <div class="cb-kpi-value">{{ stats.avg_check_current }} ₽</div>
                 <div class="cb-kpi-diff">
                     {% if stats.avg_check_diff > 0 %}<span class="positive">+{{ stats.avg_check_diff }} ₽</span>{% elif stats.avg_check_diff < 0 %}<span class="negative">{{ stats.avg_check_diff }} ₽</span>{% else %}<span>0 ₽</span>{% endif %}

@@ -115,13 +115,12 @@ def _build_kpi_sparklines(cursor, club_id: int, current_start, current_end) -> d
 
     cursor.execute(
         """
-        SELECT DATE(date_normal) AS d, COALESCE(AVG(`sum`), 0) AS avg_check
-        FROM operations_log
+        SELECT DATE(topup_at) AS d, COALESCE(AVG(amount), 0) AS avg_check
+        FROM guest_balance_topups
         WHERE club_id = %s
-          AND type = 'plus'
-          AND date_normal >= %s
-          AND date_normal < %s
-        GROUP BY DATE(date_normal)
+          AND topup_at >= %s
+          AND topup_at < %s
+        GROUP BY DATE(topup_at)
         """,
         (club_id, current_start, current_end),
     )
@@ -511,13 +510,12 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             cursor.execute(
                 """
                 SELECT COUNT(*) AS operations_count,
-                       COALESCE(SUM(`sum`), 0) AS total_sum,
-                       COALESCE(AVG(`sum`), 0) AS avg_check
-                FROM operations_log
+                       COALESCE(SUM(amount), 0) AS total_sum,
+                       COALESCE(AVG(amount), 0) AS avg_check
+                FROM guest_balance_topups
                 WHERE club_id = %s
-                  AND type = 'plus'
-                  AND date_normal >= %s
-                  AND date_normal < %s
+                  AND topup_at >= %s
+                  AND topup_at < %s
                 """,
                 (club_id, current_start, current_end),
             )
@@ -530,13 +528,12 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             cursor.execute(
                 """
                 SELECT COUNT(*) AS operations_count,
-                       COALESCE(SUM(`sum`), 0) AS total_sum,
-                       COALESCE(AVG(`sum`), 0) AS avg_check
-                FROM operations_log
+                       COALESCE(SUM(amount), 0) AS total_sum,
+                       COALESCE(AVG(amount), 0) AS avg_check
+                FROM guest_balance_topups
                 WHERE club_id = %s
-                  AND type = 'plus'
-                  AND date_normal >= %s
-                  AND date_normal < %s
+                  AND topup_at >= %s
+                  AND topup_at < %s
                 """,
                 (club_id, previous_start, previous_end),
             )

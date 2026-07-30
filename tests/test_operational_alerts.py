@@ -12,7 +12,7 @@ def test_build_operational_alerts_reports_missing_syncs():
         now=datetime(2026, 6, 30, 12, 0, 0),
     )
 
-    assert len(alerts) == 3
+    assert len(alerts) == 4
     assert {alert["code"] for alert in alerts} == {"sync_missing"}
     assert all(alert["severity"] == "warning" for alert in alerts)
 
@@ -32,6 +32,10 @@ def test_build_operational_alerts_reports_stale_sync():
                     "started_at": now - timedelta(hours=1),
                 },
                 "sync_operations_incremental": {
+                    "status": "success",
+                    "started_at": now - timedelta(hours=1),
+                },
+                "sync_balance_topups_incremental": {
                     "status": "success",
                     "started_at": now - timedelta(hours=1),
                 },

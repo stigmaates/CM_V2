@@ -35,6 +35,13 @@ UPDATE_TASKS = [
         "log_file": "sync_operations_incremental.log",
         "ok_after_minutes": 10,
     },
+    {
+        "key": "balance_topups",
+        "job_type": "sync_balance_topups_incremental",
+        "title": "Обновление пополнений",
+        "log_file": "sync_balance_topups_incremental.log",
+        "ok_after_minutes": 10,
+    },
 ]
 
 ERROR_MARKERS = ("traceback", "error", "exception", "failed", "importerror")

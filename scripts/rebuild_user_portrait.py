@@ -250,62 +250,58 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
     return digits or None
 
 
-def fetch_operations_agg(conn, now: datetime) -> Dict[Tuple[int, str], Dict[str, Any]]:
+def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
         SELECT
             club_id,
-            phone,
-            type,
-            sum,
-            date_normal
-        FROM operations_log
+            guest_id,
+            amount,
+            topup_at
+        FROM guest_balance_topups
         WHERE club_id IS NOT NULL
-          AND phone IS NOT NULL
+          AND guest_id IS NOT NULL
     """
 
-    result: Dict[Tuple[int, str], Dict[str, Any]] = defaultdict(lambda: {
+    result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(lambda: {
         "avg_check_all": None,
         "avg_check_30d": None,
         "last_payment_date": None,
     })
 
-    minus_all: Dict[Tuple[int, str], List[float]] = defaultdict(list)
-    minus_30d: Dict[Tuple[int, str], List[float]] = defaultdict(list)
-    plus_dates: Dict[Tuple[int, str], List[datetime]] = defaultdict(list)
+    topups_all: Dict[Tuple[int, int], List[float]] = defaultdict(list)
+    topups_30d: Dict[Tuple[int, int], List[float]] = defaultdict(list)
+    topup_dates: Dict[Tuple[int, int], List[datetime]] = defaultdict(list)
 
     with conn.cursor() as cur:
         cur.execute(sql)
         rows = cur.fetchall()
 
     for row in rows:
-        phone_key = normalize_phone(row["phone"])
-        if not phone_key:
+        if row.get("guest_id") is None:
             continue
 
-        key = (int(row["club_id"]), phone_key)
+        key = (int(row["club_id"]), int(row["guest_id"]))
+        amount = float(row["amount"]) if row["amount"] is not None else None
+        dt = row["topup_at"]
 
-        op_type = (row["type"] or "").strip().lower()
-        amount = float(row["sum"]) if row["sum"] is not None else None
-        dt = row["date_normal"]
-
-        if op_type == "minus" and amount is not None:
-            minus_all[key].append(amount)
+        if amount is not None:
+            topups_all[key].append(amount)
             if dt and dt >= now - timedelta(days=30):
-                minus_30d[key].append(amount)
+                topups_30d[key].append(amount)
 
-        if op_type == "plus" and dt:
-            plus_dates[key].append(dt)
+        if dt:
+            topup_dates[key].append(dt)
 
-    all_keys = set(minus_all) | set(minus_30d) | set(plus_dates)
+    all_keys = set(topups_all) | set(topups_30d) | set(topup_dates)
 
     for key in all_keys:
         agg = result[key]
-        if minus_all[key]:
-            agg["avg_check_all"] = sum(minus_all[key]) / len(minus_all[key])
-        if minus_30d[key]:
-            agg["avg_check_30d"] = sum(minus_30d[key]) / len(minus_30d[key])
-        if plus_dates[key]:
-            agg["last_payment_date"] = max(plus_dates[key])
+        if topups_all[key]:
+            agg["avg_check_all"] = sum(topups_all[key]) / len(topups_all[key])
+        if topups_30d[key]:
+            agg["avg_check_30d"] = sum(topups_30d[key]) / len(topups_30d[key])
+        if topup_dates[key]:
+            agg["last_payment_date"] = max(topup_dates[key])
 
     return result
 
@@ -341,7 +337,7 @@ def build_records(conn) -> List[Dict[str, Any]]:
 
     guests = fetch_guests(conn)
     sessions = fetch_sessions_agg(conn, now)
-    operations = fetch_operations_agg(conn, now)
+    topups = fetch_topups_agg(conn, now)
     spins = fetch_spins_agg(conn)
 
     records: List[Dict[str, Any]] = []
@@ -354,9 +350,8 @@ def build_records(conn) -> List[Dict[str, Any]]:
             guest_id = int(guest_key)
 
         key = (club_id, guest_id)
-        phone_key = normalize_phone(g.get("phone"))
         sess = sessions.get(key, {})
-        ops = operations.get((club_id, phone_key), {}) if phone_key else {}
+        ops = topups.get(key, {})
         spn = spins.get(key, {})
 
         birth_date = g.get("birth_date")

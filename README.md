@@ -97,7 +97,9 @@ CM_V2/
 │   ├── sync_sessions_initial.py
 │   ├── sync_sessions_incremental.py
 │   ├── sync_operations_initial.py
-│   └── sync_operations_incremental.py
+│   ├── sync_operations_incremental.py
+│   ├── sync_balance_topups_initial.py
+│   └── sync_balance_topups_incremental.py
 │
 ├── run.py               # запуск Flask-приложения
 ├── run_bot.py           # запуск гостевого Telegram-бота
