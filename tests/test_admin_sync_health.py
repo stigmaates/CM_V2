@@ -28,6 +28,7 @@ def test_summarize_sync_health_counts_club_states():
         {"overall": "stale"},
         {"overall": "error"},
         {"overall": "running"},
+        {"overall": "disabled"},
     ])
 
     assert summary == {
@@ -35,5 +36,21 @@ def test_summarize_sync_health_counts_club_states():
         "stale": 1,
         "error": 1,
         "running": 1,
-        "total": 5,
+        "disabled": 1,
+        "total": 6,
     }
+
+
+def test_get_club_sync_health_marks_disabled_clubs_without_jobs(monkeypatch):
+    monkeypatch.setattr(admin_dashboard, "get_latest_job_runs_by_club", lambda job_types: {})
+
+    health = admin_dashboard.get_club_sync_health([
+        {"club_id": 7, "name": "Paused", "service_enabled": 0},
+    ])
+
+    assert health == [{
+        "club_id": 7,
+        "name": "Paused",
+        "overall": "disabled",
+        "jobs": [],
+    }]

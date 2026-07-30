@@ -17,6 +17,18 @@ def test_build_operational_alerts_reports_missing_syncs():
     assert all(alert["severity"] == "warning" for alert in alerts)
 
 
+def test_build_operational_alerts_ignores_disabled_clubs():
+    alerts = operational_alerts.build_operational_alerts(
+        clubs=[{"club_id": 7, "name": "Disabled Club", "service_enabled": 0}],
+        latest_jobs_by_club={},
+        problem_jobs=[],
+        stuck_mailings=[],
+        now=datetime(2026, 6, 30, 12, 0, 0),
+    )
+
+    assert alerts == []
+
+
 def test_build_operational_alerts_reports_stale_sync():
     now = datetime(2026, 6, 30, 12, 0, 0)
     alerts = operational_alerts.build_operational_alerts(
@@ -98,6 +110,7 @@ def test_fetch_problem_jobs_only_considers_latest_job_per_club_and_type():
     assert "MAX(started_at) AS latest_started_at" in problem_query
     assert "GROUP BY club_id, job_type" in problem_query
     assert "WHERE r.status IN ('error', 'stale')" in problem_query
+    assert "COALESCE(c.service_enabled, 1) = 1" in problem_query
 
 
 def test_build_operational_alerts_reports_backup_problem():

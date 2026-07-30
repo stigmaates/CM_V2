@@ -247,6 +247,7 @@ def _job_state(job_type: str, row):
         "running": "идёт",
         "stale": "устарело",
         "skipped_locked": "пропущено",
+        "skipped_disabled": "выключено",
     }
 
     return {
@@ -272,12 +273,28 @@ def _overall_sync_status(jobs):
     return "success"
 
 
+def _is_club_service_enabled(club) -> bool:
+    value = club.get("service_enabled", 1)
+    if value is None:
+        return True
+    return bool(int(value))
+
+
 def get_club_sync_health(clubs):
     latest_by_club = get_latest_job_runs_by_club(SYNC_JOB_TYPES)
     health = []
 
     for club in clubs:
         club_id = int(club["club_id"])
+        if not _is_club_service_enabled(club):
+            health.append({
+                "club_id": club_id,
+                "name": club.get("name"),
+                "overall": "disabled",
+                "jobs": [],
+            })
+            continue
+
         latest = latest_by_club.get(club_id, {})
         jobs = [_job_state(job_type, latest.get(job_type)) for job_type in SYNC_JOB_TYPES]
         overall = _overall_sync_status(jobs)
@@ -293,7 +310,7 @@ def get_club_sync_health(clubs):
 
 
 def summarize_sync_health(club_sync_health):
-    summary = {"success": 0, "stale": 0, "error": 0, "running": 0}
+    summary = {"success": 0, "stale": 0, "error": 0, "running": 0, "disabled": 0}
     for club in club_sync_health:
         status = club.get("overall") or "stale"
         if status not in summary:

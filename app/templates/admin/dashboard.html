@@ -80,6 +80,7 @@
         <div class="health-summary-item stale"><span>Устарело/нет данных</span><strong>{{ sync_health_summary.stale }}</strong></div>
         <div class="health-summary-item error"><span>Ошибки</span><strong>{{ sync_health_summary.error }}</strong></div>
         <div class="health-summary-item running"><span>В работе</span><strong>{{ sync_health_summary.running }}</strong></div>
+        <div class="health-summary-item disabled"><span>Выключено</span><strong>{{ sync_health_summary.disabled }}</strong></div>
     </div>
 </section>
 
@@ -142,20 +143,26 @@
                             <span class="admin-table-sub">ID {{ club.club_id }}</span>
                         </td>
                         <td><span class="status-pill {{ club.overall }}">{{ club.overall }}</span></td>
-                        {% for job in club.jobs %}
-                            <td>
-                                <div class="sync-health-cell">
-                                    <span class="status-pill {{ job.status }}">{{ job.status_label }}</span>
-                                    <span class="admin-table-sub">{{ job.age_label }}</span>
-                                    {% if job.rows_saved is not none %}
-                                        <span class="admin-table-sub">сохранено: {{ job.rows_saved }}</span>
-                                    {% endif %}
-                                    {% if job.error_text %}
-                                        <span class="admin-table-sub error-text">{{ job.error_text }}</span>
-                                    {% endif %}
-                                </div>
+                        {% if club.overall == 'disabled' %}
+                            <td colspan="4">
+                                <span class="admin-table-sub">Обслуживание клуба выключено. Фоновые синхронизации не учитываются.</span>
                             </td>
-                        {% endfor %}
+                        {% else %}
+                            {% for job in club.jobs %}
+                                <td>
+                                    <div class="sync-health-cell">
+                                        <span class="status-pill {{ job.status }}">{{ job.status_label }}</span>
+                                        <span class="admin-table-sub">{{ job.age_label }}</span>
+                                        {% if job.rows_saved is not none %}
+                                            <span class="admin-table-sub">сохранено: {{ job.rows_saved }}</span>
+                                        {% endif %}
+                                        {% if job.error_text %}
+                                            <span class="admin-table-sub error-text">{{ job.error_text }}</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            {% endfor %}
+                        {% endif %}
                     </tr>
                 {% else %}
                     <tr><td colspan="5" class="empty-cell">Клубов пока нет</td></tr>
