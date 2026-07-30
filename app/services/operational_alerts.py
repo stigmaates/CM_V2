@@ -76,6 +76,10 @@ def build_operational_alerts(
     alerts: list[dict[str, Any]] = []
 
     for club in clubs:
+        service_enabled = club.get("service_enabled", 1)
+        if service_enabled is not None and int(service_enabled) == 0:
+            continue
+
         club_id = int(club["club_id"])
         club_name = club.get("name")
         latest = latest_jobs_by_club.get(club_id, {})
@@ -170,14 +174,22 @@ def build_operational_alerts(
 
 
 def _fetch_clubs(cursor) -> list[dict[str, Any]]:
-    cursor.execute("SELECT club_id, name FROM clubs ORDER BY club_id")
+    try:
+        cursor.execute(
+            """
+            SELECT club_id, name, service_enabled
+            FROM clubs
+            ORDER BY club_id
+            """
+        )
+    except Exception:
+        cursor.execute("SELECT club_id, name, 1 AS service_enabled FROM clubs ORDER BY club_id")
     return cursor.fetchall() or []
 
 
 def _fetch_problem_jobs(cursor, *, limit: int) -> list[dict[str, Any]]:
     ensure_background_job_runs_table(cursor)
-    cursor.execute(
-        """
+    base_query = """
         SELECT r.id, r.job_type, r.club_id, r.status, r.started_at, r.error_text
         FROM background_job_runs r
         INNER JOIN (
@@ -192,9 +204,21 @@ def _fetch_problem_jobs(cursor, *, limit: int) -> list[dict[str, Any]]:
         WHERE r.status IN ('error', 'stale')
         ORDER BY r.started_at DESC
         LIMIT %s
-        """,
-        (limit,),
+    """
+    active_query = base_query.replace(
+        "FROM background_job_runs r\n        INNER JOIN",
+        "FROM background_job_runs r\n        LEFT JOIN clubs c ON c.club_id = r.club_id\n        INNER JOIN",
+        1,
+    ).replace(
+        "WHERE r.status IN ('error', 'stale')",
+        "WHERE r.status IN ('error', 'stale')\n          AND COALESCE(c.service_enabled, 1) = 1",
+        1,
     )
+    try:
+        cursor.execute(active_query, (limit,))
+    except Exception:
+        cursor.execute(base_query, (limit,))
+
     return cursor.fetchall() or []
 
 

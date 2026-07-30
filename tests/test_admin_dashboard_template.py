@@ -46,6 +46,38 @@ def test_admin_dashboard_renders_readiness_items():
     assert "Управление сервисами" in html
 
 
+def test_admin_dashboard_renders_disabled_sync_summary():
+    with app.test_request_context("/admin/dashboard"):
+        html = render_template(
+            "admin/dashboard.html",
+            metrics={
+                "clubs_count": 1,
+                "users_count": 1,
+                "owners_count": 1,
+                "admins_count": 1,
+            },
+            recent_clubs=[],
+            club_sync_health=[{"club_id": 2, "name": "Paused", "overall": "disabled", "jobs": []}],
+            sync_health_summary={"success": 0, "stale": 0, "error": 0, "running": 0, "disabled": 1},
+            operational_alerts=[],
+            operational_alert_summary={"error": 0, "warning": 0},
+            recent_job_runs=[],
+            system_health={},
+            readiness={
+                "overall_status": "success",
+                "overall_label": "Готово",
+                "environment": "stage",
+                "release": {"commit": "abcdef1"},
+                "items": [],
+            },
+            restart_controls={"enabled": False, "available": False, "targets": []},
+            active_page="dashboard",
+        )
+
+    assert "Выключено" in html
+    assert "Фоновые синхронизации не учитываются" in html
+
+
 def test_admin_users_page_renders_selected_user_card():
     with app.test_request_context("/admin/users?user_id=7"):
         html = render_template(

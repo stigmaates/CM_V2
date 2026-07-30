@@ -24,6 +24,7 @@ from app.config import (
 )
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
+from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
 
 logging.basicConfig(level=logging.INFO)
@@ -52,15 +53,16 @@ def get_clubs(club_id=None):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            service_enabled_expr = service_enabled_select_expr(cursor)
             if club_id is None:
-                cursor.execute("""
-                    SELECT club_id, lg_api_key, secret
+                cursor.execute(f"""
+                    SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                     FROM clubs
                     ORDER BY club_id
                 """)
             else:
-                cursor.execute("""
-                    SELECT club_id, lg_api_key, secret
+                cursor.execute(f"""
+                    SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                     FROM clubs
                     WHERE club_id = %s
                     ORDER BY club_id
@@ -171,6 +173,23 @@ def sync_sessions_incremental(club_id=None):
 
     for club in clubs:
         current_club_id = int(club["club_id"])
+        if not is_service_enabled(club):
+            job_run_id = start_job_run(
+                "sync_sessions_incremental",
+                club_id=current_club_id,
+                metadata={"source": "langame", "date_from": date_from, "date_to": date_to},
+            )
+            finish_job_run(
+                job_run_id,
+                "skipped_disabled",
+                rows_received=0,
+                rows_saved=0,
+                metadata={"reason": "club_service_disabled", "date_from": date_from, "date_to": date_to},
+            )
+            logging.info("Клуб %s | пропущен: обслуживание выключено", current_club_id)
+            summary.append({"club_id": current_club_id, "skipped": "disabled", "date_from": date_from, "date_to": date_to})
+            continue
+
         api_key = club["lg_api_key"]
         secret = club["secret"]
         lock = job_lock("sync_sessions_incremental", club_id=current_club_id, ttl_minutes=60)

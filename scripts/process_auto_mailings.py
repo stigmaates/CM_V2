@@ -24,6 +24,7 @@ from app.services.first_visit_survey import (
     send_first_visit_survey_invite,
 )
 from scripts.process_mailings import process_one_mailing
+from scripts.sync_utils import table_has_column
 from app.services.wheel import _calculate_streak_rows
 
 
@@ -455,14 +456,26 @@ def process_auto_mailings() -> dict:
     processed = []
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT *
-                FROM auto_mailing_settings
-                WHERE is_enabled = 1
-                ORDER BY club_id, id
-                """
-            )
+            if table_has_column(cur, "clubs", "service_enabled"):
+                cur.execute(
+                    """
+                    SELECT ams.*
+                    FROM auto_mailing_settings ams
+                    JOIN clubs c ON c.club_id = ams.club_id
+                    WHERE ams.is_enabled = 1
+                      AND COALESCE(c.service_enabled, 1) = 1
+                    ORDER BY ams.club_id, ams.id
+                    """
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT *
+                    FROM auto_mailing_settings
+                    WHERE is_enabled = 1
+                    ORDER BY club_id, id
+                    """
+                )
             settings = cur.fetchall()
 
         for setting in settings:
