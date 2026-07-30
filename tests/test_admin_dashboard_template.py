@@ -81,3 +81,25 @@ def test_admin_users_page_renders_selected_user_card():
     assert "Последний вход" in html
     assert "Сбросить пароль" in html
     assert "/admin/users/7/reset-password" in html
+
+
+def test_admin_clubs_page_renders_service_toggle():
+    with app.test_request_context("/admin/clubs"):
+        html = render_template(
+            "admin/clubs.html",
+            clubs=[
+                {
+                    "club_id": 1,
+                    "name": "Cyber Club",
+                    "owner_name": "Owner",
+                    "owner_login": "owner",
+                    "service_enabled": 0,
+                    "created_at": None,
+                }
+            ],
+            active_page="clubs",
+        )
+
+    assert "Обслуживание клуба" in html
+    assert "Выключено" in html
+    assert "clubServiceToggle" in html

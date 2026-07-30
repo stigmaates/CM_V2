@@ -538,6 +538,91 @@
     color: var(--admin-muted);
 }
 
+.club-service-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.club-service-badge.enabled {
+    color: #bff7d2;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+.club-service-badge.disabled {
+    color: #ffd3d3;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.30);
+}
+
+.club-service-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 14px;
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.admin-switch {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 68px;
+    height: 38px;
+    cursor: pointer;
+}
+
+.admin-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.admin-switch span {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.28);
+    border: 1px solid rgba(239, 68, 68, 0.34);
+    transition: 0.18s ease;
+}
+
+.admin-switch span::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+    transition: 0.18s ease;
+}
+
+.admin-switch input:checked + span {
+    background: linear-gradient(135deg, #22c55e, #77d99d);
+    border-color: rgba(119, 217, 157, 0.55);
+}
+
+.admin-switch input:checked + span::before {
+    transform: translateX(30px);
+}
+
+.admin-switch input:disabled + span {
+    cursor: wait;
+    opacity: 0.65;
+}
+
 .modal-actions {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

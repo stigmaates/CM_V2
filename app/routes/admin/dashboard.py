@@ -165,12 +165,14 @@ def table_has_column(table_name: str, column_name: str) -> bool:
 
 def get_clubs_for_admin():
     created_expr = "c.created_at" if table_has_column("clubs", "created_at") else "NULL"
+    service_enabled_expr = "c.service_enabled" if table_has_column("clubs", "service_enabled") else "1"
     with get_db_connection() as db:
         with db.cursor() as cur:
             cur.execute(
                 f"""
                 SELECT
                     c.club_id,
+                    {service_enabled_expr} AS service_enabled,
                     c.name,
                     c.owner_id,
                     u.name AS owner_name,
@@ -507,6 +509,42 @@ def club_details(club_id: int):
         "status": True,
         "club": clubs[0],
         "logs": get_club_sync_logs(club_id),
+    })
+
+
+@admin_bp.route("/clubs/<int:club_id>/service", methods=["POST"])
+@admin_required
+def club_service_toggle(club_id: int):
+    payload = request.get_json(silent=True) or {}
+    enabled = bool(payload.get("enabled")) if request.is_json else request.form.get("enabled") == "1"
+    club = get_club_by_id(club_id)
+    if not club:
+        return jsonify({"status": False, "message": "Клуб не найден"}), 404
+
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE clubs
+                SET service_enabled = %s
+                WHERE club_id = %s
+                """,
+                (1 if enabled else 0, club_id),
+            )
+        db.commit()
+
+    record_audit_event(
+        action="admin.club_service.toggle",
+        club_id=club_id,
+        entity_type="club",
+        entity_id=club_id,
+        details={"service_enabled": enabled},
+    )
+
+    return jsonify({
+        "status": True,
+        "message": "Обслуживание включено" if enabled else "Обслуживание выключено",
+        "service_enabled": enabled,
     })
 
 
