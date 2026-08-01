@@ -7,13 +7,13 @@
                             <div class="info-chip__tooltip info-chip__tooltip--wide">
                                 Блок считает сегменты из таблицы <b>user_portrait</b> по текущему клубу.<br>
                                 Переключатель <b>«С привязанным Telegram»</b> оставляет только гостей, которым можно отправлять Telegram-коммуникации.<br>
-                                <b>TOP</b> — 15+ визитов за 90 дней.<br>
-                                <b>BASE</b> — 10–14 визитов за 90 дней.<br>
-                                <b>RARE</b> — 1–9 визитов за 90 дней и последний визит меньше 14 дней назад.<br>
-                                <b>RISK</b> — последний визит 14–29 дней назад.<br>
-                                <b>LOST</b> — последний визит 30–89 дней назад.<br>
-                                <b>DEAD</b> — последний визит 90+ дней назад.<br>
-                                <b>NO VISITS</b> — гость есть в базе, но еще ни разу не играл.
+                                <b>Лучшие</b> — 15+ визитов за 90 дней.<br>
+                                <b>База</b> — 10–14 визитов за 90 дней.<br>
+                                <b>Редкие</b> — 1–9 визитов за 90 дней и последний визит меньше 14 дней назад.<br>
+                                <b>Риск</b> — последний визит 14–29 дней назад.<br>
+                                <b>Потерянные</b> — последний визит 30–89 дней назад.<br>
+                                <b>Давно без визита</b> — последний визит 90+ дней назад.<br>
+                                <b>Без визитов</b> — гость есть в базе, но еще ни разу не играл.
                             </div>
                         </div>
                     </div>
@@ -40,8 +40,9 @@
                                 <div class="info-chip__tooltip">Самое активное ядро клуба: 15 и более визитов за последние 90 дней.</div>
                             </div>
                         </div>
-                        <div class="audience-card__label">TOP</div>
-                        <div class="audience-card__value">{{ audience.top }}</div>
+                        <div class="audience-card__label">Лучшие</div>
+                        <div class="audience-card__value"><span>{{ audience.top_telegram|default(0) }}</span><small>/{{ audience.top }}</small></div>
+                        <div class="audience-card__caption">с Telegram / всего</div>
                     </div>
 
                     <div class="audience-card audience-card--base">
@@ -52,8 +53,9 @@
                                 <div class="info-chip__tooltip">Стабильная база: от 10 до 14 визитов за последние 90 дней.</div>
                             </div>
                         </div>
-                        <div class="audience-card__label">BASE</div>
-                        <div class="audience-card__value">{{ audience.base }}</div>
+                        <div class="audience-card__label">База</div>
+                        <div class="audience-card__value"><span>{{ audience.base_telegram|default(0) }}</span><small>/{{ audience.base }}</small></div>
+                        <div class="audience-card__caption">с Telegram / всего</div>
                     </div>
 
                     <div class="audience-card audience-card--rare">
@@ -64,8 +66,9 @@
                                 <div class="info-chip__tooltip">Редкие, но еще живые гости: 1–9 визитов за 90 дней и последний визит был меньше 14 дней назад.</div>
                             </div>
                         </div>
-                        <div class="audience-card__label">RARE</div>
-                        <div class="audience-card__value">{{ audience.rare }}</div>
+                        <div class="audience-card__label">Редкие</div>
+                        <div class="audience-card__value"><span>{{ audience.rare_telegram|default(0) }}</span><small>/{{ audience.rare }}</small></div>
+                        <div class="audience-card__caption">с Telegram / всего</div>
                     </div>
 
                     <div class="audience-card audience-card--risk">
@@ -76,8 +79,9 @@
                                 <div class="info-chip__tooltip">Гости на грани оттока: последний визит был 14–29 дней назад.</div>
                             </div>
                         </div>
-                        <div class="audience-card__label">RISK</div>
-                        <div class="audience-card__value">{{ audience.risk }}</div>
+                        <div class="audience-card__label">Риск</div>
+                        <div class="audience-card__value"><span>{{ audience.risk_telegram|default(0) }}</span><small>/{{ audience.risk }}</small></div>
+                        <div class="audience-card__caption">с Telegram / всего</div>
                     </div>
 
                     <div class="audience-card audience-card--lost">
@@ -88,8 +92,9 @@
                                 <div class="info-chip__tooltip">Потерянные гости: последний визит был 30–89 дней назад.</div>
                             </div>
                         </div>
-                        <div class="audience-card__label">LOST</div>
-                        <div class="audience-card__value">{{ audience.lost }}</div>
+                        <div class="audience-card__label">Потерянные</div>
+                        <div class="audience-card__value"><span>{{ audience.lost_telegram|default(0) }}</span><small>/{{ audience.lost }}</small></div>
+                        <div class="audience-card__caption">с Telegram / всего</div>
                     </div>
 
                     <div class="audience-card audience-card--dead">
@@ -97,11 +102,12 @@
                             <div class="audience-card__badge">☠️</div>
                             <div class="info-chip" tabindex="0">
                                 <span class="info-chip__icon">i</span>
-                                <div class="info-chip__tooltip">Старая мертвая база: последний визит был 90 и более дней назад.</div>
+                                <div class="info-chip__tooltip">Давно без визита: последний визит был 90 и более дней назад.</div>
                             </div>
                         </div>
-                        <div class="audience-card__label">DEAD</div>
-                        <div class="audience-card__value">{{ audience.dead }}</div>
+                        <div class="audience-card__label">Давно без визита</div>
+                        <div class="audience-card__value"><span>{{ audience.dead_telegram|default(0) }}</span><small>/{{ audience.dead }}</small></div>
+                        <div class="audience-card__caption">с Telegram / всего</div>
                     </div>
 
                     <div class="audience-card audience-card--no-visits">
@@ -112,8 +118,9 @@
                                 <div class="info-chip__tooltip">Гости есть в базе, но в их истории пока нет ни одной игровой сессии.</div>
                             </div>
                         </div>
-                        <div class="audience-card__label">NO VISITS</div>
-                        <div class="audience-card__value">{{ audience.no_visits }}</div>
+                        <div class="audience-card__label">Без визитов</div>
+                        <div class="audience-card__value"><span>{{ audience.no_visits_telegram|default(0) }}</span><small>/{{ audience.no_visits }}</small></div>
+                        <div class="audience-card__caption">с Telegram / всего</div>
                     </div>
                 </div>
             </section>

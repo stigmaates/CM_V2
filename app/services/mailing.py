@@ -49,13 +49,13 @@ AUTO_MAILING_DEFAULTS = {
 }
 
 CRM_SEGMENT_OPTIONS = [
-    {"key": "top", "label": "TOP", "title": "Топ-гости", "emoji": "👑", "description": "15+ визитов за 90 дней"},
-    {"key": "base", "label": "BASE", "title": "База", "emoji": "👥", "description": "10–14 визитов за 90 дней"},
-    {"key": "rare", "label": "RARE", "title": "Редкие", "emoji": "✨", "description": "1–9 визитов, были недавно"},
-    {"key": "risk", "label": "RISK", "title": "В зоне риска", "emoji": "⚠️", "description": "Не были 14–29 дней"},
-    {"key": "lost", "label": "LOST", "title": "Потерянные", "emoji": "💔", "description": "Не были 30–89 дней"},
-    {"key": "dead", "label": "DEAD", "title": "Мёртвая база", "emoji": "☠️", "description": "Не были 90+ дней"},
-    {"key": "no_visits", "label": "NO VISITS", "title": "Без визитов", "emoji": "🆕", "description": "Есть в базе, без визитов"},
+    {"key": "top", "label": "Лучшие", "title": "Лучшие", "emoji": "👑", "description": "15+ визитов за 90 дней"},
+    {"key": "base", "label": "База", "title": "База", "emoji": "👥", "description": "10–14 визитов за 90 дней"},
+    {"key": "rare", "label": "Редкие", "title": "Редкие", "emoji": "✨", "description": "1–9 визитов, были недавно"},
+    {"key": "risk", "label": "Риск", "title": "Риск", "emoji": "⚠️", "description": "Не были 14–29 дней"},
+    {"key": "dead", "label": "Давно без визита", "title": "Давно без визита", "emoji": "☠️", "description": "Не были 90+ дней"},
+    {"key": "lost", "label": "Потерянные", "title": "Потерянные", "emoji": "💔", "description": "Не были 30–89 дней"},
+    {"key": "no_visits", "label": "Без визитов", "title": "Без визитов", "emoji": "🆕", "description": "Есть в базе, без визитов"},
 ]
 
 FILTER_FIELDS = {
@@ -120,13 +120,13 @@ FILTER_FIELDS = {
         "column": "up.crm_type",
         "label": "CRM-группа",
         "options": [
-            {"value": "top", "label": "TOP / Топ-гости"},
-            {"value": "base", "label": "BASE / База"},
-            {"value": "rare", "label": "RARE / Редкие"},
-            {"value": "risk", "label": "RISK / В зоне риска"},
-            {"value": "lost", "label": "LOST / Потерянные"},
-            {"value": "dead", "label": "DEAD / Мёртвая база"},
-            {"value": "no_visits", "label": "NO VISITS / Без визитов"},
+            {"value": "top", "label": "Лучшие"},
+            {"value": "base", "label": "База"},
+            {"value": "rare", "label": "Редкие"},
+            {"value": "risk", "label": "Риск"},
+            {"value": "dead", "label": "Давно без визита"},
+            {"value": "lost", "label": "Потерянные"},
+            {"value": "no_visits", "label": "Без визитов"},
         ],
     },
 }
@@ -160,7 +160,7 @@ AUTO_MAILING_DEFAULTS = {
         "description": "Автоматически отправляет сообщение гостям, которых не было в клубе заданное количество дней.",
         "message_text": (
             "Привет! Тебя давно не было в клубе 😔\n\n"
-            "Мы начислили тебе 200 бонусов — приходи играть, будем ждать!"
+            "Мы начислили тебе 200 бонусов на 7 дней — приходи играть, будем ждать!"
         ),
         "days_inactive": 14,
         "bonus_amount": 200,
@@ -400,11 +400,10 @@ def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
     raise ValueError(f"Неизвестный тип поля: {field_type}")
 
 
-def build_where_clause(club_id: int, rules: List[Dict[str, Any]]) -> Tuple[str, List[Any]]:
-    where_parts = [
-        "up.club_id = %s",
-        "g.telegram_id IS NOT NULL",
-    ]
+def build_where_clause(club_id: int, rules: List[Dict[str, Any]], require_telegram: bool = True) -> Tuple[str, List[Any]]:
+    where_parts = ["up.club_id = %s"]
+    if require_telegram:
+        where_parts.append("g.telegram_id IS NOT NULL")
     params: List[Any] = [club_id]
 
     for rule in rules:

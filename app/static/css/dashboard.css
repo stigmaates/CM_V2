@@ -594,10 +594,13 @@ body {
     z-index: 30;
     pointer-events: none;
     text-align: left;
+    max-width: min(360px, calc(100vw - 40px));
 }
 
 .info-chip__tooltip--wide {
     width: 360px;
+    left: 0;
+    right: auto;
 }
 
 .info-chip:hover .info-chip__tooltip,
@@ -651,10 +654,25 @@ body {
 }
 
 .audience-card__value {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
     font-size: 26px;
     line-height: 1;
     font-weight: 800;
     color: #ffffff;
+}
+
+.audience-card__value small {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.56);
+}
+
+.audience-card__caption {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.25;
+    color: rgba(255, 255, 255, 0.52);
 }
 
 
@@ -812,6 +830,8 @@ body {
 
     .info-chip__tooltip--wide {
         width: 300px;
+        left: 0;
+        right: auto;
     }
 }
 
@@ -829,6 +849,282 @@ body {
     .audience-tg-toggle {
         width: 100%;
         justify-content: space-between;
+    }
+}
+.crm-analysis-section {
+    margin-top: 24px;
+    padding: 28px 30px;
+}
+
+.crm-analysis-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    margin-bottom: 22px;
+}
+
+.crm-analysis-audience {
+    min-width: 180px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(143, 91, 255, 0.28);
+    background: rgba(255, 255, 255, 0.045);
+    text-align: right;
+}
+
+.crm-analysis-audience span,
+.crm-analysis-audience small {
+    display: block;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.crm-analysis-audience strong {
+    display: block;
+    margin: 4px 0;
+    color: #ffffff;
+    font-size: 30px;
+    line-height: 1;
+}
+
+.crm-analysis-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr);
+    gap: 22px;
+    align-items: start;
+}
+
+.crm-analysis-filters {
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid rgba(143, 91, 255, 0.2);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.crm-analysis-toolbar,
+.crm-cohort-save {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.crm-analysis-filters .rules-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.crm-cohort-save {
+    margin-top: 12px;
+}
+
+.crm-cohort-save input,
+.crm-analysis-rule-row input,
+.crm-analysis-rule-row select,
+.crm-analysis-rule-row textarea {
+    width: 100%;
+    min-height: 46px;
+    border: 1px solid rgba(143, 91, 255, 0.42);
+    border-radius: 14px;
+    padding: 11px 13px;
+    background: rgba(11, 6, 22, 0.72);
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 700;
+    outline: none;
+}
+
+.crm-analysis-rule-row textarea {
+    min-height: 46px;
+    resize: vertical;
+}
+
+.crm-analysis-rule-row {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) 44px;
+}
+
+.crm-rule-remove {
+    min-height: 46px;
+    border: 1px solid rgba(255, 107, 159, 0.36);
+    border-radius: 14px;
+    background: rgba(255, 107, 159, 0.14);
+    color: #ffd7e4;
+    font-size: 20px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.crm-cohort-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.crm-cohort-chip {
+    min-height: 36px;
+    border: 1px solid rgba(143, 91, 255, 0.28);
+    border-radius: 999px;
+    padding: 7px 12px;
+    background: rgba(143, 91, 255, 0.1);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.crm-analysis-results {
+    min-width: 0;
+    display: grid;
+    gap: 18px;
+}
+
+.crm-analysis-funnel,
+.crm-analysis-metrics {
+    padding: 18px;
+    border: 1px solid rgba(143, 91, 255, 0.2);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.crm-funnel-bars {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(64px, 1fr));
+    gap: 12px;
+    align-items: end;
+    min-height: 220px;
+}
+
+.crm-funnel-step {
+    position: relative;
+    display: grid;
+    gap: 5px;
+    justify-items: center;
+    min-width: 0;
+}
+
+.crm-funnel-bar-wrap {
+    display: flex;
+    align-items: end;
+    width: 100%;
+    height: 150px;
+    padding: 0 8px;
+}
+
+.crm-funnel-bar {
+    width: 100%;
+    min-height: 10px;
+    border-radius: 14px 14px 8px 8px;
+    background: linear-gradient(180deg, #a667ff 0%, #49d6ff 100%);
+    box-shadow: 0 12px 28px rgba(73, 214, 255, 0.14);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 8px;
+    color: #fff;
+    font-weight: 900;
+}
+
+.crm-funnel-step strong {
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.crm-funnel-step small {
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.crm-funnel-step em {
+    position: absolute;
+    right: -24px;
+    top: 64px;
+    z-index: 2;
+    min-width: 48px;
+    padding: 4px 6px;
+    border-radius: 999px;
+    background: rgba(11, 6, 22, 0.82);
+    color: #d8c6ff;
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: center;
+    border: 1px solid rgba(143, 91, 255, 0.24);
+}
+
+.crm-funnel-caption {
+    margin-top: 10px;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 12px;
+}
+
+.crm-analysis-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.crm-analysis-metric {
+    min-height: 118px;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(11, 6, 22, 0.36);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.crm-analysis-metric span,
+.crm-analysis-metric small {
+    display: block;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.crm-analysis-metric strong {
+    display: block;
+    margin: 10px 0 8px;
+    color: #ffffff;
+    font-size: 22px;
+    line-height: 1.1;
+}
+
+@media (max-width: 1180px) {
+    .crm-analysis-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .crm-analysis-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .crm-analysis-head {
+        flex-direction: column;
+    }
+
+    .crm-analysis-audience {
+        width: 100%;
+        text-align: left;
+    }
+
+    .crm-analysis-rule-row {
+        grid-template-columns: 1fr;
+    }
+
+    .crm-funnel-bars {
+        overflow-x: auto;
+        grid-template-columns: repeat(7, minmax(72px, 1fr));
+    }
+
+    .crm-analysis-metrics {
+        grid-template-columns: 1fr;
     }
 }
 .dashboard-toolbar {

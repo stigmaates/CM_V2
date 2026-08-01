@@ -1303,7 +1303,10 @@ def get_dashboard_audience_stats(club_id: int, telegram_only: bool = False) -> d
 
             cursor.execute(
                 f"""
-                SELECT crm_type, COUNT(*) AS cnt
+                SELECT
+                    crm_type,
+                    COUNT(*) AS cnt,
+                    SUM(CASE WHEN COALESCE(has_telegram, 0) = 1 THEN 1 ELSE 0 END) AS telegram_cnt
                 FROM user_portrait
                 {where_sql}
                 GROUP BY crm_type
@@ -1321,16 +1324,27 @@ def get_dashboard_audience_stats(club_id: int, telegram_only: bool = False) -> d
             "dead": 0,
             "no_visits": 0,
             "total": 0,
+            "top_telegram": 0,
+            "base_telegram": 0,
+            "rare_telegram": 0,
+            "risk_telegram": 0,
+            "lost_telegram": 0,
+            "dead_telegram": 0,
+            "no_visits_telegram": 0,
+            "total_telegram": 0,
             "telegram_only": bool(telegram_only),
         }
 
         for row in rows:
             crm_type = row["crm_type"]
             cnt = int(row["cnt"] or 0)
+            telegram_cnt = int(row.get("telegram_cnt") or 0)
 
             if crm_type in audience:
                 audience[crm_type] = cnt
+                audience[f"{crm_type}_telegram"] = telegram_cnt
                 audience["total"] += cnt
+                audience["total_telegram"] += telegram_cnt
 
         return audience
     finally:
