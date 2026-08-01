@@ -1163,9 +1163,10 @@ body {
 }
 
 .crm-funnel-bars {
+    --funnel-gap: 12px;
     display: grid;
     grid-template-columns: repeat(7, minmax(64px, 1fr));
-    gap: 12px;
+    gap: var(--funnel-gap);
     align-items: end;
     min-height: 246px;
     padding-top: 26px;
@@ -1223,7 +1224,7 @@ body {
 
 .crm-funnel-step em {
     position: absolute;
-    right: -18px;
+    left: calc(100% + var(--funnel-gap) / 2);
     bottom: 4px;
     z-index: 2;
     min-width: 34px;
@@ -1235,6 +1236,7 @@ body {
     font-size: 9px;
     font-weight: 900;
     text-align: center;
+    transform: translateX(-50%);
     border: 1px solid rgba(143, 91, 255, 0.18);
 }
 
