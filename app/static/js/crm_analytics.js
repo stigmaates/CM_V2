@@ -193,7 +193,7 @@ function crmRenderAnalysis(analysis) {
                 <small>визит</small>
                 ${index < funnel.length - 1 ? `<em>${item.gap_to_next === null ? "—" : item.gap_to_next + " дн."}</em>` : ""}
             </div>
-        `).join("")}</div><div class="crm-funnel-caption">Воронка строится по выбранной когорте, ${periodLabel}. Между столбцами — средний интервал до следующего визита</div>`
+        `).join("")}</div><div class="crm-funnel-caption">Воронка строится по выбранной когорте, ${periodLabel}. Под визитами — средний интервал до следующего визита.</div>`
         : `<div class="empty-state">По выбранной когорте пока нет визитов.</div>`;
 
     crmAnalysisMetricsEl.innerHTML = (analysis.metrics || []).map((item) => `

@@ -1078,7 +1078,7 @@ body {
     grid-template-columns: repeat(7, minmax(64px, 1fr));
     gap: 12px;
     align-items: end;
-    min-height: 220px;
+    min-height: 238px;
 }
 
 .crm-funnel-step {
@@ -1125,7 +1125,7 @@ body {
 .crm-funnel-step em {
     position: absolute;
     right: -24px;
-    top: 64px;
+    bottom: 2px;
     z-index: 2;
     min-width: 48px;
     padding: 4px 6px;
@@ -1140,9 +1140,10 @@ body {
 }
 
 .crm-funnel-caption {
-    margin-top: 10px;
+    margin-top: 12px;
     color: rgba(255, 255, 255, 0.52);
     font-size: 12px;
+    text-align: center;
 }
 
 .crm-analysis-metrics {
