@@ -74,7 +74,7 @@
     <section class="crm-campaigns-section card">
         <div class="crm-campaigns-head">
             <div>
-                <div class="section-title">Паспорта ручных коммуникаций</div>
+                <div class="section-title">Аналитика коммуникаций</div>
             </div>
         </div>
 
@@ -95,7 +95,7 @@
                     <div>Доставлено</div>
                     <div>Визитов</div>
                     <div>Пополнили</div>
-                    <div>Бонусы</div>
+                    <div>Награда</div>
                     <div>Дата</div>
                 </div>
                 {% for campaign in manual_campaigns %}
@@ -113,9 +113,6 @@
                                     Рассылка #{{ campaign.campaign_id }}
                                 {% endif %}
                             </strong>
-                            {% if campaign.token_amount %}
-                                <span>+{{ campaign.token_amount }} жет.</span>
-                            {% endif %}
                         </div>
                         <div>{{ campaign_status_labels.get(campaign.status, campaign.status) }}</div>
                         <div>{{ campaign.summary.recipients_count }}</div>
@@ -123,11 +120,14 @@
                         <div>{{ campaign.summary.visited_count }}</div>
                         <div>{{ campaign.summary.topped_up_count }}</div>
                         <div>
+                            {% set reward_parts = [] %}
                             {% if campaign.summary.bonus_spent %}
-                                {{ campaign.summary.bonus_spent }} КБ
-                            {% else %}
-                                —
+                                {% set _ = reward_parts.append(campaign.summary.bonus_spent|string ~ " КБ") %}
                             {% endif %}
+                            {% if campaign.summary.token_spent %}
+                                {% set _ = reward_parts.append(campaign.summary.token_spent|string ~ " жет.") %}
+                            {% endif %}
+                            {{ reward_parts|join(" · ") if reward_parts else "—" }}
                         </div>
                         <div>{{ campaign.created_at }}</div>
                     </button>

@@ -82,6 +82,12 @@ function crmFormatBonus(value) {
     return number ? `${Math.round(number).toLocaleString("ru-RU")} КБ` : "0 КБ";
 }
 
+function crmFormatRubPerBonus(value) {
+    const number = Number(value || 0);
+    const formatted = number.toLocaleString("ru-RU", {maximumFractionDigits: 2});
+    return `${formatted} ₽ / КБ`;
+}
+
 function crmCreateOption(value, label) {
     const option = document.createElement("option");
     option.value = value;
@@ -321,8 +327,10 @@ function crmRenderCampaignBar(items, className = "") {
         <div class="crm-campaign-funnel ${className}">
             ${items.map((item) => `
                 <div class="crm-campaign-funnel__step" style="--bar-height:${item.height || 8}%">
-                    <strong>${crmEscapeHtml(item.count || 0)}</strong>
-                    <div class="crm-campaign-funnel__bar"></div>
+                    <div class="crm-campaign-funnel__bar-wrap">
+                        <strong>${crmEscapeHtml(item.count || 0)}</strong>
+                        <div class="crm-campaign-funnel__bar"></div>
+                    </div>
                     <span>${crmEscapeHtml(item.label)}</span>
                 </div>
             `).join("")}
@@ -380,7 +388,7 @@ function crmRenderCampaignPassport(passport) {
                 <article><span>Доставлено</span><strong>${crmEscapeHtml(summary.delivered_count || 0)}</strong></article>
                 <article><span>Визитов после</span><strong>${crmEscapeHtml(summary.visited_count || 0)} · ${crmEscapeHtml(summary.visit_conversion || 0)}%</strong></article>
                 <article><span>Пополнили после</span><strong>${crmEscapeHtml(summary.topped_up_count || 0)} · ${crmEscapeHtml(summary.topup_conversion || 0)}%</strong></article>
-                <article><span>Потрачено бонусов</span><strong>${crmEscapeHtml(crmFormatBonus(summary.bonus_spent))}</strong></article>
+                <article><span>Начислено КБ</span><strong>${crmEscapeHtml(crmFormatBonus(summary.bonus_spent))}</strong></article>
                 <article><span>Награда</span><strong>${crmEscapeHtml(rewardParts.join(" · ") || "—")}</strong></article>
             </div>
         </section>
@@ -401,7 +409,7 @@ function crmRenderCampaignPassport(passport) {
                 <article><span>Использовано бонусов</span><strong>${crmEscapeHtml(crmFormatBonus(summary.used_bonus))}</strong></article>
                 <article><span>Пополнено</span><strong>${crmEscapeHtml(crmFormatMoney(summary.topup_amount))}</strong></article>
                 <article><span>Среднее пополнение</span><strong>${crmEscapeHtml(crmFormatMoney(summary.avg_topup))}</strong></article>
-                <article><span>КБ / пополнившего</span><strong>${crmEscapeHtml(crmFormatBonus(summary.bonus_per_topup_guest))}</strong></article>
+                <article><span>Пополнение / КБ</span><strong>${crmEscapeHtml(crmFormatRubPerBonus(summary.topup_per_bonus))}</strong></article>
             </div>
         </section>
 

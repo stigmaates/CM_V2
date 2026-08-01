@@ -85,6 +85,6 @@ def test_crm_analytics_renders_manual_campaign_passports():
             ],
         )
 
-    assert "Паспорта ручных коммуникаций" in html
+    assert "Аналитика коммуникаций" in html
     assert "Рассылка #12" in html
     assert "crmCampaignModal" in html
