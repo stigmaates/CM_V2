@@ -50,6 +50,7 @@ function crmRenderValueInputs(row, meta) {
     valueToWrap.innerHTML = "";
 
     const op = opSelect.value;
+    row.classList.toggle("has-range", op === "between");
     if (op === "is_null" || op === "is_not_null") {
         valueWrap.appendChild(document.createElement("span"));
         valueToWrap.appendChild(document.createElement("span"));
@@ -178,6 +179,7 @@ function crmRenderAnalysis(analysis) {
     `;
 
     const funnel = analysis.funnel || [];
+    const periodLabel = analysis.funnel_period_label || "за всё время";
     crmAnalysisFunnelEl.innerHTML = funnel.length
         ? `<div class="crm-funnel-bars">${funnel.map((item, index) => `
             <div class="crm-funnel-step">
@@ -190,7 +192,7 @@ function crmRenderAnalysis(analysis) {
                 <small>визит</small>
                 ${index < funnel.length - 1 ? `<em>${item.gap_to_next === null ? "—" : item.gap_to_next + " дн."}</em>` : ""}
             </div>
-        `).join("")}</div><div class="crm-funnel-caption">Между столбцами — средний интервал до следующего визита</div>`
+        `).join("")}</div><div class="crm-funnel-caption">Воронка строится по выбранной когорте, ${periodLabel}. Между столбцами — средний интервал до следующего визита</div>`
         : `<div class="empty-state">По выбранной когорте пока нет визитов.</div>`;
 
     crmAnalysisMetricsEl.innerHTML = (analysis.metrics || []).map((item) => `

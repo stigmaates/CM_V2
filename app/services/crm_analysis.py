@@ -31,12 +31,38 @@ def _empty_analysis() -> dict:
     return {
         "audience": {"total": 0, "telegram": 0, "telegram_percent": 0},
         "funnel": [],
+        "funnel_period_label": "за всё время",
         "metrics": [],
     }
 
 
+def _infer_funnel_period_days(rules: List[Dict[str, Any]]) -> int | None:
+    period_by_field = {
+        "visits_7d": 7,
+        "sessions_7d": 7,
+        "visits_30d": 30,
+        "sessions_30d": 30,
+        "visits_90d": 90,
+        "sessions_90d": 90,
+    }
+    periods = [
+        period_by_field[rule.get("field")]
+        for rule in rules
+        if rule.get("field") in period_by_field
+    ]
+    if not periods:
+        return None
+    return min(periods)
+
+
 def get_crm_cohort_analysis(conn, club_id: int, rules: List[Dict[str, Any]]) -> dict:
     where_sql, params = build_where_clause(club_id, rules, require_telegram=False)
+    funnel_period_days = _infer_funnel_period_days(rules)
+    funnel_period_sql = ""
+    funnel_params = list(params)
+    if funnel_period_days:
+        funnel_period_sql = "AND gs.date_start >= DATE_SUB(NOW(), INTERVAL %s DAY)"
+        funnel_params.append(funnel_period_days)
 
     metrics_sql = f"""
         WITH filtered AS (
@@ -83,6 +109,7 @@ def get_crm_cohort_analysis(conn, club_id: int, rules: List[Dict[str, Any]]) -> 
             FROM guest_sessions gs
             JOIN filtered f ON f.club_id = gs.club_id AND f.guest_id = gs.guest_id
             WHERE gs.date_start IS NOT NULL
+              {funnel_period_sql}
         ),
         ranked AS (
             SELECT
@@ -131,7 +158,7 @@ def get_crm_cohort_analysis(conn, club_id: int, rules: List[Dict[str, Any]]) -> 
         if total_guests <= 0:
             return _empty_analysis()
 
-        cur.execute(funnel_sql, params)
+        cur.execute(funnel_sql, funnel_params)
         funnel_row = cur.fetchone() or {}
 
     telegram_guests = int(metrics_row.get("telegram_guests") or 0)
@@ -160,6 +187,7 @@ def get_crm_cohort_analysis(conn, club_id: int, rules: List[Dict[str, Any]]) -> 
             "telegram_percent": _round(telegram_guests / total_guests * 100, 1),
         },
         "funnel": funnel,
+        "funnel_period_label": f"за последние {funnel_period_days} дней" if funnel_period_days else "за всё время",
         "metrics": [
             {"label": "Среднее пополнение", "value": f"{int(round(float(metrics_row.get('avg_topup') or 0)))} ₽", "hint": "По пополнениям за последние 30 дней"},
             {"label": "Средняя длина сессии", "value": _format_minutes(metrics_row.get("avg_session_minutes")), "hint": "Среднее по гостям когорты"},

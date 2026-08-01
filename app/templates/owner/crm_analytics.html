@@ -26,13 +26,13 @@
         <div class="crm-analysis-layout">
             <div class="crm-analysis-filters">
                 <div class="crm-analysis-toolbar">
-                    <button type="button" class="period-option" id="addCrmAnalysisRuleBtn">Добавить фильтр</button>
-                    <button type="button" class="period-option active" id="applyCrmAnalysisBtn">Применить</button>
+                    <button type="button" class="crm-analysis-button" id="addCrmAnalysisRuleBtn">Добавить фильтр</button>
+                    <button type="button" class="crm-analysis-button crm-analysis-button--primary" id="applyCrmAnalysisBtn">Применить</button>
                 </div>
                 <div id="crmAnalysisRulesContainer" class="rules-container"></div>
                 <div class="crm-cohort-save">
                     <input type="text" id="crmCohortName" placeholder="Название когорты" autocomplete="off">
-                    <button type="button" class="period-option" id="saveCrmCohortBtn">Сохранить когорту</button>
+                    <button type="button" class="crm-analysis-button" id="saveCrmCohortBtn">Сохранить когорту</button>
                 </div>
                 {% if cohorts %}
                     <div class="crm-cohort-list">
