@@ -9,6 +9,10 @@ const previewGiveawayBtn = document.getElementById("previewGiveawayBtn");
 const copyMailingRulesToGiveawayBtn = document.getElementById("copyMailingRulesToGiveawayBtn");
 const giveawayBonusAmountEl = document.getElementById("giveawayBonusAmount");
 const giveawayTokenAmountEl = document.getElementById("giveawayTokenAmount");
+const giveawayExpiringBonusEl = document.getElementById("giveawayExpiringBonus");
+const giveawayExpirationControlsEl = document.getElementById("giveawayExpirationControls");
+const giveawayExpiresValueEl = document.getElementById("giveawayExpiresValue");
+const giveawayExpiresUnitEl = document.getElementById("giveawayExpiresUnit");
 const giveawayMessageTextEl = document.getElementById("giveawayMessageText");
 const sendBonusGiveawayBtn = document.getElementById("sendBonusGiveawayBtn");
 const filesListEl = document.getElementById("filesList");
@@ -423,6 +427,9 @@ async function createBonusGiveaway() {
 
     const bonusAmount = Number(giveawayBonusAmountEl.value || 0);
     const tokenAmount = Number(giveawayTokenAmountEl ? giveawayTokenAmountEl.value || 0 : 0);
+    const isExpiring = Boolean(giveawayExpiringBonusEl && giveawayExpiringBonusEl.checked);
+    const expiresValue = Number(giveawayExpiresValueEl ? giveawayExpiresValueEl.value || 0 : 0);
+    const expiresUnit = giveawayExpiresUnitEl ? giveawayExpiresUnitEl.value : "days";
     const messageText = giveawayMessageTextEl.value.trim();
 
     if (!Number.isFinite(bonusAmount) || bonusAmount < 0) {
@@ -437,6 +444,16 @@ async function createBonusGiveaway() {
 
     if (bonusAmount <= 0 && tokenAmount <= 0) {
         alert("Укажи КБ или жетоны больше 0");
+        return;
+    }
+
+    if (isExpiring && bonusAmount <= 0) {
+        alert("Сгорающий бонус можно включить только для КБ");
+        return;
+    }
+
+    if (isExpiring && (!Number.isFinite(expiresValue) || expiresValue < 1)) {
+        alert("Укажи срок сгорания бонуса больше 0");
         return;
     }
 
@@ -461,7 +478,8 @@ async function createBonusGiveaway() {
     const rewardParts = [];
     if (bonusAmount > 0) rewardParts.push(`${bonusAmount} КБ`);
     if (tokenAmount > 0) rewardParts.push(`${tokenAmount} жет.`);
-    const confirmed = confirm(`Начислить ${rewardParts.join(" и ")} ${recipientsCount} гостям и отправить им сообщение?`);
+    const expiringText = isExpiring ? ` Сгорание: через ${expiresValue} ${giveawayExpiresUnitEl.options[giveawayExpiresUnitEl.selectedIndex].text}.` : "";
+    const confirmed = confirm(`Начислить ${rewardParts.join(" и ")} ${recipientsCount} гостям и отправить им сообщение?${expiringText}`);
     if (!confirmed) {
         return;
     }
@@ -477,6 +495,9 @@ async function createBonusGiveaway() {
                 rules: getRules(giveawayRulesContainer),
                 bonus_amount: bonusAmount,
                 token_amount: tokenAmount,
+                is_expiring: isExpiring,
+                expires_value: expiresValue,
+                expires_unit: expiresUnit,
                 message_text: messageText,
                 start_now: true,
             }),
@@ -1027,6 +1048,13 @@ document.querySelectorAll(".auto-mailing-save").forEach((button) => {
     });
 });
 
+if (giveawayExpiringBonusEl && giveawayExpirationControlsEl) {
+    const syncExpiringControls = () => {
+        giveawayExpirationControlsEl.classList.toggle("is-hidden", !giveawayExpiringBonusEl.checked);
+    };
+    giveawayExpiringBonusEl.addEventListener("change", syncExpiringControls);
+    syncExpiringControls();
+}
 
 if (giveawayRulesContainer && !giveawayRulesContainer.querySelector(".rule-row")) {
     addRule({}, giveawayRulesContainer);

@@ -79,6 +79,16 @@ def test_club_service_enabled_migration_exports_revision_and_upgrade():
     )
 
 
+def test_expiring_cm_bonuses_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0008_expiring_cm_bonuses")
+
+    assert migration.revision == "0008_expiring_cm_bonuses"
+    assert callable(migration.upgrade)
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("expires_at" in value for value in constants)
+    assert any("idx_cm_bonus_expiration" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

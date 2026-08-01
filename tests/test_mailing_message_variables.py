@@ -47,3 +47,11 @@ def test_bonus_giveaway_recipient_insert_has_placeholder_for_token_error_text():
 
     assert "token_error_text" in columns_part
     assert len(re.findall(r"%s", values_part)) == columns_count + 1
+
+
+def test_bonus_giveaway_supports_expiring_bonus_columns():
+    constants = [value for value in mailing_service.create_bonus_giveaway.__code__.co_consts if isinstance(value, str)]
+
+    assert any("is_expiring" in value for value in constants)
+    assert any("expires_after_seconds" in value for value in constants)
+    assert any("expires_at" in value for value in constants)

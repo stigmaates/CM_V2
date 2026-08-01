@@ -282,6 +282,9 @@ def api_bonus_giveaways_create():
     token_amount_raw = data.get("token_amount")
     message_text = (data.get("message_text") or "").strip()
     start_now = bool(data.get("start_now"))
+    is_expiring = bool(data.get("is_expiring"))
+    expires_value_raw = data.get("expires_value")
+    expires_unit = (data.get("expires_unit") or "days").strip()
 
     try:
         bonus_amount = int(bonus_amount_raw or 0)
@@ -302,6 +305,23 @@ def api_bonus_giveaways_create():
     if bonus_amount <= 0 and token_amount <= 0:
         return jsonify({"ok": False, "error": "Укажи бонусы или жетоны больше 0"}), 400
 
+    expires_after_seconds = None
+    if is_expiring:
+        if bonus_amount <= 0:
+            return jsonify({"ok": False, "error": "Сгорающий бонус можно включить только для КБ"}), 400
+        try:
+            expires_value = int(expires_value_raw or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Срок сгорания должен быть числом"}), 400
+        unit_seconds = {
+            "minutes": 60,
+            "hours": 60 * 60,
+            "days": 24 * 60 * 60,
+        }
+        if expires_value < 1 or expires_unit not in unit_seconds:
+            return jsonify({"ok": False, "error": "Укажи корректный срок сгорания"}), 400
+        expires_after_seconds = expires_value * unit_seconds[expires_unit]
+
     if not message_text:
         return jsonify({"ok": False, "error": "Сообщение пустое"}), 400
 
@@ -313,6 +333,8 @@ def api_bonus_giveaways_create():
             rules=rules,
             bonus_amount=bonus_amount,
             token_amount=token_amount,
+            is_expiring=is_expiring,
+            expires_after_seconds=expires_after_seconds,
             message_text=message_text,
             parse_mode="HTML",
         )

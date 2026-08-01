@@ -164,6 +164,27 @@
                         <input type="number" id="giveawayBonusAmount" min="0" step="1" placeholder="Например, 200" autocomplete="off">
                     </label>
 
+                    <div class="bonus-giveaway-expiring">
+                        <label class="bonus-giveaway-check">
+                            <input type="checkbox" id="giveawayExpiringBonus">
+                            <span>Сгорающий бонус</span>
+                        </label>
+                        <div class="bonus-giveaway-expiration is-hidden" id="giveawayExpirationControls">
+                            <label class="bonus-giveaway-field">
+                                <span>Сгорит через</span>
+                                <input type="number" id="giveawayExpiresValue" min="1" step="1" value="7" autocomplete="off">
+                            </label>
+                            <label class="bonus-giveaway-field">
+                                <span>Период</span>
+                                <select id="giveawayExpiresUnit">
+                                    <option value="minutes">минут</option>
+                                    <option value="hours">часов</option>
+                                    <option value="days" selected>дней</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+
                     <label class="bonus-giveaway-field bonus-giveaway-field--amount">
                         <span>Кол-во жетонов</span>
                         <input type="number" id="giveawayTokenAmount" min="0" step="1" placeholder="Например, 1" autocomplete="off">
