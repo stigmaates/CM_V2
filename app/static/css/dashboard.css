@@ -895,8 +895,8 @@ body {
 
 .crm-analysis-layout {
     display: grid;
-    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr);
-    gap: 22px;
+    grid-template-columns: minmax(420px, 0.74fr) minmax(0, 1.26fr);
+    gap: 28px;
     align-items: start;
 }
 
@@ -916,15 +916,48 @@ body {
     flex-wrap: wrap;
 }
 
+.crm-analysis-toolbar {
+    justify-content: flex-start;
+}
+
+.crm-analysis-button {
+    min-height: 44px;
+    border: 1px solid rgba(143, 91, 255, 0.45);
+    border-radius: 14px;
+    padding: 10px 16px;
+    background: rgba(11, 6, 22, 0.7);
+    color: #e8dcff;
+    font-size: 14px;
+    font-weight: 850;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.crm-analysis-button:hover {
+    background: rgba(143, 91, 255, 0.18);
+    border-color: rgba(143, 91, 255, 0.68);
+    transform: translateY(-1px);
+}
+
+.crm-analysis-button--primary {
+    min-width: 124px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #8f5bff, #7848d8);
+    border-color: rgba(188, 147, 255, 0.55);
+}
+
 .crm-analysis-filters .rules-container {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     margin: 16px 0;
 }
 
 .crm-cohort-save {
-    margin-top: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-top: 14px;
 }
 
 .crm-cohort-save input,
@@ -938,9 +971,10 @@ body {
     padding: 11px 13px;
     background: rgba(11, 6, 22, 0.72);
     color: var(--text-main);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     outline: none;
+    box-sizing: border-box;
 }
 
 .crm-analysis-rule-row textarea {
@@ -950,20 +984,34 @@ body {
 
 .crm-analysis-rule-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) 44px;
-    gap: 10px;
+    grid-template-columns: minmax(142px, 1fr) minmax(118px, 0.72fr) minmax(130px, 0.86fr) 42px;
+    gap: 8px;
     align-items: stretch;
+    padding: 10px;
+    border-radius: 16px;
+    background: rgba(11, 6, 22, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.crm-analysis-rule-row.has-range {
+    grid-template-columns: minmax(142px, 1fr) minmax(118px, 0.72fr) minmax(120px, 0.76fr) minmax(120px, 0.76fr) 42px;
+}
+
+.crm-analysis-rule-row:not(.has-range) .crm-rule-value-to-wrap {
+    display: none;
 }
 
 .crm-rule-remove {
-    min-height: 46px;
+    width: 42px;
+    min-height: 42px;
     border: 1px solid rgba(255, 107, 159, 0.36);
     border-radius: 14px;
     background: rgba(255, 107, 159, 0.14);
     color: #ffd7e4;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 900;
     cursor: pointer;
+    align-self: stretch;
 }
 
 .crm-cohort-list {
