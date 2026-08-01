@@ -10,6 +10,46 @@
 <main class="content crm-page">
     {% include "owner/_audience_widget.html" %}
 
+    <section class="crm-analysis-section card">
+        <div class="crm-analysis-head">
+            <div>
+                <div class="section-title">Анализ</div>
+                <div class="muted crm-hero-text">Собери когорту по любым CRM-фильтрам и посмотри поведение гостей без ограничения по Telegram.</div>
+            </div>
+            <div class="crm-analysis-audience" id="crmAnalysisAudience">
+                <span>Гостей</span>
+                <strong>{{ initial_analysis.audience.total }}</strong>
+                <small>{{ initial_analysis.audience.telegram }} с Telegram</small>
+            </div>
+        </div>
+
+        <div class="crm-analysis-layout">
+            <div class="crm-analysis-filters">
+                <div class="crm-analysis-toolbar">
+                    <button type="button" class="period-option" id="addCrmAnalysisRuleBtn">Добавить фильтр</button>
+                    <button type="button" class="period-option active" id="applyCrmAnalysisBtn">Применить</button>
+                </div>
+                <div id="crmAnalysisRulesContainer" class="rules-container"></div>
+                <div class="crm-cohort-save">
+                    <input type="text" id="crmCohortName" placeholder="Название когорты" autocomplete="off">
+                    <button type="button" class="period-option" id="saveCrmCohortBtn">Сохранить когорту</button>
+                </div>
+                {% if cohorts %}
+                    <div class="crm-cohort-list">
+                        {% for cohort in cohorts %}
+                            <button type="button" class="crm-cohort-chip" data-rules='{{ cohort.rules_json | tojson | safe }}'>{{ cohort.name }}</button>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="crm-analysis-results">
+                <div class="crm-analysis-funnel" id="crmAnalysisFunnel"></div>
+                <div class="crm-analysis-metrics" id="crmAnalysisMetrics"></div>
+            </div>
+        </div>
+    </section>
+
     <section class="heatmap-section card">
         <div class="heatmap-head">
             <div>
@@ -128,4 +168,12 @@
     </section>
 
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.CRM_ANALYSIS_FIELDS = {{ filter_fields | tojson | safe }};
+    window.CRM_INITIAL_ANALYSIS = {{ initial_analysis | tojson | safe }};
+</script>
+<script src="{{ url_for('static', filename='js/crm_analytics.js') }}"></script>
 {% endblock %}
