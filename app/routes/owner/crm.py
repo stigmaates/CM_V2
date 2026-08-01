@@ -34,7 +34,7 @@ def crm_analytics():
     conn = get_db_connection()
     try:
         cohorts = list_segments(conn, int(club_id))
-        initial_analysis = get_crm_cohort_analysis(conn, int(club_id), [])
+        initial_analysis = get_crm_cohort_analysis(conn, int(club_id), [], funnel_period="all")
     finally:
         conn.close()
 
@@ -57,10 +57,20 @@ def api_crm_analysis_preview():
     club_id = session.get("club_id")
     data = request.get_json(force=True)
     rules = data.get("rules", [])
+    funnel_period = data.get("funnel_period", "all")
+    funnel_date_from = data.get("funnel_date_from")
+    funnel_date_to = data.get("funnel_date_to")
 
     conn = get_db_connection()
     try:
-        analysis = get_crm_cohort_analysis(conn, int(club_id), rules)
+        analysis = get_crm_cohort_analysis(
+            conn,
+            int(club_id),
+            rules,
+            funnel_period=funnel_period,
+            funnel_date_from=funnel_date_from,
+            funnel_date_to=funnel_date_to,
+        )
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     finally:

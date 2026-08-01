@@ -115,6 +115,26 @@ def fetch_guests(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
     return {(int(row["club_id"]), int(row["guest_id"])): row for row in rows}
 
 
+def collapse_sessions_to_visits(rows: List[Dict[str, Any]], gap_hours: int = 2) -> List[Dict[str, datetime]]:
+    visits: List[Dict[str, datetime]] = []
+    max_gap = timedelta(hours=gap_hours)
+
+    for row in sorted(rows, key=lambda item: item["date_start"]):
+        date_start = row.get("date_start")
+        date_stop = row.get("date_stop")
+        if not date_start or not date_stop:
+            continue
+
+        if not visits or date_start - visits[-1]["date_stop"] > max_gap:
+            visits.append({"date_start": date_start, "date_stop": date_stop})
+            continue
+
+        if date_stop > visits[-1]["date_stop"]:
+            visits[-1]["date_stop"] = date_stop
+
+    return visits
+
+
 def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
         SELECT
@@ -156,8 +176,8 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
         cur.execute(sql)
         rows = cur.fetchall()
 
-    grouped_starts: Dict[Tuple[int, int], List[datetime]] = defaultdict(list)
-    session_minutes_sum: Dict[Tuple[int, int], float] = defaultdict(float)
+    sessions_by_guest: Dict[Tuple[int, int], List[Dict[str, Any]]] = defaultdict(list)
+    visit_minutes_sum: Dict[Tuple[int, int], float] = defaultdict(float)
     night_count: Dict[Tuple[int, int], int] = defaultdict(int)
     weekend_count: Dict[Tuple[int, int], int] = defaultdict(int)
     day_period_count: Dict[Tuple[int, int], int] = defaultdict(int)
@@ -166,55 +186,57 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
 
     for row in rows:
         key = (int(row["club_id"]), int(row["guest_id"]))
-        date_start = row["date_start"]
-        date_stop = row["date_stop"]
-
-        if not date_start or not date_stop:
-            continue
-
-        duration_minutes = max((date_stop - date_start).total_seconds() / 60.0, 0.0)
-        grouped_starts[key].append(date_start)
-
+        sessions_by_guest[key].append(row)
         agg = result[key]
-        agg["total_visits"] += 1
-        session_minutes_sum[key] += duration_minutes
-        agg["max_session_minutes"] = max(agg["max_session_minutes"], int(duration_minutes))
-        agg["total_hours_all"] += duration_minutes / 60.0
 
-        if agg["first_visit_date"] is None or date_start < agg["first_visit_date"]:
-            agg["first_visit_date"] = date_start
-        if agg["last_visit_date"] is None or date_start > agg["last_visit_date"]:
-            agg["last_visit_date"] = date_start
+    for key, guest_sessions in sessions_by_guest.items():
+        agg = result[key]
+        visits = collapse_sessions_to_visits(guest_sessions)
 
-        if date_start >= now - timedelta(days=7):
-            agg["visits_7d"] += 1
-        if date_start >= now - timedelta(days=30):
-            agg["visits_30d"] += 1
-            agg["total_hours_30d"] += duration_minutes / 60.0
-            agg["is_active_30d"] = 1
-        if date_start >= now - timedelta(days=90):
-            agg["visits_90d"] += 1
-            agg["is_active_90d"] = 1
+        for visit in visits:
+            date_start = visit["date_start"]
+            date_stop = visit["date_stop"]
+            duration_minutes = max((date_stop - date_start).total_seconds() / 60.0, 0.0)
 
-        hour = date_start.hour
-        weekday = date_start.weekday()  # 0=Mon ... 6=Sun
+            agg["total_visits"] += 1
+            visit_minutes_sum[key] += duration_minutes
+            agg["max_session_minutes"] = max(agg["max_session_minutes"], int(duration_minutes))
+            agg["total_hours_all"] += duration_minutes / 60.0
 
-        if hour >= 22 or hour < 8:
-            night_count[key] += 1
-            night_period_count[key] += 1
-        elif 8 <= hour <= 16:
-            day_period_count[key] += 1
-        else:
-            evening_period_count[key] += 1
+            if agg["first_visit_date"] is None or date_start < agg["first_visit_date"]:
+                agg["first_visit_date"] = date_start
+            if agg["last_visit_date"] is None or date_start > agg["last_visit_date"]:
+                agg["last_visit_date"] = date_start
 
-        if weekday >= 5:
-            weekend_count[key] += 1
+            if date_start >= now - timedelta(days=7):
+                agg["visits_7d"] += 1
+            if date_start >= now - timedelta(days=30):
+                agg["visits_30d"] += 1
+                agg["total_hours_30d"] += duration_minutes / 60.0
+                agg["is_active_30d"] = 1
+            if date_start >= now - timedelta(days=90):
+                agg["visits_90d"] += 1
+                agg["is_active_90d"] = 1
+
+            hour = date_start.hour
+            weekday = date_start.weekday()  # 0=Mon ... 6=Sun
+
+            if hour >= 22 or hour < 8:
+                night_count[key] += 1
+                night_period_count[key] += 1
+            elif 8 <= hour <= 16:
+                day_period_count[key] += 1
+            else:
+                evening_period_count[key] += 1
+
+            if weekday >= 5:
+                weekend_count[key] += 1
 
     for key, agg in result.items():
         total_visits = agg["total_visits"]
 
         if total_visits > 0:
-            agg["avg_session_minutes"] = session_minutes_sum[key] / total_visits
+            agg["avg_session_minutes"] = visit_minutes_sum[key] / total_visits
             agg["night_share"] = night_count[key] / total_visits
             agg["weekend_share"] = weekend_count[key] / total_visits
             agg["favorite_period"] = calc_favorite_period(
@@ -223,7 +245,8 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
                 night_period_count[key],
             )
 
-        starts = grouped_starts[key]
+        visits = collapse_sessions_to_visits(sessions_by_guest.get(key, []))
+        starts = [visit["date_start"] for visit in visits]
         if starts:
             agg["days_since_last_visit"] = (now.date() - starts[-1].date()).days
             agg["lifetime_days"] = max((now.date() - starts[0].date()).days, 0)

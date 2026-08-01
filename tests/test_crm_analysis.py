@@ -1,28 +1,26 @@
-from app.services.crm_analysis import _infer_funnel_period_days
+from app.services.crm_analysis import _build_funnel_period_filter
 
 
-def test_funnel_period_is_inferred_from_visit_filters():
-    rules = [
-        {"field": "crm_type", "op": "=", "value": "rare"},
-        {"field": "visits_30d", "op": ">", "value": "2"},
-    ]
+def test_funnel_period_defaults_to_all_time():
+    sql, params, label = _build_funnel_period_filter("all")
 
-    assert _infer_funnel_period_days(rules) == 30
-
-
-def test_funnel_period_uses_most_specific_window_when_multiple_period_filters():
-    rules = [
-        {"field": "sessions_90d", "op": ">", "value": "4"},
-        {"field": "visits_7d", "op": ">", "value": "1"},
-    ]
-
-    assert _infer_funnel_period_days(rules) == 7
+    assert sql == ""
+    assert params == []
+    assert label == "за всё время"
 
 
-def test_funnel_period_is_unbounded_without_period_filters():
-    rules = [
-        {"field": "crm_type", "op": "=", "value": "rare"},
-        {"field": "age", "op": ">", "value": "20"},
-    ]
+def test_funnel_period_can_use_preset_window():
+    sql, params, label = _build_funnel_period_filter("7")
 
-    assert _infer_funnel_period_days(rules) is None
+    assert "INTERVAL %s DAY" in sql
+    assert params == [7]
+    assert label == "за последние 7 дней"
+
+
+def test_funnel_period_can_use_custom_dates():
+    sql, params, label = _build_funnel_period_filter("custom", "2026-07-01", "2026-07-31")
+
+    assert "gs.date_start >= %s" in sql
+    assert "DATE_ADD(%s, INTERVAL 1 DAY)" in sql
+    assert params == ["2026-07-01", "2026-07-31"]
+    assert label == "с 2026-07-01 по 2026-07-31"
