@@ -101,7 +101,7 @@
                 {% for campaign in manual_campaigns %}
                     <button
                         type="button"
-                        class="crm-campaigns-row crm-campaign-row"
+                        class="crm-campaigns-row crm-campaign-row {% if loop.index > 5 %}is-campaign-hidden{% endif %}"
                         data-campaign-type="{{ campaign.campaign_type }}"
                         data-campaign-id="{{ campaign.campaign_id }}"
                     >
@@ -133,6 +133,11 @@
                     </button>
                 {% endfor %}
             </div>
+            {% if manual_campaigns|length > 5 %}
+                <button type="button" class="crm-campaigns-show-all" id="crmCampaignsShowAll">
+                    Показать все
+                </button>
+            {% endif %}
         {% else %}
             <div class="empty-state">Ручных коммуникаций пока нет.</div>
         {% endif %}
