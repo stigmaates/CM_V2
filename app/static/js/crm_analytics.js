@@ -77,6 +77,7 @@ function crmRenderValueInputs(row, meta) {
         input = document.createElement("input");
         input.type = "number";
         input.step = "any";
+        input.placeholder = "число";
     }
     input.className = "rule-value";
     valueWrap.appendChild(input);
@@ -162,13 +163,18 @@ function crmGetRules() {
         if (valueEl && valueEl.multiple) {
             value = Array.from(valueEl.selectedOptions).map((option) => option.value);
         }
+        if (!["is_null", "is_not_null"].includes(op)) {
+            const hasValue = Array.isArray(value) ? value.length > 0 : String(value || "").trim() !== "";
+            const hasValueTo = valueToEl ? String(valueToEl.value || "").trim() !== "" : true;
+            if (!hasValue || (op === "between" && !hasValueTo)) return null;
+        }
         return {
             field,
             op,
             value,
             value_to: valueToEl ? valueToEl.value : null,
         };
-    });
+    }).filter(Boolean);
 }
 
 function crmRenderAnalysis(analysis) {
