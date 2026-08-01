@@ -56,6 +56,26 @@ def test_crm_analytics_renders_cohort_analysis_block():
 
 
 def test_crm_analytics_renders_manual_campaign_passports():
+    campaigns = []
+    for campaign_id in range(12, 18):
+        campaigns.append(
+            {
+                "campaign_type": "mailing",
+                "campaign_id": campaign_id,
+                "status": "completed",
+                "token_amount": 0,
+                "created_at": "2026-08-01 12:00:00",
+                "summary": {
+                    "recipients_count": 10,
+                    "delivered_count": 9,
+                    "visited_count": 4,
+                    "topped_up_count": 2,
+                    "bonus_spent": 0,
+                    "token_spent": 0,
+                },
+            }
+        )
+
     with app.test_request_context("/owner/crm-analytics"):
         html = render_template(
             "owner/crm_analytics.html",
@@ -67,24 +87,12 @@ def test_crm_analytics_renders_manual_campaign_passports():
                 "funnel": [],
                 "metrics": [],
             },
-            manual_campaigns=[
-                {
-                    "campaign_type": "mailing",
-                    "campaign_id": 12,
-                    "status": "completed",
-                    "token_amount": 0,
-                    "created_at": "2026-08-01 12:00:00",
-                    "summary": {
-                        "recipients_count": 10,
-                        "delivered_count": 9,
-                        "visited_count": 4,
-                        "topped_up_count": 2,
-                        "bonus_spent": 0,
-                    },
-                }
-            ],
+            manual_campaigns=campaigns,
         )
 
     assert "Аналитика коммуникаций" in html
     assert "Рассылка #12" in html
+    assert "Рассылка #17" in html
+    assert "is-campaign-hidden" in html
+    assert "Показать все" in html
     assert "crmCampaignModal" in html

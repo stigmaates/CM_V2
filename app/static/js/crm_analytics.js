@@ -17,6 +17,7 @@ const crmCampaignClose = document.getElementById("crmCampaignClose");
 const crmCampaignBody = document.getElementById("crmCampaignBody");
 const crmCampaignTitle = document.getElementById("crmCampaignTitle");
 const crmCampaignStatus = document.getElementById("crmCampaignStatus");
+const crmCampaignsShowAllBtn = document.getElementById("crmCampaignsShowAll");
 
 let crmFunnelPeriod = "all";
 let crmCampaignScrollY = 0;
@@ -540,6 +541,15 @@ document.querySelectorAll(".crm-campaign-row").forEach((row) => {
         crmOpenCampaignPassport(row.dataset.campaignType, row.dataset.campaignId);
     });
 });
+
+if (crmCampaignsShowAllBtn) {
+    crmCampaignsShowAllBtn.addEventListener("click", () => {
+        document.querySelectorAll(".crm-campaign-row.is-campaign-hidden").forEach((row) => {
+            row.classList.remove("is-campaign-hidden");
+        });
+        crmCampaignsShowAllBtn.remove();
+    });
+}
 
 if (crmCampaignBackdrop) crmCampaignBackdrop.addEventListener("click", crmCloseCampaignModal);
 if (crmCampaignClose) crmCampaignClose.addEventListener("click", crmCloseCampaignModal);

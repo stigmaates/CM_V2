@@ -1345,6 +1345,33 @@ body {
     transform: translateY(-1px);
 }
 
+.crm-campaign-row.is-campaign-hidden {
+    display: none;
+}
+
+.crm-campaigns-show-all {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    margin-top: 14px;
+    border: 1px solid rgba(143, 91, 255, 0.45);
+    border-radius: 13px;
+    padding: 0 18px;
+    background: rgba(11, 6, 22, 0.7);
+    color: #e8dcff;
+    font-size: 13px;
+    font-weight: 850;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.crm-campaigns-show-all:hover {
+    background: rgba(143, 91, 255, 0.18);
+    border-color: rgba(143, 91, 255, 0.68);
+    transform: translateY(-1px);
+}
+
 .crm-campaigns-row--head {
     min-height: auto;
     border: 0;
