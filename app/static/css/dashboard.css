@@ -895,7 +895,7 @@ body {
 
 .crm-analysis-layout {
     display: grid;
-    grid-template-columns: minmax(420px, 0.74fr) minmax(0, 1.26fr);
+    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
     gap: 28px;
     align-items: start;
 }
@@ -933,6 +933,7 @@ body {
     line-height: 1;
     cursor: pointer;
     transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    white-space: nowrap;
 }
 
 .crm-analysis-button:hover {
@@ -992,7 +993,9 @@ body {
 
 .crm-analysis-rule-row {
     display: grid;
-    grid-template-columns: minmax(168px, 1.08fr) minmax(132px, 0.78fr) minmax(170px, 1fr) 40px;
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.78fr) minmax(0, 1fr) 40px;
     gap: 8px;
     align-items: center;
     min-height: 58px;
@@ -1000,10 +1003,12 @@ body {
     border-radius: 16px;
     background: rgba(11, 6, 22, 0.28);
     border: 1px solid rgba(255, 255, 255, 0.055);
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .crm-analysis-rule-row.has-range {
-    grid-template-columns: minmax(150px, 1fr) minmax(118px, 0.72fr) minmax(126px, 0.82fr) minmax(126px, 0.82fr) 40px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) minmax(0, 0.82fr) minmax(0, 0.82fr) 40px;
 }
 
 .crm-analysis-rule-row:not(.has-range) .crm-rule-value-to-wrap {
@@ -1170,11 +1175,13 @@ body {
     line-height: 1.1;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1360px) {
     .crm-analysis-layout {
         grid-template-columns: 1fr;
     }
+}
 
+@media (max-width: 1180px) {
     .crm-analysis-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
