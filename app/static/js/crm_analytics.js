@@ -19,6 +19,7 @@ const crmCampaignTitle = document.getElementById("crmCampaignTitle");
 const crmCampaignStatus = document.getElementById("crmCampaignStatus");
 
 let crmFunnelPeriod = "all";
+let crmCampaignScrollY = 0;
 
 const CRM_OPERATOR_LABELS = {
     "=": "Равно",
@@ -288,16 +289,28 @@ function crmRenderAnalysis(analysis) {
 
 function crmOpenCampaignModal() {
     if (!crmCampaignModal) return;
+    crmCampaignScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     crmCampaignModal.classList.add("is-open");
     crmCampaignModal.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
+    document.documentElement.classList.add("crm-modal-lock");
+    document.body.classList.add("crm-modal-lock");
+    document.body.style.top = `-${crmCampaignScrollY}px`;
 }
 
 function crmCloseCampaignModal() {
     if (!crmCampaignModal) return;
     crmCampaignModal.classList.remove("is-open");
     crmCampaignModal.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
+    document.documentElement.classList.remove("crm-modal-lock");
+    document.body.classList.remove("crm-modal-lock");
+    document.body.style.top = "";
+    window.scrollTo(0, crmCampaignScrollY);
+}
+
+function crmRouteCampaignModalWheel(event) {
+    if (!crmCampaignModal || !crmCampaignModal.classList.contains("is-open") || !crmCampaignBody) return;
+    event.preventDefault();
+    crmCampaignBody.scrollTop += event.deltaY;
 }
 
 function crmRenderCampaignBar(items, className = "") {
@@ -522,6 +535,7 @@ document.querySelectorAll(".crm-campaign-row").forEach((row) => {
 
 if (crmCampaignBackdrop) crmCampaignBackdrop.addEventListener("click", crmCloseCampaignModal);
 if (crmCampaignClose) crmCampaignClose.addEventListener("click", crmCloseCampaignModal);
+if (crmCampaignModal) crmCampaignModal.addEventListener("wheel", crmRouteCampaignModalWheel, {passive: false});
 
 crmFunnelPeriodBtns.forEach((button) => {
     button.addEventListener("click", () => {

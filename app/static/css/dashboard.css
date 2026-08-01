@@ -1383,6 +1383,9 @@ body {
     align-items: center;
     justify-content: center;
     padding: 24px;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    touch-action: none;
 }
 
 .crm-campaign-modal.is-open {
@@ -1403,6 +1406,7 @@ body {
     flex-direction: column;
     width: min(1320px, 96vw);
     max-height: min(88vh, 900px);
+    min-height: 0;
     overflow: hidden;
     border: 1px solid rgba(143, 91, 255, 0.48);
     border-radius: 24px;
@@ -1447,12 +1451,29 @@ body {
 }
 
 .crm-campaign-modal__body {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: 20px 28px 28px;
     overscroll-behavior: contain;
+    touch-action: pan-y;
+}
+
+html.crm-modal-lock,
+body.crm-modal-lock {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body.crm-modal-lock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
 }
 
 .crm-campaign-passport-block {
