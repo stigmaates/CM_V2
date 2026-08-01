@@ -11,6 +11,12 @@ const crmFunnelPeriodBtns = Array.from(document.querySelectorAll(".crm-funnel-pe
 const crmFunnelCustomPeriodEl = document.getElementById("crmFunnelCustomPeriod");
 const crmFunnelDateFromEl = document.getElementById("crmFunnelDateFrom");
 const crmFunnelDateToEl = document.getElementById("crmFunnelDateTo");
+const crmCampaignModal = document.getElementById("crmCampaignModal");
+const crmCampaignBackdrop = document.getElementById("crmCampaignBackdrop");
+const crmCampaignClose = document.getElementById("crmCampaignClose");
+const crmCampaignBody = document.getElementById("crmCampaignBody");
+const crmCampaignTitle = document.getElementById("crmCampaignTitle");
+const crmCampaignStatus = document.getElementById("crmCampaignStatus");
 
 let crmFunnelPeriod = "all";
 
@@ -27,6 +33,53 @@ const CRM_OPERATOR_LABELS = {
     "is_null": "Не заполнено",
     "is_not_null": "Заполнено",
 };
+
+function crmEscapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function crmFormatValue(value, fallback = "—") {
+    if (value === null || value === undefined || value === "") return fallback;
+    return value;
+}
+
+function crmFormatDateTime(value) {
+    if (!value) return "—";
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    if (!match) return value;
+    return `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}`;
+}
+
+function crmFormatStatus(status) {
+    const labels = {
+        sent: "Доставлено",
+        failed: "Ошибка",
+        pending: "В очереди",
+        queued: "В очереди",
+        in_progress: "В работе",
+        completed: "Завершено",
+        processing: "В работе",
+        created: "Создано",
+        awarded: "Начислено",
+        skipped: "Пропущено",
+    };
+    return labels[status] || status || "—";
+}
+
+function crmFormatMoney(value) {
+    const number = Number(value || 0);
+    return `${Math.round(number).toLocaleString("ru-RU")} ₽`;
+}
+
+function crmFormatBonus(value) {
+    const number = Number(value || 0);
+    return number ? `${Math.round(number).toLocaleString("ru-RU")} КБ` : "0 КБ";
+}
 
 function crmCreateOption(value, label) {
     const option = document.createElement("option");
@@ -233,6 +286,152 @@ function crmRenderAnalysis(analysis) {
     `).join("");
 }
 
+function crmOpenCampaignModal() {
+    if (!crmCampaignModal) return;
+    crmCampaignModal.classList.add("is-open");
+    crmCampaignModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+}
+
+function crmCloseCampaignModal() {
+    if (!crmCampaignModal) return;
+    crmCampaignModal.classList.remove("is-open");
+    crmCampaignModal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+}
+
+function crmRenderCampaignBar(items, className = "") {
+    if (!items || !items.length) {
+        return `<div class="empty-state">Данных пока нет.</div>`;
+    }
+    return `
+        <div class="crm-campaign-funnel ${className}">
+            ${items.map((item) => `
+                <div class="crm-campaign-funnel__step" style="--bar-height:${item.height || 8}%">
+                    <strong>${crmEscapeHtml(item.count || 0)}</strong>
+                    <div class="crm-campaign-funnel__bar"></div>
+                    <span>${crmEscapeHtml(item.label)}</span>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function crmRenderCampaignRecipients(recipients) {
+    if (!recipients || !recipients.length) {
+        return `<div class="empty-state">Получателей нет.</div>`;
+    }
+    return recipients.map((row) => {
+        const name = row.fio || row.phone || `Гость #${row.guest_id}`;
+        const didVisit = row.next_visit_at ? "Да" : "Нет";
+        const didTopup = Number(row.topup_amount_after || 0) > 0 ? "Да" : "Нет";
+        const deliveryClass = row.delivery_status === "sent" ? "is-ok" : (row.delivery_status === "failed" ? "is-bad" : "is-wait");
+        return `
+            <div class="crm-campaign-recipient-row">
+                <div>
+                    <strong>${crmEscapeHtml(name)}</strong>
+                    <span>${crmEscapeHtml(row.phone || `ID ${row.guest_id}`)}</span>
+                </div>
+                <div><span class="crm-campaign-status ${deliveryClass}">${crmEscapeHtml(crmFormatStatus(row.delivery_status))}</span></div>
+                <div>
+                    <strong>${didVisit}</strong>
+                    <span>${crmEscapeHtml(crmFormatDateTime(row.next_visit_at))}</span>
+                </div>
+                <div>
+                    <strong>${didTopup}</strong>
+                    <span>${crmEscapeHtml(crmFormatMoney(row.topup_amount_after))}</span>
+                </div>
+                <div>${crmEscapeHtml(crmFormatBonus(row.used_bonus_after))}</div>
+            </div>
+        `;
+    }).join("");
+}
+
+function crmRenderCampaignPassport(passport) {
+    const campaign = passport.campaign || {};
+    const summary = passport.summary || {};
+    const typeLabel = campaign.campaign_type === "giveaway" ? "раздачи" : "рассылки";
+    const titleLabel = campaign.campaign_type === "giveaway" ? "Паспорт раздачи" : "Паспорт рассылки";
+    crmCampaignTitle.textContent = `${titleLabel} #${campaign.campaign_id}${campaign.created_at ? ` (${crmFormatDateTime(campaign.created_at)})` : ""}`;
+    crmCampaignStatus.textContent = crmFormatStatus(campaign.status);
+
+    const rewardParts = [];
+    if (Number(campaign.bonus_amount || 0) > 0) rewardParts.push(`+${campaign.bonus_amount} КБ`);
+    if (Number(campaign.token_amount || 0) > 0) rewardParts.push(`+${campaign.token_amount} жет.`);
+
+    crmCampaignBody.innerHTML = `
+        <section class="crm-campaign-passport-block">
+            <h3>Основная информация</h3>
+            <div class="crm-campaign-kpis">
+                <article><span>Получателей</span><strong>${crmEscapeHtml(summary.recipients_count || 0)}</strong></article>
+                <article><span>Доставлено</span><strong>${crmEscapeHtml(summary.delivered_count || 0)}</strong></article>
+                <article><span>Визитов после</span><strong>${crmEscapeHtml(summary.visited_count || 0)} · ${crmEscapeHtml(summary.visit_conversion || 0)}%</strong></article>
+                <article><span>Пополнили после</span><strong>${crmEscapeHtml(summary.topped_up_count || 0)} · ${crmEscapeHtml(summary.topup_conversion || 0)}%</strong></article>
+                <article><span>Потрачено бонусов</span><strong>${crmEscapeHtml(crmFormatBonus(summary.bonus_spent))}</strong></article>
+                <article><span>Награда</span><strong>${crmEscapeHtml(rewardParts.join(" · ") || "—")}</strong></article>
+            </div>
+        </section>
+
+        <section class="crm-campaign-passport-block">
+            <h3>Воронка ${crmEscapeHtml(typeLabel)}</h3>
+            ${crmRenderCampaignBar(passport.delivery_funnel || [])}
+        </section>
+
+        <section class="crm-campaign-passport-block">
+            <h3>Сколько дней до возврата</h3>
+            ${crmRenderCampaignBar(passport.return_funnel || [], "crm-campaign-funnel--days")}
+        </section>
+
+        <section class="crm-campaign-passport-block">
+            <h3>Экономика за ${crmEscapeHtml(summary.window_days || 30)} дней после кампании</h3>
+            <div class="crm-campaign-kpis crm-campaign-kpis--economy">
+                <article><span>Использовано бонусов</span><strong>${crmEscapeHtml(crmFormatBonus(summary.used_bonus))}</strong></article>
+                <article><span>Пополнено</span><strong>${crmEscapeHtml(crmFormatMoney(summary.topup_amount))}</strong></article>
+                <article><span>Среднее пополнение</span><strong>${crmEscapeHtml(crmFormatMoney(summary.avg_topup))}</strong></article>
+                <article><span>КБ / пополнившего</span><strong>${crmEscapeHtml(crmFormatBonus(summary.bonus_per_topup_guest))}</strong></article>
+            </div>
+        </section>
+
+        <section class="crm-campaign-passport-block">
+            <h3>Получатели</h3>
+            <div class="crm-campaign-recipient-head">
+                <div>Получатель</div>
+                <div>Доставка</div>
+                <div>Визит</div>
+                <div>Пополнение</div>
+                <div>Бонусы списаны</div>
+            </div>
+            <div class="crm-campaign-recipients">
+                ${crmRenderCampaignRecipients(passport.recipients || [])}
+            </div>
+        </section>
+
+        <section class="crm-campaign-passport-block">
+            <h3>Сообщение</h3>
+            <div class="crm-campaign-message">${crmEscapeHtml(passport.message_text || "").replaceAll("\n", "<br>")}</div>
+        </section>
+    `;
+}
+
+async function crmOpenCampaignPassport(type, id) {
+    if (!type || !id || !crmCampaignBody) return;
+    crmCampaignTitle.textContent = "Паспорт кампании";
+    crmCampaignStatus.textContent = "Загрузка";
+    crmCampaignBody.innerHTML = `<div class="empty-state">Загрузка...</div>`;
+    crmOpenCampaignModal();
+    try {
+        const response = await fetch(`/owner/api/crm-campaigns/${type}/${id}`);
+        const data = await response.json();
+        if (!data.ok) {
+            crmCampaignBody.innerHTML = `<div class="empty-state">${crmEscapeHtml(data.error || "Не удалось загрузить кампанию")}</div>`;
+            return;
+        }
+        crmRenderCampaignPassport(data.passport || {});
+    } catch (error) {
+        crmCampaignBody.innerHTML = `<div class="empty-state">Не удалось загрузить кампанию.</div>`;
+    }
+}
+
 async function crmApplyAnalysis() {
     applyCrmAnalysisBtn.disabled = true;
     try {
@@ -315,6 +514,15 @@ document.querySelectorAll(".crm-cohort-delete").forEach((button) => {
     button.addEventListener("click", () => crmDeleteCohort(button));
 });
 
+document.querySelectorAll(".crm-campaign-row").forEach((row) => {
+    row.addEventListener("click", () => {
+        crmOpenCampaignPassport(row.dataset.campaignType, row.dataset.campaignId);
+    });
+});
+
+if (crmCampaignBackdrop) crmCampaignBackdrop.addEventListener("click", crmCloseCampaignModal);
+if (crmCampaignClose) crmCampaignClose.addEventListener("click", crmCloseCampaignModal);
+
 crmFunnelPeriodBtns.forEach((button) => {
     button.addEventListener("click", () => {
         crmSetFunnelPeriod(button.dataset.period);
@@ -327,4 +535,10 @@ crmFunnelPeriodBtns.forEach((button) => {
     input.addEventListener("change", () => {
         if (crmFunnelPeriod === "custom") crmApplyAnalysis();
     });
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && crmCampaignModal && crmCampaignModal.classList.contains("is-open")) {
+        crmCloseCampaignModal();
+    }
 });
