@@ -1174,6 +1174,324 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
         "recipients": serialized_recipients,
     }
 
+
+CRM_CAMPAIGN_EFFECT_DAYS = 30
+
+
+def _manual_campaign_sql() -> str:
+    return """
+        SELECT
+            CONCAT('mailing-', m.id) AS campaign_key,
+            'mailing' AS campaign_type,
+            m.id AS campaign_id,
+            NULL AS giveaway_id,
+            m.id AS mailing_id,
+            m.status,
+            0 AS bonus_amount,
+            0 AS token_amount,
+            m.recipients_count,
+            m.success_count,
+            m.failed_count,
+            m.message_text,
+            m.created_at,
+            m.finished_at
+        FROM mailings m
+        LEFT JOIN bonus_giveaways bg
+          ON bg.club_id = m.club_id
+         AND bg.mailing_id = m.id
+        WHERE m.club_id = %s
+          AND bg.id IS NULL
+          AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) IS NULL
+
+        UNION ALL
+
+        SELECT
+            CONCAT('giveaway-', bg.id) AS campaign_key,
+            'giveaway' AS campaign_type,
+            bg.id AS campaign_id,
+            bg.id AS giveaway_id,
+            bg.mailing_id,
+            COALESCE(m.status, bg.status) AS status,
+            bg.bonus_amount,
+            bg.token_amount,
+            bg.recipients_count,
+            COALESCE(m.success_count, 0) AS success_count,
+            COALESCE(m.failed_count, 0) AS failed_count,
+            bg.message_text,
+            bg.created_at,
+            bg.finished_at
+        FROM bonus_giveaways bg
+        LEFT JOIN mailings m
+          ON m.club_id = bg.club_id
+         AND m.id = bg.mailing_id
+        WHERE bg.club_id = %s
+          AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(bg.filters_json, '{}'), '$.auto_mailing')) IS NULL
+    """
+
+
+def _fetch_manual_campaign_base(
+    conn,
+    club_id: int,
+    campaign_type: str,
+    campaign_id: int,
+) -> Dict[str, Any] | None:
+    if campaign_type not in {"mailing", "giveaway"}:
+        return None
+
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT *
+            FROM ({_manual_campaign_sql()}) campaigns
+            WHERE campaign_type = %s
+              AND campaign_id = %s
+            LIMIT 1
+            """,
+            (club_id, club_id, campaign_type, campaign_id),
+        )
+        return cur.fetchone()
+
+
+def _campaign_mailing_ids(base: Dict[str, Any]) -> List[int]:
+    mailing_id = base.get("mailing_id")
+    return [int(mailing_id)] if mailing_id else []
+
+
+def _fetch_campaign_effect_rows(
+    conn,
+    club_id: int,
+    mailing_ids: List[int],
+    giveaway_id: int | None,
+) -> List[Dict[str, Any]]:
+    if not mailing_ids:
+        return []
+
+    placeholders = ", ".join(["%s"] * len(mailing_ids))
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT
+                mr.id AS recipient_id,
+                mr.guest_id,
+                g.phone,
+                g.fio,
+                mr.status AS delivery_status,
+                mr.error_text,
+                COALESCE(mr.sent_at, m.started_at, m.created_at) AS interaction_at,
+                ns.date_start AS next_visit_at,
+                CASE
+                    WHEN ns.date_start IS NOT NULL
+                    THEN TIMESTAMPDIFF(DAY, COALESCE(mr.sent_at, m.started_at, m.created_at), ns.date_start)
+                    ELSE NULL
+                END AS return_delay_days,
+                CASE
+                    WHEN ns.date_start IS NOT NULL AND ns.date_stop IS NOT NULL
+                    THEN TIMESTAMPDIFF(MINUTE, ns.date_start, ns.date_stop)
+                    ELSE NULL
+                END AS next_visit_minutes,
+                COALESCE((
+                    SELECT SUM(gbt.amount)
+                    FROM guest_balance_topups gbt
+                    WHERE gbt.club_id = m.club_id
+                      AND gbt.guest_id = mr.guest_id
+                      AND gbt.topup_at >= COALESCE(mr.sent_at, m.started_at, m.created_at)
+                      AND gbt.topup_at < DATE_ADD(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL %s DAY)
+                ), 0) AS topup_amount_after,
+                COALESCE((
+                    SELECT COUNT(*)
+                    FROM guest_balance_topups gbt
+                    WHERE gbt.club_id = m.club_id
+                      AND gbt.guest_id = mr.guest_id
+                      AND gbt.topup_at >= COALESCE(mr.sent_at, m.started_at, m.created_at)
+                      AND gbt.topup_at < DATE_ADD(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL %s DAY)
+                ), 0) AS topups_after,
+                COALESCE((
+                    SELECT ABS(SUM(cbt.amount))
+                    FROM cm_bonus_transactions cbt
+                    WHERE cbt.club_id = m.club_id
+                      AND cbt.guest_id = mr.guest_id
+                      AND cbt.amount < 0
+                      AND cbt.created_at >= COALESCE(mr.sent_at, m.started_at, m.created_at)
+                      AND cbt.created_at < DATE_ADD(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL %s DAY)
+                ), 0) AS used_bonus_after,
+                bgr.bonus_amount AS recipient_bonus_amount,
+                bgr.token_amount AS recipient_token_amount,
+                bgr.transaction_status AS bonus_status,
+                bgr.token_transaction_status AS token_status
+            FROM mailing_recipients mr
+            JOIN mailings m
+              ON m.id = mr.mailing_id
+             AND m.club_id = %s
+            LEFT JOIN guests g
+              ON g.club_id = m.club_id
+             AND g.guest_id = mr.guest_id
+            LEFT JOIN bonus_giveaway_recipients bgr
+              ON bgr.club_id = m.club_id
+             AND bgr.guest_id = mr.guest_id
+             AND bgr.giveaway_id = %s
+            LEFT JOIN guest_sessions ns
+              ON ns.id = (
+                SELECT s.id
+                FROM guest_sessions s
+                WHERE s.club_id = m.club_id
+                  AND s.guest_id = mr.guest_id
+                  AND s.date_start > COALESCE(mr.sent_at, m.started_at, m.created_at)
+                  AND s.date_start < DATE_ADD(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL %s DAY)
+                ORDER BY s.date_start ASC
+                LIMIT 1
+              )
+            WHERE mr.mailing_id IN ({placeholders})
+            ORDER BY
+                CASE WHEN ns.date_start IS NULL THEN 1 ELSE 0 END,
+                ns.date_start ASC,
+                mr.id ASC
+            """,
+            (
+                CRM_CAMPAIGN_EFFECT_DAYS,
+                CRM_CAMPAIGN_EFFECT_DAYS,
+                CRM_CAMPAIGN_EFFECT_DAYS,
+                club_id,
+                giveaway_id,
+                CRM_CAMPAIGN_EFFECT_DAYS,
+                *mailing_ids,
+            ),
+        )
+        return cur.fetchall()
+
+
+def _campaign_effect_summary(base: Dict[str, Any], rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    recipients_count = int(base.get("recipients_count") or len(rows) or 0)
+    delivered_count = sum(1 for row in rows if row.get("delivery_status") == "sent")
+    failed_count = sum(1 for row in rows if row.get("delivery_status") == "failed")
+    visited_count = sum(1 for row in rows if row.get("next_visit_at") is not None)
+    topped_up_count = sum(1 for row in rows if float(row.get("topup_amount_after") or 0) > 0)
+    topup_amount = sum(float(row.get("topup_amount_after") or 0) for row in rows)
+    used_bonus = sum(float(row.get("used_bonus_after") or 0) for row in rows)
+    bonus_spent = int(base.get("bonus_amount") or 0) * sum(
+        1 for row in rows if row.get("bonus_status") == "awarded"
+    )
+    token_spent = int(base.get("token_amount") or 0) * sum(
+        1 for row in rows if row.get("token_status") == "awarded"
+    )
+
+    return {
+        "window_days": CRM_CAMPAIGN_EFFECT_DAYS,
+        "recipients_count": recipients_count,
+        "delivered_count": delivered_count,
+        "failed_count": failed_count,
+        "visited_count": visited_count,
+        "topped_up_count": topped_up_count,
+        "bonus_spent": bonus_spent,
+        "token_spent": token_spent,
+        "used_bonus": round(used_bonus, 2),
+        "topup_amount": round(topup_amount, 2),
+        "visit_conversion": round(visited_count / recipients_count * 100, 1) if recipients_count else 0,
+        "topup_conversion": round(topped_up_count / recipients_count * 100, 1) if recipients_count else 0,
+        "avg_topup": round(topup_amount / topped_up_count, 2) if topped_up_count else 0,
+        "bonus_per_topup_guest": round(bonus_spent / topped_up_count, 2) if topped_up_count else 0,
+    }
+
+
+def _return_delay_funnel(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    buckets = [
+        ("0", "В день отправки", 0, 0),
+        ("1", "На следующий день", 1, 1),
+        ("2-3", "2-3 дня", 2, 3),
+        ("4-7", "4-7 дней", 4, 7),
+        ("8-14", "8-14 дней", 8, 14),
+        ("15-30", "15-30 дней", 15, 30),
+    ]
+    result = []
+    max_count = 1
+    counts = []
+    for key, label, min_days, max_days in buckets:
+        count = sum(
+            1
+            for row in rows
+            if row.get("return_delay_days") is not None
+            and min_days <= int(row.get("return_delay_days") or 0) <= max_days
+        )
+        counts.append((key, label, count))
+        max_count = max(max_count, count)
+    for key, label, count in counts:
+        result.append({"key": key, "label": label, "count": count, "height": max(8, round(count / max_count * 100))})
+    return result
+
+
+def list_manual_crm_campaigns(conn, club_id: int, limit: int = 30) -> List[Dict[str, Any]]:
+    ensure_bonus_giveaway_tables(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT *
+            FROM ({_manual_campaign_sql()}) campaigns
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (club_id, club_id, int(limit)),
+        )
+        rows = cur.fetchall()
+
+    campaigns = []
+    for row in rows:
+        mailing_ids = _campaign_mailing_ids(row)
+        effect_rows = _fetch_campaign_effect_rows(conn, club_id, mailing_ids, row.get("giveaway_id"))
+        item = _json_row(row)
+        item["summary"] = _campaign_effect_summary(row, effect_rows)
+        campaigns.append(item)
+    return campaigns
+
+
+def get_manual_crm_campaign_passport(
+    conn,
+    club_id: int,
+    campaign_type: str,
+    campaign_id: int,
+) -> Dict[str, Any] | None:
+    ensure_bonus_giveaway_tables(conn)
+    base = _fetch_manual_campaign_base(conn, club_id, campaign_type, campaign_id)
+    if not base:
+        return None
+
+    detail = get_crm_interaction_detail(conn, club_id, campaign_type, campaign_id)
+    if not detail:
+        return None
+
+    mailing_ids = _campaign_mailing_ids(base)
+    effect_rows = _fetch_campaign_effect_rows(conn, club_id, mailing_ids, base.get("giveaway_id"))
+    effect_by_recipient = {int(row.get("recipient_id")): row for row in effect_rows if row.get("recipient_id")}
+    summary = _campaign_effect_summary(base, effect_rows)
+
+    recipients = []
+    for row in detail.get("recipients", []):
+        effect = effect_by_recipient.get(int(row.get("recipient_id") or 0), {})
+        item = dict(row)
+        item["topups_after"] = int(effect.get("topups_after") or 0)
+        item["topup_amount_after"] = round(float(effect.get("topup_amount_after") or 0), 2)
+        item["used_bonus_after"] = round(float(effect.get("used_bonus_after") or 0), 2)
+        item["return_delay_days"] = effect.get("return_delay_days")
+        item["converted"] = bool(item["topup_amount_after"] > 0)
+        recipients.append(item)
+
+    delivered_count = summary["delivered_count"]
+    visited_count = summary["visited_count"]
+    topped_up_count = summary["topped_up_count"]
+    funnel_max = max(summary["recipients_count"], delivered_count, visited_count, topped_up_count, 1)
+
+    return {
+        "campaign": _json_row(base),
+        "summary": summary,
+        "delivery_funnel": [
+            {"label": "Получателей", "count": summary["recipients_count"], "height": round(summary["recipients_count"] / funnel_max * 100)},
+            {"label": "Доставлено", "count": delivered_count, "height": max(8, round(delivered_count / funnel_max * 100))},
+            {"label": "С визитом", "count": visited_count, "height": max(8, round(visited_count / funnel_max * 100))},
+            {"label": "С пополнением", "count": topped_up_count, "height": max(8, round(topped_up_count / funnel_max * 100))},
+        ],
+        "return_funnel": _return_delay_funnel(effect_rows),
+        "recipients": recipients,
+        "message_text": detail.get("interaction", {}).get("message_text") or base.get("message_text") or "",
+    }
+
 def _ensure_auto_mailing_column(cursor, column_name: str, ddl: str) -> None:
     cursor.execute(
         """

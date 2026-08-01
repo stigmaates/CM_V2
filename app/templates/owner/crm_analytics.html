@@ -71,6 +71,89 @@
         </div>
     </section>
 
+    <section class="crm-campaigns-section card">
+        <div class="crm-campaigns-head">
+            <div>
+                <div class="section-title">Паспорта ручных коммуникаций</div>
+            </div>
+        </div>
+
+        {% if manual_campaigns %}
+            {% set campaign_status_labels = {
+                "completed": "Завершено",
+                "queued": "В очереди",
+                "in_progress": "В работе",
+                "processing": "В работе",
+                "failed": "Ошибка",
+                "created": "Создано"
+            } %}
+            <div class="crm-campaigns-table">
+                <div class="crm-campaigns-row crm-campaigns-row--head">
+                    <div>Кампания</div>
+                    <div>Статус</div>
+                    <div>Получателей</div>
+                    <div>Доставлено</div>
+                    <div>Визитов</div>
+                    <div>Пополнили</div>
+                    <div>Бонусы</div>
+                    <div>Дата</div>
+                </div>
+                {% for campaign in manual_campaigns %}
+                    <button
+                        type="button"
+                        class="crm-campaigns-row crm-campaign-row"
+                        data-campaign-type="{{ campaign.campaign_type }}"
+                        data-campaign-id="{{ campaign.campaign_id }}"
+                    >
+                        <div>
+                            <strong>
+                                {% if campaign.campaign_type == "giveaway" %}
+                                    Раздача #{{ campaign.campaign_id }}
+                                {% else %}
+                                    Рассылка #{{ campaign.campaign_id }}
+                                {% endif %}
+                            </strong>
+                            {% if campaign.token_amount %}
+                                <span>+{{ campaign.token_amount }} жет.</span>
+                            {% endif %}
+                        </div>
+                        <div>{{ campaign_status_labels.get(campaign.status, campaign.status) }}</div>
+                        <div>{{ campaign.summary.recipients_count }}</div>
+                        <div>{{ campaign.summary.delivered_count }}</div>
+                        <div>{{ campaign.summary.visited_count }}</div>
+                        <div>{{ campaign.summary.topped_up_count }}</div>
+                        <div>
+                            {% if campaign.summary.bonus_spent %}
+                                {{ campaign.summary.bonus_spent }} КБ
+                            {% else %}
+                                —
+                            {% endif %}
+                        </div>
+                        <div>{{ campaign.created_at }}</div>
+                    </button>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">Ручных коммуникаций пока нет.</div>
+        {% endif %}
+    </section>
+
+    <div class="crm-campaign-modal" id="crmCampaignModal" aria-hidden="true">
+        <div class="crm-campaign-modal__backdrop" id="crmCampaignBackdrop"></div>
+        <div class="crm-campaign-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="crmCampaignTitle">
+            <div class="crm-campaign-modal__header">
+                <div>
+                    <div class="crm-campaign-modal__eyebrow" id="crmCampaignStatus">Кампания</div>
+                    <h2 id="crmCampaignTitle">Паспорт рассылки</h2>
+                </div>
+                <button type="button" class="crm-campaign-modal__close" id="crmCampaignClose" aria-label="Закрыть">×</button>
+            </div>
+            <div class="crm-campaign-modal__body" id="crmCampaignBody">
+                <div class="empty-state">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
     <section class="heatmap-section card">
         <div class="heatmap-head">
             <div>

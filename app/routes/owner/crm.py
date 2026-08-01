@@ -5,6 +5,7 @@ from app.core import get_db_connection
 from app.services.crm_analysis import get_crm_cohort_analysis
 from app.services.dashboard import get_dashboard_audience_stats, get_visit_heatmap_stats
 from app.services.mailing import delete_segment, get_filter_fields, list_segments, save_segment
+from app.services.mailing import get_manual_crm_campaign_passport, list_manual_crm_campaigns
 from app.services.pc_heatmap import get_pc_hours_heatmap_stats
 
 from . import owner_bp
@@ -35,6 +36,7 @@ def crm_analytics():
     try:
         cohorts = list_segments(conn, int(club_id))
         initial_analysis = get_crm_cohort_analysis(conn, int(club_id), [], funnel_period="all")
+        manual_campaigns = list_manual_crm_campaigns(conn, int(club_id))
     finally:
         conn.close()
 
@@ -46,6 +48,7 @@ def crm_analytics():
         filter_fields=get_filter_fields(),
         cohorts=cohorts,
         initial_analysis=initial_analysis,
+        manual_campaigns=manual_campaigns,
         selected_period=selected_period,
         telegram_only=telegram_only,
     )
@@ -114,3 +117,18 @@ def api_crm_cohort_delete(cohort_id):
         conn.close()
 
     return jsonify({"ok": True})
+
+
+@owner_bp.route('/api/crm-campaigns/<campaign_type>/<int:campaign_id>')
+@owner_required
+def api_crm_campaign_passport(campaign_type, campaign_id):
+    club_id = session.get("club_id")
+    conn = get_db_connection()
+    try:
+        passport = get_manual_crm_campaign_passport(conn, int(club_id), campaign_type, campaign_id)
+    finally:
+        conn.close()
+
+    if not passport:
+        return jsonify({"ok": False, "error": "Кампания не найдена"}), 404
+    return jsonify({"ok": True, "passport": passport})
