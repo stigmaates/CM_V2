@@ -1388,7 +1388,7 @@ def _campaign_effect_summary(base: Dict[str, Any], rows: List[Dict[str, Any]]) -
         "visit_conversion": round(visited_count / recipients_count * 100, 1) if recipients_count else 0,
         "topup_conversion": round(topped_up_count / recipients_count * 100, 1) if recipients_count else 0,
         "avg_topup": round(topup_amount / topped_up_count, 2) if topped_up_count else 0,
-        "bonus_per_topup_guest": round(bonus_spent / topped_up_count, 2) if topped_up_count else 0,
+        "topup_per_bonus": round(topup_amount / bonus_spent, 2) if bonus_spent else 0,
     }
 
 
@@ -1476,7 +1476,7 @@ def get_manual_crm_campaign_passport(
     delivered_count = summary["delivered_count"]
     visited_count = summary["visited_count"]
     topped_up_count = summary["topped_up_count"]
-    funnel_max = max(summary["recipients_count"], delivered_count, visited_count, topped_up_count, 1)
+    funnel_max = max(summary["recipients_count"], delivered_count, visited_count, 1)
 
     return {
         "campaign": _json_row(base),
@@ -1485,7 +1485,6 @@ def get_manual_crm_campaign_passport(
             {"label": "Получателей", "count": summary["recipients_count"], "height": round(summary["recipients_count"] / funnel_max * 100)},
             {"label": "Доставлено", "count": delivered_count, "height": max(8, round(delivered_count / funnel_max * 100))},
             {"label": "С визитом", "count": visited_count, "height": max(8, round(visited_count / funnel_max * 100))},
-            {"label": "С пополнением", "count": topped_up_count, "height": max(8, round(topped_up_count / funnel_max * 100))},
         ],
         "return_funnel": _return_delay_funnel(effect_rows),
         "recipients": recipients,
