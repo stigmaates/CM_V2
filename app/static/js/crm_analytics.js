@@ -214,10 +214,9 @@ function crmRenderAnalysis(analysis) {
     crmAnalysisFunnelEl.innerHTML = funnel.length
         ? `<div class="crm-funnel-bars">${funnel.map((item, index) => `
             <div class="crm-funnel-step">
+                <div class="crm-funnel-count">${item.count}</div>
                 <div class="crm-funnel-bar-wrap">
-                    <div class="crm-funnel-bar" style="height:${item.height}%">
-                        <span>${item.count}</span>
-                    </div>
+                    <div class="crm-funnel-bar" style="height:${item.height}%"></div>
                 </div>
                 <strong>${item.step}</strong>
                 <small>визит</small>
