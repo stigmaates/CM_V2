@@ -70,8 +70,9 @@ function crmRenderValueInputs(row, meta) {
         input = document.createElement("input");
         input.type = "date";
     } else if (meta.type === "phone_list") {
-        input = document.createElement("textarea");
-        input.placeholder = "Телефоны через запятую или с новой строки";
+        input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "Телефоны через запятую";
     } else {
         input = document.createElement("input");
         input.type = "number";
