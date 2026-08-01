@@ -4,7 +4,7 @@ from app.core import owner_required
 from app.core import get_db_connection
 from app.services.crm_analysis import get_crm_cohort_analysis
 from app.services.dashboard import get_dashboard_audience_stats, get_visit_heatmap_stats
-from app.services.mailing import get_filter_fields, list_segments, save_segment
+from app.services.mailing import delete_segment, get_filter_fields, list_segments, save_segment
 from app.services.pc_heatmap import get_pc_hours_heatmap_stats
 
 from . import owner_bp
@@ -100,3 +100,17 @@ def api_crm_cohort_save():
         conn.close()
 
     return jsonify({"ok": True, "cohort_id": cohort_id})
+
+
+@owner_bp.route('/api/crm-cohorts/<int:cohort_id>', methods=['DELETE'])
+@owner_required
+def api_crm_cohort_delete(cohort_id):
+    club_id = session.get("club_id")
+    conn = get_db_connection()
+    try:
+        delete_segment(conn, int(club_id), cohort_id)
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({"ok": True})

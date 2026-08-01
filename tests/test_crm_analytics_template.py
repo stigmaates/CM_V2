@@ -43,5 +43,6 @@ def test_crm_analytics_renders_cohort_analysis_block():
     assert "data-period=\"all\"" in html
     assert "Сохранить когорту" in html
     assert "Тестовая когорта" in html
+    assert "crm-cohort-delete" in html
     assert "crm_analytics.js" in html
     assert "1</span><small>/2" in html

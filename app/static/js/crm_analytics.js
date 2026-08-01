@@ -210,7 +210,6 @@ function crmRenderAnalysis(analysis) {
     `;
 
     const funnel = analysis.funnel || [];
-    const periodLabel = analysis.funnel_period_label || "за всё время";
     crmAnalysisFunnelEl.innerHTML = funnel.length
         ? `<div class="crm-funnel-bars">${funnel.map((item, index) => `
             <div class="crm-funnel-step" style="--bar-height:${item.height}%">
@@ -222,7 +221,7 @@ function crmRenderAnalysis(analysis) {
                 <small>визит</small>
                 ${index < funnel.length - 1 ? `<em>${item.gap_to_next === null ? "—" : item.gap_to_next + " дн."}</em>` : ""}
             </div>
-        `).join("")}</div><div class="crm-funnel-caption">Воронка строится по выбранной когорте, ${periodLabel}. Под визитами — средний интервал до следующего визита.</div>`
+        `).join("")}</div>`
         : `<div class="empty-state">По выбранной когорте пока нет визитов.</div>`;
 
     crmAnalysisMetricsEl.innerHTML = (analysis.metrics || []).map((item) => `
@@ -280,6 +279,22 @@ function crmApplySavedRules(rulesJson) {
     crmApplyAnalysis();
 }
 
+async function crmDeleteCohort(button) {
+    const cohortId = button.dataset.cohortId;
+    if (!cohortId) return;
+    if (!window.confirm("Удалить сохраненную когорту?")) return;
+
+    button.disabled = true;
+    const response = await fetch(`/owner/api/crm-cohorts/${cohortId}`, {method: "DELETE"});
+    const data = await response.json();
+    if (!data.ok) {
+        button.disabled = false;
+        alert(data.error || "Не удалось удалить когорту");
+        return;
+    }
+    button.closest(".crm-cohort-chip")?.remove();
+}
+
 if (crmAnalysisRulesContainer) {
     crmAddRule({});
     crmSetFunnelPeriod("all");
@@ -290,10 +305,14 @@ if (addCrmAnalysisRuleBtn) addCrmAnalysisRuleBtn.addEventListener("click", () =>
 if (applyCrmAnalysisBtn) applyCrmAnalysisBtn.addEventListener("click", crmApplyAnalysis);
 if (saveCrmCohortBtn) saveCrmCohortBtn.addEventListener("click", crmSaveCohort);
 
-document.querySelectorAll(".crm-cohort-chip").forEach((button) => {
+document.querySelectorAll(".crm-cohort-apply").forEach((button) => {
     button.addEventListener("click", () => {
         crmApplySavedRules(JSON.parse(button.dataset.rules || "{}"));
     });
+});
+
+document.querySelectorAll(".crm-cohort-delete").forEach((button) => {
+    button.addEventListener("click", () => crmDeleteCohort(button));
 });
 
 crmFunnelPeriodBtns.forEach((button) => {
