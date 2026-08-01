@@ -865,7 +865,11 @@ body {
     justify-content: space-between;
     gap: 18px;
     align-items: flex-start;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
+}
+
+.crm-analysis-head .section-title {
+    margin-bottom: 0;
 }
 
 .crm-analysis-audience {
