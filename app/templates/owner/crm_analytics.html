@@ -44,6 +44,23 @@
             </div>
 
             <div class="crm-analysis-results">
+                <div class="crm-funnel-controls">
+                    <div>
+                        <span>Период воронки</span>
+                        <small>За какой период искать 1-й, 2-й, 3-й визит внутри выбранной когорты</small>
+                    </div>
+                    <div class="crm-funnel-periods">
+                        <button type="button" class="crm-funnel-period active" data-period="all">Всё время</button>
+                        <button type="button" class="crm-funnel-period" data-period="7">7 дней</button>
+                        <button type="button" class="crm-funnel-period" data-period="30">30 дней</button>
+                        <button type="button" class="crm-funnel-period" data-period="90">90 дней</button>
+                        <button type="button" class="crm-funnel-period" data-period="custom">Даты</button>
+                    </div>
+                    <div class="crm-funnel-custom" id="crmFunnelCustomPeriod" hidden>
+                        <input type="date" id="crmFunnelDateFrom" aria-label="Дата начала периода воронки">
+                        <input type="date" id="crmFunnelDateTo" aria-label="Дата окончания периода воронки">
+                    </div>
+                </div>
                 <div class="crm-analysis-funnel" id="crmAnalysisFunnel"></div>
                 <div class="crm-analysis-metrics" id="crmAnalysisMetrics"></div>
             </div>

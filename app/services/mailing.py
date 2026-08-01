@@ -85,7 +85,7 @@ FILTER_FIELDS = {
     },
     "total_visits": {"type": "number", "column": "up.total_visits", "label": "Всего визитов"},
     "avg_visits_per_month": {"type": "number", "column": "up.avg_visits_per_month", "label": "Среднее визитов в месяц"},
-    "avg_session_minutes": {"type": "number", "column": "up.avg_session_minutes", "label": "Средняя длина сессии"},
+    "avg_session_minutes": {"type": "number", "column": "up.avg_session_minutes", "label": "Средняя длина визита"},
     "max_session_minutes": {"type": "number", "column": "up.max_session_minutes", "label": "Макс. длина сессии"},
     "total_hours_30d": {"type": "number", "column": "up.total_hours_30d", "label": "Часов за 30 дней"},
     "total_hours_all": {"type": "number", "column": "up.total_hours_all", "label": "Часов за всё время"},

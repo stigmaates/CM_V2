@@ -1065,6 +1065,69 @@ body {
     gap: 18px;
 }
 
+.crm-funnel-controls {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid rgba(143, 91, 255, 0.2);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.crm-funnel-controls span {
+    display: block;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.crm-funnel-controls small {
+    display: block;
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.crm-funnel-periods,
+.crm-funnel-custom {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.crm-funnel-custom[hidden] {
+    display: none;
+}
+
+.crm-funnel-period,
+.crm-funnel-custom input {
+    height: 38px;
+    border: 1px solid rgba(143, 91, 255, 0.36);
+    border-radius: 12px;
+    background: rgba(11, 6, 22, 0.72);
+    color: #e8dcff;
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.crm-funnel-period {
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.crm-funnel-period.active {
+    color: #ffffff;
+    background: linear-gradient(135deg, #8f5bff, #7848d8);
+    border-color: rgba(188, 147, 255, 0.55);
+}
+
+.crm-funnel-custom input {
+    width: 150px;
+    padding: 0 10px;
+    box-sizing: border-box;
+}
+
 .crm-analysis-funnel,
 .crm-analysis-metrics {
     padding: 18px;

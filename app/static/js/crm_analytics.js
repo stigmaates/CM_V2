@@ -7,6 +7,12 @@ const crmCohortNameEl = document.getElementById("crmCohortName");
 const crmAnalysisAudienceEl = document.getElementById("crmAnalysisAudience");
 const crmAnalysisFunnelEl = document.getElementById("crmAnalysisFunnel");
 const crmAnalysisMetricsEl = document.getElementById("crmAnalysisMetrics");
+const crmFunnelPeriodBtns = Array.from(document.querySelectorAll(".crm-funnel-period"));
+const crmFunnelCustomPeriodEl = document.getElementById("crmFunnelCustomPeriod");
+const crmFunnelDateFromEl = document.getElementById("crmFunnelDateFrom");
+const crmFunnelDateToEl = document.getElementById("crmFunnelDateTo");
+
+let crmFunnelPeriod = "all";
 
 const CRM_OPERATOR_LABELS = {
     "=": "Равно",
@@ -177,6 +183,24 @@ function crmGetRules() {
     }).filter(Boolean);
 }
 
+function crmGetFunnelPeriodPayload() {
+    return {
+        funnel_period: crmFunnelPeriod,
+        funnel_date_from: crmFunnelDateFromEl ? crmFunnelDateFromEl.value : null,
+        funnel_date_to: crmFunnelDateToEl ? crmFunnelDateToEl.value : null,
+    };
+}
+
+function crmSetFunnelPeriod(period) {
+    crmFunnelPeriod = period || "all";
+    crmFunnelPeriodBtns.forEach((button) => {
+        button.classList.toggle("active", button.dataset.period === crmFunnelPeriod);
+    });
+    if (crmFunnelCustomPeriodEl) {
+        crmFunnelCustomPeriodEl.hidden = crmFunnelPeriod !== "custom";
+    }
+}
+
 function crmRenderAnalysis(analysis) {
     const audience = analysis.audience || {};
     crmAnalysisAudienceEl.innerHTML = `
@@ -217,7 +241,7 @@ async function crmApplyAnalysis() {
         const response = await fetch("/owner/api/crm-analysis/preview", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({rules: crmGetRules()}),
+            body: JSON.stringify({rules: crmGetRules(), ...crmGetFunnelPeriodPayload()}),
         });
         const data = await response.json();
         if (!data.ok) {
@@ -259,6 +283,7 @@ function crmApplySavedRules(rulesJson) {
 
 if (crmAnalysisRulesContainer) {
     crmAddRule({});
+    crmSetFunnelPeriod("all");
     crmRenderAnalysis(window.CRM_INITIAL_ANALYSIS || {});
 }
 
@@ -269,5 +294,19 @@ if (saveCrmCohortBtn) saveCrmCohortBtn.addEventListener("click", crmSaveCohort);
 document.querySelectorAll(".crm-cohort-chip").forEach((button) => {
     button.addEventListener("click", () => {
         crmApplySavedRules(JSON.parse(button.dataset.rules || "{}"));
+    });
+});
+
+crmFunnelPeriodBtns.forEach((button) => {
+    button.addEventListener("click", () => {
+        crmSetFunnelPeriod(button.dataset.period);
+        crmApplyAnalysis();
+    });
+});
+
+[crmFunnelDateFromEl, crmFunnelDateToEl].forEach((input) => {
+    if (!input) return;
+    input.addEventListener("change", () => {
+        if (crmFunnelPeriod === "custom") crmApplyAnalysis();
     });
 });

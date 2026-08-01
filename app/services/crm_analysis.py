@@ -27,42 +27,67 @@ def _format_percent(value: Any) -> str:
     return f"{_round(float(value or 0) * 100, 1)}%"
 
 
-def _empty_analysis() -> dict:
+VALID_FUNNEL_PERIODS = {"all", "7", "30", "90", "custom"}
+
+
+def _empty_analysis(funnel_period_label: str = "за всё время") -> dict:
     return {
         "audience": {"total": 0, "telegram": 0, "telegram_percent": 0},
         "funnel": [],
-        "funnel_period_label": "за всё время",
+        "funnel_period_label": funnel_period_label,
         "metrics": [],
     }
 
 
-def _infer_funnel_period_days(rules: List[Dict[str, Any]]) -> int | None:
-    period_by_field = {
-        "visits_7d": 7,
-        "sessions_7d": 7,
-        "visits_30d": 30,
-        "sessions_30d": 30,
-        "visits_90d": 90,
-        "sessions_90d": 90,
-    }
-    periods = [
-        period_by_field[rule.get("field")]
-        for rule in rules
-        if rule.get("field") in period_by_field
-    ]
-    if not periods:
-        return None
-    return min(periods)
+def _build_funnel_period_filter(
+    period: str | None = "all",
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> tuple[str, list[Any], str]:
+    normalized = str(period or "all")
+    if normalized not in VALID_FUNNEL_PERIODS:
+        normalized = "all"
+
+    if normalized in {"7", "30", "90"}:
+        return (
+            "AND gs.date_start >= DATE_SUB(NOW(), INTERVAL %s DAY)",
+            [int(normalized)],
+            f"за последние {normalized} дней",
+        )
+
+    if normalized == "custom":
+        parts: list[str] = []
+        params: list[Any] = []
+        label_parts: list[str] = []
+        if date_from:
+            parts.append("AND gs.date_start >= %s")
+            params.append(date_from)
+            label_parts.append(f"с {date_from}")
+        if date_to:
+            parts.append("AND gs.date_start < DATE_ADD(%s, INTERVAL 1 DAY)")
+            params.append(date_to)
+            label_parts.append(f"по {date_to}")
+        if parts:
+            return " ".join(parts), params, " ".join(label_parts)
+
+    return "", [], "за всё время"
 
 
-def get_crm_cohort_analysis(conn, club_id: int, rules: List[Dict[str, Any]]) -> dict:
+def get_crm_cohort_analysis(
+    conn,
+    club_id: int,
+    rules: List[Dict[str, Any]],
+    funnel_period: str | None = "all",
+    funnel_date_from: str | None = None,
+    funnel_date_to: str | None = None,
+) -> dict:
     where_sql, params = build_where_clause(club_id, rules, require_telegram=False)
-    funnel_period_days = _infer_funnel_period_days(rules)
-    funnel_period_sql = ""
-    funnel_params = list(params)
-    if funnel_period_days:
-        funnel_period_sql = "AND gs.date_start >= DATE_SUB(NOW(), INTERVAL %s DAY)"
-        funnel_params.append(funnel_period_days)
+    funnel_period_sql, funnel_period_params, funnel_period_label = _build_funnel_period_filter(
+        funnel_period,
+        funnel_date_from,
+        funnel_date_to,
+    )
+    funnel_params = [*params, *funnel_period_params]
 
     metrics_sql = f"""
         WITH filtered AS (
@@ -156,7 +181,7 @@ def get_crm_cohort_analysis(conn, club_id: int, rules: List[Dict[str, Any]]) -> 
         metrics_row = cur.fetchone() or {}
         total_guests = int(metrics_row.get("total_guests") or 0)
         if total_guests <= 0:
-            return _empty_analysis()
+            return _empty_analysis(funnel_period_label)
 
         cur.execute(funnel_sql, funnel_params)
         funnel_row = cur.fetchone() or {}
@@ -187,10 +212,10 @@ def get_crm_cohort_analysis(conn, club_id: int, rules: List[Dict[str, Any]]) -> 
             "telegram_percent": _round(telegram_guests / total_guests * 100, 1),
         },
         "funnel": funnel,
-        "funnel_period_label": f"за последние {funnel_period_days} дней" if funnel_period_days else "за всё время",
+        "funnel_period_label": funnel_period_label,
         "metrics": [
             {"label": "Среднее пополнение", "value": f"{int(round(float(metrics_row.get('avg_topup') or 0)))} ₽", "hint": "По пополнениям за последние 30 дней"},
-            {"label": "Средняя длина сессии", "value": _format_minutes(metrics_row.get("avg_session_minutes")), "hint": "Среднее по гостям когорты"},
+            {"label": "Средняя длина визита", "value": _format_minutes(metrics_row.get("avg_session_minutes")), "hint": "Сессии с разрывом до 2 часов склеиваются"},
             {"label": "Сессий в месяц", "value": str(_round(metrics_row.get("avg_visits_per_month"), 1)), "hint": "Среднее число сессий на гостя"},
             {"label": "Ночь / день", "value": f"{_format_percent(night_share)} / {_format_percent(1 - night_share)}", "hint": "Доля ночных и дневных визитов"},
             {"label": "Выходные / будни", "value": f"{_format_percent(weekend_share)} / {_format_percent(1 - weekend_share)}", "hint": "Доля визитов по дням недели"},
