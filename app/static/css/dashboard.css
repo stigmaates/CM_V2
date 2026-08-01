@@ -852,8 +852,12 @@ body {
     }
 }
 .crm-analysis-section {
+    display: block;
+    grid-template-rows: none;
+    min-height: auto;
     margin-top: 24px;
     padding: 28px 30px;
+    text-align: left;
 }
 
 .crm-analysis-head {
@@ -945,7 +949,10 @@ body {
 }
 
 .crm-analysis-rule-row {
+    display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) 44px;
+    gap: 10px;
+    align-items: stretch;
 }
 
 .crm-rule-remove {
