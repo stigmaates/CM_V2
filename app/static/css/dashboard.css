@@ -1141,28 +1141,34 @@ body {
     grid-template-columns: repeat(7, minmax(64px, 1fr));
     gap: 12px;
     align-items: end;
-    min-height: 238px;
+    min-height: 246px;
+    padding-top: 26px;
 }
 
 .crm-funnel-step {
     position: relative;
     display: grid;
-    grid-template-rows: 28px 150px auto auto;
+    grid-template-rows: 150px auto auto;
     gap: 5px;
     justify-items: center;
     min-width: 0;
 }
 
 .crm-funnel-count {
-    align-self: end;
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--bar-height, 0%) + 7px);
+    transform: translateX(-50%);
     color: #ffffff;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 950;
     line-height: 1;
     text-shadow: 0 8px 18px rgba(143, 91, 255, 0.28);
+    pointer-events: none;
 }
 
 .crm-funnel-bar-wrap {
+    position: relative;
     display: flex;
     align-items: end;
     width: 100%;
@@ -1171,6 +1177,7 @@ body {
 
 .crm-funnel-bar {
     width: 100%;
+    height: var(--bar-height, 0%);
     min-height: 10px;
     border-radius: 14px 14px 8px 8px;
     background: linear-gradient(180deg, #a667ff 0%, #49d6ff 100%);
@@ -1190,19 +1197,19 @@ body {
 
 .crm-funnel-step em {
     position: absolute;
-    right: -24px;
-    bottom: 2px;
+    right: -18px;
+    bottom: 4px;
     z-index: 2;
-    min-width: 48px;
-    padding: 4px 6px;
+    min-width: 34px;
+    padding: 2px 5px;
     border-radius: 999px;
-    background: rgba(11, 6, 22, 0.82);
-    color: #d8c6ff;
+    background: rgba(11, 6, 22, 0.64);
+    color: rgba(216, 198, 255, 0.82);
     font-style: normal;
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 900;
     text-align: center;
-    border: 1px solid rgba(143, 91, 255, 0.24);
+    border: 1px solid rgba(143, 91, 255, 0.18);
 }
 
 .crm-funnel-caption {

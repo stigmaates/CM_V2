@@ -213,10 +213,10 @@ function crmRenderAnalysis(analysis) {
     const periodLabel = analysis.funnel_period_label || "за всё время";
     crmAnalysisFunnelEl.innerHTML = funnel.length
         ? `<div class="crm-funnel-bars">${funnel.map((item, index) => `
-            <div class="crm-funnel-step">
-                <div class="crm-funnel-count">${item.count}</div>
+            <div class="crm-funnel-step" style="--bar-height:${item.height}%">
                 <div class="crm-funnel-bar-wrap">
-                    <div class="crm-funnel-bar" style="height:${item.height}%"></div>
+                    <div class="crm-funnel-count">${item.count}</div>
+                    <div class="crm-funnel-bar"></div>
                 </div>
                 <strong>${item.step}</strong>
                 <small>визит</small>
