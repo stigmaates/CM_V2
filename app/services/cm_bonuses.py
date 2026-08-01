@@ -89,6 +89,10 @@ def ensure_cm_bonus_tables(cursor) -> None:
     )
     _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_telegram_id", "BIGINT NULL")
     _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_username", "VARCHAR(255) NULL")
+    _ensure_column(cursor, "cm_bonus_transactions", "expires_at", "DATETIME NULL")
+    _ensure_column(cursor, "cm_bonus_transactions", "expires_status", "VARCHAR(30) NOT NULL DEFAULT 'none'")
+    _ensure_column(cursor, "cm_bonus_transactions", "expired_at", "DATETIME NULL")
+    _ensure_column(cursor, "cm_bonus_transactions", "expiration_transaction_id", "INT NULL")
     _cm_bonus_tables_ready = True
 
 
@@ -146,6 +150,8 @@ def add_cm_bonus_transaction(
     source_id: str | None = None,
     description: str | None = None,
     status: str = "done",
+    expires_at: datetime | None = None,
+    expires_status: str | None = None,
 ) -> bool:
     """Change КБ balance and write a ledger row. Returns False for duplicate idempotent sources."""
     amount = int(amount or 0)
@@ -181,9 +187,11 @@ def add_cm_bonus_transaction(
             source_id,
             description,
             status,
+            expires_at,
+            expires_status,
             created_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             club_id,
@@ -194,6 +202,8 @@ def add_cm_bonus_transaction(
             source_id_str,
             description,
             status,
+            expires_at,
+            expires_status or ("active" if expires_at and amount > 0 else "none"),
             datetime.utcnow(),
         ),
     )

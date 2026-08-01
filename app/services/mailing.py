@@ -2,7 +2,7 @@ import json
 import os
 import re
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Tuple
 
@@ -17,7 +17,7 @@ AUTO_MAILING_DEFAULTS = {
         "description": "Автоматически отправляет сообщение гостям, которых не было в клубе заданное количество дней.",
         "message_text": (
             "Привет! Тебя давно не было в клубе 😔\n\n"
-            "Мы начислили тебе 200 бонусов — приходи играть, будем ждать!"
+            "Мы начислили тебе 200 бонусов на 7 дней — приходи играть, будем ждать!"
         ),
         "days_inactive": 14,
         "bonus_amount": 200,
@@ -1547,7 +1547,11 @@ def ensure_bonus_giveaway_tables(conn) -> None:
         )
         _ensure_table_column(cur, "bonus_giveaways", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount")
         _ensure_table_column(cur, "bonus_giveaways", "token_awarded_count", "INT NOT NULL DEFAULT 0 AFTER awarded_count")
+        _ensure_table_column(cur, "bonus_giveaways", "is_expiring", "TINYINT(1) NOT NULL DEFAULT 0 AFTER token_amount")
+        _ensure_table_column(cur, "bonus_giveaways", "expires_after_seconds", "INT NULL AFTER is_expiring")
+        _ensure_table_column(cur, "bonus_giveaways", "expires_at", "DATETIME NULL AFTER expires_after_seconds")
         _ensure_table_column(cur, "bonus_giveaway_recipients", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount")
+        _ensure_table_column(cur, "bonus_giveaway_recipients", "expires_at", "DATETIME NULL AFTER token_amount")
         _ensure_table_column(cur, "bonus_giveaway_recipients", "token_transaction_status", "VARCHAR(40) NOT NULL DEFAULT 'pending' AFTER transaction_status")
         _ensure_table_column(cur, "bonus_giveaway_recipients", "token_transaction_id", "INT NULL AFTER transaction_id")
         _ensure_table_column(cur, "bonus_giveaway_recipients", "token_error_text", "TEXT NULL AFTER error_text")
@@ -1580,6 +1584,9 @@ def list_bonus_giveaways(conn, club_id: int) -> List[Dict[str, Any]]:
                 id,
                 bonus_amount,
                 token_amount,
+                is_expiring,
+                expires_after_seconds,
+                expires_at,
                 status,
                 recipients_count,
                 awarded_count,
@@ -1605,6 +1612,8 @@ def create_bonus_giveaway(
     bonus_amount: int,
     message_text: str,
     token_amount: int = 0,
+    is_expiring: bool = False,
+    expires_after_seconds: int | None = None,
     parse_mode: str = "HTML",
 ) -> Dict[str, Any]:
     """Начисляет КБ/жетоны выбранной аудитории и создаёт Telegram-рассылку.
@@ -1620,6 +1629,14 @@ def create_bonus_giveaway(
         raise ValueError("Количество жетонов не может быть отрицательным")
     if bonus_amount <= 0 and token_amount <= 0:
         raise ValueError("Укажи бонусы или жетоны больше 0")
+    if is_expiring and bonus_amount <= 0:
+        raise ValueError("Сгорающий бонус можно включить только для раздачи КБ")
+    if is_expiring:
+        expires_after_seconds = int(expires_after_seconds or 0)
+        if expires_after_seconds <= 0:
+            raise ValueError("Укажи срок сгорания бонуса")
+    else:
+        expires_after_seconds = None
 
     message_text = (message_text or "").strip()
     if not message_text:
@@ -1628,11 +1645,14 @@ def create_bonus_giveaway(
     ensure_bonus_giveaway_tables(conn)
     recipients = get_recipient_rows(conn, club_id, rules)
     recipients_count = len(recipients)
+    expires_at = datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
     filters_json = {
         "rules": rules,
         "type": "bonus_giveaway",
         "bonus_amount": bonus_amount,
         "token_amount": token_amount,
+        "is_expiring": bool(is_expiring),
+        "expires_after_seconds": expires_after_seconds,
     }
 
     with conn.cursor() as cur:
@@ -1643,17 +1663,23 @@ def create_bonus_giveaway(
                 filters_json,
                 bonus_amount,
                 token_amount,
+                is_expiring,
+                expires_after_seconds,
+                expires_at,
                 message_text,
                 status,
                 recipients_count
             )
-            VALUES (%s, %s, %s, %s, %s, 'processing', %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'processing', %s)
             """,
             (
                 club_id,
                 json.dumps(filters_json, ensure_ascii=False),
                 bonus_amount,
                 token_amount,
+                1 if is_expiring else 0,
+                expires_after_seconds,
+                expires_at,
                 message_text,
                 recipients_count,
             ),
@@ -1682,6 +1708,7 @@ def create_bonus_giveaway(
                         source_id=str(giveaway_id),
                         description=f"Раздача бонусов #{giveaway_id}",
                         status="done",
+                        expires_at=expires_at,
                     )
                     if awarded:
                         awarded_count += 1
@@ -1728,13 +1755,14 @@ def create_bonus_giveaway(
                     telegram_id,
                     bonus_amount,
                     token_amount,
+                    expires_at,
                     transaction_status,
                     token_transaction_status,
                     error_text,
                     token_error_text,
                     awarded_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, IF(%s = 'awarded' OR %s = 'awarded', NOW(), NULL))
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, IF(%s = 'awarded' OR %s = 'awarded', NOW(), NULL))
                 """,
                 (
                     giveaway_id,
@@ -1743,6 +1771,7 @@ def create_bonus_giveaway(
                     telegram_id,
                     bonus_amount,
                     token_amount,
+                    expires_at if status == "awarded" else None,
                     status,
                     token_status,
                     error_text,
@@ -1786,4 +1815,6 @@ def create_bonus_giveaway(
         "skipped_count": skipped_count,
         "bonus_amount": bonus_amount,
         "token_amount": token_amount,
+        "is_expiring": bool(is_expiring),
+        "expires_at": expires_at,
     }

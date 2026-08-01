@@ -1411,8 +1411,43 @@
 }
 
 .bonus-giveaway-field input,
-.bonus-giveaway-field textarea {
+.bonus-giveaway-field textarea,
+.bonus-giveaway-field select {
     width: 100%;
+}
+
+.bonus-giveaway-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.bonus-giveaway-check input {
+    width: 22px;
+    height: 22px;
+    accent-color: #9b5cff;
+}
+
+.bonus-giveaway-expiring {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(143, 91, 255, 0.2);
+    border-radius: 16px;
+    background: rgba(143, 91, 255, 0.08);
+}
+
+.bonus-giveaway-expiration {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 0.75fr);
+    gap: 12px;
+}
+
+.is-hidden {
+    display: none !important;
 }
 
 .message-variable-picker {
