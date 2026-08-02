@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from app.core import calc_percent_change, get_db_connection, get_period_range
 from app.services.missions import (
     get_club_missions,
+    _collapse_sessions_to_visits,
     _day_overlap_hours,
     _max_consecutive_day_streak,
     _night_overlap_hours,
@@ -1019,20 +1020,26 @@ def _event_allowed_by_mission_period(event_at, mission) -> bool:
 
 
 def _mission_matching_session_dates(guest_sessions, mission) -> list:
-    """Return dates of session-based mission units that count toward target."""
+    """Return dates of visit-based mission units that count toward target."""
     metric = mission.get("target_metric")
     min_hours = _get_min_hours_from_mission(mission)
     matched_dates = []
 
-    for session_row in guest_sessions:
-        if not _session_allowed_by_mission_period(session_row, mission):
+    period_sessions = [
+        row for row in guest_sessions
+        if _session_allowed_by_mission_period(row, mission)
+    ]
+    visits = _collapse_sessions_to_visits(period_sessions)
+
+    for visit in visits:
+        if not _session_allowed_by_mission_period(visit, mission):
             continue
 
-        date_start = session_row.get("date_start")
+        date_start = visit.get("date_start")
         if not date_start:
             continue
 
-        duration_hours = _session_duration_hours(session_row)
+        duration_hours = _session_duration_hours(visit)
 
         if metric == "visits_count":
             matched_dates.append(date_start)
@@ -1151,16 +1158,19 @@ def _get_mission_completion_at_from_preloaded(
     # Total hours missions.
     elif metric in {"total_hours", "night_hours_total", "day_hours_total"}:
         total_hours = 0.0
-        for session_row in sorted(guest_sessions, key=lambda row: row.get("date_start")):
-            if not _session_allowed_by_mission_period(session_row, mission):
-                continue
-            date_start = session_row.get("date_start")
-            date_stop = session_row.get("date_stop")
+        period_sessions = [
+            row for row in guest_sessions
+            if _session_allowed_by_mission_period(row, mission)
+        ]
+        visits = _collapse_sessions_to_visits(period_sessions)
+        for visit in visits:
+            date_start = visit.get("date_start")
+            date_stop = visit.get("date_stop")
             if not date_start or not date_stop:
                 continue
 
             if metric == "total_hours":
-                total_hours += _session_duration_hours(session_row)
+                total_hours += _session_duration_hours(visit)
             elif metric == "night_hours_total":
                 total_hours += _night_overlap_hours(date_start, date_stop)
             elif metric == "day_hours_total":
@@ -1172,13 +1182,14 @@ def _get_mission_completion_at_from_preloaded(
 
     # Consecutive visit days.
     elif metric == "consecutive_days_count":
-        sorted_sessions = sorted(
-            [row for row in guest_sessions if _session_allowed_by_mission_period(row, mission)],
-            key=lambda row: row.get("date_start"),
-        )
+        period_sessions = [
+            row for row in guest_sessions
+            if _session_allowed_by_mission_period(row, mission)
+        ]
+        visits = _collapse_sessions_to_visits(period_sessions)
         days_seen = []
-        for session_row in sorted_sessions:
-            date_start = session_row.get("date_start")
+        for visit in visits:
+            date_start = visit.get("date_start")
             if not date_start:
                 continue
             days_seen.append(date_start.date())
