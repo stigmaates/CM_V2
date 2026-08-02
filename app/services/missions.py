@@ -647,6 +647,26 @@ def _session_duration_hours(row) -> float:
     return (stop - start).total_seconds() / 3600
 
 
+def _collapse_sessions_to_visits(rows, gap_hours: int = 2):
+    visits = []
+    max_gap = timedelta(hours=gap_hours)
+
+    for row in sorted(rows or [], key=lambda item: item.get("date_start") or datetime.min):
+        date_start = row.get("date_start")
+        date_stop = row.get("date_stop")
+        if not date_start or not date_stop:
+            continue
+
+        if not visits or date_start - visits[-1]["date_stop"] > max_gap:
+            visits.append({"date_start": date_start, "date_stop": date_stop})
+            continue
+
+        if date_stop > visits[-1]["date_stop"]:
+            visits[-1]["date_stop"] = date_stop
+
+    return visits
+
+
 def _fetch_sessions(cursor, guest_id: int, club_id: int, mission):
     period_conditions, period_params = build_period_filter(mission)
     where_parts = ["guest_id = %s", "club_id = %s", "date_start IS NOT NULL", "date_stop IS NOT NULL"] + period_conditions
@@ -659,6 +679,10 @@ def _fetch_sessions(cursor, guest_id: int, club_id: int, mission):
     """
     cursor.execute(sql, params)
     return cursor.fetchall()
+
+
+def _fetch_visits(cursor, guest_id: int, club_id: int, mission):
+    return _collapse_sessions_to_visits(_fetch_sessions(cursor, guest_id, club_id, mission))
 
 
 def _overlap_seconds(start, stop, window_start, window_end) -> float:
@@ -720,13 +744,11 @@ def _get_min_hours(mission) -> int:
     return 0
 
 
-def _count_sessions(cursor, guest_id: int, club_id: int, mission, extra_conditions=None, extra_params=None) -> int:
-    period_conditions, period_params = build_period_filter(mission)
-    where_parts = ["guest_id = %s", "club_id = %s"] + (extra_conditions or []) + period_conditions
-    params = [guest_id, club_id] + (extra_params or []) + period_params
-    sql = f"SELECT COUNT(*) AS cnt FROM guest_sessions WHERE {' AND '.join(where_parts)}"
-    cursor.execute(sql, params)
-    return cursor.fetchone()["cnt"] or 0
+def _count_visits(cursor, guest_id: int, club_id: int, mission, predicate=None) -> int:
+    visits = _fetch_visits(cursor, guest_id, club_id, mission)
+    if predicate is None:
+        return len(visits)
+    return sum(1 for visit in visits if predicate(visit))
 
 
 def _calculate_completed_missions_progress(cursor, guest_id: int, club_id: int, current_mission):
@@ -752,106 +774,83 @@ def calculate_mission_progress(guest_id: int, club_id: int, mission):
     try:
         with conn.cursor() as cursor:
             if metric == "visits_count":
-                return _count_sessions(cursor, guest_id, club_id, mission)
+                return _count_visits(cursor, guest_id, club_id, mission)
 
             if metric == "night_visits_count":
-                return _count_sessions(
+                return _count_visits(
                     cursor,
                     guest_id,
                     club_id,
                     mission,
-                    extra_conditions=["(HOUR(date_start) >= 22 OR HOUR(date_start) < 8)"],
+                    predicate=lambda visit: visit["date_start"].hour >= 22 or visit["date_start"].hour < 8,
                 )
 
             if metric == "weekend_visits_count":
-                return _count_sessions(
+                return _count_visits(
                     cursor,
                     guest_id,
                     club_id,
                     mission,
-                    extra_conditions=["DAYOFWEEK(date_start) IN (1, 7)"],
+                    predicate=lambda visit: visit["date_start"].isoweekday() in (6, 7),
                 )
 
             if metric == "long_visits_count":
                 min_hours = _get_min_hours(mission)
-                return _count_sessions(
+                return _count_visits(
                     cursor,
                     guest_id,
                     club_id,
                     mission,
-                    extra_conditions=["date_stop IS NOT NULL", "TIMESTAMPDIFF(HOUR, date_start, date_stop) >= %s"],
-                    extra_params=[min_hours],
+                    predicate=lambda visit: _session_duration_hours(visit) >= min_hours,
                 )
 
             if metric == "visits_min_hours_count":
                 min_hours = _get_min_hours(mission)
-                return _count_sessions(
+                return _count_visits(
                     cursor,
                     guest_id,
                     club_id,
                     mission,
-                    extra_conditions=["date_stop IS NOT NULL", "TIMESTAMPDIFF(MINUTE, date_start, date_stop) >= %s"],
-                    extra_params=[min_hours * 60],
+                    predicate=lambda visit: _session_duration_hours(visit) >= min_hours,
                 )
 
             if metric == "weekday_visits_min_hours_count":
                 min_hours = _get_min_hours(mission)
-                return _count_sessions(
+                return _count_visits(
                     cursor,
                     guest_id,
                     club_id,
                     mission,
-                    extra_conditions=[
-                        "date_stop IS NOT NULL",
-                        "WEEKDAY(date_start) BETWEEN 0 AND 4",
-                        "TIMESTAMPDIFF(MINUTE, date_start, date_stop) >= %s",
-                    ],
-                    extra_params=[min_hours * 60],
+                    predicate=lambda visit: visit["date_start"].weekday() <= 4
+                    and _session_duration_hours(visit) >= min_hours,
                 )
 
             if metric == "weekend_visits_min_hours_count":
                 min_hours = _get_min_hours(mission)
-                return _count_sessions(
+                return _count_visits(
                     cursor,
                     guest_id,
                     club_id,
                     mission,
-                    extra_conditions=[
-                        "date_stop IS NOT NULL",
-                        "WEEKDAY(date_start) IN (5, 6)",
-                        "TIMESTAMPDIFF(MINUTE, date_start, date_stop) >= %s",
-                    ],
-                    extra_params=[min_hours * 60],
+                    predicate=lambda visit: visit["date_start"].weekday() in (5, 6)
+                    and _session_duration_hours(visit) >= min_hours,
                 )
 
             if metric == "total_hours":
-                period_conditions, period_params = build_period_filter(mission)
-                where_parts = [
-                    "guest_id = %s",
-                    "club_id = %s",
-                    "date_start IS NOT NULL",
-                    "date_stop IS NOT NULL",
-                ] + period_conditions
-                params = [guest_id, club_id] + period_params
-                sql = f"""
-                    SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, date_start, date_stop)), 0) AS minutes
-                    FROM guest_sessions
-                    WHERE {' AND '.join(where_parts)}
-                """
-                cursor.execute(sql, params)
-                return int((cursor.fetchone()["minutes"] or 0) // 60)
+                visits = _fetch_visits(cursor, guest_id, club_id, mission)
+                return int(sum(_session_duration_hours(visit) for visit in visits))
 
             if metric == "night_hours_total":
-                sessions = _fetch_sessions(cursor, guest_id, club_id, mission)
-                return int(sum(_night_overlap_hours(s["date_start"], s["date_stop"]) for s in sessions))
+                visits = _fetch_visits(cursor, guest_id, club_id, mission)
+                return int(sum(_night_overlap_hours(v["date_start"], v["date_stop"]) for v in visits))
 
             if metric == "day_hours_total":
-                sessions = _fetch_sessions(cursor, guest_id, club_id, mission)
-                return int(sum(_day_overlap_hours(s["date_start"], s["date_stop"]) for s in sessions))
+                visits = _fetch_visits(cursor, guest_id, club_id, mission)
+                return int(sum(_day_overlap_hours(v["date_start"], v["date_stop"]) for v in visits))
 
             if metric == "consecutive_days_count":
-                sessions = _fetch_sessions(cursor, guest_id, club_id, mission)
-                return _max_consecutive_day_streak([s["date_start"].date() for s in sessions if s.get("date_start")])
+                visits = _fetch_visits(cursor, guest_id, club_id, mission)
+                return _max_consecutive_day_streak([v["date_start"].date() for v in visits if v.get("date_start")])
 
             if metric == "wheel_spins_count":
                 period_conditions, period_params = build_period_filter(mission, date_field="created_at")
