@@ -248,7 +248,7 @@
                     <span>За все время</span>
                 </button>
             </div>
-            <div class="cb-engagement-hint" id="engagementScopeHint">Показаны гости, зарегистрированные за последние {{ stats.period_days }} дней.</div>
+            <div class="cb-engagement-hint" id="engagementScopeHint">Период: последние {{ stats.period_days }} дней. В выборке гости, зарегистрированные за этот период.</div>
 
             <div id="wheelMetrics" class="cb-metric-grid" data-engagement-metrics="wheel">
                 <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="wheel.total_guests">{{ engagement_data.wheel.total_guests }}</b></div></div>
@@ -523,8 +523,8 @@
         }
         if (engagementScopeHint) {
             engagementScopeHint.textContent = engagementAllTimeMode
-                ? 'Показаны все гости клуба за всё время.'
-                : `Показаны гости, зарегистрированные за последние ${engagementPeriodDays} дней.`;
+                ? 'Период: всё время. В выборке все гости клуба.'
+                : `Период: последние ${engagementPeriodDays} дней. В выборке гости, зарегистрированные за этот период.`;
         }
     }
 

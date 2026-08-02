@@ -4485,30 +4485,59 @@ body.modal-open { overflow: hidden; }
 }
 
 .cb-metric-grid {
-    gap: 18px;
+    gap: 16px;
     margin-top: 18px;
 }
 
 .cb-metric-card {
-    min-height: 112px;
-    padding: 20px 22px;
-    grid-template-columns: 58px 1fr;
-    border-radius: 20px;
+    min-height: 118px;
+    padding: 18px 20px;
+    grid-template-columns: 62px minmax(0, 1fr);
+    align-items: center;
+    gap: 18px;
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(143, 91, 255, 0.16), transparent 42%),
+        rgba(18, 10, 33, 0.68);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .cb-metric-icon {
-    width: 58px;
-    height: 58px;
+    width: 62px;
+    height: 62px;
     font-size: 26px;
-    border-radius: 17px;
+    border-radius: 18px;
+    flex: 0 0 auto;
+}
+
+.cb-metric-card > div:last-child {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    gap: 8px;
 }
 
 .cb-metric-card span {
-    font-size: 15px;
+    min-height: 36px;
+    display: flex;
+    align-items: flex-end;
+    color: #b7a8d5;
+    font-size: 14px;
+    line-height: 1.18;
+    font-weight: 800;
 }
 
 .cb-metric-card b {
-    font-size: 32px;
+    margin-top: 0;
+    color: #fff;
+    font-size: 34px;
+    letter-spacing: 0;
+}
+
+.cb-metric-card b span {
+    min-height: 0;
+    display: inline;
+    align-items: baseline;
 }
 
 .cb-case-openings-panel {
