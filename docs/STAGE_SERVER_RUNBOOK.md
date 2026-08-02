@@ -8,7 +8,8 @@ This runbook is specific to the existing stage server.
 - Project path: `/root/cm_stage/CM_V2`
 - Git branch: `stage`
 - Web service: `clubmodule-stage.service`
-- Bot service: `clubmodule-stage-bot.service`
+- Guest bot service: `clubmodule-stage-bot.service`
+- Admin bot service: `clubmodule-stage-admin-bot.service`
 
 ## Production boundaries
 
@@ -17,6 +18,7 @@ Do not touch production during stage deployment:
 - Do not modify `/root/cm_v2/CM_V2`.
 - Do not restart `clubmodule.service`.
 - Do not restart `clubmodule-bot.service`.
+- Do not restart `clubmodule-admin-bot.service`.
 - Do not restore production DB into stage unless explicitly approved.
 - Do not commit `.env`, tokens, passwords, proxy URLs, or backup files.
 
@@ -31,6 +33,7 @@ git status --short
 git log --oneline -5
 systemctl status clubmodule-stage.service --no-pager -l
 systemctl status clubmodule-stage-bot.service --no-pager -l
+systemctl status clubmodule-stage-admin-bot.service --no-pager -l
 ```
 
 ## Deploy from GitHub stage branch
@@ -46,9 +49,34 @@ venv/bin/python scripts/check_environment.py --env-file .env
 venv/bin/python scripts/migrate.py
 systemctl restart clubmodule-stage.service
 systemctl restart clubmodule-stage-bot.service
+systemctl restart clubmodule-stage-admin-bot.service
 systemctl status clubmodule-stage.service --no-pager -l
 systemctl status clubmodule-stage-bot.service --no-pager -l
+systemctl status clubmodule-stage-admin-bot.service --no-pager -l
 ```
+
+## Stage Telegram bots
+
+Stage uses two Telegram bot processes:
+
+- `clubmodule-stage-bot.service` runs `python -m bot.main` with `BOT_TOKEN`.
+  It handles guest login and guest-facing bot flows.
+- `clubmodule-stage-admin-bot.service` runs `python -m bot.admin_main` with
+  `CM_BONUS_BOT_TOKEN`. It handles admin chat buttons for prize issuance and
+  КБ requests.
+
+Install the admin bot service if admin chat buttons do not react:
+
+```bash
+cd /root/cm_stage/CM_V2
+cp deploy/systemd/clubmodule-stage-admin-bot.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now clubmodule-stage-admin-bot.service
+systemctl status clubmodule-stage-admin-bot.service --no-pager -l
+```
+
+Do not stop `clubmodule-stage-bot.service` to run the admin bot manually:
+that disables guest login.
 
 ## Post-deploy checks
 
@@ -155,7 +183,7 @@ Add this to `/root/cm_stage/CM_V2/.env`:
 
 ```bash
 ADMIN_SERVICE_RESTART_ENABLED=true
-ADMIN_RESTART_SERVICES=clubmodule-stage.service:Stage Web,clubmodule-stage-bot.service:Stage Bot,clubmodule-stage-operational-alerts.timer:Stage Alerts Timer
+ADMIN_RESTART_SERVICES=clubmodule-stage.service:Stage Web,clubmodule-stage-bot.service:Stage Guest Bot,clubmodule-stage-admin-bot.service:Stage Admin Bot,clubmodule-stage-operational-alerts.timer:Stage Alerts Timer
 ```
 
 If the web service runs as a non-root user and `sudo` is installed, allow that
@@ -168,7 +196,7 @@ visudo -f /etc/sudoers.d/clubmodule-stage-admin-restart
 Paste:
 
 ```text
-www-data ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block restart clubmodule-stage.service, /usr/bin/systemctl --no-block restart clubmodule-stage-bot.service, /usr/bin/systemctl --no-block restart clubmodule-stage-operational-alerts.timer
+www-data ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block restart clubmodule-stage.service, /usr/bin/systemctl --no-block restart clubmodule-stage-bot.service, /usr/bin/systemctl --no-block restart clubmodule-stage-admin-bot.service, /usr/bin/systemctl --no-block restart clubmodule-stage-operational-alerts.timer
 ```
 
 Then verify and restart the stage web service:
@@ -221,6 +249,7 @@ bot token and notification behavior are safe for testing.
 ```bash
 journalctl -u clubmodule-stage.service -n 150 --no-pager
 journalctl -u clubmodule-stage-bot.service -n 150 --no-pager
+journalctl -u clubmodule-stage-admin-bot.service -n 150 --no-pager
 ```
 
 4. If needed, roll back only the stage checkout:
@@ -231,4 +260,5 @@ git log --oneline -5
 git checkout <previous-stage-commit>
 systemctl restart clubmodule-stage.service
 systemctl restart clubmodule-stage-bot.service
+systemctl restart clubmodule-stage-admin-bot.service
 ```

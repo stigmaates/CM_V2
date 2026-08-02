@@ -16,6 +16,10 @@ They are intentionally conservative examples. Before installing them, adjust:
 - `cyber-bonus-web.service` — web app through gunicorn.
 - `cyber-bonus-guest-bot.service` — guest Telegram bot.
 - `cyber-bonus-admin-bot.service` — admin/worker Telegram bot.
+- `clubmodule-stage-bot.service` — existing stage-layout guest Telegram bot.
+- `clubmodule-stage-admin-bot.service` — existing stage-layout admin Telegram bot.
+- `clubmodule-bot.service` — existing production-layout guest Telegram bot.
+- `clubmodule-admin-bot.service` — existing production-layout admin Telegram bot.
 - `cyber-bonus-mailings.service` + `.timer` — queued mailings.
 - `cyber-bonus-auto-mailings.service` + `.timer` — auto-mailings.
 - `cyber-bonus-referrals.service` + `.timer` — referral rewards.
