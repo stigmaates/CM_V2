@@ -315,13 +315,14 @@ def get_unique_guests_chart(club_id: int, period_days: int):
 def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
     """Return case opening counts for the selected dashboard period."""
     if not club_id:
-        return {"items": [], "total_openings": 0, "period_days": period_days}
+        return {"items": [], "total_openings": 0, "unique_openers": 0, "period_days": period_days}
 
     period_days = period_days if period_days in (7, 30, 90) else 30
     current_end = datetime.now()
     current_start = current_end - timedelta(days=period_days)
 
     conn = get_db_connection()
+    unique_openers = 0
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -331,7 +332,8 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                     c.name AS case_name,
                     c.image_url AS case_image_url,
                     c.sort_order,
-                    COUNT(o.id) AS openings_count
+                    COUNT(o.id) AS openings_count,
+                    COUNT(DISTINCT o.guest_id) AS unique_openers_count
                 FROM club_cases c
                 LEFT JOIN guest_case_openings o
                   ON o.club_id = c.club_id
@@ -345,6 +347,19 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                 (current_start, current_end, club_id),
             )
             rows = cursor.fetchall() or []
+
+            cursor.execute(
+                """
+                SELECT COUNT(DISTINCT guest_id) AS unique_openers
+                FROM guest_case_openings
+                WHERE club_id = %s
+                  AND created_at >= %s
+                  AND created_at < %s
+                """,
+                (club_id, current_start, current_end),
+            )
+            unique_row = cursor.fetchone() or {}
+            unique_openers = int(unique_row.get("unique_openers") or 0)
     finally:
         conn.close()
 
@@ -359,6 +374,7 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                 "name": row.get("case_name") or "Без названия",
                 "image_url": row.get("case_image_url") or "",
                 "openings": openings,
+                "unique_openers": int(row.get("unique_openers_count") or 0),
                 "width": width,
             }
         )
@@ -366,6 +382,7 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
     return {
         "items": items,
         "total_openings": sum(item["openings"] for item in items),
+        "unique_openers": unique_openers,
         "period_days": period_days,
     }
 
