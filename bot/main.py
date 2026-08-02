@@ -92,7 +92,7 @@ def normalize_phone(phone: str):
     return digits
 
 
-def find_guest_by_phone(phone: str):
+def find_guest_by_phone(phone: str, club_id: int):
     normalized_phone = normalize_phone(phone)
     if not normalized_phone:
         return None, 0
@@ -103,7 +103,8 @@ def find_guest_by_phone(phone: str):
             cursor.execute("""
                 SELECT guest_id, club_id, fio, phone, telegram_id
                 FROM guests
-            """)
+                WHERE club_id = %s
+            """, (int(club_id),))
             guests = cursor.fetchall()
 
         matches = []
@@ -272,7 +273,15 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    guest, matches_count = find_guest_by_phone(contact.phone_number)
+    token_club_id = token_row.get("club_id")
+    if not token_club_id:
+        await message.reply_text(
+            "Ссылка входа устарела. Откройте страницу входа клуба заново.",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return
+
+    guest, matches_count = find_guest_by_phone(contact.phone_number, int(token_club_id))
 
     if matches_count > 1:
         await message.reply_text(
@@ -321,9 +330,9 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         login_text = (
             f"Готово! Вход подтвержден.\n"
             f"Гость: {guest_name}\n\n"
-            "Круто! Вот твой первый жетон на прокрут колеса - 🪙\n"
+            "Круто! Вот твой первый жетон 🪙\n"
             "Вернись на страницу авторизации — вход выполнится автоматически. "
-            "Открой колесо фортуны и испытай удачу!"
+            "Открой личный кабинет и испытай удачу!"
         )
     else:
         login_text = (

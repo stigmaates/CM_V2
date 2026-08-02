@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 
 from flask import flash, redirect, render_template, request, session, url_for
 
-from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_token
+from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_club, get_guest_login_token
 from app.services.missions import get_guest_missions_with_progress
 from app.services.wheel import get_guest_profile_stats, get_guest_tokens, get_wheel_prizes, get_wheel_settings, save_guest_wheel_spin, serialize_wheel_prize, choose_wheel_prize
 
@@ -74,7 +74,12 @@ def guest_check_login():
 
 def guest_login():
     bot_username = BOT_USERNAME.lstrip("@")
-    token = create_guest_login_token()
+    requested_club_id = request.args.get("club_id", type=int) or session.get("club_id")
+    club = get_guest_login_club(requested_club_id)
+    if not club:
+        return render_template("guest_login_error.html"), 400
+
+    token = create_guest_login_token(int(club["club_id"]))
     start_payload = f"login_{token}"
     bot_link = f"https://t.me/{bot_username}?start={start_payload}"
     telegram_link = f"tg://resolve?domain={bot_username}&start={start_payload}"
@@ -85,6 +90,7 @@ def guest_login():
         telegram_link=telegram_link,
         qr_link=qr_link,
         token=token,
+        club=club,
     )
 
 
