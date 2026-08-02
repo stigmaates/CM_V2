@@ -29,6 +29,51 @@
     padding: 30px 32px;
 }
 
+.settings-guest-link-card {
+    min-height: 0;
+    padding: 26px 28px;
+}
+
+.settings-guest-link-card > .section-title {
+    margin: 0 0 8px;
+    font-size: 24px;
+    line-height: 1.1;
+}
+
+.settings-guest-link-note {
+    margin: 0 0 16px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.35;
+    font-weight: 650;
+}
+
+.settings-guest-link-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.settings-guest-link-control .form-input {
+    min-height: 46px;
+    font-size: 13px;
+}
+
+.settings-guest-link-control .btn {
+    min-height: 46px;
+    white-space: nowrap;
+}
+
+.settings-copy-status {
+    min-height: 18px;
+    margin-top: 10px;
+    color: #59f0a8;
+    font-size: 12px;
+    line-height: 1.2;
+    font-weight: 850;
+}
+
 .settings-status-card__head {
     display: flex;
     align-items: center;
@@ -335,6 +380,9 @@
 }
 
 @media (max-width: 720px) {
+    .settings-guest-link-control {
+        grid-template-columns: 1fr;
+    }
     .settings-card--pc-names .pc-names-list {
         grid-template-columns: 1fr;
     }
@@ -419,6 +467,26 @@
                 </div>
 
                 <div class="settings-side-stack">
+                    <div class="card settings-card settings-guest-link-card">
+                        <div class="section-title">Ссылка входа гостей</div>
+                        <p class="settings-guest-link-note">
+                            Используйте эту ссылку или QR на стойке клуба. В ней уже указан текущий клуб.
+                        </p>
+                        <div class="settings-guest-link-control">
+                            <input
+                                class="form-input"
+                                type="text"
+                                id="guestLoginUrl"
+                                value="{{ guest_login_url }}"
+                                readonly
+                            >
+                            <button class="btn btn-secondary" type="button" id="copyGuestLoginUrlBtn">
+                                Скопировать
+                            </button>
+                        </div>
+                        <div class="settings-copy-status" id="guestLoginCopyStatus" aria-live="polite"></div>
+                    </div>
+
                     <div class="card settings-card settings-status-card">
                         <div class="settings-status-card__head">
                             <div class="section-title">Статусы</div>
@@ -500,6 +568,36 @@
 {% block scripts %}
 <script>
 (function () {
+    const input = document.getElementById('guestLoginUrl');
+    const button = document.getElementById('copyGuestLoginUrlBtn');
+    const status = document.getElementById('guestLoginCopyStatus');
+    if (!input || !button) return;
+
+    async function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        input.focus();
+        input.select();
+        document.execCommand('copy');
+        input.setSelectionRange(0, 0);
+    }
+
+    button.addEventListener('click', async () => {
+        try {
+            await copyText(input.value);
+            if (status) status.textContent = 'Ссылка скопирована';
+            window.setTimeout(() => {
+                if (status) status.textContent = '';
+            }, 1800);
+        } catch (error) {
+            if (status) status.textContent = 'Не удалось скопировать автоматически';
+        }
+    });
+})();
+
+(function () {
     const list = document.getElementById('pcNamesList');
     if (!list) return;
 
@@ -531,4 +629,3 @@
 })();
 </script>
 {% endblock %}
-
