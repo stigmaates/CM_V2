@@ -4690,7 +4690,7 @@ body.modal-open { overflow: hidden; }
 
 .cb-case-prize-drop {
     display: grid;
-    grid-template-columns: minmax(120px, 1fr) minmax(84px, 0.35fr) 52px 64px;
+    grid-template-columns: minmax(120px, 1fr) minmax(84px, 0.35fr) 52px 58px 78px;
     align-items: center;
     gap: 10px;
     min-height: 28px;
@@ -4715,7 +4715,7 @@ body.modal-open { overflow: hidden; }
 }
 
 .cb-case-prize-drop b,
-.cb-case-prize-drop span:last-child {
+.cb-case-prize-drop span:nth-last-child(-n + 2) {
     color: #f4ecff;
     text-align: right;
 }
@@ -4733,7 +4733,8 @@ body.modal-open { overflow: hidden; }
 }
 
 .cb-case-prize-drop--head span:nth-child(3),
-.cb-case-prize-drop--head span:nth-child(4) {
+.cb-case-prize-drop--head span:nth-child(4),
+.cb-case-prize-drop--head span:nth-child(5) {
     text-align: right;
 }
 
@@ -4839,6 +4840,6 @@ body.modal-open { overflow: hidden; }
     }
 
     .cb-case-prize-drop {
-        grid-template-columns: minmax(0, 1fr) 72px 44px 56px;
+        grid-template-columns: minmax(0, 1fr) 68px 42px 52px 68px;
     }
 }

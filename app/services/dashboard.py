@@ -364,23 +364,25 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
             cursor.execute(
                 """
                 SELECT
-                    o.case_id,
+                    i.case_id,
                     i.id AS item_id,
                     i.name AS item_name,
                     i.rarity_label,
+                    i.probability,
                     COUNT(o.id) AS drops_count
-                FROM guest_case_openings o
-                JOIN club_case_items i
-                  ON i.id = o.item_id
-                 AND i.club_id = o.club_id
-                 AND i.case_id = o.case_id
-                WHERE o.club_id = %s
-                  AND o.created_at >= %s
-                  AND o.created_at < %s
-                GROUP BY o.case_id, i.id, i.name, i.rarity_label
-                ORDER BY o.case_id ASC, drops_count DESC, i.sort_order ASC, i.id ASC
+                FROM club_case_items i
+                LEFT JOIN guest_case_openings o
+                  ON o.item_id = i.id
+                 AND o.club_id = i.club_id
+                 AND o.case_id = i.case_id
+                 AND o.created_at >= %s
+                 AND o.created_at < %s
+                WHERE i.club_id = %s
+                  AND (i.is_active = 1 OR o.id IS NOT NULL)
+                GROUP BY i.case_id, i.id, i.name, i.rarity_label, i.probability, i.sort_order
+                ORDER BY i.case_id ASC, drops_count DESC, i.sort_order ASC, i.id ASC
                 """,
-                (club_id, current_start, current_end),
+                (current_start, current_end, club_id),
             )
             prize_rows = cursor.fetchall() or []
     finally:
@@ -406,6 +408,7 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                     "rarity": prize_row.get("rarity_label") or "Обычный",
                     "drops": drops,
                     "percent": round((drops / openings) * 100, 1) if openings else 0,
+                    "configured_percent": round(float(prize_row.get("probability") or 0), 1),
                 }
             )
         items.append(
