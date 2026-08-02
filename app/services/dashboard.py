@@ -332,7 +332,8 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                     c.name AS case_name,
                     c.image_url AS case_image_url,
                     c.sort_order,
-                    COUNT(o.id) AS openings_count
+                    COUNT(o.id) AS openings_count,
+                    COUNT(DISTINCT o.guest_id) AS unique_openers_count
                 FROM club_cases c
                 LEFT JOIN guest_case_openings o
                   ON o.club_id = c.club_id
@@ -416,6 +417,7 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
                 "name": row.get("case_name") or "Без названия",
                 "image_url": row.get("case_image_url") or "",
                 "openings": openings,
+                "unique_openers": int(row.get("unique_openers_count") or 0),
                 "width": width,
                 "prize_drops": prize_drops,
             }

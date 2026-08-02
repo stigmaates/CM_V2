@@ -24,6 +24,7 @@ They are intentionally conservative examples. Before installing them, adjust:
 - `cyber-bonus-auto-mailings.service` + `.timer` — auto-mailings.
 - `cyber-bonus-referrals.service` + `.timer` — referral rewards.
 - `clubmodule-stage-operational-alerts.service` + `.timer` — stage technical Telegram alerts.
+- `clubmodule-operational-alerts.service` + `.timer` — production technical Telegram alerts.
 - `clubmodule-stage-backup.service` + `.timer` — stage MySQL backups.
 
 ## Install example

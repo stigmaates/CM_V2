@@ -18,6 +18,7 @@ Do not touch production during stage deployment:
 - Do not modify `/root/cm_v2/CM_V2`.
 - Do not restart `clubmodule.service`.
 - Do not restart `clubmodule-bot.service`.
+- Do not restart `clubmodule-admin-bot.service`.
 - Do not restore production DB into stage unless explicitly approved.
 - Do not commit `.env`, tokens, passwords, proxy URLs, or backup files.
 
@@ -145,6 +146,7 @@ First make sure `.env` contains:
 ```bash
 TECH_ALERT_BOT_TOKEN=<technical alert bot token>
 TECH_ALERT_CHAT_ID=<technical alert chat id>
+TECH_ALERT_PROXY_URL=
 ```
 
 Then install and enable the stage timer:

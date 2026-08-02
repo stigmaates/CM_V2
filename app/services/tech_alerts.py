@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 import httpx
 
-from app.config import TECH_ALERT_BOT_TOKEN, TECH_ALERT_CHAT_ID, TG_PROXY_URL
+from app.config import TECH_ALERT_BOT_TOKEN, TECH_ALERT_CHAT_ID, TECH_ALERT_PROXY_URL
 from app.core import get_db_connection
 from app.services.operational_alerts import get_operational_alerts
 
@@ -151,8 +151,8 @@ def send_telegram_message(
             response = http_post(url, payload)
         else:
             client_kwargs: dict[str, Any] = {"timeout": 20.0}
-            if TG_PROXY_URL:
-                client_kwargs["proxy"] = TG_PROXY_URL
+            if TECH_ALERT_PROXY_URL:
+                client_kwargs["proxy"] = TECH_ALERT_PROXY_URL
             with httpx.Client(**client_kwargs) as client:
                 response = client.post(url, json=payload)
         data = response.json()

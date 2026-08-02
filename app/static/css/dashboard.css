@@ -4746,45 +4746,45 @@ body.modal-open { overflow: hidden; }
 
 .cb-case-openings-summary {
     min-height: 100%;
-    padding: 48px 46px;
+    padding: 34px 40px;
     display: grid;
     align-content: center;
-    gap: 34px;
+    gap: 22px;
 }
 
 .cb-case-openings-summary-row {
     display: grid;
-    grid-template-columns: 68px 1fr;
+    grid-template-columns: 60px 1fr;
     align-items: center;
-    gap: 24px;
+    gap: 20px;
 }
 
 .cb-case-openings-summary-icon {
-    width: 68px;
-    height: 68px;
+    width: 60px;
+    height: 60px;
     display: grid;
     place-items: center;
     border-radius: 18px;
     border: 1px solid rgba(165, 114, 255, 0.26);
     background: linear-gradient(180deg, rgba(93, 59, 154, 0.54), rgba(45, 27, 82, 0.88));
     color: #f4ecff;
-    font-size: 28px;
+    font-size: 24px;
     box-shadow: inset 0 0 18px rgba(165, 114, 255, 0.12);
 }
 
 .cb-case-openings-summary-row b {
     display: block;
     color: #fff;
-    font-size: 48px;
+    font-size: 42px;
     line-height: 1;
     font-weight: 900;
 }
 
 .cb-case-openings-summary-row span {
     display: block;
-    margin-top: 10px;
+    margin-top: 8px;
     color: #a999ca;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 800;
 }
 
