@@ -294,7 +294,13 @@
                 {% if case_openings_chart['items'] %}
                 <div class="cb-case-openings-chart">
                     {% for item in case_openings_chart['items'] %}
-                    <div class="cb-case-openings-row" title="{{ item.name }}: {{ item.openings }} открытий">
+                    <button
+                        type="button"
+                        class="cb-case-openings-row cb-case-openings-row--case"
+                        data-case-openings-row
+                        title="{{ item.name }}: {{ item.openings }} открытий"
+                        aria-expanded="false"
+                    >
                         <div class="cb-case-openings-rank">{{ loop.index }}</div>
                         <div class="cb-case-openings-thumb">
                             {% if item.image_url %}
@@ -311,7 +317,28 @@
                                 style="width: {{ item.width }}%"
                             ></div>
                         </div>
-                    </div>
+                        <span class="cb-case-openings-toggle" aria-hidden="true">⌄</span>
+                        <div class="cb-case-prize-drops" aria-label="Выпавшие призы">
+                            {% if item.prize_drops %}
+                                <div class="cb-case-prize-drop cb-case-prize-drop--head">
+                                    <span>Приз</span>
+                                    <span>Редкость</span>
+                                    <span>Выпало</span>
+                                    <span>Доля</span>
+                                </div>
+                                {% for prize in item.prize_drops %}
+                                <div class="cb-case-prize-drop">
+                                    <span class="cb-case-prize-name">{{ prize.name }}</span>
+                                    <span class="cb-case-prize-rarity">{{ prize.rarity }}</span>
+                                    <b>{{ prize.drops }}</b>
+                                    <span>{{ prize.percent }}%</span>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="cb-case-prize-drops-empty">За период призы не выпадали</div>
+                            {% endif %}
+                        </div>
+                    </button>
                     {% endfor %}
                 </div>
                 {% else %}
@@ -522,6 +549,13 @@
         });
     }
     updateEngagementValues();
+
+    document.querySelectorAll('[data-case-openings-row]').forEach((row) => {
+        row.addEventListener('click', () => {
+            const isOpen = row.classList.toggle('is-open');
+            row.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+    });
 
     const overlay = document.getElementById('feedbackModalOverlay');
     const modals = {
