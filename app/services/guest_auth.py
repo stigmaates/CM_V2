@@ -32,10 +32,11 @@ def ensure_guest_login_tokens_club_column(cursor):
     _guest_login_tokens_club_column_ready = True
 
 
-def create_guest_login_token():
+def create_guest_login_token(club_id: int | None = None):
     token = secrets.token_urlsafe(32)
     created_at = datetime.utcnow()
     expires_at = created_at + timedelta(minutes=10)
+    club_id_value = int(club_id) if club_id is not None else None
 
     conn = get_db_connection()
     try:
@@ -52,12 +53,44 @@ def create_guest_login_token():
                     created_at,
                     expires_at
                 )
-                VALUES (%s, NULL, NULL, NULL, 0, %s, %s)
+                VALUES (%s, NULL, %s, NULL, 0, %s, %s)
                 """,
-                (token, created_at, expires_at),
+                (token, club_id_value, created_at, expires_at),
             )
         conn.commit()
         return token
+    finally:
+        conn.close()
+
+
+def get_guest_login_club(club_id: int | None = None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if club_id is not None:
+                cursor.execute(
+                    """
+                    SELECT club_id, name
+                    FROM clubs
+                    WHERE club_id = %s
+                    LIMIT 1
+                    """,
+                    (int(club_id),),
+                )
+                return cursor.fetchone()
+
+            cursor.execute(
+                """
+                SELECT club_id, name
+                FROM clubs
+                ORDER BY club_id
+                LIMIT 2
+                """
+            )
+            rows = cursor.fetchall() or []
+            if len(rows) == 1:
+                return rows[0]
+            return None
     finally:
         conn.close()
 

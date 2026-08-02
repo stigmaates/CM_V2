@@ -6,7 +6,12 @@ from flask import flash, redirect, render_template, request, session, url_for
 from app.core import guest_required
 from app.config import BOT_USERNAME
 from app.services.rate_limit import client_ip, is_rate_limited
-from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_token
+from app.services.guest_auth import (
+    create_guest_login_token,
+    get_guest_by_id,
+    get_guest_login_club,
+    get_guest_login_token,
+)
 from app.services.missions import get_guest_missions_with_progress
 from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, get_cm_bonus_redeem_history, redeem_cm_bonuses
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
@@ -124,7 +129,12 @@ def check_login():
 @guest_bp.route('/login')
 def login():
     bot_username = BOT_USERNAME.lstrip("@")
-    token = create_guest_login_token()
+    requested_club_id = request.args.get("club_id", type=int) or session.get("club_id")
+    club = get_guest_login_club(requested_club_id)
+    if not club:
+        return render_template("guest/guest_login_error.html"), 400
+
+    token = create_guest_login_token(int(club["club_id"]))
     start_payload = f"login_{token}"
     bot_link = f"https://t.me/{bot_username}?start={start_payload}"
     telegram_link = f"tg://resolve?domain={bot_username}&start={start_payload}"
@@ -135,6 +145,7 @@ def login():
         telegram_link=telegram_link,
         qr_link=qr_link,
         token=token,
+        club=club,
     )
 
 
