@@ -117,6 +117,7 @@ def settings():
     context = {
         "club": get_club_info(club_id),
         "active_tab": active_tab,
+        "guest_login_url": url_for("guest.login", club_id=club_id_int, _external=True),
     }
 
     if active_tab == "club":
