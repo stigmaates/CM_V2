@@ -360,22 +360,63 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
             )
             unique_row = cursor.fetchone() or {}
             unique_openers = int(unique_row.get("unique_openers") or 0)
+
+            cursor.execute(
+                """
+                SELECT
+                    o.case_id,
+                    i.id AS item_id,
+                    i.name AS item_name,
+                    i.rarity_label,
+                    COUNT(o.id) AS drops_count
+                FROM guest_case_openings o
+                JOIN club_case_items i
+                  ON i.id = o.item_id
+                 AND i.club_id = o.club_id
+                 AND i.case_id = o.case_id
+                WHERE o.club_id = %s
+                  AND o.created_at >= %s
+                  AND o.created_at < %s
+                GROUP BY o.case_id, i.id, i.name, i.rarity_label
+                ORDER BY o.case_id ASC, drops_count DESC, i.sort_order ASC, i.id ASC
+                """,
+                (club_id, current_start, current_end),
+            )
+            prize_rows = cursor.fetchall() or []
     finally:
         conn.close()
+
+    prize_rows_by_case = defaultdict(list)
+    for prize_row in prize_rows:
+        prize_rows_by_case[int(prize_row.get("case_id") or 0)].append(prize_row)
 
     max_openings = max((int(row.get("openings_count") or 0) for row in rows), default=0)
     items = []
     for row in rows:
+        case_id = int(row.get("case_id") or 0)
         openings = int(row.get("openings_count") or 0)
         width = round((openings / max_openings) * 100, 1) if max_openings else 0
+        prize_drops = []
+        for prize_row in prize_rows_by_case.get(case_id, []):
+            drops = int(prize_row.get("drops_count") or 0)
+            prize_drops.append(
+                {
+                    "item_id": int(prize_row.get("item_id") or 0),
+                    "name": prize_row.get("item_name") or "Без названия",
+                    "rarity": prize_row.get("rarity_label") or "Обычный",
+                    "drops": drops,
+                    "percent": round((drops / openings) * 100, 1) if openings else 0,
+                }
+            )
         items.append(
             {
-                "case_id": int(row.get("case_id") or 0),
+                "case_id": case_id,
                 "name": row.get("case_name") or "Без названия",
                 "image_url": row.get("case_image_url") or "",
                 "openings": openings,
                 "unique_openers": int(row.get("unique_openers_count") or 0),
                 "width": width,
+                "prize_drops": prize_drops,
             }
         )
 
