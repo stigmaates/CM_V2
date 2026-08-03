@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from html import escape
+from typing import Any
 
 import httpx
 
 from app.config import CM_BONUS_ADMIN_CHAT_ID, CM_BONUS_BOT_TOKEN, TG_PROXY_URL
 from app.core import get_db_connection
 from app.services.clubs import ensure_club_bonus_chat_column
-
 
 _cm_bonus_tables_ready = False
 
@@ -36,8 +35,7 @@ def ensure_cm_bonus_tables(cursor) -> None:
     if _cm_bonus_tables_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cm_bonus_balances (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -48,10 +46,8 @@ def ensure_cm_bonus_tables(cursor) -> None:
             UNIQUE KEY uq_cm_bonus_balance (club_id, guest_id),
             KEY idx_cm_bonus_balance_guest (guest_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cm_bonus_transactions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -67,10 +63,8 @@ def ensure_cm_bonus_tables(cursor) -> None:
             KEY idx_cm_bonus_guest_created (club_id, guest_id, created_at),
             KEY idx_cm_bonus_source_type (source_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cm_bonus_redeem_requests (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -85,8 +79,7 @@ def ensure_cm_bonus_tables(cursor) -> None:
             KEY idx_cm_bonus_redeem_guest (club_id, guest_id, requested_at),
             KEY idx_cm_bonus_redeem_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_telegram_id", "BIGINT NULL")
     _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_username", "VARCHAR(255) NULL")
     _ensure_column(cursor, "cm_bonus_transactions", "expires_at", "DATETIME NULL")
@@ -395,7 +388,9 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
     )
 
 
-def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: int) -> tuple[bool, int | None, str | None, str | None]:
+def _notify_admin_chat(
+    guest: dict[str, Any], amount: int, redeem_request_id: int
+) -> tuple[bool, int | None, str | None, str | None]:
     token = (CM_BONUS_BOT_TOKEN or "").strip()
     chat_id = get_cm_bonus_admin_chat_id_for_club(int(guest.get("club_id") or 0))
     if not token:
@@ -440,7 +435,7 @@ def _notify_admin_chat(guest: dict[str, Any], amount: int, redeem_request_id: in
         data = response.json()
         if response.status_code >= 400 or not data.get("ok"):
             return False, None, str(data), chat_id
-        message_id = ((data.get("result") or {}).get("message_id"))
+        message_id = (data.get("result") or {}).get("message_id")
         return True, message_id, None, chat_id
     except Exception as e:
         return False, None, str(e), chat_id
@@ -485,7 +480,9 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
     finally:
         conn.close()
 
-    notification_sent, message_id, error_text, admin_chat_id = _notify_admin_chat(guest, redeem_amount, redeem_request_id)
+    notification_sent, message_id, error_text, admin_chat_id = _notify_admin_chat(
+        guest, redeem_amount, redeem_request_id
+    )
 
     conn = get_db_connection()
     try:
@@ -522,7 +519,6 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
         "error_text": error_text,
         "balance_after": get_cm_bonus_balance(guest_id, club_id),
     }
-
 
 
 def get_cm_bonus_redeem_history(guest_id: int, club_id: int, limit: int = 30):

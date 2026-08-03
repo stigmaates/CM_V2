@@ -20,7 +20,6 @@ from app.config import (
 )
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
-
 logging.basicConfig(level=logging.INFO)
 
 SUM_FROM = 1
@@ -42,7 +41,7 @@ def get_db_connection():
         connect_timeout=DB_CONNECT_TIMEOUT,
         read_timeout=DB_READ_TIMEOUT,
         write_timeout=DB_WRITE_TIMEOUT,
-        autocommit=False
+        autocommit=False,
     )
 
 
@@ -51,12 +50,15 @@ def get_club_data(club_id: int):
     try:
         with conn.cursor() as cursor:
             service_enabled_expr = service_enabled_select_expr(cursor)
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
-            """.format(service_enabled_expr=service_enabled_expr), (club_id,))
+            """.format(service_enabled_expr=service_enabled_expr),
+                (club_id,),
+            )
             return cursor.fetchone()
     finally:
         conn.close()
@@ -80,17 +82,9 @@ def get_clubs():
 def fetch_operations(secret: str, api_key: str, club_id: int, date_from: str, date_to: str):
     url = f"https://{secret}.langame.ru/public_api/all_operations_log/list"
 
-    headers = {
-        "accept": "application/json",
-        "X-API-KEY": api_key.strip()
-    }
+    headers = {"accept": "application/json", "X-API-KEY": api_key.strip()}
 
-    params = {
-        "date_from": date_from,
-        "date_to": date_to,
-        "sum_from": SUM_FROM,
-        "sum_to": SUM_TO
-    }
+    params = {"date_from": date_from, "date_to": date_to, "sum_from": SUM_FROM, "sum_to": SUM_TO}
 
     response = httpx.get(url, headers=headers, params=params, timeout=120)
 
@@ -126,18 +120,20 @@ def extract_phone(operation_name: str):
 
 
 def build_operation_uid(club_id: int, operation: dict) -> str:
-    raw = "|".join([
-        str(club_id),
-        str(operation.get("date_normal") or ""),
-        str(operation.get("type") or ""),
-        str(operation.get("name") or ""),
-        str(operation.get("source") or ""),
-        str(operation.get("form") or ""),
-        str(operation.get("sum") or ""),
-        str(operation.get("date_fiscal") or ""),
-        str(operation.get("fn_number") or ""),
-        str(operation.get("fiscal_number") or "")
-    ])
+    raw = "|".join(
+        [
+            str(club_id),
+            str(operation.get("date_normal") or ""),
+            str(operation.get("type") or ""),
+            str(operation.get("name") or ""),
+            str(operation.get("source") or ""),
+            str(operation.get("form") or ""),
+            str(operation.get("sum") or ""),
+            str(operation.get("date_fiscal") or ""),
+            str(operation.get("fn_number") or ""),
+            str(operation.get("fiscal_number") or ""),
+        ]
+    )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -146,25 +142,27 @@ def prepare_rows(club_id: int, operations: list):
 
     now = datetime.utcnow()
     for op in operations:
-        rows.append((
-            build_operation_uid(club_id, op),
-            club_id,
-            op.get("club_name"),
-            op.get("type"),
-            op.get("name"),
-            extract_phone(op.get("name")),
-            op.get("source"),
-            op.get("form"),
-            op.get("sum"),
-            parse_datetime(op.get("date_normal")),
-            op.get("date"),
-            op.get("time"),
-            parse_datetime(op.get("date_fiscal")),
-            op.get("fn_number"),
-            op.get("fiscal_number"),
-            now,
-            now,
-        ))
+        rows.append(
+            (
+                build_operation_uid(club_id, op),
+                club_id,
+                op.get("club_name"),
+                op.get("type"),
+                op.get("name"),
+                extract_phone(op.get("name")),
+                op.get("source"),
+                op.get("form"),
+                op.get("sum"),
+                parse_datetime(op.get("date_normal")),
+                op.get("date"),
+                op.get("time"),
+                parse_datetime(op.get("date_fiscal")),
+                op.get("fn_number"),
+                op.get("fiscal_number"),
+                now,
+                now,
+            )
+        )
 
     return rows
 
@@ -242,7 +240,13 @@ def sync_operations_initial(club_id: int, date_from: str, date_to: str):
 
     if not is_service_enabled(club):
         logging.info("Клуб %s выключен, initial sync операций пропущен", club_id)
-        return {"club_id": club_id, "status": "skipped_disabled", "saved": 0, "date_from": date_from, "date_to": date_to}
+        return {
+            "club_id": club_id,
+            "status": "skipped_disabled",
+            "saved": 0,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
 
     api_key = club["lg_api_key"]
     secret = club["secret"]

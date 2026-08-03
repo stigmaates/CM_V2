@@ -5,7 +5,6 @@ from typing import Any
 
 from app.core import get_db_connection
 
-
 PHONE_NORMALIZED_SQL = (
     "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone, ''), '+', ''), "
     "' ', ''), '-', ''), '(', ''), ')', ''), '.', '')"
@@ -131,26 +130,30 @@ def get_reception_guest_lookup(*, club_id: int, phone: str, limit: int = 30) -> 
                 return {"found": False, "query": phone}
 
             guest_id = int(guest["guest_id"])
-            bonus_balance = _balance_value(_one_or_none(
-                cursor,
-                """
+            bonus_balance = _balance_value(
+                _one_or_none(
+                    cursor,
+                    """
                 SELECT balance
                 FROM cm_bonus_balances
                 WHERE club_id = %s AND guest_id = %s
                 LIMIT 1
                 """,
-                (club_id, guest_id),
-            ))
-            token_balance = _balance_value(_one_or_none(
-                cursor,
-                """
+                    (club_id, guest_id),
+                )
+            )
+            token_balance = _balance_value(
+                _one_or_none(
+                    cursor,
+                    """
                 SELECT balance
                 FROM guest_wheel_token_balances
                 WHERE club_id = %s AND guest_id = %s
                 LIMIT 1
                 """,
-                (club_id, guest_id),
-            ))
+                    (club_id, guest_id),
+                )
+            )
             bonus_transactions = _rows_or_empty(
                 cursor,
                 """

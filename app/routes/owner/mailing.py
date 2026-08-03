@@ -4,15 +4,14 @@ import threading
 from flask import current_app, jsonify, render_template, request, session
 
 from app.core import get_db_connection, owner_required
-from scripts.process_mailings import process_one_mailing
 from app.services.mailing import (
-    create_mailing,
     create_bonus_giveaway,
+    create_mailing,
     delete_segment,
+    get_crm_interaction_detail,
+    get_crm_segment_options,
     get_filter_fields,
     get_message_variables,
-    get_crm_segment_options,
-    get_crm_interaction_detail,
     list_auto_mailings,
     list_bonus_giveaways,
     list_crm_interactions,
@@ -21,9 +20,9 @@ from app.services.mailing import (
     preview_recipients_count,
     save_segment,
     save_uploaded_file,
-    update_auto_mailing_enabled,
     update_auto_mailing_settings,
 )
+from scripts.process_mailings import process_one_mailing
 
 from . import owner_bp
 
@@ -73,7 +72,7 @@ def _start_mailing_worker(mailing_id: int):
     thread.start()
 
 
-@owner_bp.route('/mailing')
+@owner_bp.route("/mailing")
 @owner_required
 def mailing_page():
     club_id = get_current_club_id()
@@ -101,7 +100,7 @@ def mailing_page():
     )
 
 
-@owner_bp.route('/api/segments')
+@owner_bp.route("/api/segments")
 @owner_required
 def api_segments():
     club_id = get_current_club_id()
@@ -114,7 +113,7 @@ def api_segments():
     return jsonify({"ok": True, "segments": segments})
 
 
-@owner_bp.route('/api/segments/preview', methods=['POST'])
+@owner_bp.route("/api/segments/preview", methods=["POST"])
 @owner_required
 def api_segments_preview():
     club_id = get_current_club_id()
@@ -130,7 +129,7 @@ def api_segments_preview():
     return jsonify({"ok": True, "count": count})
 
 
-@owner_bp.route('/api/segments/save', methods=['POST'])
+@owner_bp.route("/api/segments/save", methods=["POST"])
 @owner_required
 def api_segments_save():
     club_id = get_current_club_id()
@@ -151,7 +150,7 @@ def api_segments_save():
     return jsonify({"ok": True, "segment_id": segment_id})
 
 
-@owner_bp.route('/api/segments/<int:segment_id>', methods=['DELETE'])
+@owner_bp.route("/api/segments/<int:segment_id>", methods=["DELETE"])
 @owner_required
 def api_segments_delete(segment_id):
     club_id = get_current_club_id()
@@ -165,7 +164,7 @@ def api_segments_delete(segment_id):
     return jsonify({"ok": True})
 
 
-@owner_bp.route('/api/auto-mailings/<code>/toggle', methods=['POST'])
+@owner_bp.route("/api/auto-mailings/<code>/toggle", methods=["POST"])
 @owner_required
 def api_auto_mailing_toggle(code):
     club_id = get_current_club_id()
@@ -215,7 +214,7 @@ def api_auto_mailing_toggle(code):
     return jsonify({"ok": True, "auto_mailing": updated})
 
 
-@owner_bp.route('/api/mailings/upload', methods=['POST'])
+@owner_bp.route("/api/mailings/upload", methods=["POST"])
 @owner_required
 def api_mailings_upload():
     club_id = get_current_club_id()
@@ -236,7 +235,7 @@ def api_mailings_upload():
     return jsonify({"ok": True, "files": uploaded})
 
 
-@owner_bp.route('/api/mailings/create', methods=['POST'])
+@owner_bp.route("/api/mailings/create", methods=["POST"])
 @owner_required
 def api_mailings_create():
     club_id = get_current_club_id()
@@ -272,7 +271,7 @@ def api_mailings_create():
     return jsonify({"ok": True, "started": start_now, **result})
 
 
-@owner_bp.route('/api/bonus-giveaways/create', methods=['POST'])
+@owner_bp.route("/api/bonus-giveaways/create", methods=["POST"])
 @owner_required
 def api_bonus_giveaways_create():
     club_id = get_current_club_id()
@@ -354,7 +353,7 @@ def api_bonus_giveaways_create():
     return jsonify({"ok": True, "started": start_now, **result})
 
 
-@owner_bp.route('/api/crm-interactions/<interaction_type>/<int:interaction_id>')
+@owner_bp.route("/api/crm-interactions/<interaction_type>/<int:interaction_id>")
 @owner_required
 def api_crm_interaction_detail(interaction_type, interaction_id):
     club_id = get_current_club_id()

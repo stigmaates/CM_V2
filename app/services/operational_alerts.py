@@ -7,7 +7,6 @@ from app.core import get_db_connection
 from app.services.backup_monitor import get_backup_status
 from app.services.job_runs import ensure_background_job_runs_table, get_latest_job_runs_by_club
 
-
 SYNC_JOB_TYPES = [
     "sync_guests_incremental",
     "sync_sessions_incremental",
@@ -89,84 +88,98 @@ def build_operational_alerts(
             max_age_hours = SYNC_MAX_AGE_HOURS[job_type]
 
             if not row:
-                alerts.append(_alert(
-                    "warning",
-                    "sync_missing",
-                    f"{label}: нет данных о последнем запуске",
-                    club_id=club_id,
-                    club_name=club_name,
-                    job_type=job_type,
-                ))
+                alerts.append(
+                    _alert(
+                        "warning",
+                        "sync_missing",
+                        f"{label}: нет данных о последнем запуске",
+                        club_id=club_id,
+                        club_name=club_name,
+                        job_type=job_type,
+                    )
+                )
                 continue
 
             status = row.get("status")
             started_at = row.get("started_at")
             age_minutes = _age_minutes(started_at, now)
             if status in {"error", "stale"}:
-                alerts.append(_alert(
-                    "error",
-                    f"sync_{status}",
-                    f"{label}: последний запуск завершился статусом {status}",
-                    club_id=club_id,
-                    club_name=club_name,
-                    job_type=job_type,
-                    age_minutes=age_minutes,
-                    metadata={"error_text": row.get("error_text")},
-                ))
+                alerts.append(
+                    _alert(
+                        "error",
+                        f"sync_{status}",
+                        f"{label}: последний запуск завершился статусом {status}",
+                        club_id=club_id,
+                        club_name=club_name,
+                        job_type=job_type,
+                        age_minutes=age_minutes,
+                        metadata={"error_text": row.get("error_text")},
+                    )
+                )
             elif age_minutes is not None and age_minutes > max_age_hours * 60:
-                alerts.append(_alert(
-                    "warning",
-                    "sync_stale",
-                    f"{label}: данные не обновлялись больше {max_age_hours} ч",
-                    club_id=club_id,
-                    club_name=club_name,
-                    job_type=job_type,
-                    age_minutes=age_minutes,
-                ))
+                alerts.append(
+                    _alert(
+                        "warning",
+                        "sync_stale",
+                        f"{label}: данные не обновлялись больше {max_age_hours} ч",
+                        club_id=club_id,
+                        club_name=club_name,
+                        job_type=job_type,
+                        age_minutes=age_minutes,
+                    )
+                )
 
     for row in problem_jobs:
-        alerts.append(_alert(
-            "error",
-            "background_job_failed",
-            f"{row.get('job_type')}: статус {row.get('status')}",
-            club_id=row.get("club_id"),
-            job_type=row.get("job_type"),
-            age_minutes=_age_minutes(row.get("started_at"), now),
-            metadata={
-                "job_run_id": row.get("id"),
-                "status": row.get("status"),
-                "error_text": row.get("error_text"),
-            },
-        ))
+        alerts.append(
+            _alert(
+                "error",
+                "background_job_failed",
+                f"{row.get('job_type')}: статус {row.get('status')}",
+                club_id=row.get("club_id"),
+                job_type=row.get("job_type"),
+                age_minutes=_age_minutes(row.get("started_at"), now),
+                metadata={
+                    "job_run_id": row.get("id"),
+                    "status": row.get("status"),
+                    "error_text": row.get("error_text"),
+                },
+            )
+        )
 
     for row in stuck_mailings:
-        alerts.append(_alert(
-            "error",
-            "mailing_stuck",
-            f"Рассылка #{row.get('id')} зависла в статусе {row.get('status')}",
-            club_id=row.get("club_id"),
-            age_minutes=_age_minutes(row.get("activity_at"), now),
-            metadata={
-                "mailing_id": row.get("id"),
-                "status": row.get("status"),
-                "recipients_count": row.get("recipients_count"),
-            },
-        ))
+        alerts.append(
+            _alert(
+                "error",
+                "mailing_stuck",
+                f"Рассылка #{row.get('id')} зависла в статусе {row.get('status')}",
+                club_id=row.get("club_id"),
+                age_minutes=_age_minutes(row.get("activity_at"), now),
+                metadata={
+                    "mailing_id": row.get("id"),
+                    "status": row.get("status"),
+                    "recipients_count": row.get("recipients_count"),
+                },
+            )
+        )
 
     if backup_status and backup_status.get("status") in {"error", "warning"}:
         latest = backup_status.get("latest") or {}
-        alerts.append(_alert(
-            backup_status["status"],
-            "backup_stale" if latest else "backup_missing",
-            backup_status.get("message") or "Backup требует внимания",
-            age_minutes=(int(backup_status["age_hours"]) * 60 if backup_status.get("age_hours") is not None else None),
-            metadata={
-                "latest_backup": latest.get("name"),
-                "latest_backup_path": latest.get("path"),
-                "configured_dirs": backup_status.get("configured_dirs") or [],
-                "max_age_hours": backup_status.get("max_age_hours"),
-            },
-        ))
+        alerts.append(
+            _alert(
+                backup_status["status"],
+                "backup_stale" if latest else "backup_missing",
+                backup_status.get("message") or "Backup требует внимания",
+                age_minutes=(
+                    int(backup_status["age_hours"]) * 60 if backup_status.get("age_hours") is not None else None
+                ),
+                metadata={
+                    "latest_backup": latest.get("name"),
+                    "latest_backup_path": latest.get("path"),
+                    "configured_dirs": backup_status.get("configured_dirs") or [],
+                    "max_age_hours": backup_status.get("max_age_hours"),
+                },
+            )
+        )
 
     severity_rank = {"error": 0, "warning": 1, "info": 2}
     alerts.sort(key=lambda item: (severity_rank.get(item["severity"], 9), item.get("club_id") or 0, item["code"]))
@@ -175,13 +188,11 @@ def build_operational_alerts(
 
 def _fetch_clubs(cursor) -> list[dict[str, Any]]:
     try:
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT club_id, name, service_enabled
             FROM clubs
             ORDER BY club_id
-            """
-        )
+            """)
     except Exception:
         cursor.execute("SELECT club_id, name, 1 AS service_enabled FROM clubs ORDER BY club_id")
     return cursor.fetchall() or []

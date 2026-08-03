@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -62,7 +61,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run HTTP smoke checks against Cyber Bonus.")
     parser.add_argument("--base-url", required=True, help="Base URL, for example https://staging.example.com")
     parser.add_argument("--timeout", type=int, default=5)
-    parser.add_argument("--skip-ready", action="store_true", help="Skip /readyz when database is intentionally unavailable")
+    parser.add_argument(
+        "--skip-ready", action="store_true", help="Skip /readyz when database is intentionally unavailable"
+    )
     parser.add_argument("--expected-version", help="Expected APP_VERSION returned by health endpoints")
     args = parser.parse_args(argv)
 

@@ -4,8 +4,7 @@ revision = "0006_guest_balance_topups"
 
 
 def upgrade(cursor) -> None:
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_balance_topups (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -22,5 +21,4 @@ def upgrade(cursor) -> None:
             KEY idx_guest_balance_topups_phone (club_id, phone, topup_at),
             KEY idx_guest_balance_topups_topup_at (club_id, topup_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        """
-    )
+        """)

@@ -214,10 +214,30 @@ def get_crm_cohort_analysis(
         "funnel": funnel,
         "funnel_period_label": funnel_period_label,
         "metrics": [
-            {"label": "Среднее пополнение", "value": f"{int(round(float(metrics_row.get('avg_topup') or 0)))} ₽", "hint": "По пополнениям за последние 30 дней"},
-            {"label": "Средняя длина визита", "value": _format_minutes(metrics_row.get("avg_session_minutes")), "hint": "Сессии с разрывом до 2 часов склеиваются"},
-            {"label": "Сессий в месяц", "value": str(_round(metrics_row.get("avg_visits_per_month"), 1)), "hint": "Среднее число сессий на гостя"},
-            {"label": "Ночь / день", "value": f"{_format_percent(night_share)} / {_format_percent(1 - night_share)}", "hint": "Доля ночных и дневных визитов"},
-            {"label": "Выходные / будни", "value": f"{_format_percent(weekend_share)} / {_format_percent(1 - weekend_share)}", "hint": "Доля визитов по дням недели"},
+            {
+                "label": "Среднее пополнение",
+                "value": f"{int(round(float(metrics_row.get('avg_topup') or 0)))} ₽",
+                "hint": "По пополнениям за последние 30 дней",
+            },
+            {
+                "label": "Средняя длина визита",
+                "value": _format_minutes(metrics_row.get("avg_session_minutes")),
+                "hint": "Сессии с разрывом до 2 часов склеиваются",
+            },
+            {
+                "label": "Сессий в месяц",
+                "value": str(_round(metrics_row.get("avg_visits_per_month"), 1)),
+                "hint": "Среднее число сессий на гостя",
+            },
+            {
+                "label": "Ночь / день",
+                "value": f"{_format_percent(night_share)} / {_format_percent(1 - night_share)}",
+                "hint": "Доля ночных и дневных визитов",
+            },
+            {
+                "label": "Выходные / будни",
+                "value": f"{_format_percent(weekend_share)} / {_format_percent(1 - weekend_share)}",
+                "hint": "Доля визитов по дням недели",
+            },
         ],
     }

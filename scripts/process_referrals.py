@@ -1,4 +1,5 @@
 """Cron helper: process referral rewards for all clubs."""
+
 from __future__ import annotations
 
 import sys

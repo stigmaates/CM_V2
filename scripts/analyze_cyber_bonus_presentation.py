@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import math
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
@@ -15,7 +14,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.core import get_db_connection
-
 
 AUTO_CODES = {
     "inactive_14_bonus": "Давно тебя не было",
@@ -112,7 +110,9 @@ def table_columns(conn, table_name: str) -> set[str]:
     return {str(row["COLUMN_NAME"]) for row in rows}
 
 
-def fetch_sessions(conn, history_start: datetime, club_id: int | None) -> tuple[dict[tuple[int, int], list[Visit]], dict[tuple[int, int], dict[str, Any]]]:
+def fetch_sessions(
+    conn, history_start: datetime, club_id: int | None
+) -> tuple[dict[tuple[int, int], list[Visit]], dict[tuple[int, int], dict[str, Any]]]:
     params: list[Any] = [history_start]
     club_filter = ""
     if club_id is not None:
@@ -206,7 +206,13 @@ def fetch_topups(conn, start: datetime, club_id: int | None) -> dict[tuple[int, 
     return result
 
 
-def topups_for_guest(topups_by_guest: dict[tuple[int, int], list[dict[str, Any]]], club_id: int, guest_id: int, start: datetime, end: datetime) -> float:
+def topups_for_guest(
+    topups_by_guest: dict[tuple[int, int], list[dict[str, Any]]],
+    club_id: int,
+    guest_id: int,
+    start: datetime,
+    end: datetime,
+) -> float:
     total = 0.0
     for row in topups_by_guest.get((club_id, guest_id), []):
         dt = as_dt(row.get("topup_at"))
@@ -238,7 +244,9 @@ def fetch_auto_events(conn, launch: datetime, club_id: int | None) -> list[dict[
         code_parts.append("aml.automation_code")
     if "auto_mailing_code" in columns:
         code_parts.append("aml.auto_mailing_code")
-    raw_code_expr = "COALESCE(" + ", ".join(code_parts) + ")" if len(code_parts) > 1 else (code_parts[0] if code_parts else "NULL")
+    raw_code_expr = (
+        "COALESCE(" + ", ".join(code_parts) + ")" if len(code_parts) > 1 else (code_parts[0] if code_parts else "NULL")
+    )
     code_expr = f"CAST(({raw_code_expr}) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci"
 
     params: list[Any] = [launch]
@@ -376,14 +384,18 @@ def fetch_wheel_prize_distribution(conn, launch: datetime, club_id: int | None) 
     )
 
 
-def build_period_stats(visits_by_guest: dict[tuple[int, int], list[Visit]], start: datetime, end: datetime) -> dict[int, dict[str, Any]]:
-    stats: dict[int, dict[str, Any]] = defaultdict(lambda: {
-        "days": max((end - start).days, 1),
-        "active_guests": set(),
-        "visits": 0,
-        "return_20_events": 0,
-        "return_20_guests": set(),
-    })
+def build_period_stats(
+    visits_by_guest: dict[tuple[int, int], list[Visit]], start: datetime, end: datetime
+) -> dict[int, dict[str, Any]]:
+    stats: dict[int, dict[str, Any]] = defaultdict(
+        lambda: {
+            "days": max((end - start).days, 1),
+            "active_guests": set(),
+            "visits": 0,
+            "return_20_events": 0,
+            "return_20_guests": set(),
+        }
+    )
     for (club_id, guest_id), visits in visits_by_guest.items():
         previous = None
         for visit in visits:
@@ -460,23 +472,38 @@ def main() -> None:
         post_return = len(post.get("return_20_guests", set()))
         pre_freq = pre_visits / pre_active if pre_active else 0
         post_freq = post_visits / post_active if post_active else 0
-        comparison_rows.append([
-            f"{club_id} · {club_name}",
-            pre_active,
-            post_active,
-            pre_visits,
-            post_visits,
-            f"{pre_freq:.2f}",
-            f"{post_freq:.2f}",
-            pre_return,
-            post_return,
-            f"{(post_return / max(after_days, 1) * 30):.1f}/мес",
-        ])
+        comparison_rows.append(
+            [
+                f"{club_id} · {club_name}",
+                pre_active,
+                post_active,
+                pre_visits,
+                post_visits,
+                f"{pre_freq:.2f}",
+                f"{post_freq:.2f}",
+                pre_return,
+                post_return,
+                f"{(post_return / max(after_days, 1) * 30):.1f}/мес",
+            ]
+        )
     print("## Общая эффективность")
-    print(markdown_table(
-        ["Клуб", "Гостей до", "Гостей после", "Визитов до", "Визитов после", "Визитов/гость до", "Визитов/гость после", "20+ возвратов до", "20+ возвратов после", "20+ возвратов/мес после"],
-        comparison_rows,
-    ))
+    print(
+        markdown_table(
+            [
+                "Клуб",
+                "Гостей до",
+                "Гостей после",
+                "Визитов до",
+                "Визитов после",
+                "Визитов/гость до",
+                "Визитов/гость после",
+                "20+ возвратов до",
+                "20+ возвратов после",
+                "20+ возвратов/мес после",
+            ],
+            comparison_rows,
+        )
+    )
     print()
 
     enriched_auto = []
@@ -484,24 +511,32 @@ def main() -> None:
         code = row.get("code")
         if code not in AUTO_CODES:
             continue
-        at = as_dt(row.get("sent_at")) or as_dt(row.get("mailing_started_at")) or as_dt(row.get("mailing_created_at")) or as_dt(row.get("log_created_at"))
+        at = (
+            as_dt(row.get("sent_at"))
+            or as_dt(row.get("mailing_started_at"))
+            or as_dt(row.get("mailing_created_at"))
+            or as_dt(row.get("log_created_at"))
+        )
         if not at:
             continue
         key = (int(row["club_id"]), int(row["guest_id"]))
         previous, next_visit = nearest_visits(visits_by_guest.get(key, []), at)
         prev_gap_days = (at - previous.start).days if previous else None
         next_delay_hours = (next_visit.start - at).total_seconds() / 3600 if next_visit else None
-        enriched_auto.append({
-            **row,
-            "interaction_at": at,
-            "previous_visit": previous,
-            "next_visit": next_visit,
-            "prev_gap_days": prev_gap_days,
-            "next_delay_hours": next_delay_hours,
-        })
+        enriched_auto.append(
+            {
+                **row,
+                "interaction_at": at,
+                "previous_visit": previous,
+                "next_visit": next_visit,
+                "prev_gap_days": prev_gap_days,
+                "next_delay_hours": next_delay_hours,
+            }
+        )
 
     inactive_candidates = [
-        row for row in enriched_auto
+        row
+        for row in enriched_auto
         if row["code"] == "inactive_14_bonus"
         and row.get("prev_gap_days") is not None
         and row["prev_gap_days"] >= 20
@@ -510,101 +545,174 @@ def main() -> None:
     ]
     inactive_candidates.sort(key=lambda r: (-(r.get("prev_gap_days") or 0), r.get("next_delay_hours") or 99999))
     print("## Кейсы: вернулся после `давно тебя не было`")
-    print(markdown_table(
-        ["Клуб", "guest_id", "Гость", "Телефон", "Не был, дней", "Сообщение", "Бонус", "Следующий визит", "Задержка", "Длительность"],
-        [[
-            f"{r['club_id']} · {r.get('club_name') or '-'}",
-            r["guest_id"],
-            r.get("fio") or r["guest_id"],
-            r.get("phone") or "-",
-            r.get("prev_gap_days"),
-            fmt_dt(r.get("interaction_at")),
-            int(as_float(r.get("bonus_awarded")) or as_float(r.get("configured_bonus"))),
-            fmt_dt(r["next_visit"].start if r.get("next_visit") else None),
-            f"{(r['next_delay_hours'] / 24):.1f} дн.",
-            f"{r['next_visit'].minutes or '-'} мин" if r.get("next_visit") else "-",
-        ] for r in inactive_candidates[:args.top]],
-    ))
+    print(
+        markdown_table(
+            [
+                "Клуб",
+                "guest_id",
+                "Гость",
+                "Телефон",
+                "Не был, дней",
+                "Сообщение",
+                "Бонус",
+                "Следующий визит",
+                "Задержка",
+                "Длительность",
+            ],
+            [
+                [
+                    f"{r['club_id']} · {r.get('club_name') or '-'}",
+                    r["guest_id"],
+                    r.get("fio") or r["guest_id"],
+                    r.get("phone") or "-",
+                    r.get("prev_gap_days"),
+                    fmt_dt(r.get("interaction_at")),
+                    int(as_float(r.get("bonus_awarded")) or as_float(r.get("configured_bonus"))),
+                    fmt_dt(r["next_visit"].start if r.get("next_visit") else None),
+                    f"{(r['next_delay_hours'] / 24):.1f} дн.",
+                    f"{r['next_visit'].minutes or '-'} мин" if r.get("next_visit") else "-",
+                ]
+                for r in inactive_candidates[: args.top]
+            ],
+        )
+    )
     print()
 
     wheel_examples = []
     for row in wheel_rows:
         key = (int(row["club_id"]), int(row["guest_id"]))
-        guest = guests.get(key, {})
         visits_after = count_visits(visits_by_guest.get(key, []), launch, now)
         topups_after = topups_for_guest(topups_by_guest, int(row["club_id"]), int(row["guest_id"]), launch, now)
         spins = int(row.get("spins_count") or 0)
         wheel_bonus = as_float(row.get("prize_bonus_sum"))
         bonus_per_spin = wheel_bonus / spins if spins else 0
         if spins >= 5:
-            wheel_examples.append({
-                **row,
-                "visits_after": visits_after,
-                "topups_after": topups_after,
-                "bonus_per_spin": bonus_per_spin,
-            })
-    wheel_examples.sort(key=lambda r: (-as_float(r.get("spins_count")), as_float(r.get("bonus_per_spin")), -as_float(r.get("topups_after"))))
+            wheel_examples.append(
+                {
+                    **row,
+                    "visits_after": visits_after,
+                    "topups_after": topups_after,
+                    "bonus_per_spin": bonus_per_spin,
+                }
+            )
+    wheel_examples.sort(
+        key=lambda r: (
+            -as_float(r.get("spins_count")),
+            as_float(r.get("bonus_per_spin")),
+            -as_float(r.get("topups_after")),
+        )
+    )
     print("## Кейсы: много крутил рулетку, мало КБ, но много ходил")
-    print(markdown_table(
-        ["Клуб", "guest_id", "Гость", "Телефон", "Прокрутов", "КБ из рулетки", "КБ/прокрут", "Визитов после запуска", "Пополнения после запуска"],
-        [[
-            f"{r['club_id']} · {r.get('club_name') or '-'}",
-            r["guest_id"],
-            r.get("fio") or r["guest_id"],
-            r.get("phone") or "-",
-            int(r.get("spins_count") or 0),
-            money(as_float(r.get("prize_bonus_sum"))),
-            f"{as_float(r.get('bonus_per_spin')):.1f}",
-            r.get("visits_after"),
-            money(r.get("topups_after") or 0),
-        ] for r in wheel_examples[:args.top]],
-    ))
+    print(
+        markdown_table(
+            [
+                "Клуб",
+                "guest_id",
+                "Гость",
+                "Телефон",
+                "Прокрутов",
+                "КБ из рулетки",
+                "КБ/прокрут",
+                "Визитов после запуска",
+                "Пополнения после запуска",
+            ],
+            [
+                [
+                    f"{r['club_id']} · {r.get('club_name') or '-'}",
+                    r["guest_id"],
+                    r.get("fio") or r["guest_id"],
+                    r.get("phone") or "-",
+                    int(r.get("spins_count") or 0),
+                    money(as_float(r.get("prize_bonus_sum"))),
+                    f"{as_float(r.get('bonus_per_spin')):.1f}",
+                    r.get("visits_after"),
+                    money(r.get("topups_after") or 0),
+                ]
+                for r in wheel_examples[: args.top]
+            ],
+        )
+    )
     print()
 
     streak_candidates = [
-        row for row in enriched_auto
+        row
+        for row in enriched_auto
         if row["code"] == "streak_expiring_reminder"
         and row.get("next_delay_hours") is not None
         and row["next_delay_hours"] <= 36
     ]
     streak_candidates.sort(key=lambda r: (r.get("next_delay_hours") or 99999, -(r.get("prev_gap_days") or 0)))
     print("## Кейсы: вернулся после напоминания о сгорающем стрике")
-    print(markdown_table(
-        ["Клуб", "guest_id", "Гость", "Телефон", "Предыдущий визит", "Сообщение", "Следующий визит", "Через часов", "Длительность"],
-        [[
-            f"{r['club_id']} · {r.get('club_name') or '-'}",
-            r["guest_id"],
-            r.get("fio") or r["guest_id"],
-            r.get("phone") or "-",
-            fmt_dt(r["previous_visit"].start if r.get("previous_visit") else None),
-            fmt_dt(r.get("interaction_at")),
-            fmt_dt(r["next_visit"].start if r.get("next_visit") else None),
-            f"{r['next_delay_hours']:.1f}",
-            f"{r['next_visit'].minutes or '-'} мин" if r.get("next_visit") else "-",
-        ] for r in streak_candidates[:args.top]],
-    ))
+    print(
+        markdown_table(
+            [
+                "Клуб",
+                "guest_id",
+                "Гость",
+                "Телефон",
+                "Предыдущий визит",
+                "Сообщение",
+                "Следующий визит",
+                "Через часов",
+                "Длительность",
+            ],
+            [
+                [
+                    f"{r['club_id']} · {r.get('club_name') or '-'}",
+                    r["guest_id"],
+                    r.get("fio") or r["guest_id"],
+                    r.get("phone") or "-",
+                    fmt_dt(r["previous_visit"].start if r.get("previous_visit") else None),
+                    fmt_dt(r.get("interaction_at")),
+                    fmt_dt(r["next_visit"].start if r.get("next_visit") else None),
+                    f"{r['next_delay_hours']:.1f}",
+                    f"{r['next_visit'].minutes or '-'} мин" if r.get("next_visit") else "-",
+                ]
+                for r in streak_candidates[: args.top]
+            ],
+        )
+    )
     print()
 
     print("## Эффективность авторассылок")
     auto_summary_rows = []
     for code, title in AUTO_CODES.items():
         rows = [row for row in enriched_auto if row["code"] == code]
-        delivered = [row for row in rows if str(row.get("delivery_status") or "").lower() in {"sent", "delivered", "completed", ""}]
+        delivered = [
+            row
+            for row in rows
+            if str(row.get("delivery_status") or "").lower() in {"sent", "delivered", "completed", ""}
+        ]
         returned_1d = [row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 24]
-        returned_7d = [row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 7 * 24]
-        returned_14d = [row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 14 * 24]
-        auto_summary_rows.append([
-            title,
-            len(rows),
-            len(delivered),
-            f"{len(returned_1d)} · {pct(len(returned_1d), len(rows))}",
-            f"{len(returned_7d)} · {pct(len(returned_7d), len(rows))}",
-            f"{len(returned_14d)} · {pct(len(returned_14d), len(rows))}",
-        ])
-    print(markdown_table(
-        ["Авторассылка", "Получателей", "Доставлено", "Вернулись за 1 день", "Вернулись за 7 дней", "Вернулись за 14 дней"],
-        auto_summary_rows,
-    ))
+        returned_7d = [
+            row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 7 * 24
+        ]
+        returned_14d = [
+            row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 14 * 24
+        ]
+        auto_summary_rows.append(
+            [
+                title,
+                len(rows),
+                len(delivered),
+                f"{len(returned_1d)} · {pct(len(returned_1d), len(rows))}",
+                f"{len(returned_7d)} · {pct(len(returned_7d), len(rows))}",
+                f"{len(returned_14d)} · {pct(len(returned_14d), len(rows))}",
+            ]
+        )
+    print(
+        markdown_table(
+            [
+                "Авторассылка",
+                "Получателей",
+                "Доставлено",
+                "Вернулись за 1 день",
+                "Вернулись за 7 дней",
+                "Вернулись за 14 дней",
+            ],
+            auto_summary_rows,
+        )
+    )
     print()
 
     print("## Распределение призов рулетки")
@@ -614,13 +722,15 @@ def main() -> None:
     prize_table = []
     for row in prize_rows[:30]:
         hits = int(row.get("hits") or 0)
-        prize_table.append([
-            f"{row['club_id']} · {row.get('club_name') or '-'}",
-            row.get("prize_name") or "Без названия",
-            hits,
-            pct(hits, total_hits_by_club[int(row["club_id"])]),
-            money(as_float(row.get("bonus_sum"))),
-        ])
+        prize_table.append(
+            [
+                f"{row['club_id']} · {row.get('club_name') or '-'}",
+                row.get("prize_name") or "Без названия",
+                hits,
+                pct(hits, total_hits_by_club[int(row["club_id"])]),
+                money(as_float(row.get("bonus_sum"))),
+            ]
+        )
     print(markdown_table(["Клуб", "Приз", "Выпадений", "% от прокрутов клуба", "КБ выдано"], prize_table))
     print()
 
@@ -628,14 +738,22 @@ def main() -> None:
     total_wheel_bonus = sum(as_float(row.get("prize_bonus_sum")) for row in wheel_rows)
     total_wheel_topups = sum(float(row.get("topups_after") or 0) for row in wheel_examples)
     print("## Инсайты для презентации")
-    print(f"- После запуска зафиксировано **{total_spins}** прокрутов рулетки и выдано примерно **{money(total_wheel_bonus)} КБ** через призы рулетки.")
+    print(
+        f"- После запуска зафиксировано **{total_spins}** прокрутов рулетки и выдано примерно **{money(total_wheel_bonus)} КБ** через призы рулетки."
+    )
     if total_wheel_topups:
-        print(f"- У гостей, активно крутивших рулетку, пополнения после запуска: **{money(total_wheel_topups)}**; это можно сопоставлять с выданными КБ как стоимостью удержания.")
+        print(
+            f"- У гостей, активно крутивших рулетку, пополнения после запуска: **{money(total_wheel_topups)}**; это можно сопоставлять с выданными КБ как стоимостью удержания."
+        )
     for code, title in AUTO_CODES.items():
         rows = [row for row in enriched_auto if row["code"] == code]
-        returned_7d = [row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 7 * 24]
+        returned_7d = [
+            row for row in rows if row.get("next_delay_hours") is not None and row["next_delay_hours"] <= 7 * 24
+        ]
         if rows:
-            print(f"- `{title}`: **{pct(len(returned_7d), len(rows))}** получателей вернулись в течение 7 дней после сообщения.")
+            print(
+                f"- `{title}`: **{pct(len(returned_7d), len(rows))}** получателей вернулись в течение 7 дней после сообщения."
+            )
 
 
 if __name__ == "__main__":

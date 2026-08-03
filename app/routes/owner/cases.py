@@ -3,7 +3,6 @@ from flask import flash, jsonify, redirect, request, session, url_for
 from app.core import owner_required
 from app.services.audit import record_audit_event
 from app.services.cases import (
-    assert_case_active_items_probability_sum_is_100,
     create_case,
     create_case_item,
     delete_case,
@@ -12,8 +11,8 @@ from app.services.cases import (
     get_case_by_id,
     get_case_item_by_id,
     get_cases_for_admin,
-    serialize_case_item,
     save_game_mode,
+    serialize_case_item,
     update_case,
     update_case_item,
 )
@@ -137,7 +136,7 @@ def _delete_case_images_after_delete(case_id: int, club_id: int):
     return [url for url in case_images if url]
 
 
-@owner_bp.route('/game-mode', methods=['POST'])
+@owner_bp.route("/game-mode", methods=["POST"])
 @owner_required
 def game_mode_save():
     club_id = _require_club_id()
@@ -163,7 +162,7 @@ def game_mode_save():
     return _redirect_bonus_editor(_current_bonus_editor(mode if mode in {"wheel", "cases"} else "wheel"))
 
 
-@owner_bp.route('/cases/add', methods=['POST'])
+@owner_bp.route("/cases/add", methods=["POST"])
 @owner_required
 def case_add():
     club_id = _require_club_id()
@@ -213,7 +212,7 @@ def case_add():
     return _redirect_bonus_editor("cases")
 
 
-@owner_bp.route('/cases/<int:case_id>/update', methods=['POST'])
+@owner_bp.route("/cases/<int:case_id>/update", methods=["POST"])
 @owner_required
 def case_update(case_id):
     club_id = _require_club_id()
@@ -280,7 +279,7 @@ def case_update(case_id):
     return _redirect_bonus_editor("cases")
 
 
-@owner_bp.route('/cases/<int:case_id>/delete', methods=['POST'])
+@owner_bp.route("/cases/<int:case_id>/delete", methods=["POST"])
 @owner_required
 def case_delete(case_id):
     club_id = _require_club_id()
@@ -306,7 +305,7 @@ def case_delete(case_id):
     return _redirect_bonus_editor("cases")
 
 
-@owner_bp.route('/cases/<int:case_id>/duplicate', methods=['POST'])
+@owner_bp.route("/cases/<int:case_id>/duplicate", methods=["POST"])
 @owner_required
 def case_duplicate(case_id):
     club_id = _require_club_id()
@@ -329,7 +328,7 @@ def case_duplicate(case_id):
     return _redirect_bonus_editor("cases")
 
 
-@owner_bp.route('/cases/<int:case_id>/items/add', methods=['POST'])
+@owner_bp.route("/cases/<int:case_id>/items/add", methods=["POST"])
 @owner_required
 def case_item_add(case_id):
     club_id = _require_club_id()
@@ -408,7 +407,7 @@ def case_item_add(case_id):
     return _redirect_bonus_editor("cases")
 
 
-@owner_bp.route('/cases/<int:case_id>/items/<int:item_id>/update', methods=['POST'])
+@owner_bp.route("/cases/<int:case_id>/items/<int:item_id>/update", methods=["POST"])
 @owner_required
 def case_item_update(case_id, item_id):
     club_id = _require_club_id()
@@ -499,7 +498,7 @@ def case_item_update(case_id, item_id):
     return _redirect_bonus_editor("cases")
 
 
-@owner_bp.route('/cases/<int:case_id>/items/<int:item_id>/delete', methods=['POST'])
+@owner_bp.route("/cases/<int:case_id>/items/<int:item_id>/delete", methods=["POST"])
 @owner_required
 def case_item_delete(case_id, item_id):
     club_id = _require_club_id()

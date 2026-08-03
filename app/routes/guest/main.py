@@ -3,18 +3,8 @@ from urllib.parse import quote_plus
 
 from flask import flash, redirect, render_template, request, session, url_for
 
-from app.core import guest_required
 from app.config import BOT_USERNAME
-from app.services.rate_limit import client_ip, is_rate_limited
-from app.services.guest_auth import (
-    create_guest_login_token,
-    get_guest_by_id,
-    get_guest_login_club,
-    get_guest_login_token,
-)
-from app.services.missions import get_guest_missions_with_progress
-from app.services.cm_bonuses import get_cm_bonus_balance, get_cm_bonus_history, get_cm_bonus_redeem_history, redeem_cm_bonuses
-from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
+from app.core import guest_required
 from app.services.cases import (
     get_cases,
     get_game_mode,
@@ -22,12 +12,27 @@ from app.services.cases import (
     open_case,
     serialize_case,
 )
+from app.services.cm_bonuses import (
+    get_cm_bonus_balance,
+    get_cm_bonus_history,
+    get_cm_bonus_redeem_history,
+    redeem_cm_bonuses,
+)
+from app.services.guest_auth import (
+    create_guest_login_token,
+    get_guest_by_id,
+    get_guest_login_club,
+    get_guest_login_token,
+)
+from app.services.missions import get_guest_missions_with_progress
+from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
+from app.services.rate_limit import client_ip, is_rate_limited
 from app.services.wheel import (
     choose_wheel_prize,
     get_guest_profile_stats,
     get_guest_streak_info,
-    get_guest_tokens,
     get_guest_token_history,
+    get_guest_tokens,
     get_guest_wheel_history,
     get_wheel_prizes,
     get_wheel_settings,
@@ -39,7 +44,7 @@ from app.services.wheel import (
 from . import guest_bp
 
 
-@guest_bp.route('/dashboard')
+@guest_bp.route("/dashboard")
 @guest_required
 def dashboard():
     guest_id = session.get("guest_id")
@@ -63,7 +68,9 @@ def dashboard():
     streak_info = get_guest_streak_info(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_balance = get_cm_bonus_balance(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_history = get_cm_bonus_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=10)
-    cm_bonus_redeem_history = get_cm_bonus_redeem_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=30)
+    cm_bonus_redeem_history = get_cm_bonus_redeem_history(
+        guest_id=guest["guest_id"], club_id=guest["club_id"], limit=30
+    )
 
     return render_template(
         "guest/guest_dashboard.html",
@@ -87,7 +94,7 @@ def dashboard():
     )
 
 
-@guest_bp.route('/check-login')
+@guest_bp.route("/check-login")
 def check_login():
     token = request.args.get("token", "").strip()
     if not token:
@@ -126,7 +133,7 @@ def check_login():
     return {"ok": True, "status": "confirmed", "redirect_url": url_for("guest.dashboard")}
 
 
-@guest_bp.route('/login')
+@guest_bp.route("/login")
 def login():
     bot_username = BOT_USERNAME.lstrip("@")
     requested_club_id = request.args.get("club_id", type=int) or session.get("club_id")
@@ -149,7 +156,7 @@ def login():
     )
 
 
-@guest_bp.route('/api/tokens')
+@guest_bp.route("/api/tokens")
 @guest_required
 def api_guest_tokens():
     guest_id = session.get("guest_id")
@@ -174,11 +181,13 @@ def api_guest_tokens():
         "tokens": tokens,
         "is_enabled": bool(settings.get("is_enabled")),
         "spin_cost": settings.get("spin_cost", 2),
-        "tokens_start_date": settings.get("tokens_start_date").isoformat() if settings.get("tokens_start_date") else None,
+        "tokens_start_date": (
+            settings.get("tokens_start_date").isoformat() if settings.get("tokens_start_date") else None
+        ),
     }
 
 
-@guest_bp.route('/api/wheel/spin', methods=['POST'])
+@guest_bp.route("/api/wheel/spin", methods=["POST"])
 @guest_required
 def api_wheel_spin():
     guest_id = session.get("guest_id")
@@ -233,7 +242,7 @@ def api_wheel_spin():
     }
 
 
-@guest_bp.route('/api/cases')
+@guest_bp.route("/api/cases")
 @guest_required
 def api_cases():
     guest_id = session.get("guest_id")
@@ -249,7 +258,7 @@ def api_cases():
     }
 
 
-@guest_bp.route('/api/cases/<int:case_id>/open', methods=['POST'])
+@guest_bp.route("/api/cases/<int:case_id>/open", methods=["POST"])
 @guest_required
 def api_case_open(case_id):
     guest_id = session.get("guest_id")
@@ -279,7 +288,7 @@ def api_case_open(case_id):
     return result
 
 
-@guest_bp.route('/api/cm-bonuses')
+@guest_bp.route("/api/cm-bonuses")
 @guest_required
 def api_cm_bonuses():
     guest_id = session.get("guest_id")
@@ -294,7 +303,7 @@ def api_cm_bonuses():
     }
 
 
-@guest_bp.route('/api/cm-bonuses/redeem', methods=['POST'])
+@guest_bp.route("/api/cm-bonuses/redeem", methods=["POST"])
 @guest_required
 def api_cm_bonuses_redeem():
     guest_id = session.get("guest_id")
@@ -312,8 +321,7 @@ def api_cm_bonuses_redeem():
     return result
 
 
-
-@guest_bp.route('/logout')
+@guest_bp.route("/logout")
 @guest_required
 def logout():
     session.pop("guest_id", None)
@@ -325,7 +333,7 @@ def logout():
     return redirect(url_for("guest.login"))
 
 
-@guest_bp.route('/api/missions')
+@guest_bp.route("/api/missions")
 @guest_required
 def api_guest_missions():
     guest_id = session.get("guest_id")

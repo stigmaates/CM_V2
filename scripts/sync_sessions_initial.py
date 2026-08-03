@@ -18,7 +18,6 @@ from app.config import (
 )
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
-
 logging.basicConfig(level=logging.INFO)
 
 PAGE_LIMIT = 500
@@ -37,7 +36,7 @@ def get_db_connection():
         connect_timeout=DB_CONNECT_TIMEOUT,
         read_timeout=DB_READ_TIMEOUT,
         write_timeout=DB_WRITE_TIMEOUT,
-        autocommit=False
+        autocommit=False,
     )
 
 
@@ -46,12 +45,15 @@ def get_club_data(club_id: int):
     try:
         with conn.cursor() as cursor:
             service_enabled_expr = service_enabled_select_expr(cursor)
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
-            """.format(service_enabled_expr=service_enabled_expr), (club_id,))
+            """.format(service_enabled_expr=service_enabled_expr),
+                (club_id,),
+            )
             return cursor.fetchone()
     finally:
         conn.close()
@@ -76,11 +78,14 @@ def get_existing_guest_ids(club_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT guest_id
                 FROM guests
                 WHERE club_id = %s
-            """, (club_id,))
+            """,
+                (club_id,),
+            )
             return {row["guest_id"] for row in cursor.fetchall()}
     finally:
         conn.close()
@@ -89,15 +94,9 @@ def get_existing_guest_ids(club_id: int):
 def fetch_sessions_page(secret: str, api_key: str, page: int):
     url = f"https://{secret}.langame.ru/public_api/guests/sessions"
 
-    headers = {
-        "accept": "application/json",
-        "X-API-KEY": api_key.strip()
-    }
+    headers = {"accept": "application/json", "X-API-KEY": api_key.strip()}
 
-    params = {
-        "page_limit": PAGE_LIMIT,
-        "page": page
-    }
+    params = {"page_limit": PAGE_LIMIT, "page": page}
 
     response = httpx.get(url, headers=headers, params=params, timeout=120)
 
@@ -138,14 +137,16 @@ def prepare_sessions_rows(club_id: int, sessions: list):
     rows = []
 
     for s in sessions:
-        rows.append((
-            s.get("id"),
-            club_id,
-            s.get("UUID"),
-            s.get("guest_id"),
-            parse_datetime(s.get("date_start")),
-            parse_datetime(s.get("date_stop"))
-        ))
+        rows.append(
+            (
+                s.get("id"),
+                club_id,
+                s.get("UUID"),
+                s.get("guest_id"),
+                parse_datetime(s.get("date_start")),
+                parse_datetime(s.get("date_stop")),
+            )
+        )
 
     return rows
 

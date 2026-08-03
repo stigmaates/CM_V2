@@ -63,4 +63,4 @@ def club_create():
 
 
 def register_club_routes(app):
-    app.add_url_rule('/club/create', view_func=login_required(club_create), methods=['GET', 'POST'])
+    app.add_url_rule("/club/create", view_func=login_required(club_create), methods=["GET", "POST"])

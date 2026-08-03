@@ -87,10 +87,12 @@ def test_latest_job_runs_are_grouped_by_club(monkeypatch):
     conn = FakeConnection(cursor)
     monkeypatch.setattr(job_runs, "get_db_connection", lambda: conn)
 
-    result = job_runs.get_latest_job_runs_by_club([
-        "sync_guests_incremental",
-        "sync_sessions_incremental",
-    ])
+    result = job_runs.get_latest_job_runs_by_club(
+        [
+            "sync_guests_incremental",
+            "sync_sessions_incremental",
+        ]
+    )
 
     assert result[1]["sync_guests_incremental"]["status"] == "success"
     assert result[1]["sync_sessions_incremental"]["status"] == "error"

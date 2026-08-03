@@ -6,7 +6,12 @@ from app.main import app
 def _base_template_context():
     return {
         "heatmap": {"total_visits": 0, "peak": {"day": "—", "hour": "—", "value": 0}, "hours": [], "grid": []},
-        "pc_heatmap": {"total_hours_display": "0", "total_sessions": 0, "peak": {"name": "—", "hours_display": "0"}, "pcs": []},
+        "pc_heatmap": {
+            "total_hours_display": "0",
+            "total_sessions": 0,
+            "peak": {"name": "—", "hours_display": "0"},
+            "pcs": [],
+        },
         "filter_fields": [],
         "selected_period": 30,
         "telegram_only": False,
@@ -47,7 +52,7 @@ def test_crm_analytics_renders_cohort_analysis_block():
 
     assert "Анализ" in html
     assert "Период воронки" in html
-    assert "data-period=\"all\"" in html
+    assert 'data-period="all"' in html
     assert "Сохранить когорту" in html
     assert "Тестовая когорта" in html
     assert "crm-cohort-delete" in html

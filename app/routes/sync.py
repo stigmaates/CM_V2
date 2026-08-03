@@ -31,5 +31,5 @@ def sync_sessions_route():
 
 
 def register_sync_routes(app):
-    app.add_url_rule('/sync/guests', view_func=login_required(sync_guests_route))
-    app.add_url_rule('/sync/sessions', view_func=login_required(sync_sessions_route))
+    app.add_url_rule("/sync/guests", view_func=login_required(sync_guests_route))
+    app.add_url_rule("/sync/sessions", view_func=login_required(sync_sessions_route))

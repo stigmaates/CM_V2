@@ -1,6 +1,5 @@
 from app.core import get_db_connection
 
-
 _club_bonus_chat_column_ready = False
 
 
@@ -10,23 +9,19 @@ def ensure_club_bonus_chat_column(cursor) -> None:
     if _club_bonus_chat_column_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COUNT(*) AS cnt
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'clubs'
           AND COLUMN_NAME = 'cm_bonus_admin_chat_id'
-        """
-    )
+        """)
     row = cursor.fetchone() or {}
     if int(row.get("cnt") or 0) == 0:
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE clubs
             ADD COLUMN cm_bonus_admin_chat_id VARCHAR(80) NULL AFTER secret
-            """
-        )
+            """)
     _club_bonus_chat_column_ready = True
 
 
@@ -36,6 +31,7 @@ def get_club_info(club_id):
         with conn.cursor() as cursor:
             ensure_club_bonus_chat_column(cursor)
             from app.services.first_visit_survey import ensure_club_social_columns
+
             ensure_club_social_columns(cursor)
             cursor.execute(
                 """
@@ -65,12 +61,25 @@ def get_club_info(club_id):
         conn.close()
 
 
-def update_club_info(club_id, name: str, lg_api_key: str, secret: str, cm_bonus_admin_chat_id: str | None = None, instagram_url: str | None = None, youtube_url: str | None = None, vk_url: str | None = None, telegram_channel_url: str | None = None, yandex_maps_url: str | None = None, two_gis_url: str | None = None):
+def update_club_info(
+    club_id,
+    name: str,
+    lg_api_key: str,
+    secret: str,
+    cm_bonus_admin_chat_id: str | None = None,
+    instagram_url: str | None = None,
+    youtube_url: str | None = None,
+    vk_url: str | None = None,
+    telegram_channel_url: str | None = None,
+    yandex_maps_url: str | None = None,
+    two_gis_url: str | None = None,
+):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             ensure_club_bonus_chat_column(cursor)
             from app.services.first_visit_survey import ensure_club_social_columns
+
             ensure_club_social_columns(cursor)
             cursor.execute(
                 """
@@ -91,13 +100,13 @@ def update_club_info(club_id, name: str, lg_api_key: str, secret: str, cm_bonus_
                     name,
                     lg_api_key,
                     secret,
-                    (cm_bonus_admin_chat_id or '').strip() or None,
-                    (instagram_url or '').strip() or None,
-                    (youtube_url or '').strip() or None,
-                    (vk_url or '').strip() or None,
-                    (telegram_channel_url or '').strip() or None,
-                    (yandex_maps_url or '').strip() or None,
-                    (two_gis_url or '').strip() or None,
+                    (cm_bonus_admin_chat_id or "").strip() or None,
+                    (instagram_url or "").strip() or None,
+                    (youtube_url or "").strip() or None,
+                    (vk_url or "").strip() or None,
+                    (telegram_channel_url or "").strip() or None,
+                    (yandex_maps_url or "").strip() or None,
+                    (two_gis_url or "").strip() or None,
                     club_id,
                 ),
             )

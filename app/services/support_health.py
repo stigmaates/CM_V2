@@ -159,20 +159,16 @@ def build_admin_readiness(
     else:
         items.append(_status_item("sync_jobs", "Синхронизации", "success", "Свежие данные по клубам"))
 
-    problem_jobs = [
-        job
-        for job in recent_job_runs
-        if (job.get("status") or "").lower() in {"error", "stale"}
-    ]
-    running_jobs = [
-        job
-        for job in recent_job_runs
-        if (job.get("status") or "").lower() == "running"
-    ]
+    problem_jobs = [job for job in recent_job_runs if (job.get("status") or "").lower() in {"error", "stale"}]
+    running_jobs = [job for job in recent_job_runs if (job.get("status") or "").lower() == "running"]
     if problem_jobs:
-        items.append(_status_item("background_jobs", "Фоновые задачи", "error", f"Проблемные запуски: {len(problem_jobs)}"))
+        items.append(
+            _status_item("background_jobs", "Фоновые задачи", "error", f"Проблемные запуски: {len(problem_jobs)}")
+        )
     elif running_jobs:
-        items.append(_status_item("background_jobs", "Фоновые задачи", "warning", f"Сейчас выполняется: {len(running_jobs)}"))
+        items.append(
+            _status_item("background_jobs", "Фоновые задачи", "warning", f"Сейчас выполняется: {len(running_jobs)}")
+        )
     else:
         items.append(_status_item("background_jobs", "Фоновые задачи", "success", "Последние запуски без ошибок"))
 
@@ -185,12 +181,14 @@ def build_admin_readiness(
 
     backup_status = backup_status or get_backup_status()
     backup_item_status = backup_status.get("status") or "warning"
-    items.append(_status_item(
-        "backups",
-        "Backup",
-        backup_item_status,
-        backup_status.get("message") or "Статус backup неизвестен",
-    ))
+    items.append(
+        _status_item(
+            "backups",
+            "Backup",
+            backup_item_status,
+            backup_status.get("message") or "Статус backup неизвестен",
+        )
+    )
 
     if any(item["status"] == "error" for item in items):
         overall_status = "error"

@@ -39,12 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     for alert in alerts:
         print(_format_alert(alert))
 
-    print(
-        "SUMMARY: "
-        f"errors={summary['error']} "
-        f"warnings={summary['warning']} "
-        f"total={summary['total']}"
-    )
+    print("SUMMARY: " f"errors={summary['error']} " f"warnings={summary['warning']} " f"total={summary['total']}")
     return 2 if summary["error"] else 1
 
 

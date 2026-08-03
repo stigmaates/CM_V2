@@ -26,7 +26,6 @@ from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
-
 logging.basicConfig(level=logging.INFO)
 
 PAGE_LIMIT = 500
@@ -45,7 +44,7 @@ def get_db_connection():
         connect_timeout=DB_CONNECT_TIMEOUT,
         read_timeout=DB_READ_TIMEOUT,
         write_timeout=DB_WRITE_TIMEOUT,
-        autocommit=False
+        autocommit=False,
     )
 
 
@@ -61,12 +60,15 @@ def get_clubs(club_id=None):
                     ORDER BY club_id
                 """)
             else:
-                cursor.execute(f"""
+                cursor.execute(
+                    f"""
                     SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                     FROM clubs
                     WHERE club_id = %s
                     ORDER BY club_id
-                """, (club_id,))
+                """,
+                    (club_id,),
+                )
             return cursor.fetchall()
     finally:
         conn.close()
@@ -76,11 +78,14 @@ def get_existing_guest_ids(club_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT guest_id
                 FROM guests
                 WHERE club_id = %s
-            """, (club_id,))
+            """,
+                (club_id,),
+            )
             return {row["guest_id"] for row in cursor.fetchall()}
     finally:
         conn.close()
@@ -95,10 +100,7 @@ def fetch_guests(secret, api_key):
 
     url = f"https://{secret}.langame.ru/public_api/guests/list"
 
-    headers = {
-        "accept": "application/json",
-        "X-API-KEY": api_key.strip()
-    }
+    headers = {"accept": "application/json", "X-API-KEY": api_key.strip()}
 
     all_guests = []
     page = 1
@@ -122,11 +124,7 @@ def fetch_guests(secret, api_key):
         guests = json_data.get("data", []) or []
         total_pages = int(json_data.get("total_pages") or 0)
 
-        logging.info(
-            f"Langame guests page {page}"
-            + (f"/{total_pages}" if total_pages else "")
-            + f": {len(guests)}"
-        )
+        logging.info(f"Langame guests page {page}" + (f"/{total_pages}" if total_pages else "") + f": {len(guests)}")
 
         all_guests.extend(guests)
 
@@ -185,15 +183,17 @@ def prepare_rows(club_id, guests):
     rows = []
 
     for g in guests:
-        rows.append((
-            g.get("guest_id"),
-            club_id,
-            g.get("phone"),
-            g.get("fio"),
-            parse_date(g.get("birthday")),
-            parse_datetime(g.get("date_insert")),
-            g.get("gender")
-        ))
+        rows.append(
+            (
+                g.get("guest_id"),
+                club_id,
+                g.get("phone"),
+                g.get("fio"),
+                parse_date(g.get("birthday")),
+                parse_datetime(g.get("date_insert")),
+                g.get("gender"),
+            )
+        )
 
     return rows
 
@@ -296,8 +296,12 @@ def sync_guests_incremental(club_id=None):
                 rows_saved=saved,
                 metadata={"filtered": len(filtered)},
             )
-            logging.info(f"Клуб {current_club_id} | получено: {len(guests)} | к обновлению: {len(filtered)} | сохранено: {saved}")
-            summary.append({"club_id": current_club_id, "received": len(guests), "filtered": len(filtered), "saved": saved})
+            logging.info(
+                f"Клуб {current_club_id} | получено: {len(guests)} | к обновлению: {len(filtered)} | сохранено: {saved}"
+            )
+            summary.append(
+                {"club_id": current_club_id, "received": len(guests), "filtered": len(filtered), "saved": saved}
+            )
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))
             raise

@@ -1,17 +1,22 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
-from app.core import owner_required
-from app.core import get_db_connection
+from app.core import get_db_connection, owner_required
 from app.services.crm_analysis import get_crm_cohort_analysis
 from app.services.dashboard import get_dashboard_audience_stats, get_visit_heatmap_stats
-from app.services.mailing import delete_segment, get_filter_fields, list_segments, save_segment
-from app.services.mailing import get_manual_crm_campaign_passport, list_manual_crm_campaigns
+from app.services.mailing import (
+    delete_segment,
+    get_filter_fields,
+    get_manual_crm_campaign_passport,
+    list_manual_crm_campaigns,
+    list_segments,
+    save_segment,
+)
 from app.services.pc_heatmap import get_pc_hours_heatmap_stats
 
 from . import owner_bp
 
 
-@owner_bp.route('/crm-analytics')
+@owner_bp.route("/crm-analytics")
 @owner_required
 def crm_analytics():
     club_id = session.get("club_id")
@@ -54,7 +59,7 @@ def crm_analytics():
     )
 
 
-@owner_bp.route('/api/crm-analysis/preview', methods=['POST'])
+@owner_bp.route("/api/crm-analysis/preview", methods=["POST"])
 @owner_required
 def api_crm_analysis_preview():
     club_id = session.get("club_id")
@@ -82,7 +87,7 @@ def api_crm_analysis_preview():
     return jsonify({"ok": True, "analysis": analysis})
 
 
-@owner_bp.route('/api/crm-cohorts/save', methods=['POST'])
+@owner_bp.route("/api/crm-cohorts/save", methods=["POST"])
 @owner_required
 def api_crm_cohort_save():
     club_id = session.get("club_id")
@@ -105,7 +110,7 @@ def api_crm_cohort_save():
     return jsonify({"ok": True, "cohort_id": cohort_id})
 
 
-@owner_bp.route('/api/crm-cohorts/<int:cohort_id>', methods=['DELETE'])
+@owner_bp.route("/api/crm-cohorts/<int:cohort_id>", methods=["DELETE"])
 @owner_required
 def api_crm_cohort_delete(cohort_id):
     club_id = session.get("club_id")
@@ -119,7 +124,7 @@ def api_crm_cohort_delete(cohort_id):
     return jsonify({"ok": True})
 
 
-@owner_bp.route('/api/crm-campaigns/<campaign_type>/<int:campaign_id>')
+@owner_bp.route("/api/crm-campaigns/<campaign_type>/<int:campaign_id>")
 @owner_required
 def api_crm_campaign_passport(campaign_type, campaign_id):
     club_id = session.get("club_id")

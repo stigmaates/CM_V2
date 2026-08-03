@@ -1,12 +1,25 @@
-from app.config import BOT_USERNAME
 from datetime import datetime
 from urllib.parse import quote_plus
 
 from flask import flash, redirect, render_template, request, session, url_for
 
-from app.services.guest_auth import create_guest_login_token, get_guest_by_id, get_guest_login_club, get_guest_login_token
+from app.config import BOT_USERNAME
+from app.services.guest_auth import (
+    create_guest_login_token,
+    get_guest_by_id,
+    get_guest_login_club,
+    get_guest_login_token,
+)
 from app.services.missions import get_guest_missions_with_progress
-from app.services.wheel import get_guest_profile_stats, get_guest_tokens, get_wheel_prizes, get_wheel_settings, save_guest_wheel_spin, serialize_wheel_prize, choose_wheel_prize
+from app.services.wheel import (
+    choose_wheel_prize,
+    get_guest_profile_stats,
+    get_guest_tokens,
+    get_wheel_prizes,
+    get_wheel_settings,
+    save_guest_wheel_spin,
+    serialize_wheel_prize,
+)
 
 
 def guest_dashboard():
@@ -19,15 +32,9 @@ def guest_dashboard():
         flash("Гость не найден", "error")
         return redirect(url_for("guest_login"))
 
-    missions = get_guest_missions_with_progress(
-        guest_id=guest["guest_id"],
-        club_id=guest["club_id"]
-    )
+    missions = get_guest_missions_with_progress(guest_id=guest["guest_id"], club_id=guest["club_id"])
 
-    profile_stats = get_guest_profile_stats(
-        guest_id=guest["guest_id"],
-        club_id=guest["club_id"]
-    )
+    profile_stats = get_guest_profile_stats(guest_id=guest["guest_id"], club_id=guest["club_id"])
 
     return render_template(
         "guest_dashboard.html",
@@ -120,7 +127,9 @@ def api_guest_tokens():
         "tokens": tokens,
         "is_enabled": bool(settings.get("is_enabled")),
         "spin_cost": settings.get("spin_cost", 1),
-        "tokens_start_date": settings.get("tokens_start_date").isoformat() if settings.get("tokens_start_date") else None,
+        "tokens_start_date": (
+            settings.get("tokens_start_date").isoformat() if settings.get("tokens_start_date") else None
+        ),
     }
 
 
@@ -193,15 +202,15 @@ def api_guest_missions():
     guest = get_guest_by_id(guest_id, session.get("guest_club_id"))
     if not guest:
         return {"error": "guest_not_found"}, 404
-    
+
     return {"data": get_guest_missions_with_progress(guest_id, guest["club_id"])}
 
 
 def register_guest_routes(app):
-    app.add_url_rule('/guest/dashboard', view_func=guest_dashboard)
-    app.add_url_rule('/guest/check-login', view_func=guest_check_login)
-    app.add_url_rule('/guest/login', view_func=guest_login)
-    app.add_url_rule('/api/guest/tokens', view_func=api_guest_tokens)
-    app.add_url_rule('/api/wheel/spin', view_func=api_wheel_spin, methods=['POST'])
-    app.add_url_rule('/guest/logout', view_func=guest_logout)
-    app.add_url_rule('/api/guest/missions', view_func=api_guest_missions)
+    app.add_url_rule("/guest/dashboard", view_func=guest_dashboard)
+    app.add_url_rule("/guest/check-login", view_func=guest_check_login)
+    app.add_url_rule("/guest/login", view_func=guest_login)
+    app.add_url_rule("/api/guest/tokens", view_func=api_guest_tokens)
+    app.add_url_rule("/api/wheel/spin", view_func=api_wheel_spin, methods=["POST"])
+    app.add_url_rule("/guest/logout", view_func=guest_logout)
+    app.add_url_rule("/api/guest/missions", view_func=api_guest_missions)

@@ -10,7 +10,6 @@ from typing import Any
 
 from app.config import ADMIN_RESTART_SERVICES, ADMIN_SERVICE_RESTART_ENABLED
 
-
 SERVICE_NAME_RE = re.compile(r"^[A-Za-z0-9_.@:-]+\.(service|timer)$")
 SYSTEMCTL_PATHS = ("/usr/bin/systemctl", "/bin/systemctl")
 SUDO_PATHS = ("/usr/bin/sudo", "/bin/sudo")

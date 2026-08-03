@@ -1,4 +1,5 @@
 import os
+
 from flask import current_app, jsonify, render_template, request, session
 
 from app.core import get_db_connection

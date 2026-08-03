@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 
 from app.core import get_db_connection
 
-
 MISSION_METRICS = {
     "visits_count": {
         "name": "Прийти N раз",
@@ -195,8 +194,7 @@ def build_guest_mission_reward_display(reward_text, token_reward: int, cm_bonus_
 
 
 _BONUS_QUANTITY_IN_REWARD_TEXT = re.compile(
-    r"(?i)\d[\d\s.,]*\s*(бонус(?:ов|а|ы)?|bonus(?:es)?)\b"
-    r"|\b(бонус(?:ов|а|ы)?|bonus(?:es)?)\s*[:\-–+]?\s*\d"
+    r"(?i)\d[\d\s.,]*\s*(бонус(?:ов|а|ы)?|bonus(?:es)?)\b" r"|\b(бонус(?:ов|а|ы)?|bonus(?:es)?)\s*[:\-–+]?\s*\d"
 )
 
 
@@ -220,38 +218,27 @@ def ensure_mission_reward_columns(cursor):
 
     cursor.execute("SHOW COLUMNS FROM club_missions LIKE 'reward_text'")
     if not cursor.fetchone():
-        cursor.execute(
-            "ALTER TABLE club_missions "
-            "ADD COLUMN reward_text VARCHAR(255) NULL AFTER target_amount"
-        )
+        cursor.execute("ALTER TABLE club_missions " "ADD COLUMN reward_text VARCHAR(255) NULL AFTER target_amount")
 
     cursor.execute("SHOW COLUMNS FROM club_missions LIKE 'token_reward'")
     if not cursor.fetchone():
-        cursor.execute(
-            "ALTER TABLE club_missions "
-            "ADD COLUMN token_reward INT NOT NULL DEFAULT 0 AFTER reward_text"
-        )
+        cursor.execute("ALTER TABLE club_missions " "ADD COLUMN token_reward INT NOT NULL DEFAULT 0 AFTER reward_text")
 
     cursor.execute("SHOW COLUMNS FROM club_missions LIKE 'cm_bonus_reward'")
     if not cursor.fetchone():
         cursor.execute(
-            "ALTER TABLE club_missions "
-            "ADD COLUMN cm_bonus_reward INT NOT NULL DEFAULT 0 AFTER token_reward"
+            "ALTER TABLE club_missions " "ADD COLUMN cm_bonus_reward INT NOT NULL DEFAULT 0 AFTER token_reward"
         )
 
     cursor.execute("SHOW COLUMNS FROM club_missions LIKE 'custom_name'")
     if not cursor.fetchone():
         cursor.execute(
-            "ALTER TABLE club_missions "
-            "ADD COLUMN custom_name VARCHAR(255) NULL AFTER mission_template_id"
+            "ALTER TABLE club_missions " "ADD COLUMN custom_name VARCHAR(255) NULL AFTER mission_template_id"
         )
 
     cursor.execute("SHOW COLUMNS FROM club_missions LIKE 'custom_description'")
     if not cursor.fetchone():
-        cursor.execute(
-            "ALTER TABLE club_missions "
-            "ADD COLUMN custom_description TEXT NULL AFTER custom_name"
-        )
+        cursor.execute("ALTER TABLE club_missions " "ADD COLUMN custom_description TEXT NULL AFTER custom_name")
 
     _mission_reward_columns_ready = True
 
@@ -265,7 +252,13 @@ def _config_schema_for_metric(metric: str, explicit_schema=None):
         return explicit_schema
     metric_info = MISSION_METRICS.get(metric) or {}
     if "min_hours" in metric_info.get("config_fields", []):
-        return {"min_hours": {"label": metric_info.get("min_hours_label") or "X — минимум часов за визит", "min": 1, "default": 3}}
+        return {
+            "min_hours": {
+                "label": metric_info.get("min_hours_label") or "X — минимум часов за визит",
+                "min": 1,
+                "default": 3,
+            }
+        }
     return None
 
 
@@ -349,14 +342,12 @@ def get_mission_templates():
         with conn.cursor() as cursor:
             ensure_default_mission_templates(cursor)
             conn.commit()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT id, code, name, short_description, target_metric, config_schema
                 FROM mission_templates
                 WHERE is_active = 1
                 ORDER BY id
-                """
-            )
+                """)
             return [_enrich_template_row(row) for row in cursor.fetchall()]
     finally:
         conn.close()
@@ -514,7 +505,19 @@ def build_mission_config_from_form(template, form):
     return config or None
 
 
-def create_club_mission(club_id: int, mission_template_id: int, target_amount: int, start_at=None, end_at=None, config=None, reward_text=None, token_reward: int = 0, cm_bonus_reward: int = 0, custom_name=None, custom_description=None):
+def create_club_mission(
+    club_id: int,
+    mission_template_id: int,
+    target_amount: int,
+    start_at=None,
+    end_at=None,
+    config=None,
+    reward_text=None,
+    token_reward: int = 0,
+    cm_bonus_reward: int = 0,
+    custom_name=None,
+    custom_description=None,
+):
     if start_at and end_at and end_at < start_at:
         raise ValueError("Дата окончания не может быть раньше даты начала")
 
@@ -545,7 +548,11 @@ def create_club_mission(club_id: int, mission_template_id: int, target_amount: i
                     club_id,
                     mission_template_id,
                     custom_name.strip() if isinstance(custom_name, str) and custom_name.strip() else None,
-                    custom_description.strip() if isinstance(custom_description, str) and custom_description.strip() else None,
+                    (
+                        custom_description.strip()
+                        if isinstance(custom_description, str) and custom_description.strip()
+                        else None
+                    ),
                     target_amount,
                     reward_text.strip() if isinstance(reward_text, str) and reward_text.strip() else None,
                     max(int(token_reward or 0), 0),
@@ -560,7 +567,20 @@ def create_club_mission(club_id: int, mission_template_id: int, target_amount: i
         conn.close()
 
 
-def update_club_mission(mission_id: int, club_id: int, target_amount: int, start_at=None, end_at=None, config=None, is_enabled=1, reward_text=None, token_reward: int = 0, cm_bonus_reward: int = 0, custom_name=None, custom_description=None):
+def update_club_mission(
+    mission_id: int,
+    club_id: int,
+    target_amount: int,
+    start_at=None,
+    end_at=None,
+    config=None,
+    is_enabled=1,
+    reward_text=None,
+    token_reward: int = 0,
+    cm_bonus_reward: int = 0,
+    custom_name=None,
+    custom_description=None,
+):
     if start_at and end_at and end_at < start_at:
         raise ValueError("Дата окончания не может быть раньше даты начала")
 
@@ -586,7 +606,11 @@ def update_club_mission(mission_id: int, club_id: int, target_amount: int, start
                 """,
                 (
                     custom_name.strip() if isinstance(custom_name, str) and custom_name.strip() else None,
-                    custom_description.strip() if isinstance(custom_description, str) and custom_description.strip() else None,
+                    (
+                        custom_description.strip()
+                        if isinstance(custom_description, str) and custom_description.strip()
+                        else None
+                    ),
                     target_amount,
                     reward_text.strip() if isinstance(reward_text, str) and reward_text.strip() else None,
                     max(int(token_reward or 0), 0),
@@ -669,7 +693,12 @@ def _collapse_sessions_to_visits(rows, gap_hours: int = 2):
 
 def _fetch_sessions(cursor, guest_id: int, club_id: int, mission):
     period_conditions, period_params = build_period_filter(mission)
-    where_parts = ["guest_id = %s", "club_id = %s", "date_start IS NOT NULL", "date_stop IS NOT NULL"] + period_conditions
+    where_parts = [
+        "guest_id = %s",
+        "club_id = %s",
+        "date_start IS NOT NULL",
+        "date_stop IS NOT NULL",
+    ] + period_conditions
     params = [guest_id, club_id] + period_params
     sql = f"""
         SELECT date_start, date_stop

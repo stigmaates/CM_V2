@@ -27,7 +27,6 @@ from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
-
 logging.basicConfig(level=logging.INFO)
 
 PAGE_LIMIT = 500
@@ -57,13 +56,11 @@ def get_clubs(club_id=None):
         with conn.cursor() as cursor:
             service_enabled_expr = service_enabled_select_expr(cursor)
             if club_id is None:
-                cursor.execute(
-                    f"""
+                cursor.execute(f"""
                     SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                     FROM clubs
                     ORDER BY club_id
-                    """
-                )
+                    """)
             else:
                 cursor.execute(
                     f"""
@@ -244,7 +241,9 @@ def sync_balance_topups_incremental(club_id=None):
                 metadata={"reason": "club_service_disabled", "date_from": date_from, "date_to": date_to},
             )
             logging.info("Клуб %s | пропущен: обслуживание выключено", current_club_id)
-            summary.append({"club_id": current_club_id, "skipped": "disabled", "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {"club_id": current_club_id, "skipped": "disabled", "date_from": date_from, "date_to": date_to}
+            )
             continue
 
         api_key = club["lg_api_key"]
@@ -262,7 +261,9 @@ def sync_balance_topups_incremental(club_id=None):
                 "skipped_locked",
                 metadata={"reason": "sync_balance_topups_incremental already running"},
             )
-            summary.append({"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to}
+            )
             lock.__exit__(None, None, None)
             continue
 
@@ -278,7 +279,15 @@ def sync_balance_topups_incremental(club_id=None):
                 rows_saved=saved,
                 metadata={"date_from": date_from, "date_to": date_to},
             )
-            summary.append({"club_id": current_club_id, "received": len(topups), "saved": saved, "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {
+                    "club_id": current_club_id,
+                    "received": len(topups),
+                    "saved": saved,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                }
+            )
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))
             raise

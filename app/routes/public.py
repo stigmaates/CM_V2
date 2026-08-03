@@ -67,5 +67,5 @@ def create_user():
 
 
 def register_public_routes(app):
-    app.add_url_rule('/', view_func=index)
-    app.add_url_rule('/admin/create-user', view_func=create_user, methods=['GET', 'POST'])
+    app.add_url_rule("/", view_func=index)
+    app.add_url_rule("/admin/create-user", view_func=create_user, methods=["GET", "POST"])

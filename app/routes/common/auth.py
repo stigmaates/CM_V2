@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import wraps
 
 from flask import flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
@@ -92,9 +93,6 @@ def login():
 
     return render_template("login.html")
 
-from functools import wraps
-from flask import session, redirect
-
 
 def login_required(view_func):
     @wraps(view_func)
@@ -102,6 +100,7 @@ def login_required(view_func):
         if "user_id" not in session:
             return redirect("/login")
         return view_func(*args, **kwargs)
+
     return wrapper
 
 
@@ -113,6 +112,7 @@ def admin_required(view_func):
         if session.get("role") != "admin":
             return "Доступ запрещён", 403
         return view_func(*args, **kwargs)
+
     return wrapper
 
 
@@ -131,6 +131,7 @@ def owner_required(view_func):
         if not (is_owner or is_admin_impersonation):
             return "Доступ запрещён", 403
         return view_func(*args, **kwargs)
+
     return wrapper
 
 
@@ -140,7 +141,9 @@ def guest_required(view_func):
         if "guest_id" not in session:
             return redirect("/guest/login")
         return view_func(*args, **kwargs)
+
     return wrapper
+
 
 @auth_bp.route("/logout")
 def logout():

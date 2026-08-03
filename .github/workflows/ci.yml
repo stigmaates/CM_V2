@@ -28,5 +28,11 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall app bot scripts migrations run.py run_bot.py run_admin_bot.py
 
+      - name: Check formatting
+        run: black --check app bot scripts tests migrations run.py run_bot.py run_admin_bot.py
+
+      - name: Lint Python sources
+        run: ruff check app bot scripts tests migrations run.py run_bot.py run_admin_bot.py
+
       - name: Run smoke tests
         run: pytest

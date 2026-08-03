@@ -10,19 +10,17 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.core import get_db_connection  # noqa: E402
 import migrations.versions  # noqa: E402
+from app.core import get_db_connection  # noqa: E402
 
 
 def _ensure_schema_migrations_table(cursor) -> None:
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             revision VARCHAR(120) PRIMARY KEY,
             applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
 
 def _applied_revisions(cursor) -> set[str]:
@@ -47,11 +45,7 @@ def migrate(*, dry_run: bool = False) -> int:
         with conn.cursor() as cursor:
             _ensure_schema_migrations_table(cursor)
             applied = _applied_revisions(cursor)
-            pending = [
-                (revision, module)
-                for revision, module in _migration_modules()
-                if revision not in applied
-            ]
+            pending = [(revision, module) for revision, module in _migration_modules() if revision not in applied]
 
             if not pending:
                 print("No pending migrations.")

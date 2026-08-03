@@ -1,15 +1,17 @@
 import os
 import sys
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-from datetime import datetime, timedelta, date
 from collections import defaultdict
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import pymysql
 from pymysql.cursors import DictCursor
-from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+
+from app.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
 def get_connection():
@@ -21,7 +23,7 @@ def get_connection():
         database=DB_NAME,
         charset="utf8mb4",
         cursorclass=DictCursor,
-        ssl={"check_hostname": False}
+        ssl={"check_hostname": False},
     )
 
 
@@ -63,11 +65,7 @@ def calc_favorite_period(day_count: int, evening_count: int, night_count: int) -
     return "night"
 
 
-def calc_crm_type(
-    total_visits: int,
-    visits_90d: int,
-    days_since_last_visit: Optional[int]
-) -> str:
+def calc_crm_type(total_visits: int, visits_90d: int, days_since_last_visit: Optional[int]) -> str:
     """
     Финальная логика:
     - no_visits: ни одного визита вообще
@@ -150,27 +148,29 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
         ORDER BY club_id, guest_id, date_start
     """
 
-    result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(lambda: {
-        "first_visit_date": None,
-        "last_visit_date": None,
-        "visits_7d": 0,
-        "visits_30d": 0,
-        "visits_90d": 0,
-        "total_visits": 0,
-        "avg_session_minutes": None,
-        "max_session_minutes": 0,
-        "total_hours_30d": 0.0,
-        "total_hours_all": 0.0,
-        "days_since_last_visit": None,
-        "night_share": None,
-        "weekend_share": None,
-        "favorite_period": None,
-        "avg_days_between_visits": None,
-        "lifetime_days": None,
-        "is_active_30d": 0,
-        "is_active_90d": 0,
-        "avg_visits_per_month": None,
-    })
+    result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(
+        lambda: {
+            "first_visit_date": None,
+            "last_visit_date": None,
+            "visits_7d": 0,
+            "visits_30d": 0,
+            "visits_90d": 0,
+            "total_visits": 0,
+            "avg_session_minutes": None,
+            "max_session_minutes": 0,
+            "total_hours_30d": 0.0,
+            "total_hours_all": 0.0,
+            "days_since_last_visit": None,
+            "night_share": None,
+            "weekend_share": None,
+            "favorite_period": None,
+            "avg_days_between_visits": None,
+            "lifetime_days": None,
+            "is_active_30d": 0,
+            "is_active_90d": 0,
+            "avg_visits_per_month": None,
+        }
+    )
 
     with conn.cursor() as cur:
         cur.execute(sql)
@@ -285,11 +285,13 @@ def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any
           AND guest_id IS NOT NULL
     """
 
-    result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(lambda: {
-        "avg_check_all": None,
-        "avg_check_30d": None,
-        "last_payment_date": None,
-    })
+    result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(
+        lambda: {
+            "avg_check_all": None,
+            "avg_check_30d": None,
+            "last_payment_date": None,
+        }
+    )
 
     topups_all: Dict[Tuple[int, int], List[float]] = defaultdict(list)
     topups_30d: Dict[Tuple[int, int], List[float]] = defaultdict(list)
@@ -385,9 +387,7 @@ def build_records(conn) -> List[Dict[str, Any]]:
         days_since_last_visit = sess.get("days_since_last_visit")
 
         crm_type = calc_crm_type(
-            total_visits=total_visits,
-            visits_90d=visits_90d,
-            days_since_last_visit=days_since_last_visit
+            total_visits=total_visits, visits_90d=visits_90d, days_since_last_visit=days_since_last_visit
         )
 
         record = {

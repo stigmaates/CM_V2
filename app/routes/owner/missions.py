@@ -1,15 +1,13 @@
-from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from flask import flash, jsonify, redirect, request, session, url_for
 
 from app.core import owner_required, parse_datetime_local
 from app.services.audit import record_audit_event
-from app.services.clubs import get_club_info
 from app.services.missions import (
     build_mission_config_from_form,
     create_club_mission,
-    disable_club_mission,
     delete_club_mission,
+    disable_club_mission,
     get_club_missions,
-    get_club_missions_all,
     get_mission_template_by_id,
     get_mission_templates,
     reward_text_contains_bonus_quantity,
@@ -19,27 +17,30 @@ from app.services.missions import (
 from . import owner_bp
 
 
-@owner_bp.route('/api/missions/templates')
+@owner_bp.route("/api/missions/templates")
 @owner_required
 def api_mission_templates():
     return {"data": get_mission_templates()}
 
 
-@owner_bp.route('/api/missions')
+@owner_bp.route("/api/missions")
 @owner_required
 def api_club_missions():
     club_id = session.get("club_id")
     return {"data": get_club_missions(int(club_id))}
 
 
-@owner_bp.route('/api/missions', methods=['POST'])
+@owner_bp.route("/api/missions", methods=["POST"])
 @owner_required
 def api_create_mission():
     club_id = session.get("club_id")
     data = request.json or {}
     rt = (data.get("reward_text") or "").strip()
     if reward_text_contains_bonus_quantity(rt):
-        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}), 400
+        return (
+            jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}),
+            400,
+        )
 
     create_club_mission(
         club_id=int(club_id),
@@ -68,14 +69,17 @@ def api_create_mission():
     return {"ok": True}
 
 
-@owner_bp.route('/api/missions/<int:mission_id>', methods=['PUT'])
+@owner_bp.route("/api/missions/<int:mission_id>", methods=["PUT"])
 @owner_required
 def api_update_mission(mission_id):
     club_id = session.get("club_id")
     data = request.json or {}
     rt = (data.get("reward_text") or "").strip()
     if reward_text_contains_bonus_quantity(rt):
-        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}), 400
+        return (
+            jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}),
+            400,
+        )
 
     update_club_mission(
         mission_id=mission_id,
@@ -106,7 +110,7 @@ def api_update_mission(mission_id):
     return {"ok": True}
 
 
-@owner_bp.route('/api/missions/<int:mission_id>', methods=['DELETE'])
+@owner_bp.route("/api/missions/<int:mission_id>", methods=["DELETE"])
 @owner_required
 def api_delete_mission(mission_id):
     club_id = session.get("club_id")
@@ -120,13 +124,13 @@ def api_delete_mission(mission_id):
     return {"ok": True}
 
 
-@owner_bp.route('/missions')
+@owner_bp.route("/missions")
 @owner_required
 def missions():
     return redirect(url_for("owner.settings", tab="missions"))
 
 
-@owner_bp.route('/missions/add', methods=['POST'])
+@owner_bp.route("/missions/add", methods=["POST"])
 @owner_required
 def missions_add():
     club_id = session.get("club_id")
@@ -216,7 +220,7 @@ def missions_add():
     return redirect(url_for("owner.settings", tab="missions"))
 
 
-@owner_bp.route('/missions/<int:mission_id>/update', methods=['POST'])
+@owner_bp.route("/missions/<int:mission_id>/update", methods=["POST"])
 @owner_required
 def missions_update(mission_id):
     club_id = session.get("club_id")
@@ -310,7 +314,7 @@ def missions_update(mission_id):
     return redirect(url_for("owner.settings", tab="missions"))
 
 
-@owner_bp.route('/missions/<int:mission_id>/disable', methods=['POST'])
+@owner_bp.route("/missions/<int:mission_id>/disable", methods=["POST"])
 @owner_required
 def missions_disable(mission_id):
     club_id = session.get("club_id")
@@ -332,7 +336,8 @@ def missions_disable(mission_id):
 
     return redirect(url_for("owner.settings", tab="missions"))
 
-@owner_bp.route('/missions/<int:mission_id>/delete', methods=['POST'])
+
+@owner_bp.route("/missions/<int:mission_id>/delete", methods=["POST"])
 @owner_required
 def missions_delete(mission_id):
     club_id = session.get("club_id")

@@ -6,7 +6,6 @@ from typing import Any
 
 from app.config import BACKUP_MAX_AGE_HOURS, BACKUP_MONITOR_DIRS
 
-
 BACKUP_SUFFIXES = (".sql", ".sql.gz")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

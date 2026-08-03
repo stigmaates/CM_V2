@@ -1,27 +1,29 @@
 import logging
 import re
 from datetime import datetime
-from telegram.request import HTTPXRequest
 
 import pymysql
 from pymysql.cursors import DictCursor
-
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
+)
 from telegram.ext import (
     ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
     ApplicationHandlerStop,
     CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
 )
+from telegram.request import HTTPXRequest
 
-from app.config import BOT_TOKEN, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, TG_PROXY_URL
-from app.services.prize_claims import (
-    mark_prize_claim_issued_by_telegram,
-    format_prize_claim_message,
-)
+from app.config import BOT_TOKEN, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, TG_PROXY_URL
 from app.services.first_visit_survey import (
     build_social_links_message,
     complete_survey_and_award,
@@ -30,13 +32,13 @@ from app.services.first_visit_survey import (
     mark_survey_started,
     save_survey_rating,
 )
+from app.services.prize_claims import (
+    format_prize_claim_message,
+    mark_prize_claim_issued_by_telegram,
+)
 from app.services.wheel import award_first_authorization_token
 
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
 def get_db_connection():
@@ -48,10 +50,8 @@ def get_db_connection():
         database=DB_NAME,
         charset="utf8mb4",
         cursorclass=DictCursor,
-        ssl={"check_hostname": False}
+        ssl={"check_hostname": False},
     )
-
-
 
 
 _guest_login_tokens_club_column_ready = False
@@ -100,11 +100,14 @@ def find_guest_by_phone(phone: str, club_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT guest_id, club_id, fio, phone, telegram_id
                 FROM guests
                 WHERE club_id = %s
-            """, (int(club_id),))
+            """,
+                (int(club_id),),
+            )
             guests = cursor.fetchall()
 
         matches = []
@@ -129,12 +132,15 @@ def bind_telegram_to_guest(guest_id: int, club_id: int, telegram_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE guests
                 SET telegram_id = %s
                 WHERE club_id = %s
                   AND guest_id = %s
-            """, (telegram_id, club_id, guest_id))
+            """,
+                (telegram_id, club_id, guest_id),
+            )
         conn.commit()
     finally:
         conn.close()
@@ -145,12 +151,15 @@ def get_login_token_row(token: str):
     try:
         with conn.cursor() as cursor:
             ensure_guest_login_tokens_club_column(cursor)
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT token, guest_id, club_id, telegram_id, is_confirmed, created_at, expires_at
                 FROM guest_login_tokens
                 WHERE token = %s
                 LIMIT 1
-            """, (token,))
+            """,
+                (token,),
+            )
             return cursor.fetchone()
     finally:
         conn.close()
@@ -161,14 +170,17 @@ def confirm_login_token(token: str, guest_id: int, club_id: int, telegram_id: in
     try:
         with conn.cursor() as cursor:
             ensure_guest_login_tokens_club_column(cursor)
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE guest_login_tokens
                 SET guest_id = %s,
                     club_id = %s,
                     telegram_id = %s,
                     is_confirmed = 1
                 WHERE token = %s
-            """, (guest_id, club_id, telegram_id, token))
+            """,
+                (guest_id, club_id, telegram_id, token),
+            )
         conn.commit()
     finally:
         conn.close()
@@ -200,33 +212,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["guest_login_token"] = token
 
-        keyboard = [
-            [KeyboardButton("Отправить номер телефона", request_contact=True)]
-        ]
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard,
-            resize_keyboard=True,
-            one_time_keyboard=True
-        )
+        keyboard = [[KeyboardButton("Отправить номер телефона", request_contact=True)]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
-        await message.reply_text(
-            "Для входа отправьте свой номер телефона кнопкой ниже.",
-            reply_markup=reply_markup
-        )
+        await message.reply_text("Для входа отправьте свой номер телефона кнопкой ниже.", reply_markup=reply_markup)
         return
 
-    keyboard = [
-        [KeyboardButton("Отправить номер телефона", request_contact=True)]
-    ]
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
+    keyboard = [[KeyboardButton("Отправить номер телефона", request_contact=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
     await message.reply_text(
-        "Для входа откройте страницу входа на сайте и перейдите по QR-коду.",
-        reply_markup=reply_markup
+        "Для входа откройте страницу входа на сайте и перейдите по QR-коду.", reply_markup=reply_markup
     )
 
 
@@ -246,38 +242,32 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not token:
         await message.reply_text(
             "Сначала откройте страницу входа на сайте и перейдите в бота по QR-коду.",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=ReplyKeyboardRemove(),
         )
         return
 
     token_row = get_login_token_row(token)
     if not token_row:
-        await message.reply_text(
-            "Токен входа не найден.",
-            reply_markup=ReplyKeyboardRemove()
-        )
+        await message.reply_text("Токен входа не найден.", reply_markup=ReplyKeyboardRemove())
         return
 
     expires_at = token_row.get("expires_at")
     if expires_at and expires_at < datetime.utcnow():
         await message.reply_text(
-            "Время входа истекло. Откройте страницу входа заново.",
-            reply_markup=ReplyKeyboardRemove()
+            "Время входа истекло. Откройте страницу входа заново.", reply_markup=ReplyKeyboardRemove()
         )
         return
 
     if contact.user_id and contact.user_id != user.id:
         await message.reply_text(
-            "Пожалуйста, отправьте именно свой номер телефона.",
-            reply_markup=ReplyKeyboardRemove()
+            "Пожалуйста, отправьте именно свой номер телефона.", reply_markup=ReplyKeyboardRemove()
         )
         return
 
     token_club_id = token_row.get("club_id")
     if not token_club_id:
         await message.reply_text(
-            "Ссылка входа устарела. Откройте страницу входа клуба заново.",
-            reply_markup=ReplyKeyboardRemove()
+            "Ссылка входа устарела. Откройте страницу входа клуба заново.", reply_markup=ReplyKeyboardRemove()
         )
         return
 
@@ -286,29 +276,20 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if matches_count > 1:
         await message.reply_text(
             "Найдено несколько гостей с таким номером. Обратитесь к администратору клуба.",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=ReplyKeyboardRemove(),
         )
         return
 
     if not guest:
         await message.reply_text(
             "Не можем найти Ваш номер! Если вы еще не зарегистрированы в клубе, пройдите регистрацию и возвращайтесь.",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=ReplyKeyboardRemove(),
         )
         return
 
-    bind_telegram_to_guest(
-        guest_id=guest["guest_id"],
-        club_id=guest["club_id"],
-        telegram_id=user.id
-    )
+    bind_telegram_to_guest(guest_id=guest["guest_id"], club_id=guest["club_id"], telegram_id=user.id)
 
-    confirm_login_token(
-        token=token,
-        guest_id=guest["guest_id"],
-        club_id=guest["club_id"],
-        telegram_id=user.id
-    )
+    confirm_login_token(token=token, guest_id=guest["guest_id"], club_id=guest["club_id"], telegram_id=user.id)
 
     guest_name = guest.get("fio") or f"ID {guest['guest_id']}"
 
@@ -341,11 +322,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Вернитесь на страницу сайта — вход выполнится автоматически."
         )
 
-    await message.reply_text(
-        login_text,
-        reply_markup=ReplyKeyboardRemove()
-    )
-
+    await message.reply_text(login_text, reply_markup=ReplyKeyboardRemove())
 
 
 async def first_visit_survey_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -378,13 +355,15 @@ async def first_visit_survey_start_callback(update: Update, context: ContextType
     finally:
         conn.close()
 
-    keyboard = [[
-        InlineKeyboardButton("1 😡", callback_data=f"first_visit_survey_rate:{survey_id}:1"),
-        InlineKeyboardButton("2 😕", callback_data=f"first_visit_survey_rate:{survey_id}:2"),
-        InlineKeyboardButton("3 😐", callback_data=f"first_visit_survey_rate:{survey_id}:3"),
-        InlineKeyboardButton("4 🙂", callback_data=f"first_visit_survey_rate:{survey_id}:4"),
-        InlineKeyboardButton("5 😍", callback_data=f"first_visit_survey_rate:{survey_id}:5"),
-    ]]
+    keyboard = [
+        [
+            InlineKeyboardButton("1 😡", callback_data=f"first_visit_survey_rate:{survey_id}:1"),
+            InlineKeyboardButton("2 😕", callback_data=f"first_visit_survey_rate:{survey_id}:2"),
+            InlineKeyboardButton("3 😐", callback_data=f"first_visit_survey_rate:{survey_id}:3"),
+            InlineKeyboardButton("4 🙂", callback_data=f"first_visit_survey_rate:{survey_id}:4"),
+            InlineKeyboardButton("5 😍", callback_data=f"first_visit_survey_rate:{survey_id}:5"),
+        ]
+    ]
 
     await query.edit_message_text(
         "Оцените компьютерный клуб после первого визита 👇",
@@ -607,9 +586,7 @@ async def done_prize_claim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     guest_name = claim.get("guest_name") or f"Guest ID {claim.get('guest_id')}"
     prefix = "ℹ️" if result.get("already_done") else "✅"
     await message.reply_text(
-        f"{prefix} Приз #{claim_id} отмечен как выдан.\n"
-        f"Гость: {guest_name}\n"
-        f"Приз: {prize_name}"
+        f"{prefix} Приз #{claim_id} отмечен как выдан.\n" f"Гость: {guest_name}\n" f"Приз: {prize_name}"
     )
 
 
@@ -638,19 +615,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message:
         return
 
-    keyboard = [
-        [KeyboardButton("Отправить номер телефона", request_contact=True)]
-    ]
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
+    keyboard = [[KeyboardButton("Отправить номер телефона", request_contact=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
-    await message.reply_text(
-        "Нажмите кнопку ниже и отправьте номер телефона.",
-        reply_markup=reply_markup
-    )
+    await message.reply_text("Нажмите кнопку ниже и отправьте номер телефона.", reply_markup=reply_markup)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
@@ -680,16 +648,17 @@ def main():
         builder = builder.request(request).get_updates_request(get_updates_request)
     else:
         builder = (
-            builder
-            .get_updates_connect_timeout(30.0)
-            .get_updates_read_timeout(30.0)
-            .get_updates_pool_timeout(30.0)
+            builder.get_updates_connect_timeout(30.0).get_updates_read_timeout(30.0).get_updates_pool_timeout(30.0)
         )
 
     app = builder.build()
 
-    app.add_handler(CallbackQueryHandler(first_visit_survey_start_callback, pattern=r"^first_visit_survey_start:\d+$"), group=-3)
-    app.add_handler(CallbackQueryHandler(first_visit_survey_rate_callback, pattern=r"^first_visit_survey_rate:\d+:\d+$"), group=-3)
+    app.add_handler(
+        CallbackQueryHandler(first_visit_survey_start_callback, pattern=r"^first_visit_survey_start:\d+$"), group=-3
+    )
+    app.add_handler(
+        CallbackQueryHandler(first_visit_survey_rate_callback, pattern=r"^first_visit_survey_rate:\d+:\d+$"), group=-3
+    )
     app.add_handler(CallbackQueryHandler(prize_claim_issued_callback, pattern=r"^prize_claim_issued:\d+$"), group=-2)
 
     # Hard fallback: logs all incoming text and handles /done before other handlers.

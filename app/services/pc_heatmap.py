@@ -14,8 +14,7 @@ def ensure_pc_names_table(cursor) -> None:
     if _pc_names_table_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_pc_names (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -27,8 +26,7 @@ def ensure_pc_names_table(cursor) -> None:
             UNIQUE KEY uq_club_pc_uuid (club_id, uuid),
             KEY idx_club_pc_order (club_id, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _pc_names_table_ready = True
 
 
@@ -60,11 +58,9 @@ def _sync_recent_session_uuids(cursor, club_id: int) -> None:
             (club_id, uuid),
         )
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SET @rn := 0
-        """
-    )
+        """)
     cursor.execute(
         """
         UPDATE club_pc_names cpn
@@ -102,12 +98,14 @@ def get_pc_name_settings(club_id: int) -> list[dict[str, Any]]:
         for idx, row in enumerate(rows, start=1):
             uuid = row.get("uuid") or ""
             display_name = (row.get("display_name") or "").strip()
-            result.append({
-                "uuid": uuid,
-                "display_name": display_name,
-                "effective_name": display_name or f"ПК {idx}",
-                "sort_order": int(row.get("sort_order") or idx * 10),
-            })
+            result.append(
+                {
+                    "uuid": uuid,
+                    "display_name": display_name,
+                    "effective_name": display_name or f"ПК {idx}",
+                    "sort_order": int(row.get("sort_order") or idx * 10),
+                }
+            )
         return result
     finally:
         conn.close()
@@ -204,15 +202,17 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
         raw_hours = float(row.get("total_hours") or 0)
         display_name = (row.get("display_name") or "").strip()
         label = display_name or f"ПК {idx}"
-        pcs.append({
-            "uuid": row.get("uuid"),
-            "name": label,
-            "display_name": display_name,
-            "hours": round(raw_hours, 1),
-            "hours_display": str(round(raw_hours, 1)).replace(".0", "").replace(".", ","),
-            "sessions_count": int(row.get("sessions_count") or 0),
-            "level": _level_for_value(raw_hours, max_hours),
-        })
+        pcs.append(
+            {
+                "uuid": row.get("uuid"),
+                "name": label,
+                "display_name": display_name,
+                "hours": round(raw_hours, 1),
+                "hours_display": str(round(raw_hours, 1)).replace(".0", "").replace(".", ","),
+                "sessions_count": int(row.get("sessions_count") or 0),
+                "level": _level_for_value(raw_hours, max_hours),
+            }
+        )
 
     peak_pc = max(pcs, key=lambda item: item["hours"], default=None)
 

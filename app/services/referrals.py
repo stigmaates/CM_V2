@@ -7,7 +7,6 @@ from typing import Any
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 
-
 _referral_tables_ready = False
 
 
@@ -39,8 +38,7 @@ def ensure_referral_tables(cursor) -> None:
     if _referral_tables_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_referral_settings (
             club_id INT NOT NULL PRIMARY KEY,
             is_enabled TINYINT(1) NOT NULL DEFAULT 0,
@@ -51,10 +49,8 @@ def ensure_referral_tables(cursor) -> None:
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS referral_links (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -74,8 +70,7 @@ def ensure_referral_tables(cursor) -> None:
             KEY idx_referral_status (status),
             KEY idx_referral_requested (club_id, requested_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     # Compatibility for databases created by early test versions.
     for table, columns in {
         "club_referral_settings": {
@@ -531,6 +526,7 @@ def get_dashboard_referral_stats(club_id: int, period_days: int = 30) -> dict[st
     process_referral_rewards(club_id)
     now = datetime.now()
     from datetime import timedelta
+
     start = now.replace(microsecond=0) - timedelta(days=period_days)
     end = now.replace(microsecond=0)
     conn = get_db_connection()
@@ -582,6 +578,7 @@ def get_dashboard_referral_stats(club_id: int, period_days: int = 30) -> dict[st
 
         # Mission calculation uses existing service rules. Kept outside DB cursor because it opens its own connections.
         from app.services.missions import get_guest_missions_with_progress
+
         completed_mission = 0
         for gid in invited_ids:
             try:

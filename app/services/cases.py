@@ -1,13 +1,7 @@
 import random
 from datetime import datetime
-from typing import Any
 
 from app.core import get_db_connection
-from app.services.wheel import (
-    _add_token_transaction,
-    _get_balance_for_update,
-    ensure_token_tables,
-)
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.prize_claims import (
     create_prize_claim,
@@ -16,7 +10,11 @@ from app.services.prize_claims import (
     notify_prize_claim_admin_chat,
     serialize_prize_claim,
 )
-
+from app.services.wheel import (
+    _add_token_transaction,
+    _get_balance_for_update,
+    ensure_token_tables,
+)
 
 _game_mode_column_ready = False
 _case_tables_ready = False
@@ -28,22 +26,18 @@ def ensure_game_mode_column(cursor):
     if _game_mode_column_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'club_wheel_settings'
           AND COLUMN_NAME = 'game_mode'
-        """
-    )
+        """)
     if not cursor.fetchone():
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE club_wheel_settings
             ADD COLUMN game_mode VARCHAR(10) NOT NULL DEFAULT 'wheel'
-            """
-        )
+            """)
 
     _game_mode_column_ready = True
 
@@ -54,8 +48,7 @@ def ensure_case_tables(cursor):
     if _case_tables_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_cases (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -70,10 +63,8 @@ def ensure_case_tables(cursor):
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             KEY idx_club_cases_club (club_id, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_case_items (
             id INT AUTO_INCREMENT PRIMARY KEY,
             case_id INT NOT NULL,
@@ -90,28 +81,22 @@ def ensure_case_tables(cursor):
             KEY idx_case_items_case (case_id, sort_order),
             KEY idx_case_items_club (club_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'club_case_items'
           AND COLUMN_NAME = 'rarity_label'
-        """
-    )
+        """)
     if not cursor.fetchone():
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE club_case_items
             ADD COLUMN rarity_label VARCHAR(40) NOT NULL DEFAULT 'Обычный'
             AFTER probability
-            """
-        )
+            """)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_case_openings (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -122,8 +107,7 @@ def ensure_case_tables(cursor):
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             KEY idx_case_openings_guest (club_id, guest_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
     _case_tables_ready = True
 
@@ -131,6 +115,7 @@ def ensure_case_tables(cursor):
 # ---------------------------------------------------------------------------
 # Game mode (wheel / cases)
 # ---------------------------------------------------------------------------
+
 
 def get_game_mode(club_id: int) -> str:
     conn = get_db_connection()
@@ -292,8 +277,16 @@ def assert_case_active_items_probability_sum_is_100(case_id: int, club_id: int):
         )
 
 
-def create_case(club_id: int, name: str, description: str | None, image_url: str | None,
-                 badge_label: str | None, price_tokens: int, is_active: int = 1, sort_order: int = 0) -> int:
+def create_case(
+    club_id: int,
+    name: str,
+    description: str | None,
+    image_url: str | None,
+    badge_label: str | None,
+    price_tokens: int,
+    is_active: int = 1,
+    sort_order: int = 0,
+) -> int:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -312,8 +305,17 @@ def create_case(club_id: int, name: str, description: str | None, image_url: str
         conn.close()
 
 
-def update_case(case_id: int, club_id: int, name: str, description: str | None, image_url: str | None,
-                 badge_label: str | None, price_tokens: int, is_active: int, sort_order: int):
+def update_case(
+    case_id: int,
+    club_id: int,
+    name: str,
+    description: str | None,
+    image_url: str | None,
+    badge_label: str | None,
+    price_tokens: int,
+    is_active: int,
+    sort_order: int,
+):
     if is_active:
         assert_case_active_items_probability_sum_is_100(case_id, club_id)
 
@@ -328,7 +330,17 @@ def update_case(case_id: int, club_id: int, name: str, description: str | None, 
                     price_tokens = %s, is_active = %s, sort_order = %s
                 WHERE id = %s AND club_id = %s
                 """,
-                (name, description, image_url, badge_label, int(price_tokens or 0), is_active, sort_order, case_id, club_id),
+                (
+                    name,
+                    description,
+                    image_url,
+                    badge_label,
+                    int(price_tokens or 0),
+                    is_active,
+                    sort_order,
+                    case_id,
+                    club_id,
+                ),
             )
         conn.commit()
     finally:
@@ -421,6 +433,7 @@ def duplicate_case(case_id: int, club_id: int) -> int:
 # Case items CRUD
 # ---------------------------------------------------------------------------
 
+
 def get_case_item_by_id(item_id: int, club_id: int):
     conn = get_db_connection()
     try:
@@ -441,9 +454,19 @@ def get_case_item_by_id(item_id: int, club_id: int):
         conn.close()
 
 
-def create_case_item(case_id: int, club_id: int, name: str, description: str | None, image_url: str | None,
-                      bonus_amount: int, token_amount: int, probability: float, rarity_label: str = "Обычный",
-                      is_active: int = 1, sort_order: int = 0) -> int:
+def create_case_item(
+    case_id: int,
+    club_id: int,
+    name: str,
+    description: str | None,
+    image_url: str | None,
+    bonus_amount: int,
+    token_amount: int,
+    probability: float,
+    rarity_label: str = "Обычный",
+    is_active: int = 1,
+    sort_order: int = 0,
+) -> int:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -457,9 +480,17 @@ def create_case_item(case_id: int, club_id: int, name: str, description: str | N
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
-                    case_id, club_id, name, description, image_url,
-                    int(bonus_amount or 0), int(token_amount or 0), probability,
-                    rarity_label or "Обычный", is_active, sort_order
+                    case_id,
+                    club_id,
+                    name,
+                    description,
+                    image_url,
+                    int(bonus_amount or 0),
+                    int(token_amount or 0),
+                    probability,
+                    rarity_label or "Обычный",
+                    is_active,
+                    sort_order,
                 ),
             )
             new_id = int(cursor.lastrowid)
@@ -469,9 +500,20 @@ def create_case_item(case_id: int, club_id: int, name: str, description: str | N
         conn.close()
 
 
-def update_case_item(item_id: int, club_id: int, case_id: int, name: str, description: str | None, image_url: str | None,
-                      bonus_amount: int, token_amount: int, probability: float, rarity_label: str,
-                      is_active: int, sort_order: int):
+def update_case_item(
+    item_id: int,
+    club_id: int,
+    case_id: int,
+    name: str,
+    description: str | None,
+    image_url: str | None,
+    bonus_amount: int,
+    token_amount: int,
+    probability: float,
+    rarity_label: str,
+    is_active: int,
+    sort_order: int,
+):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -485,8 +527,18 @@ def update_case_item(item_id: int, club_id: int, case_id: int, name: str, descri
                 WHERE id = %s AND club_id = %s AND case_id = %s
                 """,
                 (
-                    name, description, image_url, int(bonus_amount or 0), int(token_amount or 0),
-                    probability, rarity_label or "Обычный", is_active, sort_order, item_id, club_id, case_id
+                    name,
+                    description,
+                    image_url,
+                    int(bonus_amount or 0),
+                    int(token_amount or 0),
+                    probability,
+                    rarity_label or "Обычный",
+                    is_active,
+                    sort_order,
+                    item_id,
+                    club_id,
+                    case_id,
                 ),
             )
         conn.commit()
@@ -508,6 +560,7 @@ def delete_case_item(item_id: int, club_id: int):
 # ---------------------------------------------------------------------------
 # Guest-facing: serialization, opening
 # ---------------------------------------------------------------------------
+
 
 def serialize_case_item(item):
     if not item:
