@@ -114,8 +114,7 @@ def fetch_topups(secret: str, api_key: str, date_from: str, date_to: str):
 
         total_pages = data.get("total_pages") or total_pages
         logging.info(
-            "Langame secret=%s | balance topups page %s%s: %s",
-            secret,
+            "Langame balance topups page %s%s: %s",
             page,
             f"/{total_pages}" if total_pages else "",
             len(rows),
@@ -267,7 +266,7 @@ def sync_balance_topups_incremental(club_id=None):
             lock.__exit__(None, None, None)
             continue
 
-        logging.info("Клуб %s | Langame secret=%s | %s -> %s", current_club_id, secret, date_from, date_to)
+        logging.info("Клуб %s | Langame balance topups sync | %s -> %s", current_club_id, date_from, date_to)
 
         try:
             topups = fetch_topups(secret, api_key, date_from, date_to)

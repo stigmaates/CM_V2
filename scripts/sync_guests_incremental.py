@@ -123,7 +123,7 @@ def fetch_guests(secret, api_key):
         total_pages = int(json_data.get("total_pages") or 0)
 
         logging.info(
-            f"Langame secret={secret} | guests page {page}"
+            f"Langame guests page {page}"
             + (f"/{total_pages}" if total_pages else "")
             + f": {len(guests)}"
         )
@@ -281,7 +281,7 @@ def sync_guests_incremental(club_id=None):
             lock.__exit__(None, None, None)
             continue
 
-        logging.info(f"Клуб {current_club_id} | Langame secret={secret}")
+        logging.info("Клуб %s | Langame guests sync", current_club_id)
 
         try:
             existing_ids = get_existing_guest_ids(current_club_id)

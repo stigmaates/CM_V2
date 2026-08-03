@@ -12,6 +12,7 @@ from app.core import get_db_connection
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from app.services.referrals import ensure_referral_tables, process_referral_rewards
+from scripts.sync_utils import table_has_column
 
 
 def main() -> None:
@@ -19,7 +20,10 @@ def main() -> None:
     try:
         with conn.cursor() as cursor:
             ensure_referral_tables(cursor)
-            cursor.execute("SELECT club_id FROM clubs")
+            if table_has_column(cursor, "clubs", "service_enabled"):
+                cursor.execute("SELECT club_id FROM clubs WHERE COALESCE(service_enabled, 1) = 1")
+            else:
+                cursor.execute("SELECT club_id FROM clubs")
             clubs = [int(row["club_id"]) for row in cursor.fetchall() or []]
         conn.commit()
     finally:

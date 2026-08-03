@@ -18,6 +18,7 @@ from app.config import (
     DB_USER,
     DB_WRITE_TIMEOUT,
 )
+from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
 
 logging.basicConfig(level=logging.INFO)
@@ -49,12 +50,13 @@ def get_club_data(club_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            service_enabled_expr = service_enabled_select_expr(cursor)
             cursor.execute("""
-                SELECT club_id, lg_api_key, secret
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
-            """, (club_id,))
+            """.format(service_enabled_expr=service_enabled_expr), (club_id,))
             return cursor.fetchone()
     finally:
         conn.close()
@@ -64,11 +66,12 @@ def get_clubs():
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            service_enabled_expr = service_enabled_select_expr(cursor)
             cursor.execute("""
-                SELECT club_id, lg_api_key, secret
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 ORDER BY club_id
-            """)
+            """.format(service_enabled_expr=service_enabled_expr))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -237,10 +240,14 @@ def sync_operations_initial(club_id: int, date_from: str, date_to: str):
     if not club:
         raise Exception(f"Клуб {club_id} не найден")
 
+    if not is_service_enabled(club):
+        logging.info("Клуб %s выключен, initial sync операций пропущен", club_id)
+        return {"club_id": club_id, "status": "skipped_disabled", "saved": 0, "date_from": date_from, "date_to": date_to}
+
     api_key = club["lg_api_key"]
     secret = club["secret"]
 
-    logging.info(f"Клуб {club_id} | Langame secret={secret}")
+    logging.info("Клуб %s | Langame operations initial sync", club_id)
 
     start_date = datetime.strptime(date_from, "%Y-%m-%d").date()
     end_date = datetime.strptime(date_to, "%Y-%m-%d").date()
