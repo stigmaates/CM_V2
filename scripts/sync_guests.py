@@ -16,6 +16,7 @@ from app.config import (
     DB_USER,
     DB_WRITE_TIMEOUT,
 )
+from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
 
 logging.basicConfig(level=logging.INFO)
@@ -44,12 +45,13 @@ def get_club_data(club_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            service_enabled_expr = service_enabled_select_expr(cursor)
             cursor.execute("""
-                SELECT club_id, lg_api_key, secret
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
-            """, (club_id,))
+            """.format(service_enabled_expr=service_enabled_expr), (club_id,))
             return cursor.fetchone()
     finally:
         conn.close()
@@ -59,11 +61,12 @@ def get_clubs():
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            service_enabled_expr = service_enabled_select_expr(cursor)
             cursor.execute("""
-                SELECT club_id, lg_api_key, secret
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 ORDER BY club_id
-            """)
+            """.format(service_enabled_expr=service_enabled_expr))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -106,7 +109,7 @@ def fetch_guests(secret: str, api_key: str):
         total_pages = int(json_data.get("total_pages") or 0)
 
         logging.info(
-            f"Langame secret={secret} | guests page {page}"
+            f"Langame guests page {page}"
             + (f"/{total_pages}" if total_pages else "")
             + f": {len(guests)}"
         )
@@ -209,10 +212,14 @@ def sync_guests(club_id: int):
     if not club:
         raise Exception(f"Клуб {club_id} не найден")
 
+    if not is_service_enabled(club):
+        logging.info("Клуб %s выключен, initial sync гостей пропущен", club_id)
+        return {"club_id": club_id, "status": "skipped_disabled"}
+
     api_key = club["lg_api_key"]
     secret = club["secret"]
 
-    logging.info(f"Клуб {club_id} | Langame secret={secret}")
+    logging.info("Клуб %s | Langame guests initial sync", club_id)
 
     guests = fetch_guests(secret, api_key)
 
@@ -221,6 +228,7 @@ def sync_guests(club_id: int):
     save_guests(club_id, guests)
 
     logging.info(f"Синхронизация гостей клуба {club_id} завершена")
+    return {"club_id": club_id, "status": "success", "received": len(guests), "saved": len(guests)}
 
 
 def sync_all_guests():

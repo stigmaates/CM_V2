@@ -16,6 +16,7 @@ from app.config import (
     DB_USER,
     DB_WRITE_TIMEOUT,
 )
+from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
 
 logging.basicConfig(level=logging.INFO)
@@ -44,12 +45,13 @@ def get_club_data(club_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            service_enabled_expr = service_enabled_select_expr(cursor)
             cursor.execute("""
-                SELECT club_id, lg_api_key, secret
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
-            """, (club_id,))
+            """.format(service_enabled_expr=service_enabled_expr), (club_id,))
             return cursor.fetchone()
     finally:
         conn.close()
@@ -59,11 +61,12 @@ def get_clubs():
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            service_enabled_expr = service_enabled_select_expr(cursor)
             cursor.execute("""
-                SELECT club_id, lg_api_key, secret
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 ORDER BY club_id
-            """)
+            """.format(service_enabled_expr=service_enabled_expr))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -188,10 +191,14 @@ def sync_sessions_initial(club_id: int):
     if not club:
         raise Exception(f"Клуб {club_id} не найден")
 
+    if not is_service_enabled(club):
+        logging.info("Клуб %s выключен, initial sync сессий пропущен", club_id)
+        return {"club_id": club_id, "status": "skipped_disabled", "saved": 0, "skipped": 0}
+
     api_key = club["lg_api_key"]
     secret = club["secret"]
 
-    logging.info(f"Клуб {club_id} | Langame secret={secret}")
+    logging.info("Клуб %s | Langame sessions initial sync", club_id)
 
     existing_guest_ids = get_existing_guest_ids(club_id)
     logging.info(f"Загружено гостей: {len(existing_guest_ids)}")

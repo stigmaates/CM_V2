@@ -620,6 +620,12 @@ def club_sync(club_id: int, sync_type: str):
     if sync_type not in actions:
         return jsonify({"status": False, "message": "Неизвестный тип синхронизации"}), 400
 
+    club = get_club_by_id(club_id)
+    if not club:
+        return jsonify({"status": False, "message": "Клуб не найден"}), 404
+    if not _is_club_service_enabled(club):
+        return jsonify({"status": False, "message": "Клуб выключен, синхронизация недоступна"}), 400
+
     script_name, sync_mode, func = actions[sync_type]
     log_id = create_sync_log(club_id, script_name, sync_mode)
 

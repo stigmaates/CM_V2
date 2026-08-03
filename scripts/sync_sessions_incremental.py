@@ -209,7 +209,7 @@ def sync_sessions_incremental(club_id=None):
             lock.__exit__(None, None, None)
             continue
 
-        logging.info(f"Клуб {current_club_id} | Langame secret={secret} | {date_from} → {date_to}")
+        logging.info("Клуб %s | Langame sessions sync | %s → %s", current_club_id, date_from, date_to)
 
         try:
             page = 1

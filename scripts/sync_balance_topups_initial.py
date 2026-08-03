@@ -13,6 +13,7 @@ from scripts.sync_balance_topups_incremental import (
     get_clubs,
     save_topups,
 )
+from scripts.sync_utils import is_service_enabled
 
 
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,10 @@ def sync_balance_topups_initial(club_id: int, date_from: str, date_to: str):
     if not clubs:
         raise Exception(f"Клуб {club_id} не найден")
     club = clubs[0]
+
+    if not is_service_enabled(club):
+        logging.info("Клуб %s выключен, initial sync пополнений пропущен", club_id)
+        return {"club_id": club_id, "status": "skipped_disabled", "received": 0, "saved": 0, "date_from": date_from, "date_to": date_to}
 
     api_key = club["lg_api_key"]
     secret = club["secret"]
