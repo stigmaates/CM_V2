@@ -13,7 +13,6 @@ from app.config import (
     CLUBMODULE_UPLOAD_URL_PREFIX,
 )
 
-
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 UPLOAD_KIND_DIRS = {
     "case_cover": "covers",
@@ -101,7 +100,7 @@ def _path_from_local_url(url: str | None) -> Path | None:
         return None
 
     prefix = _url_prefix()
-    rel = str(url).strip()[len(prefix):].lstrip("/")
+    rel = str(url).strip()[len(prefix) :].lstrip("/")
     root = _root_path()
     path = (root / rel).resolve()
 
@@ -182,7 +181,9 @@ def _convert_to_webp(data: bytes, kind: str) -> bytes:
     try:
         from PIL import Image, ImageOps
     except ImportError as exc:
-        raise UploadError("На сервере не установлена библиотека Pillow. Выполни: pip install -r requirements.txt") from exc
+        raise UploadError(
+            "На сервере не установлена библиотека Pillow. Выполни: pip install -r requirements.txt"
+        ) from exc
 
     try:
         Image.MAX_IMAGE_PIXELS = 20_000_000

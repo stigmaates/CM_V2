@@ -7,25 +7,26 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from app.config import AUTO_MAILING_TIMEZONE
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.first_visit_survey import (
+    create_first_visit_survey,
+    get_first_visit_survey_candidates,
+    send_first_visit_survey_invite,
+)
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from app.services.mailing import (
     create_mailing_for_recipients,
     get_inactive_auto_mailing_recipients,
 )
-from app.services.first_visit_survey import (
-    create_first_visit_survey,
-    get_first_visit_survey_candidates,
-    send_first_visit_survey_invite,
-)
+from app.services.wheel import _calculate_streak_rows
 from scripts.process_mailings import process_one_mailing
 from scripts.sync_utils import table_has_column
-from app.services.wheel import _calculate_streak_rows
 
 
 def process_inactive_14_bonus(conn, setting: dict) -> int:
@@ -140,9 +141,7 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
     return int(mailing.get("recipients_count") or 0)
 
 
-
 def process_first_visit_survey(conn, setting: dict) -> int:
-    club_id = int(setting["club_id"])
     bonus_amount = int(setting.get("bonus_amount") or 100)
     message_text = setting.get("message_text") or (
         "Спасибо за первый визит! 🙌\n\n"
@@ -191,11 +190,9 @@ def process_first_visit_survey(conn, setting: dict) -> int:
     return sent_count
 
 
-
 def _ensure_auto_mailing_logs_table(conn) -> None:
     with conn.cursor() as cur:
-        cur.execute(
-            """
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS auto_mailing_logs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 club_id INT NOT NULL,
@@ -211,8 +208,7 @@ def _ensure_auto_mailing_logs_table(conn) -> None:
                 KEY idx_auto_mailing_logs_guest_code (club_id, automation_code, guest_id, created_at),
                 KEY idx_auto_mailing_logs_mailing (mailing_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            """
-        )
+            """)
 
 
 def _get_auto_mailing_now() -> datetime:
@@ -227,15 +223,16 @@ def _is_streak_reminder_send_window() -> bool:
     return 9 <= now.hour < 21
 
 
-def _format_streak_reminder_message(template: str, club_name: str, streak_days: int, cycle_end, next_reward: int) -> str:
+def _format_streak_reminder_message(
+    template: str, club_name: str, streak_days: int, cycle_end, next_reward: int
+) -> str:
     text = template or (
         "Привет! У тебя в {club_name} стрик из дней — {streak_days}. "
         "Приди еще раз до {date} и получи {next_reward} жетонов для колеса фортуны!"
     )
     date_text = cycle_end.strftime("%d.%m") if hasattr(cycle_end, "strftime") else str(cycle_end)
     return (
-        text
-        .replace("[club_name]", str(club_name or "клубе"))
+        text.replace("[club_name]", str(club_name or "клубе"))
         .replace("[х]", str(streak_days))
         .replace("[x]", str(streak_days))
         .replace("[date]", date_text)
@@ -275,7 +272,11 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
             (club_id,),
         )
         wheel_settings = cur.fetchone() or {}
-        if not wheel_settings or not int(wheel_settings.get("is_enabled") or 0) or not wheel_settings.get("tokens_start_date"):
+        if (
+            not wheel_settings
+            or not int(wheel_settings.get("is_enabled") or 0)
+            or not wheel_settings.get("tokens_start_date")
+        ):
             return []
 
         tokens_start_date = wheel_settings["tokens_start_date"]
@@ -350,17 +351,19 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
             if cur.fetchone():
                 continue
 
-            candidates.append({
-                "guest_id": guest_id,
-                "telegram_id": telegram_by_guest.get(guest_id),
-                "club_id": club_id,
-                "club_name": club_name,
-                "streak_days": streak_days,
-                "cycle_start": cycle_start,
-                "cycle_end": cycle_end,
-                "days_left": days_left,
-                "next_reward": min(streak_days + 1, 7),
-            })
+            candidates.append(
+                {
+                    "guest_id": guest_id,
+                    "telegram_id": telegram_by_guest.get(guest_id),
+                    "club_id": club_id,
+                    "club_name": club_name,
+                    "streak_days": streak_days,
+                    "cycle_start": cycle_start,
+                    "cycle_end": cycle_end,
+                    "days_left": days_left,
+                    "next_reward": min(streak_days + 1, 7),
+                }
+            )
     return candidates
 
 
@@ -454,6 +457,7 @@ def process_streak_expiring_reminder(conn, setting: dict) -> int:
         sent_count += int(mailing.get("recipients_count") or 0)
     return sent_count
 
+
 def process_auto_mailings() -> dict:
     conn = get_db_connection()
     total_created = 0
@@ -461,25 +465,21 @@ def process_auto_mailings() -> dict:
     try:
         with conn.cursor() as cur:
             if table_has_column(cur, "clubs", "service_enabled"):
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT ams.*
                     FROM auto_mailing_settings ams
                     JOIN clubs c ON c.club_id = ams.club_id
                     WHERE ams.is_enabled = 1
                       AND COALESCE(c.service_enabled, 1) = 1
                     ORDER BY ams.club_id, ams.id
-                    """
-                )
+                    """)
             else:
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT *
                     FROM auto_mailing_settings
                     WHERE is_enabled = 1
                     ORDER BY club_id, id
-                    """
-                )
+                    """)
             settings = cur.fetchall()
 
         for setting in settings:

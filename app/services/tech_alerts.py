@@ -12,7 +12,6 @@ from app.config import TECH_ALERT_BOT_TOKEN, TECH_ALERT_CHAT_ID, TECH_ALERT_PROX
 from app.core import get_db_connection
 from app.services.operational_alerts import get_operational_alerts
 
-
 HttpPost = Callable[[str, dict[str, Any]], Any]
 
 
@@ -21,8 +20,7 @@ def _utcnow() -> datetime:
 
 
 def ensure_operational_alert_notifications_table(cursor) -> None:
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS operational_alert_notifications (
             alert_key VARCHAR(191) PRIMARY KEY,
             severity VARCHAR(30) NOT NULL,
@@ -35,8 +33,7 @@ def ensure_operational_alert_notifications_table(cursor) -> None:
             KEY idx_operational_alert_notifications_last_sent (last_sent_at),
             KEY idx_operational_alert_notifications_club_code (club_id, code)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
 
 def critical_alerts(alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -78,10 +75,12 @@ def format_tech_alert_message(alert: dict[str, Any]) -> str:
 
 
 def format_test_alert_message() -> str:
-    return "\n".join([
-        "<b>ClubModule: тест технических алертов</b>",
-        "Если ты видишь это сообщение, Telegram-алерты настроены корректно.",
-    ])
+    return "\n".join(
+        [
+            "<b>ClubModule: тест технических алертов</b>",
+            "Если ты видишь это сообщение, Telegram-алерты настроены корректно.",
+        ]
+    )
 
 
 def _should_send(cursor, alert_key: str, *, now: datetime, cooldown_minutes: int) -> bool:

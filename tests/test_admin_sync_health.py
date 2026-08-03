@@ -22,14 +22,16 @@ def test_overall_sync_status_marks_missing_data_as_stale():
 
 
 def test_summarize_sync_health_counts_club_states():
-    summary = admin_dashboard.summarize_sync_health([
-        {"overall": "success"},
-        {"overall": "success"},
-        {"overall": "stale"},
-        {"overall": "error"},
-        {"overall": "running"},
-        {"overall": "disabled"},
-    ])
+    summary = admin_dashboard.summarize_sync_health(
+        [
+            {"overall": "success"},
+            {"overall": "success"},
+            {"overall": "stale"},
+            {"overall": "error"},
+            {"overall": "running"},
+            {"overall": "disabled"},
+        ]
+    )
 
     assert summary == {
         "success": 2,
@@ -44,13 +46,17 @@ def test_summarize_sync_health_counts_club_states():
 def test_get_club_sync_health_marks_disabled_clubs_without_jobs(monkeypatch):
     monkeypatch.setattr(admin_dashboard, "get_latest_job_runs_by_club", lambda job_types: {})
 
-    health = admin_dashboard.get_club_sync_health([
-        {"club_id": 7, "name": "Paused", "service_enabled": 0},
-    ])
+    health = admin_dashboard.get_club_sync_health(
+        [
+            {"club_id": 7, "name": "Paused", "service_enabled": 0},
+        ]
+    )
 
-    assert health == [{
-        "club_id": 7,
-        "name": "Paused",
-        "overall": "disabled",
-        "jobs": [],
-    }]
+    assert health == [
+        {
+            "club_id": 7,
+            "name": "Paused",
+            "overall": "disabled",
+            "jobs": [],
+        }
+    ]

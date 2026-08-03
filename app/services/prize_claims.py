@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from html import escape
+from typing import Any
 
 import httpx
 
-from app.config import BOT_TOKEN, CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL
+from app.config import CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL
 from app.core import get_db_connection
 from app.services.cm_bonuses import get_cm_bonus_admin_chat_id_for_club
-
 
 _prize_claim_tables_ready = False
 
@@ -29,8 +28,7 @@ def ensure_prize_claim_tables(cursor) -> None:
     if _prize_claim_tables_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_prize_claims (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -57,8 +55,7 @@ def ensure_prize_claim_tables(cursor) -> None:
             KEY idx_prize_claims_spin (spin_id),
             UNIQUE KEY uq_prize_claim_spin (spin_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _prize_claim_tables_ready = True
 
 
@@ -73,8 +70,6 @@ def _format_phone(phone: str | None) -> str:
 
 def _status_label(status: str | None) -> str:
     return STATUS_LABELS.get((status or "").strip(), status or "ожидает выдачи")
-
-
 
 
 def _html(value: Any) -> str:
@@ -130,6 +125,7 @@ def format_prize_claim_message(claim: dict[str, Any], issued: bool = False) -> s
         "Статус: <b>ожидает выдачи</b>\n\n"
         "После выдачи нажмите кнопку ниже."
     )
+
 
 def create_prize_claim(cursor, guest_id: int, club_id: int, spin_id: int, prize: dict[str, Any]) -> int | None:
     """Create a manual issue task for a wheel prize. Returns claim id.
@@ -291,7 +287,7 @@ def _notify_claim_admin_chat(claim: dict[str, Any]) -> tuple[bool, int | None, s
         data = response.json()
         if response.status_code >= 400 or not data.get("ok"):
             return False, None, str(data), chat_id
-        message_id = ((data.get("result") or {}).get("message_id"))
+        message_id = (data.get("result") or {}).get("message_id")
         return True, message_id, None, chat_id
     except Exception as e:
         return False, None, str(e), chat_id
@@ -443,7 +439,9 @@ def mark_prize_claim_issued_by_owner(claim_id: int, club_id: int, user_id: int |
     return {"ok": affected > 0, "affected": affected}
 
 
-def cancel_prize_claim_by_owner(claim_id: int, club_id: int, reason: str | None = None, user_id: int | None = None) -> dict[str, Any]:
+def cancel_prize_claim_by_owner(
+    claim_id: int, club_id: int, reason: str | None = None, user_id: int | None = None
+) -> dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -460,7 +458,12 @@ def cancel_prize_claim_by_owner(claim_id: int, club_id: int, reason: str | None 
                   AND club_id = %s
                   AND status <> 'issued'
                 """,
-                (datetime.utcnow(), reason or f"cancelled_by_owner:{user_id}" if user_id else reason, claim_id, club_id),
+                (
+                    datetime.utcnow(),
+                    reason or f"cancelled_by_owner:{user_id}" if user_id else reason,
+                    claim_id,
+                    club_id,
+                ),
             )
             affected = cursor.rowcount
         conn.commit()

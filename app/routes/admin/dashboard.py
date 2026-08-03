@@ -42,8 +42,7 @@ SYNC_STALE_HOURS = {
 def ensure_admin_sync_logs_table():
     with get_db_connection() as db:
         with db.cursor() as cur:
-            cur.execute(
-                """
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS admin_sync_logs (
                     id BIGINT AUTO_INCREMENT PRIMARY KEY,
                     club_id INT NOT NULL,
@@ -57,18 +56,14 @@ def ensure_admin_sync_logs_table():
                     INDEX idx_admin_sync_logs_club (club_id),
                     INDEX idx_admin_sync_logs_started (started_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                """
-            )
+                """)
         db.commit()
-
-
 
 
 def ensure_admin_impersonation_logs_table():
     with get_db_connection() as db:
         with db.cursor() as cur:
-            cur.execute(
-                """
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS admin_impersonation_logs (
                     id BIGINT AUTO_INCREMENT PRIMARY KEY,
                     admin_user_id INT NOT NULL,
@@ -83,8 +78,7 @@ def ensure_admin_impersonation_logs_table():
                     INDEX idx_admin_impersonation_club (club_id),
                     INDEX idx_admin_impersonation_started (started_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                """
-            )
+                """)
         db.commit()
 
 
@@ -146,6 +140,7 @@ def finish_impersonation_log(log_id):
             )
         db.commit()
 
+
 def table_has_column(table_name: str, column_name: str) -> bool:
     with get_db_connection() as db:
         with db.cursor() as cur:
@@ -168,8 +163,7 @@ def get_clubs_for_admin():
     service_enabled_expr = "c.service_enabled" if table_has_column("clubs", "service_enabled") else "1"
     with get_db_connection() as db:
         with db.cursor() as cur:
-            cur.execute(
-                f"""
+            cur.execute(f"""
                 SELECT
                     c.club_id,
                     {service_enabled_expr} AS service_enabled,
@@ -181,8 +175,7 @@ def get_clubs_for_admin():
                 FROM clubs c
                 LEFT JOIN users u ON u.user_id = c.owner_id
                 ORDER BY c.club_id DESC
-                """
-            )
+                """)
             return cur.fetchall()
 
 
@@ -287,24 +280,28 @@ def get_club_sync_health(clubs):
     for club in clubs:
         club_id = int(club["club_id"])
         if not _is_club_service_enabled(club):
-            health.append({
-                "club_id": club_id,
-                "name": club.get("name"),
-                "overall": "disabled",
-                "jobs": [],
-            })
+            health.append(
+                {
+                    "club_id": club_id,
+                    "name": club.get("name"),
+                    "overall": "disabled",
+                    "jobs": [],
+                }
+            )
             continue
 
         latest = latest_by_club.get(club_id, {})
         jobs = [_job_state(job_type, latest.get(job_type)) for job_type in SYNC_JOB_TYPES]
         overall = _overall_sync_status(jobs)
 
-        health.append({
-            "club_id": club_id,
-            "name": club.get("name"),
-            "overall": overall,
-            "jobs": jobs,
-        })
+        health.append(
+            {
+                "club_id": club_id,
+                "name": club.get("name"),
+                "overall": overall,
+                "jobs": jobs,
+            }
+        )
 
     return health
 
@@ -378,11 +375,13 @@ def finish_sync_log(log_id: int, status: str, message: str):
 
 def run_guests_initial(club_id: int):
     from scripts.sync_guests import sync_guests
+
     sync_guests(club_id)
 
 
 def run_sessions_initial(club_id: int):
     from scripts.sync_sessions_initial import sync_sessions_initial
+
     sync_sessions_initial(club_id)
 
 
@@ -522,11 +521,13 @@ def club_details(club_id: int):
     if not clubs:
         return jsonify({"status": False, "message": "Клуб не найден"}), 404
 
-    return jsonify({
-        "status": True,
-        "club": clubs[0],
-        "logs": get_club_sync_logs(club_id),
-    })
+    return jsonify(
+        {
+            "status": True,
+            "club": clubs[0],
+            "logs": get_club_sync_logs(club_id),
+        }
+    )
 
 
 @admin_bp.route("/clubs/<int:club_id>/service", methods=["POST"])
@@ -558,11 +559,13 @@ def club_service_toggle(club_id: int):
         details={"service_enabled": enabled},
     )
 
-    return jsonify({
-        "status": True,
-        "message": "Обслуживание включено" if enabled else "Обслуживание выключено",
-        "service_enabled": enabled,
-    })
+    return jsonify(
+        {
+            "status": True,
+            "message": "Обслуживание включено" if enabled else "Обслуживание выключено",
+            "service_enabled": enabled,
+        }
+    )
 
 
 @admin_bp.route("/api/system-health")
@@ -575,11 +578,13 @@ def api_system_health():
 @admin_required
 def api_operational_alerts():
     alerts = get_operational_alerts(problem_job_limit=20)
-    return jsonify({
-        "ok": not any(alert.get("severity") == "error" for alert in alerts),
-        "summary": summarize_alerts(alerts),
-        "alerts": alerts,
-    })
+    return jsonify(
+        {
+            "ok": not any(alert.get("severity") == "error" for alert in alerts),
+            "summary": summarize_alerts(alerts),
+            "alerts": alerts,
+        }
+    )
 
 
 @admin_bp.route("/api/clubs/<int:club_id>/health")
@@ -590,17 +595,19 @@ def api_club_health(club_id: int):
         return jsonify({"ok": False, "message": "Клуб не найден"}), 404
 
     health = get_club_sync_health([club])[0]
-    return jsonify({
-        "ok": health["overall"] == "success",
-        "club": {
-            "club_id": int(club["club_id"]),
-            "name": club.get("name"),
-        },
-        "sync": {
-            "overall": health["overall"],
-            "jobs": health["jobs"],
-        },
-    })
+    return jsonify(
+        {
+            "ok": health["overall"] == "success",
+            "club": {
+                "club_id": int(club["club_id"]),
+                "name": club.get("name"),
+            },
+            "sync": {
+                "overall": health["overall"],
+                "jobs": health["jobs"],
+            },
+        }
+    )
 
 
 @admin_bp.route("/clubs/<int:club_id>/sync/<sync_type>", methods=["POST"])

@@ -26,7 +26,6 @@ from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
-
 logging.basicConfig(level=logging.INFO)
 
 PAGE_LIMIT = 500
@@ -45,7 +44,7 @@ def get_db_connection():
         connect_timeout=DB_CONNECT_TIMEOUT,
         read_timeout=DB_READ_TIMEOUT,
         write_timeout=DB_WRITE_TIMEOUT,
-        autocommit=False
+        autocommit=False,
     )
 
 
@@ -61,12 +60,15 @@ def get_clubs(club_id=None):
                     ORDER BY club_id
                 """)
             else:
-                cursor.execute(f"""
+                cursor.execute(
+                    f"""
                     SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                     FROM clubs
                     WHERE club_id = %s
                     ORDER BY club_id
-                """, (club_id,))
+                """,
+                    (club_id,),
+                )
             return cursor.fetchall()
     finally:
         conn.close()
@@ -75,17 +77,9 @@ def get_clubs(club_id=None):
 def fetch_sessions(secret, api_key, page, date_from, date_to):
     url = f"https://{secret}.langame.ru/public_api/guests/sessions"
 
-    headers = {
-        "accept": "application/json",
-        "X-API-KEY": api_key.strip()
-    }
+    headers = {"accept": "application/json", "X-API-KEY": api_key.strip()}
 
-    params = {
-        "page_limit": PAGE_LIMIT,
-        "page": page,
-        "date_from": date_from,
-        "date_to": date_to
-    }
+    params = {"page_limit": PAGE_LIMIT, "page": page, "date_from": date_from, "date_to": date_to}
 
     response = httpx.get(url, headers=headers, params=params, timeout=60)
 
@@ -113,14 +107,16 @@ def prepare_rows(club_id, sessions):
     rows = []
 
     for s in sessions:
-        rows.append((
-            s.get("id"),
-            club_id,
-            s.get("UUID"),
-            s.get("guest_id"),
-            parse_datetime(s.get("date_start")),
-            parse_datetime(s.get("date_stop"))
-        ))
+        rows.append(
+            (
+                s.get("id"),
+                club_id,
+                s.get("UUID"),
+                s.get("guest_id"),
+                parse_datetime(s.get("date_start")),
+                parse_datetime(s.get("date_stop")),
+            )
+        )
 
     return rows
 
@@ -187,7 +183,9 @@ def sync_sessions_incremental(club_id=None):
                 metadata={"reason": "club_service_disabled", "date_from": date_from, "date_to": date_to},
             )
             logging.info("Клуб %s | пропущен: обслуживание выключено", current_club_id)
-            summary.append({"club_id": current_club_id, "skipped": "disabled", "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {"club_id": current_club_id, "skipped": "disabled", "date_from": date_from, "date_to": date_to}
+            )
             continue
 
         api_key = club["lg_api_key"]
@@ -205,7 +203,9 @@ def sync_sessions_incremental(club_id=None):
                 "skipped_locked",
                 metadata={"reason": "sync_sessions_incremental already running"},
             )
-            summary.append({"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to}
+            )
             lock.__exit__(None, None, None)
             continue
 
@@ -229,7 +229,9 @@ def sync_sessions_incremental(club_id=None):
                 saved = save_sessions(current_club_id, sessions)
                 total_saved += saved
 
-                logging.info(f"Клуб {current_club_id} | page {page}/{total_pages}: {len(sessions)} | сохранено: {saved}")
+                logging.info(
+                    f"Клуб {current_club_id} | page {page}/{total_pages}: {len(sessions)} | сохранено: {saved}"
+                )
 
                 if page >= total_pages:
                     break
@@ -243,7 +245,9 @@ def sync_sessions_incremental(club_id=None):
                 rows_saved=total_saved,
                 metadata={"date_from": date_from, "date_to": date_to},
             )
-            summary.append({"club_id": current_club_id, "saved": total_saved, "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {"club_id": current_club_id, "saved": total_saved, "date_from": date_from, "date_to": date_to}
+            )
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))
             raise

@@ -67,18 +67,40 @@ def wheel_settings():
         club=get_club_info(club_id),
         wheel_settings=get_wheel_settings_for_admin(club_id_int),
         prizes=get_wheel_prizes_for_admin(club_id_int),
-        wheel_active_prob_sum=sum(float(p.get("probability") or 0) for p in get_wheel_prizes_for_admin(club_id_int) if int(p.get("is_active") or 0)),
+        wheel_active_prob_sum=sum(
+            float(p.get("probability") or 0)
+            for p in get_wheel_prizes_for_admin(club_id_int)
+            if int(p.get("is_active") or 0)
+        ),
         prize_icon_choices=sorted(PRIZE_ICON_CHOICES),
     )
 
 
-
-PRIZE_ICON_CHOICES = {"🎮", "🏆", "🥤", "🍕", "🍔", "🔥", "💎", "🪙", "🍰", "🍪", "⚽️", "🚗", "🔮", "🎉", "🕓", "🎰", "👕"}
+PRIZE_ICON_CHOICES = {
+    "🎮",
+    "🏆",
+    "🥤",
+    "🍕",
+    "🍔",
+    "🔥",
+    "💎",
+    "🪙",
+    "🍰",
+    "🍪",
+    "⚽️",
+    "🚗",
+    "🔮",
+    "🎉",
+    "🕓",
+    "🎰",
+    "👕",
+}
 
 
 def _parse_prize_icon(raw_value: str) -> str:
     icon = (raw_value or "").strip()
     return icon if icon in PRIZE_ICON_CHOICES else "🎁"
+
 
 def _parse_bonus_amount(raw_value: str) -> int:
     raw_value = (raw_value or "").strip()
@@ -146,7 +168,7 @@ def wheel_prize_add():
 
     try:
         sort_order = len(get_wheel_prizes_for_admin(club_id_int)) + 1
-        new_id = create_wheel_prize(
+        create_wheel_prize(
             club_id=club_id_int,
             name=name,
             description=description or None,
@@ -248,7 +270,11 @@ def wheel_prize_delete(prize_id):
 
 
 def register_wheel_routes(app):
-    app.add_url_rule('/wheel-settings', view_func=login_required(wheel_settings), methods=['GET', 'POST'])
-    app.add_url_rule('/wheel-settings/prizes/add', view_func=login_required(wheel_prize_add), methods=['POST'])
-    app.add_url_rule('/wheel-settings/prizes/<int:prize_id>/update', view_func=login_required(wheel_prize_update), methods=['POST'])
-    app.add_url_rule('/wheel-settings/prizes/<int:prize_id>/delete', view_func=login_required(wheel_prize_delete), methods=['POST'])
+    app.add_url_rule("/wheel-settings", view_func=login_required(wheel_settings), methods=["GET", "POST"])
+    app.add_url_rule("/wheel-settings/prizes/add", view_func=login_required(wheel_prize_add), methods=["POST"])
+    app.add_url_rule(
+        "/wheel-settings/prizes/<int:prize_id>/update", view_func=login_required(wheel_prize_update), methods=["POST"]
+    )
+    app.add_url_rule(
+        "/wheel-settings/prizes/<int:prize_id>/delete", view_func=login_required(wheel_prize_delete), methods=["POST"]
+    )

@@ -53,14 +53,31 @@ CRM_SEGMENT_OPTIONS = [
     {"key": "base", "label": "База", "title": "База", "emoji": "👥", "description": "10–14 визитов за 90 дней"},
     {"key": "rare", "label": "Редкие", "title": "Редкие", "emoji": "✨", "description": "1–9 визитов, были недавно"},
     {"key": "risk", "label": "Риск", "title": "Риск", "emoji": "⚠️", "description": "Не были 14–29 дней"},
-    {"key": "dead", "label": "Давно без визита", "title": "Давно без визита", "emoji": "☠️", "description": "Не были 90+ дней"},
+    {
+        "key": "dead",
+        "label": "Давно без визита",
+        "title": "Давно без визита",
+        "emoji": "☠️",
+        "description": "Не были 90+ дней",
+    },
     {"key": "lost", "label": "Потерянные", "title": "Потерянные", "emoji": "💔", "description": "Не были 30–89 дней"},
-    {"key": "no_visits", "label": "Без визитов", "title": "Без визитов", "emoji": "🆕", "description": "Есть в базе, без визитов"},
+    {
+        "key": "no_visits",
+        "label": "Без визитов",
+        "title": "Без визитов",
+        "emoji": "🆕",
+        "description": "Есть в базе, без визитов",
+    },
 ]
 
 FILTER_FIELDS = {
     "phone": {"type": "phone_list", "column": "g.phone", "label": "Номер телефона"},
-    "gender": {"type": "enum", "column": "up.gender", "label": "Пол", "options": [{"value": 1, "label": "Мужской"}, {"value": 2, "label": "Женский"}]},
+    "gender": {
+        "type": "enum",
+        "column": "up.gender",
+        "label": "Пол",
+        "options": [{"value": 1, "label": "Мужской"}, {"value": 2, "label": "Женский"}],
+    },
     "age": {"type": "number", "column": "up.age", "label": "Возраст"},
     "registration_date": {"type": "date", "column": "up.registration_date", "label": "Дата регистрации"},
     "first_visit_date": {"type": "date", "column": "up.first_visit_date", "label": "Дата первого визита"},
@@ -89,7 +106,11 @@ FILTER_FIELDS = {
     "max_session_minutes": {"type": "number", "column": "up.max_session_minutes", "label": "Макс. длина сессии"},
     "total_hours_30d": {"type": "number", "column": "up.total_hours_30d", "label": "Часов за 30 дней"},
     "total_hours_all": {"type": "number", "column": "up.total_hours_all", "label": "Часов за всё время"},
-    "days_since_last_visit": {"type": "number", "column": "up.days_since_last_visit", "label": "Дней с последнего визита"},
+    "days_since_last_visit": {
+        "type": "number",
+        "column": "up.days_since_last_visit",
+        "label": "Дней с последнего визита",
+    },
     "night_share": {"type": "number", "column": "up.night_share", "label": "Доля ночных визитов"},
     "weekend_share": {"type": "number", "column": "up.weekend_share", "label": "Доля визитов в выходные"},
     "favorite_period": {
@@ -105,13 +126,29 @@ FILTER_FIELDS = {
     "avg_check_all": {"type": "number", "column": "up.avg_check_all", "label": "Среднее пополнение за всё время"},
     "avg_check_30d": {"type": "number", "column": "up.avg_check_30d", "label": "Среднее пополнение за 30 дней"},
     "last_payment_date": {"type": "date", "column": "up.last_payment_date", "label": "Последнее пополнение"},
-    "missions_completed_count": {"type": "number", "column": "up.missions_completed_count", "label": "Выполнено миссий"},
-    "missions_in_progress_count": {"type": "number", "column": "up.missions_in_progress_count", "label": "Миссий в процессе"},
-    "last_mission_activity_date": {"type": "date", "column": "up.last_mission_activity_date", "label": "Последняя активность по миссиям"},
+    "missions_completed_count": {
+        "type": "number",
+        "column": "up.missions_completed_count",
+        "label": "Выполнено миссий",
+    },
+    "missions_in_progress_count": {
+        "type": "number",
+        "column": "up.missions_in_progress_count",
+        "label": "Миссий в процессе",
+    },
+    "last_mission_activity_date": {
+        "type": "date",
+        "column": "up.last_mission_activity_date",
+        "label": "Последняя активность по миссиям",
+    },
     "spins_count": {"type": "number", "column": "up.spins_count", "label": "Количество прокрутов"},
     "last_spin_date": {"type": "date", "column": "up.last_spin_date", "label": "Последний прокрут"},
     "lifetime_days": {"type": "number", "column": "up.lifetime_days", "label": "Дней с первого визита"},
-    "avg_days_between_visits": {"type": "number", "column": "up.avg_days_between_visits", "label": "Средний интервал между визитами"},
+    "avg_days_between_visits": {
+        "type": "number",
+        "column": "up.avg_days_between_visits",
+        "label": "Средний интервал между визитами",
+    },
     "is_active_30d": {"type": "bool", "column": "up.is_active_30d", "label": "Активен за 30 дней"},
     "is_active_90d": {"type": "bool", "column": "up.is_active_90d", "label": "Активен за 90 дней"},
     "has_telegram": {"type": "bool", "column": "up.has_telegram", "label": "Есть Telegram"},
@@ -134,11 +171,36 @@ FILTER_FIELDS = {
 MESSAGE_VARIABLES = [
     {"key": "first_name", "label": "Имя", "token": "{first_name}", "description": "Первое слово из ФИО"},
     {"key": "fio", "label": "ФИО", "token": "{fio}", "description": "Полное имя гостя"},
-    {"key": "cm_bonus_balance", "label": "Баланс КБ", "token": "{cm_bonus_balance}", "description": "Текущий баланс КБ"},
-    {"key": "token_balance", "label": "Баланс жетонов", "token": "{token_balance}", "description": "Текущий баланс жетонов"},
-    {"key": "sessions_7d", "label": "Сессии за 7 дней", "token": "{sessions_7d}", "description": "Сырые Langame-сессии"},
-    {"key": "sessions_30d", "label": "Сессии за 30 дней", "token": "{sessions_30d}", "description": "Сырые Langame-сессии"},
-    {"key": "sessions_90d", "label": "Сессии за 90 дней", "token": "{sessions_90d}", "description": "Сырые Langame-сессии"},
+    {
+        "key": "cm_bonus_balance",
+        "label": "Баланс КБ",
+        "token": "{cm_bonus_balance}",
+        "description": "Текущий баланс КБ",
+    },
+    {
+        "key": "token_balance",
+        "label": "Баланс жетонов",
+        "token": "{token_balance}",
+        "description": "Текущий баланс жетонов",
+    },
+    {
+        "key": "sessions_7d",
+        "label": "Сессии за 7 дней",
+        "token": "{sessions_7d}",
+        "description": "Сырые Langame-сессии",
+    },
+    {
+        "key": "sessions_30d",
+        "label": "Сессии за 30 дней",
+        "token": "{sessions_30d}",
+        "description": "Сырые Langame-сессии",
+    },
+    {
+        "key": "sessions_90d",
+        "label": "Сессии за 90 дней",
+        "token": "{sessions_90d}",
+        "description": "Сырые Langame-сессии",
+    },
 ]
 
 ALLOWED_NUMBER_OPS = {"=", "!=", ">", ">=", "<", "<=", "between"}
@@ -191,6 +253,7 @@ AUTO_MAILING_DEFAULTS = {
     },
 }
 
+
 def get_filter_fields() -> List[Dict[str, Any]]:
     result = []
     for key, meta in FILTER_FIELDS.items():
@@ -208,44 +271,6 @@ def get_filter_fields() -> List[Dict[str, Any]]:
 def get_message_variables() -> List[Dict[str, Any]]:
     return [dict(item) for item in MESSAGE_VARIABLES]
 
-
-def ensure_auto_mailings(conn, club_id: int) -> None:
-    """
-    Создаёт дефолтные авторассылки для клуба, если их ещё нет.
-    Работает лениво: вызвал при открытии страницы — настройки появились.
-    """
-    with conn.cursor() as cur:
-        for code, defaults in AUTO_MAILING_DEFAULTS.items():
-            cur.execute(
-                """
-                INSERT INTO auto_mailing_settings (
-                    club_id,
-                    code,
-                    title,
-                    description,
-                    message_text,
-                    days_inactive,
-                    bonus_amount,
-                    repeat_after_days,
-                    is_enabled
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)
-                ON DUPLICATE KEY UPDATE
-                    title = VALUES(title),
-                    description = VALUES(description),
-                    updated_at = NOW()
-                """,
-                (
-                    club_id,
-                    code,
-                    defaults["title"],
-                    defaults["description"],
-                    defaults["message_text"],
-                    defaults["days_inactive"],
-                    defaults["bonus_amount"],
-                    defaults["repeat_after_days"],
-                ),
-            )
 
 def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
     """Возвращает готовые CRM-группы для быстрых рассылок.
@@ -278,15 +303,13 @@ def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
 
     result = []
     for item in CRM_SEGMENT_OPTIONS:
-        result.append({
-            **item,
-            "count": counts.get(item["key"], 0),
-            "rules": {
-                "rules": [
-                    {"field": "crm_type", "op": "=", "value": item["key"]}
-                ]
-            },
-        })
+        result.append(
+            {
+                **item,
+                "count": counts.get(item["key"], 0),
+                "rules": {"rules": [{"field": "crm_type", "op": "=", "value": item["key"]}]},
+            }
+        )
     return result
 
 
@@ -345,6 +368,7 @@ def _build_phone_rule(value: Any) -> Tuple[str, List[Any]]:
     placeholders = ", ".join(["%s"] * len(variants))
     return f"{PHONE_NORMALIZED_SQL} IN ({placeholders})", variants
 
+
 def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
     field = rule.get("field")
     op = rule.get("op")
@@ -400,7 +424,9 @@ def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
     raise ValueError(f"Неизвестный тип поля: {field_type}")
 
 
-def build_where_clause(club_id: int, rules: List[Dict[str, Any]], require_telegram: bool = True) -> Tuple[str, List[Any]]:
+def build_where_clause(
+    club_id: int, rules: List[Dict[str, Any]], require_telegram: bool = True
+) -> Tuple[str, List[Any]]:
     where_parts = ["up.club_id = %s"]
     if require_telegram:
         where_parts.append("g.telegram_id IS NOT NULL")
@@ -486,7 +512,9 @@ def _looks_like_patronymic(value: str) -> bool:
 
 def _looks_like_surname(value: str) -> bool:
     lower = (value or "").lower()
-    return lower.endswith(("ов", "ова", "ев", "ева", "ёв", "ёва", "ин", "ина", "ын", "ына", "ский", "ская", "цкий", "цкая"))
+    return lower.endswith(
+        ("ов", "ова", "ев", "ева", "ёв", "ёва", "ин", "ина", "ын", "ына", "ский", "ская", "цкий", "цкая")
+    )
 
 
 def _first_name(fio: str | None) -> str:
@@ -1126,12 +1154,17 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
     returned_duration_rows = [row for row in returned_rows if row.get("next_visit_minutes") is not None]
     returned_delay_rows = [row for row in returned_rows if row.get("next_visit_delay_hours") is not None]
     avg_next_visit_minutes = (
-        round(sum(int(row.get("next_visit_minutes") or 0) for row in returned_duration_rows) / len(returned_duration_rows))
+        round(
+            sum(int(row.get("next_visit_minutes") or 0) for row in returned_duration_rows) / len(returned_duration_rows)
+        )
         if returned_duration_rows
         else None
     )
     avg_return_delay_hours = (
-        round(sum(int(row.get("next_visit_delay_hours") or 0) for row in returned_delay_rows) / len(returned_delay_rows), 1)
+        round(
+            sum(int(row.get("next_visit_delay_hours") or 0) for row in returned_delay_rows) / len(returned_delay_rows),
+            1,
+        )
         if returned_delay_rows
         else None
     )
@@ -1367,12 +1400,8 @@ def _campaign_effect_summary(base: Dict[str, Any], rows: List[Dict[str, Any]]) -
     topped_up_count = sum(1 for row in rows if float(row.get("topup_amount_after") or 0) > 0)
     topup_amount = sum(float(row.get("topup_amount_after") or 0) for row in rows)
     used_bonus = sum(float(row.get("used_bonus_after") or 0) for row in rows)
-    bonus_spent = int(base.get("bonus_amount") or 0) * sum(
-        1 for row in rows if row.get("bonus_status") == "awarded"
-    )
-    token_spent = int(base.get("token_amount") or 0) * sum(
-        1 for row in rows if row.get("token_status") == "awarded"
-    )
+    bonus_spent = int(base.get("bonus_amount") or 0) * sum(1 for row in rows if row.get("bonus_status") == "awarded")
+    token_spent = int(base.get("token_amount") or 0) * sum(1 for row in rows if row.get("token_status") == "awarded")
 
     return {
         "window_days": CRM_CAMPAIGN_EFFECT_DAYS,
@@ -1475,21 +1504,29 @@ def get_manual_crm_campaign_passport(
 
     delivered_count = summary["delivered_count"]
     visited_count = summary["visited_count"]
-    topped_up_count = summary["topped_up_count"]
     funnel_max = max(summary["recipients_count"], delivered_count, visited_count, 1)
 
     return {
         "campaign": _json_row(base),
         "summary": summary,
         "delivery_funnel": [
-            {"label": "Получателей", "count": summary["recipients_count"], "height": round(summary["recipients_count"] / funnel_max * 100)},
-            {"label": "Доставлено", "count": delivered_count, "height": max(8, round(delivered_count / funnel_max * 100))},
+            {
+                "label": "Получателей",
+                "count": summary["recipients_count"],
+                "height": round(summary["recipients_count"] / funnel_max * 100),
+            },
+            {
+                "label": "Доставлено",
+                "count": delivered_count,
+                "height": max(8, round(delivered_count / funnel_max * 100)),
+            },
             {"label": "С визитом", "count": visited_count, "height": max(8, round(visited_count / funnel_max * 100))},
         ],
         "return_funnel": _return_delay_funnel(effect_rows),
         "recipients": recipients,
         "message_text": detail.get("interaction", {}).get("message_text") or base.get("message_text") or "",
     }
+
 
 def _ensure_auto_mailing_column(cursor, column_name: str, ddl: str) -> None:
     cursor.execute(
@@ -1510,8 +1547,7 @@ def _ensure_auto_mailing_column(cursor, column_name: str, ddl: str) -> None:
 def ensure_auto_mailings(conn, club_id: int) -> None:
     """Создаёт и обновляет настройки авторассылок для клуба лениво."""
     with conn.cursor() as cur:
-        cur.execute(
-            """
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS auto_mailing_settings (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 club_id INT NOT NULL,
@@ -1531,8 +1567,7 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                 KEY idx_auto_mailing_enabled (is_enabled),
                 KEY idx_auto_mailing_club (club_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            """
-        )
+            """)
         _ensure_auto_mailing_column(cur, "days_inactive", "INT NOT NULL DEFAULT 14")
         _ensure_auto_mailing_column(cur, "bonus_amount", "INT NOT NULL DEFAULT 200")
         _ensure_auto_mailing_column(cur, "repeat_after_days", "INT NOT NULL DEFAULT 30")
@@ -1814,8 +1849,7 @@ def ensure_bonus_giveaway_tables(conn) -> None:
     with conn.cursor() as cur:
         ensure_cm_bonus_tables(cur)
         ensure_token_tables(cur)
-        cur.execute(
-            """
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS bonus_giveaways (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 club_id INT NOT NULL,
@@ -1834,10 +1868,8 @@ def ensure_bonus_giveaway_tables(conn) -> None:
                 KEY idx_bonus_giveaways_club_created (club_id, created_at),
                 KEY idx_bonus_giveaways_mailing (mailing_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            """
-        )
-        cur.execute(
-            """
+            """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS bonus_giveaway_recipients (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 giveaway_id INT NOT NULL,
@@ -1859,36 +1891,40 @@ def ensure_bonus_giveaway_tables(conn) -> None:
                 KEY idx_bonus_giveaway_recipients_guest (club_id, guest_id),
                 KEY idx_bonus_giveaway_recipients_status (transaction_status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            """
-        )
+            """)
         _ensure_table_column(cur, "bonus_giveaways", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount")
-        _ensure_table_column(cur, "bonus_giveaways", "token_awarded_count", "INT NOT NULL DEFAULT 0 AFTER awarded_count")
+        _ensure_table_column(
+            cur, "bonus_giveaways", "token_awarded_count", "INT NOT NULL DEFAULT 0 AFTER awarded_count"
+        )
         _ensure_table_column(cur, "bonus_giveaways", "is_expiring", "TINYINT(1) NOT NULL DEFAULT 0 AFTER token_amount")
         _ensure_table_column(cur, "bonus_giveaways", "expires_after_seconds", "INT NULL AFTER is_expiring")
         _ensure_table_column(cur, "bonus_giveaways", "expires_at", "DATETIME NULL AFTER expires_after_seconds")
-        _ensure_table_column(cur, "bonus_giveaway_recipients", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount")
+        _ensure_table_column(
+            cur, "bonus_giveaway_recipients", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount"
+        )
         _ensure_table_column(cur, "bonus_giveaway_recipients", "expires_at", "DATETIME NULL AFTER token_amount")
-        _ensure_table_column(cur, "bonus_giveaway_recipients", "token_transaction_status", "VARCHAR(40) NOT NULL DEFAULT 'pending' AFTER transaction_status")
+        _ensure_table_column(
+            cur,
+            "bonus_giveaway_recipients",
+            "token_transaction_status",
+            "VARCHAR(40) NOT NULL DEFAULT 'pending' AFTER transaction_status",
+        )
         _ensure_table_column(cur, "bonus_giveaway_recipients", "token_transaction_id", "INT NULL AFTER transaction_id")
         _ensure_table_column(cur, "bonus_giveaway_recipients", "token_error_text", "TEXT NULL AFTER error_text")
-        cur.execute(
-            """
+        cur.execute("""
             SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols
             FROM INFORMATION_SCHEMA.STATISTICS
             WHERE TABLE_SCHEMA = DATABASE()
               AND TABLE_NAME = 'bonus_giveaway_recipients'
               AND INDEX_NAME = 'uq_bonus_giveaway_guest'
-            """
-        )
+            """)
         idx = cur.fetchone() or {}
         if (idx.get("cols") or "") == "giveaway_id,guest_id":
-            cur.execute(
-                """
+            cur.execute("""
                 ALTER TABLE bonus_giveaway_recipients
                 DROP INDEX uq_bonus_giveaway_guest,
                 ADD UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, club_id, guest_id)
-                """
-            )
+                """)
 
 
 def list_bonus_giveaways(conn, club_id: int) -> List[Dict[str, Any]]:
@@ -1961,7 +1997,9 @@ def create_bonus_giveaway(
     ensure_bonus_giveaway_tables(conn)
     recipients = get_recipient_rows(conn, club_id, rules)
     recipients_count = len(recipients)
-    expires_at = datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
+    expires_at = (
+        datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
+    )
     filters_json = {
         "rules": rules,
         "type": "bonus_giveaway",

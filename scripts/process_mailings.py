@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-import pymysql
+
 import httpx
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -9,14 +9,17 @@ sys.path.insert(0, BASE_DIR)
 
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from app.core import get_db_connection
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from scripts.sync_utils import table_has_column
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 TG_PROXY_URL = os.getenv("TG_PROXY_URL")
+
 
 def tg_request(method: str, payload: dict | None = None, files=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
@@ -246,16 +249,14 @@ def main():
     try:
         with conn.cursor() as cur:
             if table_has_column(cur, "clubs", "service_enabled"):
-                cur.execute(
-                    """
+                cur.execute("""
                     SELECT m.id
                     FROM mailings m
                     JOIN clubs c ON c.club_id = m.club_id
                     WHERE m.status = 'queued'
                       AND COALESCE(c.service_enabled, 1) = 1
                     ORDER BY m.id ASC
-                    """
-                )
+                    """)
             else:
                 cur.execute("SELECT id FROM mailings WHERE status = 'queued' ORDER BY id ASC")
             rows = cur.fetchall()

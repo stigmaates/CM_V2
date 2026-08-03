@@ -6,9 +6,7 @@ from typing import Any, Dict, List
 import httpx
 
 from app.config import BOT_TOKEN, TG_PROXY_URL
-from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
-
 
 _first_visit_tables_ready = False
 _club_social_columns_ready = False
@@ -54,8 +52,7 @@ def ensure_first_visit_survey_tables(cursor) -> None:
     ensure_cm_bonus_tables(cursor)
     ensure_club_social_columns(cursor)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS first_visit_surveys (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -80,8 +77,7 @@ def ensure_first_visit_survey_tables(cursor) -> None:
             KEY idx_first_visit_survey_telegram (telegram_id),
             KEY idx_first_visit_survey_session (session_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     # older installs may have table but not newer columns
     _ensure_column(cursor, "first_visit_surveys", "auto_mailing_setting_id", "INT NULL")
     _ensure_column(cursor, "first_visit_surveys", "invite_message_id", "BIGINT NULL")
@@ -116,7 +112,9 @@ def build_social_links_message(conn, club_id: int, rating: int | None = None) ->
     rows = []
 
     if links.get("instagram_url"):
-        rows.append(f'📸 <a href="{escape(links["instagram_url"], quote=True)}">Instagram* (*запрещена на территории РФ)</a>')
+        rows.append(
+            f'📸 <a href="{escape(links["instagram_url"], quote=True)}">Instagram* (*запрещена на территории РФ)</a>'
+        )
 
     if links.get("youtube_url"):
         rows.append(f'▶️ <a href="{escape(links["youtube_url"], quote=True)}">YouTube</a>')
@@ -144,14 +142,15 @@ def build_social_links_message(conn, club_id: int, rating: int | None = None) ->
 
     if rows:
         message_parts.append(
-            "Следи за нами в соцсетях, чтобы не пропускать турниры, акции и новости клуба:\n\n"
-            + "\n".join(rows)
+            "Следи за нами в соцсетях, чтобы не пропускать турниры, акции и новости клуба:\n\n" + "\n".join(rows)
         )
 
     return "\n\n".join(message_parts)
 
 
-def get_first_visit_survey_candidates(conn, setting: dict, delay_minutes: int = 20, window_hours: int = 24) -> List[Dict[str, Any]]:
+def get_first_visit_survey_candidates(
+    conn, setting: dict, delay_minutes: int = 20, window_hours: int = 24
+) -> List[Dict[str, Any]]:
     club_id = int(setting["club_id"])
     with conn.cursor() as cur:
         ensure_first_visit_survey_tables(cur)
@@ -253,9 +252,7 @@ def send_first_visit_survey_invite(conn, survey_id: int, message_text: str) -> b
         "parse_mode": "HTML",
         "disable_web_page_preview": False,
         "reply_markup": {
-            "inline_keyboard": [[
-                {"text": "Пройти опрос", "callback_data": f"first_visit_survey_start:{survey_id}"}
-            ]]
+            "inline_keyboard": [[{"text": "Пройти опрос", "callback_data": f"first_visit_survey_start:{survey_id}"}]]
         },
     }
     response = _tg_request("sendMessage", payload)

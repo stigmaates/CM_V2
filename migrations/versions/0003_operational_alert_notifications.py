@@ -4,8 +4,7 @@ revision = "0003_operational_alert_notifications"
 
 
 def upgrade(cursor) -> None:
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS operational_alert_notifications (
             alert_key VARCHAR(191) PRIMARY KEY,
             severity VARCHAR(30) NOT NULL,
@@ -18,5 +17,4 @@ def upgrade(cursor) -> None:
             KEY idx_operational_alert_notifications_last_sent (last_sent_at),
             KEY idx_operational_alert_notifications_club_code (club_id, code)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)

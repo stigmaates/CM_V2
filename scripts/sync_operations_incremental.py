@@ -28,7 +28,6 @@ from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
-
 logging.basicConfig(level=logging.INFO)
 
 SUM_FROM = 1
@@ -49,7 +48,7 @@ def get_db_connection():
         connect_timeout=DB_CONNECT_TIMEOUT,
         read_timeout=DB_READ_TIMEOUT,
         write_timeout=DB_WRITE_TIMEOUT,
-        autocommit=False
+        autocommit=False,
     )
 
 
@@ -65,12 +64,15 @@ def get_clubs(club_id=None):
                     ORDER BY club_id
                 """)
             else:
-                cursor.execute(f"""
+                cursor.execute(
+                    f"""
                     SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                     FROM clubs
                     WHERE club_id = %s
                     ORDER BY club_id
-                """, (club_id,))
+                """,
+                    (club_id,),
+                )
             return cursor.fetchall()
     finally:
         conn.close()
@@ -79,17 +81,9 @@ def get_clubs(club_id=None):
 def fetch_operations(secret: str, api_key: str, club_id: int, date_from: str, date_to: str):
     url = f"https://{secret}.langame.ru/public_api/all_operations_log/list"
 
-    headers = {
-        "accept": "application/json",
-        "X-API-KEY": api_key.strip()
-    }
+    headers = {"accept": "application/json", "X-API-KEY": api_key.strip()}
 
-    params = {
-        "date_from": date_from,
-        "date_to": date_to,
-        "sum_from": SUM_FROM,
-        "sum_to": SUM_TO
-    }
+    params = {"date_from": date_from, "date_to": date_to, "sum_from": SUM_FROM, "sum_to": SUM_TO}
 
     response = httpx.get(url, headers=headers, params=params, timeout=120)
 
@@ -125,18 +119,20 @@ def extract_phone(operation_name: str):
 
 
 def build_operation_uid(club_id: int, operation: dict) -> str:
-    raw = "|".join([
-        str(club_id),
-        str(operation.get("date_normal") or ""),
-        str(operation.get("type") or ""),
-        str(operation.get("name") or ""),
-        str(operation.get("source") or ""),
-        str(operation.get("form") or ""),
-        str(operation.get("sum") or ""),
-        str(operation.get("date_fiscal") or ""),
-        str(operation.get("fn_number") or ""),
-        str(operation.get("fiscal_number") or "")
-    ])
+    raw = "|".join(
+        [
+            str(club_id),
+            str(operation.get("date_normal") or ""),
+            str(operation.get("type") or ""),
+            str(operation.get("name") or ""),
+            str(operation.get("source") or ""),
+            str(operation.get("form") or ""),
+            str(operation.get("sum") or ""),
+            str(operation.get("date_fiscal") or ""),
+            str(operation.get("fn_number") or ""),
+            str(operation.get("fiscal_number") or ""),
+        ]
+    )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -145,25 +141,27 @@ def prepare_rows(club_id: int, operations: list):
     now = datetime.utcnow()
 
     for op in operations:
-        rows.append((
-            build_operation_uid(club_id, op),
-            club_id,
-            op.get("club_name"),
-            op.get("type"),
-            op.get("name"),
-            extract_phone(op.get("name")),
-            op.get("source"),
-            op.get("form"),
-            op.get("sum"),
-            parse_datetime(op.get("date_normal")),
-            op.get("date"),
-            op.get("time"),
-            parse_datetime(op.get("date_fiscal")),
-            op.get("fn_number"),
-            op.get("fiscal_number"),
-            now,
-            now,
-        ))
+        rows.append(
+            (
+                build_operation_uid(club_id, op),
+                club_id,
+                op.get("club_name"),
+                op.get("type"),
+                op.get("name"),
+                extract_phone(op.get("name")),
+                op.get("source"),
+                op.get("form"),
+                op.get("sum"),
+                parse_datetime(op.get("date_normal")),
+                op.get("date"),
+                op.get("time"),
+                parse_datetime(op.get("date_fiscal")),
+                op.get("fn_number"),
+                op.get("fiscal_number"),
+                now,
+                now,
+            )
+        )
 
     return rows
 
@@ -252,7 +250,9 @@ def sync_operations_incremental(club_id=None):
                 metadata={"reason": "club_service_disabled", "date_from": date_from, "date_to": date_to},
             )
             logging.info("Клуб %s | пропущен: обслуживание выключено", current_club_id)
-            summary.append({"club_id": current_club_id, "skipped": "disabled", "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {"club_id": current_club_id, "skipped": "disabled", "date_from": date_from, "date_to": date_to}
+            )
             continue
 
         api_key = club["lg_api_key"]
@@ -270,7 +270,9 @@ def sync_operations_incremental(club_id=None):
                 "skipped_locked",
                 metadata={"reason": "sync_operations_incremental already running"},
             )
-            summary.append({"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {"club_id": current_club_id, "skipped": "locked", "date_from": date_from, "date_to": date_to}
+            )
             lock.__exit__(None, None, None)
             continue
 
@@ -288,7 +290,15 @@ def sync_operations_incremental(club_id=None):
                 rows_saved=saved,
                 metadata={"date_from": date_from, "date_to": date_to},
             )
-            summary.append({"club_id": current_club_id, "received": len(operations), "saved": saved, "date_from": date_from, "date_to": date_to})
+            summary.append(
+                {
+                    "club_id": current_club_id,
+                    "received": len(operations),
+                    "saved": saved,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                }
+            )
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))
             raise

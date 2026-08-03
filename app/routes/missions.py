@@ -29,7 +29,10 @@ def api_create_mission():
     data = request.json or {}
     rt = (data.get("reward_text") or "").strip()
     if reward_text_contains_bonus_quantity(rt):
-        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}), 400
+        return (
+            jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}),
+            400,
+        )
 
     create_club_mission(
         club_id=int(club_id),
@@ -52,7 +55,10 @@ def api_update_mission(mission_id):
     data = request.json or {}
     rt = (data.get("reward_text") or "").strip()
     if reward_text_contains_bonus_quantity(rt):
-        return jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}), 400
+        return (
+            jsonify({"ok": False, "error": "В поле «Приз» нельзя указывать количество бонусов — используйте поле КБ."}),
+            400,
+        )
 
     update_club_mission(
         mission_id=mission_id,
@@ -263,12 +269,12 @@ def missions_disable(mission_id):
 
 
 def register_mission_routes(app):
-    app.add_url_rule('/api/missions/templates', view_func=login_required(api_mission_templates))
-    app.add_url_rule('/api/missions', view_func=login_required(api_club_missions))
-    app.add_url_rule('/api/missions', view_func=login_required(api_create_mission), methods=['POST'])
-    app.add_url_rule('/api/missions/<int:mission_id>', view_func=login_required(api_update_mission), methods=['PUT'])
-    app.add_url_rule('/api/missions/<int:mission_id>', view_func=login_required(api_delete_mission), methods=['DELETE'])
-    app.add_url_rule('/missions', view_func=login_required(missions))
-    app.add_url_rule('/missions/add', view_func=login_required(missions_add), methods=['POST'])
-    app.add_url_rule('/missions/<int:mission_id>/update', view_func=login_required(missions_update), methods=['POST'])
-    app.add_url_rule('/missions/<int:mission_id>/disable', view_func=login_required(missions_disable), methods=['POST'])
+    app.add_url_rule("/api/missions/templates", view_func=login_required(api_mission_templates))
+    app.add_url_rule("/api/missions", view_func=login_required(api_club_missions))
+    app.add_url_rule("/api/missions", view_func=login_required(api_create_mission), methods=["POST"])
+    app.add_url_rule("/api/missions/<int:mission_id>", view_func=login_required(api_update_mission), methods=["PUT"])
+    app.add_url_rule("/api/missions/<int:mission_id>", view_func=login_required(api_delete_mission), methods=["DELETE"])
+    app.add_url_rule("/missions", view_func=login_required(missions))
+    app.add_url_rule("/missions/add", view_func=login_required(missions_add), methods=["POST"])
+    app.add_url_rule("/missions/<int:mission_id>/update", view_func=login_required(missions_update), methods=["POST"])
+    app.add_url_rule("/missions/<int:mission_id>/disable", view_func=login_required(missions_disable), methods=["POST"])

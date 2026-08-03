@@ -13,8 +13,7 @@ def _utcnow() -> datetime:
 
 
 def ensure_background_job_runs_table(cursor) -> None:
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS background_job_runs (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             job_type VARCHAR(80) NOT NULL,
@@ -32,8 +31,7 @@ def ensure_background_job_runs_table(cursor) -> None:
             KEY idx_background_job_runs_status_started (status, started_at),
             KEY idx_background_job_runs_started (started_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
 
 def _json_dumps(value: dict[str, Any] | None) -> str | None:

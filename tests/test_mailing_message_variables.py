@@ -1,5 +1,5 @@
-from decimal import Decimal
 import re
+from decimal import Decimal
 
 import app.services.mailing as mailing_service
 from app.services.mailing import build_where_clause, render_message_template
@@ -35,11 +35,7 @@ def test_mailing_recipients_require_real_telegram_id_not_cached_portrait_flag():
 
 def test_bonus_giveaway_recipient_insert_has_placeholder_for_token_error_text():
     source = mailing_service.create_bonus_giveaway.__code__.co_consts
-    sql = next(
-        value
-        for value in source
-        if isinstance(value, str) and "INSERT INTO bonus_giveaway_recipients" in value
-    )
+    sql = next(value for value in source if isinstance(value, str) and "INSERT INTO bonus_giveaway_recipients" in value)
 
     columns_part = sql.split("(", 1)[1].split(")", 1)[0]
     values_part = sql.split("VALUES", 1)[1]

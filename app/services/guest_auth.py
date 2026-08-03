@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 from app.core import get_db_connection
 
-
 _guest_login_tokens_club_column_ready = False
 
 
@@ -13,22 +12,18 @@ def ensure_guest_login_tokens_club_column(cursor):
     if _guest_login_tokens_club_column_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'guest_login_tokens'
           AND COLUMN_NAME = 'club_id'
-        """
-    )
+        """)
     if not cursor.fetchone():
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE guest_login_tokens
             ADD COLUMN club_id INT NULL AFTER guest_id
-            """
-        )
+            """)
     _guest_login_tokens_club_column_ready = True
 
 
@@ -79,14 +74,12 @@ def get_guest_login_club(club_id: int | None = None):
                 )
                 return cursor.fetchone()
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT club_id, name
                 FROM clubs
                 ORDER BY club_id
                 LIMIT 2
-                """
-            )
+                """)
             rows = cursor.fetchall() or []
             if len(rows) == 1:
                 return rows[0]

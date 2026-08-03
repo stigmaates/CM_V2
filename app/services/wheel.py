@@ -3,14 +3,13 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from app.core import get_db_connection
+from app.services.cm_bonuses import add_cm_bonus_transaction, award_cm_bonuses_for_wheel_prize, ensure_cm_bonus_tables
 from app.services.missions import get_guest_missions_with_progress
-from app.services.cm_bonuses import award_cm_bonuses_for_wheel_prize, add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.prize_claims import (
     create_prize_claim,
     ensure_prize_claim_tables,
     notify_prize_claim_admin_chat,
 )
-
 
 _token_tables_ready = False
 
@@ -24,44 +23,34 @@ def ensure_wheel_prize_bonus_columns(cursor):
     if _wheel_prize_bonus_columns_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'club_wheel_prizes'
           AND COLUMN_NAME IN ('bonus_amount', 'icon_emoji', 'token_amount')
-        """
-    )
+        """)
     existing = {row.get("COLUMN_NAME") for row in cursor.fetchall()}
     if "bonus_amount" not in existing:
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE club_wheel_prizes
             ADD COLUMN bonus_amount INT NOT NULL DEFAULT 0 AFTER image_url
-            """
-        )
+            """)
     if "token_amount" not in existing:
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE club_wheel_prizes
             ADD COLUMN token_amount INT NOT NULL DEFAULT 0 AFTER bonus_amount
-            """
-        )
+            """)
     if "icon_emoji" not in existing:
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE club_wheel_prizes
             ADD COLUMN icon_emoji VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL AFTER image_url
-            """
-        )
+            """)
     else:
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE club_wheel_prizes
             MODIFY icon_emoji VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL
-            """
-        )
+            """)
 
     _wheel_prize_bonus_columns_ready = True
 
@@ -76,8 +65,7 @@ def ensure_token_tables(cursor):
     if _token_tables_ready:
         return
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_wheel_token_balances (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -88,10 +76,8 @@ def ensure_token_tables(cursor):
             UNIQUE KEY uq_guest_wheel_token_balance (club_id, guest_id),
             KEY idx_guest_wheel_token_balance_guest (guest_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_wheel_token_transactions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -106,8 +92,7 @@ def ensure_token_tables(cursor):
             KEY idx_guest_wheel_token_guest_created (club_id, guest_id, created_at),
             KEY idx_guest_wheel_token_source_type (source_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _token_tables_ready = True
 
 
@@ -293,7 +278,9 @@ def _transaction_exists(cursor, guest_id: int, club_id: int, source_type: str, s
     return bool(cursor.fetchone())
 
 
-def _add_token_transaction(cursor, guest_id: int, club_id: int, amount: int, source_type: str, source_id: str, description: str | None = None) -> bool:
+def _add_token_transaction(
+    cursor, guest_id: int, club_id: int, amount: int, source_type: str, source_id: str, description: str | None = None
+) -> bool:
     """Add a token transaction once. Returns True when inserted, False when duplicate."""
     if amount == 0:
         return False
@@ -335,7 +322,14 @@ def _add_token_transaction(cursor, guest_id: int, club_id: int, amount: int, sou
     return True
 
 
-def add_guest_tokens(guest_id: int, club_id: int, amount: int, source_type: str = "manual", source_id: str | None = None, description: str | None = None):
+def add_guest_tokens(
+    guest_id: int,
+    club_id: int,
+    amount: int,
+    source_type: str = "manual",
+    source_id: str | None = None,
+    description: str | None = None,
+):
     """Manual/test helper: creates a ledger row and changes balance.
 
     Use unique source_id values for idempotent operations; when source_id is omitted,
@@ -939,7 +933,18 @@ def create_wheel_prize(
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (club_id, name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), int(token_amount or 0), probability, is_active, sort_order),
+                (
+                    club_id,
+                    name,
+                    description,
+                    image_url,
+                    icon_emoji or "🎁",
+                    int(bonus_amount or 0),
+                    int(token_amount or 0),
+                    probability,
+                    is_active,
+                    sort_order,
+                ),
             )
             new_id = int(cursor.lastrowid)
         conn.commit()
@@ -980,7 +985,19 @@ def update_wheel_prize(
                 WHERE id = %s
                   AND club_id = %s
                 """,
-                (name, description, image_url, icon_emoji or "🎁", int(bonus_amount or 0), int(token_amount or 0), probability, is_active, sort_order, prize_id, club_id),
+                (
+                    name,
+                    description,
+                    image_url,
+                    icon_emoji or "🎁",
+                    int(bonus_amount or 0),
+                    int(token_amount or 0),
+                    probability,
+                    is_active,
+                    sort_order,
+                    prize_id,
+                    club_id,
+                ),
             )
         conn.commit()
     finally:

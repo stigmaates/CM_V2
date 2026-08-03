@@ -37,8 +37,7 @@ def lock_key(job_type: str, *, club_id: int | None = None, resource_id: str | in
 
 
 def ensure_background_job_locks_table(cursor) -> None:
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS background_job_locks (
             lock_key VARCHAR(160) PRIMARY KEY,
             job_type VARCHAR(80) NOT NULL,
@@ -50,8 +49,7 @@ def ensure_background_job_locks_table(cursor) -> None:
             KEY idx_background_job_locks_expires (expires_at),
             KEY idx_background_job_locks_club_job (club_id, job_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
 
 def acquire_job_lock(

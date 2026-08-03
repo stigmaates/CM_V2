@@ -6,7 +6,6 @@ from collections.abc import Callable
 
 from flask import has_request_context, request
 
-
 _BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 
 

@@ -40,17 +40,17 @@ def _add_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
 
 def upgrade(cursor) -> None:
     _add_column(cursor, "cm_bonus_transactions", "expires_at", "DATETIME NULL AFTER status")
-    _add_column(cursor, "cm_bonus_transactions", "expires_status", "VARCHAR(30) NOT NULL DEFAULT 'none' AFTER expires_at")
+    _add_column(
+        cursor, "cm_bonus_transactions", "expires_status", "VARCHAR(30) NOT NULL DEFAULT 'none' AFTER expires_at"
+    )
     _add_column(cursor, "cm_bonus_transactions", "expired_at", "DATETIME NULL AFTER expires_status")
     _add_column(cursor, "cm_bonus_transactions", "expiration_transaction_id", "INT NULL AFTER expired_at")
 
     if not _index_exists(cursor, "cm_bonus_transactions", "idx_cm_bonus_expiration"):
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE cm_bonus_transactions
             ADD KEY idx_cm_bonus_expiration (expires_status, expires_at)
-            """
-        )
+            """)
 
     _add_column(cursor, "bonus_giveaways", "is_expiring", "TINYINT(1) NOT NULL DEFAULT 0 AFTER token_amount")
     _add_column(cursor, "bonus_giveaways", "expires_after_seconds", "INT NULL AFTER is_expiring")

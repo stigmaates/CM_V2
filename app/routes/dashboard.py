@@ -32,6 +32,5 @@ def dashboard():
     )
 
 
-
 def register_dashboard_routes(app):
-    app.add_url_rule('/dashboard', view_func=login_required(dashboard))
+    app.add_url_rule("/dashboard", view_func=login_required(dashboard))

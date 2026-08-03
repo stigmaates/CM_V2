@@ -68,21 +68,25 @@ def test_build_operational_alerts_reports_problem_jobs_and_stuck_mailings():
     alerts = operational_alerts.build_operational_alerts(
         clubs=[],
         latest_jobs_by_club={},
-        problem_jobs=[{
-            "id": 4,
-            "club_id": 2,
-            "job_type": "process_mailing",
-            "status": "error",
-            "started_at": now - timedelta(minutes=20),
-            "error_text": "telegram failed",
-        }],
-        stuck_mailings=[{
-            "id": 15,
-            "club_id": 2,
-            "status": "in_progress",
-            "activity_at": now - timedelta(minutes=90),
-            "recipients_count": 100,
-        }],
+        problem_jobs=[
+            {
+                "id": 4,
+                "club_id": 2,
+                "job_type": "process_mailing",
+                "status": "error",
+                "started_at": now - timedelta(minutes=20),
+                "error_text": "telegram failed",
+            }
+        ],
+        stuck_mailings=[
+            {
+                "id": 15,
+                "club_id": 2,
+                "status": "in_progress",
+                "activity_at": now - timedelta(minutes=90),
+                "recipients_count": 100,
+            }
+        ],
         now=now,
     )
 
@@ -137,10 +141,12 @@ def test_build_operational_alerts_reports_backup_problem():
 
 
 def test_summarize_alerts_counts_severity():
-    summary = operational_alerts.summarize_alerts([
-        {"severity": "error"},
-        {"severity": "warning"},
-        {"severity": "warning"},
-    ])
+    summary = operational_alerts.summarize_alerts(
+        [
+            {"severity": "error"},
+            {"severity": "warning"},
+            {"severity": "warning"},
+        ]
+    )
 
     assert summary == {"error": 1, "warning": 2, "info": 0, "total": 3}

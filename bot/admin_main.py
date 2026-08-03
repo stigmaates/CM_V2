@@ -6,15 +6,14 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes
 from telegram.request import HTTPXRequest
 
 from app.config import CM_BONUS_BOT_TOKEN, TG_PROXY_URL
-from app.services.prize_claims import (
-    format_prize_claim_message,
-    mark_prize_claim_issued_by_telegram,
-)
 from app.services.cm_bonuses import (
     format_cm_bonus_redeem_message,
     mark_cm_bonus_redeem_credited_by_telegram,
 )
-
+from app.services.prize_claims import (
+    format_prize_claim_message,
+    mark_prize_claim_issued_by_telegram,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -181,10 +180,7 @@ def main():
         builder = builder.request(request).get_updates_request(get_updates_request)
     else:
         builder = (
-            builder
-            .get_updates_connect_timeout(30.0)
-            .get_updates_read_timeout(30.0)
-            .get_updates_pool_timeout(30.0)
+            builder.get_updates_connect_timeout(30.0).get_updates_read_timeout(30.0).get_updates_pool_timeout(30.0)
         )
 
     app = builder.build()

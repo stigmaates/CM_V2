@@ -1,15 +1,13 @@
-from flask import flash, redirect, render_template, request, session, url_for
+from flask import flash, redirect, request, session, url_for
 
 from app.core import owner_required, parse_datetime_local
 from app.services.audit import record_audit_event
-from app.services.clubs import get_club_info
 from app.services.wheel import (
     assert_active_wheel_probabilities_sum_is_100,
     create_wheel_prize,
     delete_wheel_prize,
     get_wheel_prize_by_id,
     get_wheel_prizes_for_admin,
-    get_wheel_settings_for_admin,
     save_wheel_settings,
     update_wheel_prize,
 )
@@ -21,7 +19,7 @@ def _redirect_wheel_editor():
     return redirect(url_for("owner.settings", tab="wheel", editor="wheel"))
 
 
-@owner_bp.route('/wheel', methods=['GET', 'POST'])
+@owner_bp.route("/wheel", methods=["GET", "POST"])
 @owner_required
 def wheel_settings():
     club_id = session.get("club_id")
@@ -85,13 +83,31 @@ def wheel_settings():
     return _redirect_wheel_editor()
 
 
-
-PRIZE_ICON_CHOICES = {"🎮", "🏆", "🥤", "🍕", "🍔", "🔥", "💎", "🪙", "🍰", "🍪", "⚽️", "🚗", "🔮", "🎉", "🕓", "🎰", "👕"}
+PRIZE_ICON_CHOICES = {
+    "🎮",
+    "🏆",
+    "🥤",
+    "🍕",
+    "🍔",
+    "🔥",
+    "💎",
+    "🪙",
+    "🍰",
+    "🍪",
+    "⚽️",
+    "🚗",
+    "🔮",
+    "🎉",
+    "🕓",
+    "🎰",
+    "👕",
+}
 
 
 def _parse_prize_icon(raw_value: str) -> str:
     icon = (raw_value or "").strip()
     return icon if icon in PRIZE_ICON_CHOICES else "🎁"
+
 
 def _parse_bonus_amount(raw_value: str) -> int:
     raw_value = (raw_value or "").strip()
@@ -119,7 +135,7 @@ def _parse_token_amount(raw_value: str) -> int:
     return amount
 
 
-@owner_bp.route('/wheel/prizes/add', methods=['POST'])
+@owner_bp.route("/wheel/prizes/add", methods=["POST"])
 @owner_required
 def wheel_prize_add():
     club_id = session.get("club_id")
@@ -187,7 +203,7 @@ def wheel_prize_add():
     return _redirect_wheel_editor()
 
 
-@owner_bp.route('/wheel/prizes/<int:prize_id>/update', methods=['POST'])
+@owner_bp.route("/wheel/prizes/<int:prize_id>/update", methods=["POST"])
 @owner_required
 def wheel_prize_update(prize_id):
     club_id = session.get("club_id")
@@ -261,7 +277,7 @@ def wheel_prize_update(prize_id):
     return _redirect_wheel_editor()
 
 
-@owner_bp.route('/wheel/prizes/<int:prize_id>/delete', methods=['POST'])
+@owner_bp.route("/wheel/prizes/<int:prize_id>/delete", methods=["POST"])
 @owner_required
 def wheel_prize_delete(prize_id):
     club_id = session.get("club_id")

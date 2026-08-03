@@ -10,8 +10,7 @@ from . import admin_bp
 
 def _fetch_admin_users(cursor) -> list[dict]:
     last_login_expr = "u.last_login_at" if _users_column_exists(cursor, "last_login_at") else "NULL"
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT
             u.user_id,
             u.role,
@@ -24,8 +23,7 @@ def _fetch_admin_users(cursor) -> list[dict]:
         FROM users u
         LEFT JOIN clubs c ON c.club_id = u.club_id
         ORDER BY u.created_at DESC, u.user_id DESC
-        """
-    )
+        """)
     return cursor.fetchall() or []
 
 

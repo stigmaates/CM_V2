@@ -8,7 +8,6 @@ from typing import Mapping
 
 from dotenv import dotenv_values
 
-
 REQUIRED_ALWAYS = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "SECRET_KEY")
 REQUIRED_PRODUCTION = ("BOT_TOKEN",)
 RECOMMENDED = (

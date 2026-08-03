@@ -20,9 +20,7 @@ def _column_exists(cursor, table_name: str, column_name: str) -> bool:
 
 def upgrade(cursor) -> None:
     if not _column_exists(cursor, "clubs", "service_enabled"):
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE clubs
             ADD COLUMN service_enabled TINYINT(1) NOT NULL DEFAULT 1 AFTER owner_id
-            """
-        )
+            """)

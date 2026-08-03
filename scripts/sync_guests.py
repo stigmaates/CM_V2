@@ -18,7 +18,6 @@ from app.config import (
 )
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
-
 logging.basicConfig(level=logging.INFO)
 
 PAGE_LIMIT = 500
@@ -37,7 +36,7 @@ def get_db_connection():
         connect_timeout=DB_CONNECT_TIMEOUT,
         read_timeout=DB_READ_TIMEOUT,
         write_timeout=DB_WRITE_TIMEOUT,
-        autocommit=False
+        autocommit=False,
     )
 
 
@@ -46,12 +45,15 @@ def get_club_data(club_id: int):
     try:
         with conn.cursor() as cursor:
             service_enabled_expr = service_enabled_select_expr(cursor)
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT club_id, lg_api_key, secret, {service_enabled_expr}
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
-            """.format(service_enabled_expr=service_enabled_expr), (club_id,))
+            """.format(service_enabled_expr=service_enabled_expr),
+                (club_id,),
+            )
             return cursor.fetchone()
     finally:
         conn.close()
@@ -81,10 +83,7 @@ def fetch_guests(secret: str, api_key: str):
 
     url = f"https://{secret}.langame.ru/public_api/guests/list"
 
-    headers = {
-        "accept": "application/json",
-        "X-API-KEY": api_key.strip()
-    }
+    headers = {"accept": "application/json", "X-API-KEY": api_key.strip()}
 
     all_guests = []
     page = 1
@@ -108,11 +107,7 @@ def fetch_guests(secret: str, api_key: str):
         guests = json_data.get("data", []) or []
         total_pages = int(json_data.get("total_pages") or 0)
 
-        logging.info(
-            f"Langame guests page {page}"
-            + (f"/{total_pages}" if total_pages else "")
-            + f": {len(guests)}"
-        )
+        logging.info(f"Langame guests page {page}" + (f"/{total_pages}" if total_pages else "") + f": {len(guests)}")
 
         all_guests.extend(guests)
 
@@ -153,15 +148,17 @@ def prepare_guests_data(club_id: int, guests: list):
     rows = []
 
     for g in guests:
-        rows.append((
-            g.get("guest_id"),
-            club_id,
-            g.get("phone"),
-            g.get("fio"),
-            parse_date(g.get("birthday")),
-            parse_datetime(g.get("date_insert")),
-            g.get("gender")
-        ))
+        rows.append(
+            (
+                g.get("guest_id"),
+                club_id,
+                g.get("phone"),
+                g.get("fio"),
+                parse_date(g.get("birthday")),
+                parse_datetime(g.get("date_insert")),
+                g.get("gender"),
+            )
+        )
 
     return rows
 

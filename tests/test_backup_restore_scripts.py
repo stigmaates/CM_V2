@@ -3,7 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -56,7 +55,7 @@ def test_backup_script_requires_env_file(tmp_path):
 def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        '\n'.join(
+        "\n".join(
             [
                 'DB_HOST = "127.0.0.1"',
                 "DB_PORT = 3306",

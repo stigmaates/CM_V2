@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 
 from app.core import calc_percent_change, get_db_connection, get_period_range
 from app.services.missions import (
-    get_club_missions,
     _collapse_sessions_to_visits,
     _day_overlap_hours,
     _max_consecutive_day_streak,
     _night_overlap_hours,
+    get_club_missions,
 )
 
 
@@ -17,8 +17,6 @@ def _round_display(value):
         return int(round(float(value or 0)))
     except (TypeError, ValueError):
         return 0
-
-
 
 
 def _sparkline_path(values, width: int = 140, height: int = 56, padding: int = 6) -> str:
@@ -172,8 +170,7 @@ def _get_visit_streak_funnel(cursor, club_id: int, current_start, current_end) -
 
     max_level = 7
     counts = {
-        level: sum(1 for visit_days in visit_days_by_guest if visit_days >= level)
-        for level in range(1, max_level + 1)
+        level: sum(1 for visit_days in visit_days_by_guest if visit_days >= level) for level in range(1, max_level + 1)
     }
     max_count = max(counts.values(), default=1) or 1
 
@@ -288,9 +285,18 @@ def get_unique_guests_chart(club_id: int, period_days: int):
             rows = cursor.fetchall()
             values_map = {f'{row["y"]}-{row["m"]}': row["cnt"] for row in rows}
             month_names = {
-                1: "Янв", 2: "Фев", 3: "Мар", 4: "Апр",
-                5: "Май", 6: "Июн", 7: "Июл", 8: "Авг",
-                9: "Сен", 10: "Окт", 11: "Ноя", 12: "Дек",
+                1: "Янв",
+                2: "Фев",
+                3: "Мар",
+                4: "Апр",
+                5: "Май",
+                6: "Июн",
+                7: "Июл",
+                8: "Авг",
+                9: "Сен",
+                10: "Окт",
+                11: "Ноя",
+                12: "Дек",
             }
 
             labels = []
@@ -310,7 +316,6 @@ def get_unique_guests_chart(club_id: int, period_days: int):
             return {"title": "Уникальные гости по месяцам", "labels": labels, "values": values}
     finally:
         conn.close()
-
 
 
 def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
@@ -498,6 +503,7 @@ def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
         "period_days": period_days,
     }
 
+
 def get_dashboard_stats(club_id: int, period_days: int = 30):
     if not club_id:
         return None
@@ -653,8 +659,12 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
         guests_diff = guests_current - guests_previous
         guests_diff_percent = _round_display(calc_percent_change(guests_current, guests_previous))
 
-        retention_current = _round_display((returned_guests_current / guests_current) * 100) if guests_current > 0 else 0
-        retention_previous = _round_display((returned_guests_previous / guests_previous) * 100) if guests_previous > 0 else 0
+        retention_current = (
+            _round_display((returned_guests_current / guests_current) * 100) if guests_current > 0 else 0
+        )
+        retention_previous = (
+            _round_display((returned_guests_previous / guests_previous) * 100) if guests_previous > 0 else 0
+        )
         retention_diff = _round_display(retention_current - retention_previous)
 
         avg_check_current = _round_display(avg_check_current)
@@ -701,7 +711,6 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
         conn.close()
 
 
-
 def get_first_visit_feedback_stats(club_id: int, period_days: int = 30) -> dict:
     """Analytics for first-visit survey responses within selected period."""
     now = datetime.now()
@@ -712,6 +721,7 @@ def get_first_visit_feedback_stats(club_id: int, period_days: int = 30) -> dict:
     try:
         with conn.cursor() as cursor:
             from app.services.first_visit_survey import ensure_first_visit_survey_tables
+
             ensure_first_visit_survey_tables(cursor)
             cursor.execute(
                 """
@@ -733,42 +743,42 @@ def get_first_visit_feedback_stats(club_id: int, period_days: int = 30) -> dict:
             rows = cursor.fetchall() or []
 
         def normalize_text(value):
-            return ' '.join(str(value or '').split())
+            return " ".join(str(value or "").split())
 
         total_responses = len(rows)
         avg_rating = 0.0
         if total_responses:
-            avg_rating = round(sum(float(row.get('rating') or 0) for row in rows) / total_responses, 1)
+            avg_rating = round(sum(float(row.get("rating") or 0) for row in rows) / total_responses, 1)
 
         positive_messages = []
         negative_messages = []
         for row in rows:
-            feedback_text = normalize_text(row.get('feedback_text'))
+            feedback_text = normalize_text(row.get("feedback_text"))
             if not feedback_text:
                 continue
             item = {
-                'guest_id': row.get('guest_id'),
-                'rating': int(row.get('rating') or 0),
-                'text': feedback_text,
-                'short_text': feedback_text[:140] + ('…' if len(feedback_text) > 140 else ''),
-                'date': row.get('feedback_at').strftime('%d.%m.%Y %H:%M') if row.get('feedback_at') else '',
+                "guest_id": row.get("guest_id"),
+                "rating": int(row.get("rating") or 0),
+                "text": feedback_text,
+                "short_text": feedback_text[:140] + ("…" if len(feedback_text) > 140 else ""),
+                "date": row.get("feedback_at").strftime("%d.%m.%Y %H:%M") if row.get("feedback_at") else "",
             }
-            if item['rating'] >= 4:
+            if item["rating"] >= 4:
                 positive_messages.append(item)
             else:
                 negative_messages.append(item)
 
         return {
-            'avg_rating': avg_rating,
-            'avg_rating_display': str(avg_rating).replace('.', ','),
-            'total_responses': total_responses,
-            'positive_count': len(positive_messages),
-            'negative_count': len(negative_messages),
-            'positive_preview': positive_messages[:3],
-            'negative_preview': negative_messages[:3],
-            'positive_messages': positive_messages,
-            'negative_messages': negative_messages,
-            'period_days': period_days,
+            "avg_rating": avg_rating,
+            "avg_rating_display": str(avg_rating).replace(".", ","),
+            "total_responses": total_responses,
+            "positive_count": len(positive_messages),
+            "negative_count": len(negative_messages),
+            "positive_preview": positive_messages[:3],
+            "negative_preview": negative_messages[:3],
+            "positive_messages": positive_messages,
+            "negative_messages": negative_messages,
+            "period_days": period_days,
         }
     finally:
         conn.close()
@@ -846,10 +856,18 @@ def _get_guest_ids_for_engagement_scope(club_id: int, current_start=None, curren
                     ) scope_guests
                     """,
                     (
-                        club_id, current_start, current_end,
-                        club_id, current_start, current_end,
-                        club_id, current_start, current_end,
-                        club_id, current_start, current_end,
+                        club_id,
+                        current_start,
+                        current_end,
+                        club_id,
+                        current_start,
+                        current_end,
+                        club_id,
+                        current_start,
+                        current_end,
+                        club_id,
+                        current_start,
+                        current_end,
                     ),
                 )
             rows = cursor.fetchall() or []
@@ -909,11 +927,7 @@ def _get_first_spin_by_guest(club_id: int, guest_ids=None):
             )
             rows = cursor.fetchall()
 
-        return {
-            row["guest_id"]: row["first_spin_at"]
-            for row in rows
-            if row["first_spin_at"] is not None
-        }
+        return {row["guest_id"]: row["first_spin_at"] for row in rows if row["first_spin_at"] is not None}
     finally:
         conn.close()
 
@@ -962,14 +976,9 @@ def _get_first_spin_by_guest_for_period(club_id: int, current_start, current_end
             )
             rows = cursor.fetchall()
 
-        return {
-            row["guest_id"]: row["first_spin_at"]
-            for row in rows
-            if row["first_spin_at"] is not None
-        }
+        return {row["guest_id"]: row["first_spin_at"] for row in rows if row["first_spin_at"] is not None}
     finally:
         conn.close()
-
 
 
 def _get_min_hours_from_mission(mission) -> int:
@@ -1025,10 +1034,7 @@ def _mission_matching_session_dates(guest_sessions, mission) -> list:
     min_hours = _get_min_hours_from_mission(mission)
     matched_dates = []
 
-    period_sessions = [
-        row for row in guest_sessions
-        if _session_allowed_by_mission_period(row, mission)
-    ]
+    period_sessions = [row for row in guest_sessions if _session_allowed_by_mission_period(row, mission)]
     visits = _collapse_sessions_to_visits(period_sessions)
 
     for visit in visits:
@@ -1051,7 +1057,11 @@ def _mission_matching_session_dates(guest_sessions, mission) -> list:
             matched_dates.append(date_start)
         elif metric == "weekday_visits_min_hours_count" and date_start.weekday() <= 4 and duration_hours >= min_hours:
             matched_dates.append(date_start)
-        elif metric == "weekend_visits_min_hours_count" and date_start.weekday() in (5, 6) and duration_hours >= min_hours:
+        elif (
+            metric == "weekend_visits_min_hours_count"
+            and date_start.weekday() in (5, 6)
+            and duration_hours >= min_hours
+        ):
             matched_dates.append(date_start)
 
     return sorted(matched_dates)
@@ -1082,6 +1092,7 @@ def _get_wheel_spins_by_guest(club_id: int, guest_ids=None):
     finally:
         conn.close()
 
+
 def _get_case_openings_by_guest(club_id: int, guest_ids=None):
     conn = get_db_connection()
     try:
@@ -1106,7 +1117,6 @@ def _get_case_openings_by_guest(club_id: int, guest_ids=None):
         return openings_by_guest
     finally:
         conn.close()
-
 
 
 def _get_mission_completion_at_from_preloaded(
@@ -1158,10 +1168,7 @@ def _get_mission_completion_at_from_preloaded(
     # Total hours missions.
     elif metric in {"total_hours", "night_hours_total", "day_hours_total"}:
         total_hours = 0.0
-        period_sessions = [
-            row for row in guest_sessions
-            if _session_allowed_by_mission_period(row, mission)
-        ]
+        period_sessions = [row for row in guest_sessions if _session_allowed_by_mission_period(row, mission)]
         visits = _collapse_sessions_to_visits(period_sessions)
         for visit in visits:
             date_start = visit.get("date_start")
@@ -1182,10 +1189,7 @@ def _get_mission_completion_at_from_preloaded(
 
     # Consecutive visit days.
     elif metric == "consecutive_days_count":
-        period_sessions = [
-            row for row in guest_sessions
-            if _session_allowed_by_mission_period(row, mission)
-        ]
+        period_sessions = [row for row in guest_sessions if _session_allowed_by_mission_period(row, mission)]
         visits = _collapse_sessions_to_visits(period_sessions)
         days_seen = []
         for visit in visits:
@@ -1199,10 +1203,7 @@ def _get_mission_completion_at_from_preloaded(
 
     # Wheel spins.
     elif metric == "wheel_spins_count":
-        spin_dates = sorted(
-            spin_at for spin_at in guest_spins
-            if _event_allowed_by_mission_period(spin_at, mission)
-        )
+        spin_dates = sorted(spin_at for spin_at in guest_spins if _event_allowed_by_mission_period(spin_at, mission))
         if len(spin_dates) >= target:
             completed_at = spin_dates[target - 1]
 
@@ -1254,11 +1255,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     # -------------------------
     # WHEEL
     # -------------------------
-    first_spin_by_guest = {
-        guest_id: min(spin_dates)
-        for guest_id, spin_dates in spins_by_guest.items()
-        if spin_dates
-    }
+    first_spin_by_guest = {guest_id: min(spin_dates) for guest_id, spin_dates in spins_by_guest.items() if spin_dates}
 
     wheel_spun_guests = len(first_spin_by_guest)
     wheel_returned_guests = 0
@@ -1266,8 +1263,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     for guest_id, first_spin_at in first_spin_by_guest.items():
         guest_sessions = sessions_by_guest.get(guest_id, [])
         returned = any(
-            session_row["date_start"] and session_row["date_start"] > first_spin_at
-            for session_row in guest_sessions
+            session_row["date_start"] and session_row["date_start"] > first_spin_at for session_row in guest_sessions
         )
         if returned:
             wheel_returned_guests += 1
@@ -1278,9 +1274,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     # CASES
     # -------------------------
     first_case_opening_by_guest = {
-        guest_id: min(opening_dates)
-        for guest_id, opening_dates in case_openings_by_guest.items()
-        if opening_dates
+        guest_id: min(opening_dates) for guest_id, opening_dates in case_openings_by_guest.items() if opening_dates
     }
 
     case_opened_guests = len(first_case_opening_by_guest)
@@ -1336,7 +1330,9 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
             if returned:
                 mission_returned_guests += 1
 
-    mission_engagement_percent = _round_display((mission_completed_guests / total_guests) * 100) if total_guests > 0 else 0
+    mission_engagement_percent = (
+        _round_display((mission_completed_guests / total_guests) * 100) if total_guests > 0 else 0
+    )
 
     return {
         "scope": "all_time" if all_time else "period",

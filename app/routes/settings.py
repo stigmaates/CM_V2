@@ -33,4 +33,4 @@ def settings():
 
 
 def register_settings_routes(app):
-    app.add_url_rule('/settings', view_func=login_required(settings), methods=['GET', 'POST'])
+    app.add_url_rule("/settings", view_func=login_required(settings), methods=["GET", "POST"])

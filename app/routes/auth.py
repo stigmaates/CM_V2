@@ -70,5 +70,5 @@ def logout():
 
 
 def register_auth_routes(app):
-    app.add_url_rule('/login', view_func=login, methods=['GET', 'POST'])
-    app.add_url_rule('/logout', view_func=logout)
+    app.add_url_rule("/login", view_func=login, methods=["GET", "POST"])
+    app.add_url_rule("/logout", view_func=logout)

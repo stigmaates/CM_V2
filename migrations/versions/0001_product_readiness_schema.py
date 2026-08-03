@@ -83,17 +83,14 @@ def upgrade(cursor) -> None:
     _add_column(cursor, "club_wheel_prizes", "bonus_amount", "INT NOT NULL DEFAULT 0 AFTER image_url")
     _add_column(cursor, "club_wheel_prizes", "token_amount", "INT NOT NULL DEFAULT 0 AFTER bonus_amount")
     if _table_exists(cursor, "club_wheel_prizes") and _column_exists(cursor, "club_wheel_prizes", "icon_emoji"):
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE club_wheel_prizes
             MODIFY icon_emoji VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL
-            """
-        )
+            """)
 
     _add_column(cursor, "club_wheel_settings", "game_mode", "VARCHAR(10) NOT NULL DEFAULT 'wheel'")
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cm_bonus_balances (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -104,10 +101,8 @@ def upgrade(cursor) -> None:
             UNIQUE KEY uq_cm_bonus_balance (club_id, guest_id),
             KEY idx_cm_bonus_balance_guest (guest_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cm_bonus_transactions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -123,10 +118,8 @@ def upgrade(cursor) -> None:
             KEY idx_cm_bonus_guest_created (club_id, guest_id, created_at),
             KEY idx_cm_bonus_source_type (source_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cm_bonus_redeem_requests (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -143,13 +136,11 @@ def upgrade(cursor) -> None:
             KEY idx_cm_bonus_redeem_guest (club_id, guest_id, requested_at),
             KEY idx_cm_bonus_redeem_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _add_column(cursor, "cm_bonus_redeem_requests", "processed_by_telegram_id", "BIGINT NULL")
     _add_column(cursor, "cm_bonus_redeem_requests", "processed_by_username", "VARCHAR(255) NULL")
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_wheel_token_balances (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -160,10 +151,8 @@ def upgrade(cursor) -> None:
             UNIQUE KEY uq_guest_wheel_token_balance (club_id, guest_id),
             KEY idx_guest_wheel_token_balance_guest (guest_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_wheel_token_transactions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -178,11 +167,9 @@ def upgrade(cursor) -> None:
             KEY idx_guest_wheel_token_guest_created (club_id, guest_id, created_at),
             KEY idx_guest_wheel_token_source_type (source_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_prize_claims (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -209,11 +196,9 @@ def upgrade(cursor) -> None:
             KEY idx_prize_claims_spin (spin_id),
             UNIQUE KEY uq_prize_claim_spin (spin_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_pc_names (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -225,11 +210,9 @@ def upgrade(cursor) -> None:
             UNIQUE KEY uq_club_pc_uuid (club_id, uuid),
             KEY idx_club_pc_order (club_id, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS auto_mailing_settings (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -249,16 +232,14 @@ def upgrade(cursor) -> None:
             KEY idx_auto_mailing_enabled (is_enabled),
             KEY idx_auto_mailing_club (club_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _add_column(cursor, "auto_mailing_settings", "days_inactive", "INT NOT NULL DEFAULT 14")
     _add_column(cursor, "auto_mailing_settings", "bonus_amount", "INT NOT NULL DEFAULT 200")
     _add_column(cursor, "auto_mailing_settings", "repeat_after_days", "INT NOT NULL DEFAULT 30")
     _add_column(cursor, "auto_mailing_settings", "last_run_at", "DATETIME NULL")
     _add_column(cursor, "auto_mailing_settings", "last_mailing_id", "INT NULL")
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS auto_mailing_logs (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -271,11 +252,9 @@ def upgrade(cursor) -> None:
             KEY idx_auto_mailing_logs_club_code (club_id, auto_mailing_code, created_at),
             KEY idx_auto_mailing_logs_guest (club_id, guest_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS first_visit_surveys (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -300,13 +279,11 @@ def upgrade(cursor) -> None:
             KEY idx_first_visit_survey_telegram (telegram_id),
             KEY idx_first_visit_survey_session (session_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _add_column(cursor, "first_visit_surveys", "auto_mailing_setting_id", "INT NULL")
     _add_column(cursor, "first_visit_surveys", "invite_message_id", "BIGINT NULL")
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS bonus_giveaways (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -323,10 +300,8 @@ def upgrade(cursor) -> None:
             KEY idx_bonus_giveaways_club_created (club_id, created_at),
             KEY idx_bonus_giveaways_mailing (mailing_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS bonus_giveaway_recipients (
             id INT AUTO_INCREMENT PRIMARY KEY,
             giveaway_id INT NOT NULL,
@@ -344,19 +319,15 @@ def upgrade(cursor) -> None:
             KEY idx_bonus_giveaway_recipients_guest (club_id, guest_id),
             KEY idx_bonus_giveaway_recipients_status (transaction_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     if _index_columns(cursor, "bonus_giveaway_recipients", "uq_bonus_giveaway_guest") == "giveaway_id,guest_id":
-        cursor.execute(
-            """
+        cursor.execute("""
             ALTER TABLE bonus_giveaway_recipients
             DROP INDEX uq_bonus_giveaway_guest,
             ADD UNIQUE KEY uq_bonus_giveaway_guest (giveaway_id, club_id, guest_id)
-        """
-    )
+        """)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_cases (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -371,10 +342,8 @@ def upgrade(cursor) -> None:
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             KEY idx_club_cases_club (club_id, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_case_items (
             id INT AUTO_INCREMENT PRIMARY KEY,
             case_id INT NOT NULL,
@@ -391,11 +360,9 @@ def upgrade(cursor) -> None:
             KEY idx_case_items_case (case_id, sort_order),
             KEY idx_case_items_club (club_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     _add_column(cursor, "club_case_items", "rarity_label", "VARCHAR(40) NOT NULL DEFAULT 'Обычный' AFTER probability")
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS guest_case_openings (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -406,11 +373,9 @@ def upgrade(cursor) -> None:
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             KEY idx_case_openings_guest (club_id, guest_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_referral_settings (
             club_id INT NOT NULL PRIMARY KEY,
             is_enabled TINYINT(1) NOT NULL DEFAULT 0,
@@ -421,10 +386,8 @@ def upgrade(cursor) -> None:
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS referral_links (
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -444,8 +407,7 @@ def upgrade(cursor) -> None:
             KEY idx_referral_status (status),
             KEY idx_referral_requested (club_id, requested_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
     for table_name, columns in {
         "club_referral_settings": {
             "is_enabled": "TINYINT(1) NOT NULL DEFAULT 0",
@@ -471,8 +433,7 @@ def upgrade(cursor) -> None:
         for column_name, ddl in columns.items():
             _add_column(cursor, table_name, column_name, ddl)
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS admin_sync_logs (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
@@ -486,10 +447,8 @@ def upgrade(cursor) -> None:
             INDEX idx_admin_sync_logs_club (club_id),
             INDEX idx_admin_sync_logs_started (started_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS background_job_runs (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             job_type VARCHAR(80) NOT NULL,
@@ -507,10 +466,8 @@ def upgrade(cursor) -> None:
             KEY idx_background_job_runs_status_started (status, started_at),
             KEY idx_background_job_runs_started (started_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS admin_impersonation_logs (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             admin_user_id INT NOT NULL,
@@ -525,10 +482,8 @@ def upgrade(cursor) -> None:
             INDEX idx_admin_impersonation_club (club_id),
             INDEX idx_admin_impersonation_started (started_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS audit_logs (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NULL,
@@ -545,5 +500,4 @@ def upgrade(cursor) -> None:
             KEY idx_audit_logs_actor_created (actor_user_id, created_at),
             KEY idx_audit_logs_action_created (action, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        """
-    )
+        """)
