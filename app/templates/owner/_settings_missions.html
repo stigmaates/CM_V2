@@ -323,6 +323,22 @@
                                         </div>
                                     {% endif %}
 
+                                    {% if m.requires_case_select %}
+                                        <div class="form-group">
+                                            <label for="case_id_{{ m.id }}">Кейс</label>
+                                            <select class="form-input" id="case_id_{{ m.id }}" name="case_id" required>
+                                                <option value="">Выберите кейс</option>
+                                                {% for case in active_cases|default([]) %}
+                                                    <option
+                                                        value="{{ case.id }}"
+                                                        {% if (m.config or {}).get('case_id')|int == case.id|int %}selected{% endif %}
+                                                    >{{ case.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <span class="mission-field-hint">Задание будет считать открытия только выбранного активного кейса.</span>
+                                        </div>
+                                    {% endif %}
+
                                     <div class="form-group">
                                         <label for="reward_{{ m.id }}">Приз</label>
                                         <input class="form-input" type="text" id="reward_{{ m.id }}" name="reward_text" value="{{ m.reward_text or '' }}" placeholder="Например: бесплатный напиток или скидка 10%">
@@ -405,6 +421,7 @@
                             <option
                                 value="{{ t.id }}"
                                 data-requires-min-hours="{{ 1 if t.requires_min_hours else 0 }}"
+                                data-requires-case-select="{{ 1 if t.requires_case_select else 0 }}"
                                 data-target-label="{{ t.target_label or 'Цель' }}"
                                 data-target-hint="{{ t.target_hint or '' }}"
                                 data-min-hours-label="{{ t.min_hours_label or 'X — минимум часов за визит' }}"
@@ -452,6 +469,17 @@
                     <span class="mission-field-hint">X задаёт минимальную длительность каждого подходящего визита.</span>
                 </div>
 
+                <div class="form-group" id="caseSelectGroup" style="display: none;">
+                    <label for="case_id">Кейс</label>
+                    <select class="form-input" id="case_id" name="case_id">
+                        <option value="">Выберите кейс</option>
+                        {% for case in active_cases|default([]) %}
+                            <option value="{{ case.id }}">{{ case.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="mission-field-hint">Задание будет считать открытия только выбранного активного кейса.</span>
+                </div>
+
                 <div class="form-group">
                     <label for="start_at">Дата начала</label>
                     <input class="form-input" type="datetime-local" id="start_at" name="start_at">
@@ -481,6 +509,8 @@
         const templateSelect = document.getElementById('mission_template_id');
         const minHoursGroup = document.getElementById('minHoursGroup');
         const minHoursInput = document.getElementById('min_hours');
+        const caseSelectGroup = document.getElementById('caseSelectGroup');
+        const caseSelectInput = document.getElementById('case_id');
         const minHoursLabel = document.getElementById('minHoursLabel');
         const targetAmountLabel = document.getElementById('targetAmountLabel');
         const targetAmountHint = document.getElementById('targetAmountHint');
@@ -489,6 +519,7 @@
             if (!templateSelect || !minHoursGroup || !minHoursInput) return;
             const selected = templateSelect.options[templateSelect.selectedIndex];
             const needsMinHours = selected && selected.dataset.requiresMinHours === '1';
+            const needsCaseSelect = selected && selected.dataset.requiresCaseSelect === '1';
 
             if (targetAmountLabel) {
                 targetAmountLabel.textContent = selected?.dataset.targetLabel || 'Цель';
@@ -502,6 +533,10 @@
 
             minHoursGroup.style.display = needsMinHours ? '' : 'none';
             minHoursInput.required = Boolean(needsMinHours);
+            if (caseSelectGroup && caseSelectInput) {
+                caseSelectGroup.style.display = needsCaseSelect ? '' : 'none';
+                caseSelectInput.required = Boolean(needsCaseSelect);
+            }
         }
 
         if (templateSelect) {

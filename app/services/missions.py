@@ -57,6 +57,20 @@ MISSION_METRICS = {
         "target_hint": "Например: 5 = гость должен прокрутить колесо 5 раз.",
         "config_fields": [],
     },
+    "case_openings_count": {
+        "name": "Открыть кейсы N раз",
+        "description": "Считает количество открытий любых кейсов.",
+        "target_label": "N — сколько открытий кейсов нужно сделать",
+        "target_hint": "Например: 3 = гость должен открыть любые кейсы 3 раза.",
+        "config_fields": [],
+    },
+    "specific_case_openings_count": {
+        "name": "Открыть выбранный кейс N раз",
+        "description": "Считает количество открытий выбранного активного кейса.",
+        "target_label": "N — сколько раз нужно открыть выбранный кейс",
+        "target_hint": "Например: 2 = открыть выбранный кейс 2 раза.",
+        "config_fields": ["case_id"],
+    },
     "completed_missions_count": {
         "name": "Выполнить N заданий",
         "description": "Считает количество других выполненных заданий клуба.",
@@ -147,6 +161,19 @@ DEFAULT_MISSION_TEMPLATES = [
         "name": "Провернуть колесо N раз",
         "short_description": "Сделать нужное количество прокрутов колеса фортуны.",
         "target_metric": "wheel_spins_count",
+    },
+    {
+        "code": "case_openings_count",
+        "name": "Открыть кейсы N раз",
+        "short_description": "Открыть любые кейсы нужное количество раз.",
+        "target_metric": "case_openings_count",
+    },
+    {
+        "code": "specific_case_openings_count",
+        "name": "Открыть выбранный кейс N раз",
+        "short_description": "Открыть выбранный активный кейс нужное количество раз.",
+        "target_metric": "specific_case_openings_count",
+        "config_schema": {"case_id": {"label": "Кейс", "source": "active_cases"}},
     },
     {
         "code": "completed_missions_count",
@@ -259,6 +286,8 @@ def _config_schema_for_metric(metric: str, explicit_schema=None):
                 "default": 3,
             }
         }
+    if "case_id" in metric_info.get("config_fields", []):
+        return {"case_id": {"label": "Кейс", "source": "active_cases"}}
     return None
 
 
@@ -278,6 +307,7 @@ def _enrich_mission_row(row):
     metric = row.get("target_metric")
     row["metric_info"] = MISSION_METRICS.get(metric, {})
     row["requires_min_hours"] = "min_hours" in (row["metric_info"].get("config_fields") or [])
+    row["requires_case_select"] = "case_id" in (row["metric_info"].get("config_fields") or [])
     row["target_label"] = row["metric_info"].get("target_label") or "Цель"
     row["target_hint"] = row["metric_info"].get("target_hint") or ""
     row["min_hours_label"] = row["metric_info"].get("min_hours_label") or "X — минимум часов за визит"
@@ -291,6 +321,7 @@ def _enrich_template_row(row):
     metric = row.get("target_metric")
     row["metric_info"] = MISSION_METRICS.get(metric, {})
     row["requires_min_hours"] = "min_hours" in (row["metric_info"].get("config_fields") or [])
+    row["requires_case_select"] = "case_id" in (row["metric_info"].get("config_fields") or [])
     row["target_label"] = row["metric_info"].get("target_label") or "Цель"
     row["target_hint"] = row["metric_info"].get("target_hint") or ""
     row["min_hours_label"] = row["metric_info"].get("min_hours_label") or "X — минимум часов за визит"
@@ -500,6 +531,16 @@ def _mission_requires_min_hours(template_or_mission) -> bool:
     return "min_hours" in (MISSION_METRICS.get(metric, {}).get("config_fields") or [])
 
 
+def _mission_requires_case_select(template_or_mission) -> bool:
+    metric = template_or_mission.get("target_metric")
+    schema = template_or_mission.get("config_schema")
+    if isinstance(schema, str):
+        schema = _decode_json(schema)
+    if isinstance(schema, dict) and "case_id" in schema:
+        return True
+    return "case_id" in (MISSION_METRICS.get(metric, {}).get("config_fields") or [])
+
+
 def build_mission_config_from_form(template, form):
     config = {}
 
@@ -514,6 +555,18 @@ def build_mission_config_from_form(template, form):
         if min_hours <= 0:
             raise ValueError("Минимум часов должен быть больше 0")
         config["min_hours"] = min_hours
+
+    if _mission_requires_case_select(template):
+        case_id = form.get("case_id", "").strip()
+        if not case_id:
+            raise ValueError("Выбери кейс для задания")
+        try:
+            case_id = int(case_id)
+        except ValueError:
+            raise ValueError("Кейс должен быть выбран из списка")
+        if case_id <= 0:
+            raise ValueError("Выбери кейс для задания")
+        config["case_id"] = case_id
 
     return config or None
 
@@ -797,6 +850,18 @@ def _count_visits(cursor, guest_id: int, club_id: int, mission, predicate=None) 
     return sum(1 for visit in visits if predicate(visit))
 
 
+def _count_case_openings(cursor, guest_id: int, club_id: int, mission, case_id: int | None = None) -> int:
+    period_conditions, period_params = build_period_filter(mission, date_field="created_at")
+    where_parts = ["guest_id = %s", "club_id = %s"] + period_conditions
+    params = [guest_id, club_id] + period_params
+    if case_id:
+        where_parts.append("case_id = %s")
+        params.append(case_id)
+    sql = f"SELECT COUNT(*) AS cnt FROM guest_case_openings WHERE {' AND '.join(where_parts)}"
+    cursor.execute(sql, params)
+    return cursor.fetchone()["cnt"] or 0
+
+
 def _calculate_completed_missions_progress(cursor, guest_id: int, club_id: int, current_mission):
     # Считаем только другие задания, чтобы не получить рекурсию «выполни N заданий» внутри самого себя.
     completed = 0
@@ -905,6 +970,18 @@ def calculate_mission_progress(guest_id: int, club_id: int, mission):
                 sql = f"SELECT COUNT(*) AS cnt FROM guest_wheel_spins WHERE {' AND '.join(where_parts)}"
                 cursor.execute(sql, params)
                 return cursor.fetchone()["cnt"] or 0
+
+            if metric == "case_openings_count":
+                return _count_case_openings(cursor, guest_id, club_id, mission)
+
+            if metric == "specific_case_openings_count":
+                config = mission.get("config") or {}
+                if isinstance(config, str):
+                    config = _decode_json(config) or {}
+                case_id = int((config or {}).get("case_id") or 0)
+                if case_id <= 0:
+                    return 0
+                return _count_case_openings(cursor, guest_id, club_id, mission, case_id=case_id)
 
             if metric == "completed_missions_count":
                 return _calculate_completed_missions_progress(cursor, guest_id, club_id, mission)
