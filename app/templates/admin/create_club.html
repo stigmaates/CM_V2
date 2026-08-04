@@ -5,12 +5,17 @@
 <section class="admin-page-head">
     <div>
         <h1>Создание клуба</h1>
-        <p>Добавь клуб и данные для подключения к LANGAME API.</p>
+        <p>Добавь клуб и данные для подключения к LANGAME API. Новый клуб создается выключенным.</p>
     </div>
 </section>
 
 <section class="admin-card admin-form-card">
     <form class="admin-form" method="POST">
+        <div>
+            <label for="club_id">LANGAME club_id</label>
+            <input type="number" id="club_id" name="club_id" min="1" placeholder="1" required>
+        </div>
+
         <div>
             <label for="name">Название клуба</label>
             <input type="text" id="name" name="name" placeholder="ClubName" required>
