@@ -461,6 +461,19 @@ def get_club_missions_all(club_id: int):
         conn.close()
 
 
+def _next_club_mission_id(cursor, club_id: int) -> int:
+    cursor.execute(
+        """
+        SELECT COALESCE(MAX(id), 0) + 1 AS next_id
+        FROM club_missions
+        WHERE club_id = %s
+        """,
+        (club_id,),
+    )
+    row = cursor.fetchone() or {}
+    return int(row.get("next_id") or 1)
+
+
 def build_period_filter(mission, date_field="date_start"):
     start_at = mission.get("start_at")
     end_at = mission.get("end_at")
@@ -525,9 +538,11 @@ def create_club_mission(
     try:
         with conn.cursor() as cursor:
             ensure_mission_reward_columns(cursor)
+            mission_id = _next_club_mission_id(cursor, club_id)
             cursor.execute(
                 """
                 INSERT INTO club_missions (
+                    id,
                     club_id,
                     mission_template_id,
                     custom_name,
@@ -542,9 +557,10 @@ def create_club_mission(
                     config,
                     sort_order
                 )
-                VALUES (%s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, 0)
+                VALUES (%s, %s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, 0)
                 """,
                 (
+                    mission_id,
                     club_id,
                     mission_template_id,
                     custom_name.strip() if isinstance(custom_name, str) and custom_name.strip() else None,
@@ -563,6 +579,7 @@ def create_club_mission(
                 ),
             )
         conn.commit()
+        return mission_id
     finally:
         conn.close()
 

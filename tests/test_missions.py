@@ -33,6 +33,62 @@ class _Connection:
         self.closed = True
 
 
+class _CreateMissionCursor:
+    def __init__(self):
+        self.queries = []
+        self.params = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, query, params=None):
+        self.queries.append(query)
+        self.params.append(params)
+
+    def fetchone(self):
+        return {"next_id": 6}
+
+
+class _CreateMissionConnection:
+    def __init__(self):
+        self.cursor_obj = _CreateMissionCursor()
+        self.committed = False
+        self.closed = False
+
+    def cursor(self):
+        return self.cursor_obj
+
+    def commit(self):
+        self.committed = True
+
+    def close(self):
+        self.closed = True
+
+
+def test_create_club_mission_uses_next_free_club_id(monkeypatch):
+    conn = _CreateMissionConnection()
+    monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
+    monkeypatch.setattr(missions, "ensure_mission_reward_columns", lambda cursor: None)
+
+    mission_id = missions.create_club_mission(
+        club_id=1,
+        mission_template_id=5,
+        target_amount=3,
+        custom_name="Новое задание",
+    )
+
+    insert_params = conn.cursor_obj.params[-1]
+    assert mission_id == 6
+    assert insert_params[0] == 6
+    assert insert_params[1] == 1
+    assert insert_params[2] == 5
+    assert conn.committed is True
+    assert conn.closed is True
+
+
 def test_min_hours_mission_counts_collapsed_visit_not_raw_sessions(monkeypatch):
     rows = [
         {"date_start": datetime(2026, 7, 25, 23, 33), "date_stop": datetime(2026, 7, 26, 0, 1)},
