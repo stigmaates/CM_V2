@@ -1,6 +1,7 @@
 import argparse
 import logging
 from datetime import datetime
+from typing import Callable
 
 import httpx
 import pymysql
@@ -74,7 +75,7 @@ def get_clubs():
         conn.close()
 
 
-def fetch_guests(secret: str, api_key: str):
+def fetch_guests(secret: str, api_key: str, progress: Callable[[str], None] | None = None):
     """Fetch all guest pages from Langame.
 
     Important: /guests/list returns only 10 rows by default if page_limit is not
@@ -108,6 +109,9 @@ def fetch_guests(secret: str, api_key: str):
         total_pages = int(json_data.get("total_pages") or 0)
 
         logging.info(f"Langame guests page {page}" + (f"/{total_pages}" if total_pages else "") + f": {len(guests)}")
+        if progress:
+            page_label = f"{page}/{total_pages}" if total_pages else str(page)
+            progress(f"Гости: загружена страница {page_label}. Получено на странице: {len(guests)}")
 
         all_guests.extend(guests)
 
@@ -122,6 +126,9 @@ def fetch_guests(secret: str, api_key: str):
             break
 
         page += 1
+        if progress:
+            next_page_label = f"{page}/{total_pages}" if total_pages else str(page)
+            progress(f"Гости: загрузка страницы {next_page_label}. Всего получено: {len(all_guests)}")
 
     return all_guests
 
@@ -201,7 +208,7 @@ def save_guests(club_id: int, guests: list):
         conn.close()
 
 
-def sync_guests(club_id: int):
+def sync_guests(club_id: int, progress: Callable[[str], None] | None = None):
     logging.info(f"Синхронизация гостей для клуба {club_id}")
 
     club = get_club_data(club_id)
@@ -217,14 +224,20 @@ def sync_guests(club_id: int):
     secret = club["secret"]
 
     logging.info("Клуб %s | Langame guests initial sync", club_id)
+    if progress:
+        progress("Гости: запрашиваем первую страницу из Langame")
 
-    guests = fetch_guests(secret, api_key)
+    guests = fetch_guests(secret, api_key, progress=progress)
 
     logging.info(f"Получено гостей из API: {len(guests)}")
+    if progress:
+        progress(f"Гости: получено из API {len(guests)}. Сохраняем в базу")
 
     save_guests(club_id, guests)
 
     logging.info(f"Синхронизация гостей клуба {club_id} завершена")
+    if progress:
+        progress(f"Гости: готово. Сохранено/обновлено: {len(guests)}")
     return {"club_id": club_id, "status": "success", "received": len(guests), "saved": len(guests)}
 
 

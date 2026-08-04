@@ -1,6 +1,7 @@
 import argparse
 import logging
 from datetime import datetime
+from typing import Callable
 
 import httpx
 import pymysql
@@ -185,7 +186,7 @@ def save_sessions(club_id: int, sessions: list):
         conn.close()
 
 
-def sync_sessions_initial(club_id: int):
+def sync_sessions_initial(club_id: int, progress: Callable[[str], None] | None = None):
     logging.info(f"Старт initial sync сессий для клуба {club_id}")
 
     club = get_club_data(club_id)
@@ -200,9 +201,13 @@ def sync_sessions_initial(club_id: int):
     secret = club["secret"]
 
     logging.info("Клуб %s | Langame sessions initial sync", club_id)
+    if progress:
+        progress("Сессии: загружаем список гостей для фильтрации")
 
     existing_guest_ids = get_existing_guest_ids(club_id)
     logging.info(f"Загружено гостей: {len(existing_guest_ids)}")
+    if progress:
+        progress(f"Сессии: найдено гостей в базе: {len(existing_guest_ids)}. Запрашиваем первую страницу")
 
     first_page = fetch_sessions_page(secret, api_key, page=1)
 
@@ -210,6 +215,8 @@ def sync_sessions_initial(club_id: int):
     sessions = first_page.get("data", [])
 
     logging.info(f"Всего страниц: {total_pages}")
+    if progress:
+        progress(f"Сессии: всего страниц {total_pages or 1}. Обрабатываем страницу 1/{total_pages or 1}")
 
     total_saved = 0
     total_skipped = 0
@@ -218,8 +225,18 @@ def sync_sessions_initial(club_id: int):
     total_skipped += skipped
     logging.info(f"Страница 1: {len(filtered)} сохранено, {skipped} пропущено")
     total_saved += save_sessions(club_id, filtered)
+    if progress:
+        progress(
+            f"Сессии: страница 1/{total_pages or 1}. "
+            f"Сохранено всего: {total_saved}. Пропущено без гостя: {total_skipped}"
+        )
 
     for page in range(2, total_pages + 1):
+        if progress:
+            progress(
+                f"Сессии: загрузка страницы {page}/{total_pages}. "
+                f"Сохранено всего: {total_saved}. Пропущено: {total_skipped}"
+            )
         data = fetch_sessions_page(secret, api_key, page=page)
         sessions = data.get("data", [])
 
@@ -228,8 +245,15 @@ def sync_sessions_initial(club_id: int):
 
         logging.info(f"Страница {page}/{total_pages}: {len(filtered)} сохранено, {skipped} пропущено")
         total_saved += save_sessions(club_id, filtered)
+        if progress:
+            progress(
+                f"Сессии: страница {page}/{total_pages} обработана. "
+                f"Сохранено всего: {total_saved}. Пропущено без гостя: {total_skipped}"
+            )
 
     logging.info(f"Initial sync сессий клуба {club_id} завершен. Сохранено: {total_saved}, пропущено: {total_skipped}")
+    if progress:
+        progress(f"Сессии: готово. Сохранено: {total_saved}. Пропущено без гостя: {total_skipped}")
     return {"club_id": club_id, "saved": total_saved, "skipped": total_skipped}
 
 

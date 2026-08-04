@@ -376,16 +376,39 @@ def finish_sync_log(log_id: int, status: str, message: str):
         db.commit()
 
 
-def run_guests_initial(club_id: int):
+def update_sync_log_progress(log_id: int, message: str):
+    if not log_id:
+        return
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE admin_sync_logs
+                SET message = %s
+                WHERE id = %s
+                  AND status = 'running'
+                """,
+                (message[:2000] if message else None, log_id),
+            )
+        db.commit()
+
+
+def _sync_progress(log_id: int):
+    return lambda message: update_sync_log_progress(log_id, message)
+
+
+def run_guests_initial(club_id: int, log_id: int | None = None):
     from scripts.sync_guests import sync_guests
 
-    sync_guests(club_id)
+    result = sync_guests(club_id, progress=_sync_progress(log_id) if log_id else None)
+    return f"Получено гостей: {result.get('received', 0)}. Сохранено/обновлено: {result.get('saved', 0)}."
 
 
-def run_sessions_initial(club_id: int):
+def run_sessions_initial(club_id: int, log_id: int | None = None):
     from scripts.sync_sessions_initial import sync_sessions_initial
 
-    sync_sessions_initial(club_id)
+    result = sync_sessions_initial(club_id, progress=_sync_progress(log_id) if log_id else None)
+    return f"Сохранено сессий: {result.get('saved', 0)}. Пропущено без гостя: {result.get('skipped', 0)}."
 
 
 def run_operations_initial(club_id: int):
@@ -648,7 +671,10 @@ def club_sync(club_id: int, sync_type: str):
     log_id = create_sync_log(club_id, script_name, sync_mode)
 
     try:
-        result = func(club_id)
+        if sync_mode == "initial" and script_name in {"guests", "sessions"}:
+            result = func(club_id, log_id=log_id)
+        else:
+            result = func(club_id)
         message = result or "Синхронизация завершена"
         finish_sync_log(log_id, "success", message)
         record_audit_event(

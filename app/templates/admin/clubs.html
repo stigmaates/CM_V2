@@ -114,6 +114,34 @@ function formatValue(value) {
     return value || '—';
 }
 
+const syncScriptLabels = {
+    guests: 'Гости',
+    sessions: 'Сессии',
+    operations: 'Операции',
+    balance_topups: 'Пополнения',
+};
+
+const syncModeLabels = {
+    initial: 'полная загрузка',
+    incremental: 'быстрое обновление',
+};
+
+const syncStatusLabels = {
+    running: 'Выполняется сейчас',
+    success: 'Готово',
+    error: 'Ошибка',
+};
+
+function formatSyncTitle(log) {
+    const script = syncScriptLabels[log.script_name] || log.script_name;
+    const mode = syncModeLabels[log.sync_mode] || log.sync_mode;
+    return `${script} · ${mode}`;
+}
+
+function formatSyncStatus(log) {
+    return syncStatusLabels[log.status] || log.status;
+}
+
 function serviceEnabledValue(value) {
     return value === true || value === 1 || value === '1';
 }
@@ -133,8 +161,8 @@ function renderLogs(logs) {
     }
     box.innerHTML = logs.map(log => `
         <div class="log-item ${log.status}">
-            <div class="log-title">${log.script_name} · ${log.sync_mode}</div>
-            <div class="log-meta">${log.status} · ${formatValue(log.started_at)}</div>
+            <div class="log-title">${formatSyncTitle(log)}</div>
+            <div class="log-meta">${formatSyncStatus(log)} · ${formatValue(log.started_at)}</div>
             <div class="log-message">${formatValue(log.message)}</div>
         </div>
     `).join('');
