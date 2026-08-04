@@ -65,6 +65,34 @@ def _users_column_exists(cursor, column_name: str) -> bool:
     return int(row.get("cnt") or 0) > 0
 
 
+def _fetch_club_for_user_create(cursor, club_id: int) -> dict | None:
+    cursor.execute(
+        """
+        SELECT club_id, owner_id
+        FROM clubs
+        WHERE club_id = %s
+        LIMIT 1
+        """,
+        (club_id,),
+    )
+    return cursor.fetchone()
+
+
+def _validate_club_for_user_create(cursor, role: str, club_id: int | None) -> str | None:
+    if role not in {"owner", "reception"}:
+        return None
+    if club_id is None:
+        return "Для owner и reception нужно указать club_id"
+
+    club = _fetch_club_for_user_create(cursor, club_id)
+    if not club:
+        return "Клуб с таким club_id не найден"
+    if role == "owner" and club.get("owner_id"):
+        return "У этого клуба уже есть владелец"
+
+    return None
+
+
 @admin_bp.route("/users")
 @admin_required
 def users_list():
@@ -161,15 +189,16 @@ def users_create():
                 flash("club_id должен быть числом", "error")
                 return redirect(url_for("admin.users_create"))
 
-        if role in {"owner", "reception"} and club_id is None:
-            flash("Для owner и reception нужно указать club_id", "error")
-            return redirect(url_for("admin.users_create"))
-
         pass_hash = generate_password_hash(password)
         conn = None
         try:
             conn = get_db_connection()
             with conn.cursor() as cursor:
+                club_error = _validate_club_for_user_create(cursor, role, club_id)
+                if club_error:
+                    flash(club_error, "error")
+                    return redirect(url_for("admin.users_create"))
+
                 cursor.execute("SELECT user_id FROM users WHERE login = %s LIMIT 1", (login_value,))
                 if cursor.fetchone():
                     flash("Пользователь с таким логином уже существует", "error")
@@ -182,6 +211,17 @@ def users_create():
                     """,
                     (role, name, login_value, club_id, datetime.utcnow(), pass_hash),
                 )
+                user_id = cursor.lastrowid
+
+                if role == "owner":
+                    cursor.execute(
+                        """
+                        UPDATE clubs
+                        SET owner_id = %s
+                        WHERE club_id = %s
+                        """,
+                        (user_id, club_id),
+                    )
 
             conn.commit()
             flash("Пользователь успешно создан", "success")
