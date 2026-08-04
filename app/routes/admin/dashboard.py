@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
@@ -141,6 +142,7 @@ def finish_impersonation_log(log_id):
         db.commit()
 
 
+@lru_cache(maxsize=64)
 def table_has_column(table_name: str, column_name: str) -> bool:
     with get_db_connection() as db:
         with db.cursor() as cur:
@@ -505,8 +507,6 @@ def restart_service(service_name: str):
 @admin_bp.route("/clubs")
 @admin_required
 def clubs_list():
-    ensure_admin_sync_logs_table()
-    ensure_admin_impersonation_logs_table()
     return render_template(
         "admin/clubs.html",
         clubs=get_clubs_for_admin(),
