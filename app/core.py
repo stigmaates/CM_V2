@@ -54,6 +54,16 @@ def _csrf_error_response():
     abort(400, description="CSRF token is missing or invalid")
 
 
+def _wants_json_response() -> bool:
+    return request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+
+
+def _auth_error_response(error: str, status_code: int):
+    if _wants_json_response():
+        return jsonify({"ok": False, "status": False, "error": error}), status_code
+    return None
+
+
 def register_csrf_protection(flask_app: Flask) -> None:
     @flask_app.before_request
     def csrf_protect():
@@ -168,6 +178,9 @@ def login_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if "user_id" not in session:
+            json_response = _auth_error_response("login_required", 401)
+            if json_response:
+                return json_response
             return redirect(url_for("auth.login"))
         return func(*args, **kwargs)
 
@@ -179,8 +192,14 @@ def role_required(*allowed_roles):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if "user_id" not in session:
+                json_response = _auth_error_response("login_required", 401)
+                if json_response:
+                    return json_response
                 return redirect(url_for("auth.login"))
             if session.get("role") not in allowed_roles:
+                json_response = _auth_error_response("forbidden", 403)
+                if json_response:
+                    return json_response
                 if session.get("role") == "admin":
                     target = "admin.users_create"
                 elif session.get("role") == "reception":
