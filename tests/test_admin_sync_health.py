@@ -100,6 +100,75 @@ def test_club_sync_rejects_disabled_club_before_creating_log(monkeypatch):
     assert created_logs == []
 
 
+def test_club_sync_queues_background_job(monkeypatch):
+    started_threads = []
+
+    class FakeThread:
+        def __init__(self, target=None, kwargs=None, daemon=None):
+            self.target = target
+            self.kwargs = kwargs
+            self.daemon = daemon
+
+        def start(self):
+            started_threads.append(self)
+
+    monkeypatch.setattr(
+        admin_dashboard,
+        "get_club_by_id",
+        lambda club_id: {"club_id": club_id, "name": "Club", "service_enabled": 1},
+    )
+    monkeypatch.setattr(admin_dashboard, "create_sync_log", lambda *args, **kwargs: 42)
+    monkeypatch.setattr(admin_dashboard, "get_running_sync_log", lambda *args: None)
+    monkeypatch.setattr(admin_dashboard, "Thread", FakeThread)
+    monkeypatch.setattr(admin_dashboard, "run_guests_incremental_for_club", lambda club_id: "done")
+
+    with app.test_request_context("/admin/clubs/7/sync/guests-incremental", method="POST"):
+        response = admin_dashboard.club_sync.__wrapped__(7, "guests-incremental")
+
+    payload = response.get_json()
+    assert payload["status"] is True
+    assert payload["queued"] is True
+    assert payload["log_id"] == 42
+    assert len(started_threads) == 1
+    assert started_threads[0].kwargs["club_id"] == 7
+    assert started_threads[0].kwargs["log_id"] == 42
+    assert started_threads[0].daemon is True
+
+
+def test_club_sync_reuses_running_job(monkeypatch):
+    started_threads = []
+    created_logs = []
+
+    class FakeThread:
+        def __init__(self, target=None, kwargs=None, daemon=None):
+            self.target = target
+            self.kwargs = kwargs
+            self.daemon = daemon
+
+        def start(self):
+            started_threads.append(self)
+
+    monkeypatch.setattr(
+        admin_dashboard,
+        "get_club_by_id",
+        lambda club_id: {"club_id": club_id, "name": "Club", "service_enabled": 1},
+    )
+    monkeypatch.setattr(admin_dashboard, "get_running_sync_log", lambda *args: {"id": 77})
+    monkeypatch.setattr(admin_dashboard, "create_sync_log", lambda *args, **kwargs: created_logs.append(args))
+    monkeypatch.setattr(admin_dashboard, "Thread", FakeThread)
+
+    with app.test_request_context("/admin/clubs/7/sync/sessions-initial", method="POST"):
+        response = admin_dashboard.club_sync.__wrapped__(7, "sessions-initial")
+
+    payload = response.get_json()
+    assert payload["status"] is True
+    assert payload["queued"] is True
+    assert payload["already_running"] is True
+    assert payload["log_id"] == 77
+    assert created_logs == []
+    assert started_threads == []
+
+
 def test_club_sync_logs_endpoint_returns_json(monkeypatch):
     logs = [{"id": 3, "script_name": "guests", "sync_mode": "incremental", "status": "success"}]
 
