@@ -103,6 +103,7 @@
 {% block scripts %}
 <script>
 let currentClubId = null;
+let syncLogPoller = null;
 const modal = document.getElementById('clubModal');
 const closeBtn = document.getElementById('clubModalClose');
 const resultBox = document.getElementById('syncResult');
@@ -139,13 +140,38 @@ function renderLogs(logs) {
     `).join('');
 }
 
+async function readJsonResponse(resp) {
+    const contentType = resp.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        const text = await resp.text();
+        const compactText = text.replace(/\s+/g, ' ').trim().slice(0, 180);
+        throw new Error(
+            compactText.startsWith('<')
+                ? 'Сервер вернул HTML вместо JSON. Возможно, сессия админа истекла или приложение вернуло страницу ошибки.'
+                : (compactText || `Сервер вернул не-JSON ответ: HTTP ${resp.status}`)
+        );
+    }
+    return resp.json();
+}
+
+async function refreshClubLogs() {
+    if (!currentClubId) return;
+    const resp = await fetch(`/admin/clubs/${currentClubId}/sync-logs`, {
+        headers: {'Accept': 'application/json'},
+    });
+    const data = await readJsonResponse(resp);
+    if (data.status) renderLogs(data.logs);
+}
+
 async function openClubModal(clubId) {
     currentClubId = clubId;
     resultBox.hidden = true;
     resultBox.textContent = '';
 
-    const resp = await fetch(`/admin/clubs/${clubId}/details`);
-    const data = await resp.json();
+    const resp = await fetch(`/admin/clubs/${clubId}/details`, {
+        headers: {'Accept': 'application/json'},
+    });
+    const data = await readJsonResponse(resp);
 
     if (!data.status) {
         alert(data.message || 'Не удалось открыть клуб');
@@ -162,6 +188,10 @@ async function openClubModal(clubId) {
 }
 
 function closeModal() {
+    if (syncLogPoller) {
+        clearInterval(syncLogPoller);
+        syncLogPoller = null;
+    }
     modal.hidden = true;
     currentClubId = null;
 }
@@ -186,10 +216,10 @@ serviceToggle.addEventListener('change', async () => {
     try {
         const resp = await fetch(`/admin/clubs/${currentClubId}/service`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
             body: JSON.stringify({enabled}),
         });
-        const data = await resp.json();
+        const data = await readJsonResponse(resp);
         if (!data.status) throw new Error(data.message || 'Не удалось изменить обслуживание');
         updateServiceUi(Boolean(data.service_enabled));
         resultBox.className = 'sync-result success';
@@ -218,13 +248,20 @@ document.querySelectorAll('.sync-btn').forEach(btn => {
         btn.textContent = 'Запуск...';
         resultBox.hidden = false;
         resultBox.className = 'sync-result';
-        resultBox.textContent = 'Синхронизация запущена. Дождись ответа страницы.';
+        resultBox.textContent = 'Синхронизация запущена. Логи обновляются ниже...';
+        await refreshClubLogs().catch(() => {});
+        syncLogPoller = setInterval(() => refreshClubLogs().catch(() => {}), 1500);
 
         try {
-            const resp = await fetch(`/admin/clubs/${currentClubId}/sync/${syncType}`, { method: 'POST' });
-            const data = await resp.json();
+            const resp = await fetch(`/admin/clubs/${currentClubId}/sync/${syncType}`, {
+                method: 'POST',
+                headers: {'Accept': 'application/json'},
+            });
+            const data = await readJsonResponse(resp);
+            if (!resp.ok || !data.status) throw new Error(data.message || 'Синхронизация завершилась ошибкой');
             resultBox.className = `sync-result ${data.status ? 'success' : 'error'}`;
             resultBox.textContent = data.message || (data.status ? 'Готово' : 'Ошибка');
+            await refreshClubLogs().catch(() => {});
             await openClubModal(currentClubId);
             resultBox.hidden = false;
             resultBox.className = `sync-result ${data.status ? 'success' : 'error'}`;
@@ -233,6 +270,11 @@ document.querySelectorAll('.sync-btn').forEach(btn => {
             resultBox.className = 'sync-result error';
             resultBox.textContent = e.message || 'Ошибка запроса';
         } finally {
+            if (syncLogPoller) {
+                clearInterval(syncLogPoller);
+                syncLogPoller = null;
+            }
+            await refreshClubLogs().catch(() => {});
             btn.disabled = false;
             btn.textContent = oldText;
         }

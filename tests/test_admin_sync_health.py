@@ -79,3 +79,38 @@ def test_clubs_list_does_not_create_log_tables_on_page_load(monkeypatch):
     assert template == "admin/clubs.html"
     assert context["clubs"] == []
     assert called == []
+
+
+def test_club_sync_rejects_disabled_club_before_creating_log(monkeypatch):
+    created_logs = []
+
+    monkeypatch.setattr(
+        admin_dashboard,
+        "get_club_by_id",
+        lambda club_id: {"club_id": club_id, "name": "Paused", "service_enabled": 0},
+    )
+    monkeypatch.setattr(admin_dashboard, "create_sync_log", lambda *args: created_logs.append(args))
+
+    with app.test_request_context("/admin/clubs/7/sync/guests-incremental", method="POST"):
+        response, status = admin_dashboard.club_sync.__wrapped__(7, "guests-incremental")
+
+    assert status == 400
+    assert response.get_json()["status"] is False
+    assert "выключен" in response.get_json()["message"]
+    assert created_logs == []
+
+
+def test_club_sync_logs_endpoint_returns_json(monkeypatch):
+    logs = [{"id": 3, "script_name": "guests", "sync_mode": "incremental", "status": "success"}]
+
+    monkeypatch.setattr(
+        admin_dashboard,
+        "get_club_by_id",
+        lambda club_id: {"club_id": club_id, "name": "Club", "service_enabled": 1},
+    )
+    monkeypatch.setattr(admin_dashboard, "get_club_sync_logs", lambda club_id: logs)
+
+    with app.test_request_context("/admin/clubs/7/sync-logs"):
+        response = admin_dashboard.club_sync_logs.__wrapped__(7)
+
+    assert response.get_json() == {"status": True, "logs": logs}
