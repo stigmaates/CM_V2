@@ -84,11 +84,12 @@ def ensure_admin_impersonation_logs_table():
 
 
 def get_club_by_id(club_id: int):
+    service_enabled_expr = "service_enabled" if table_has_column("clubs", "service_enabled") else "1"
     with get_db_connection() as db:
         with db.cursor() as cur:
             cur.execute(
-                """
-                SELECT club_id, name
+                f"""
+                SELECT club_id, name, {service_enabled_expr} AS service_enabled
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
@@ -332,7 +333,7 @@ def get_club_sync_logs(club_id: int, limit: int = 8):
         with db.cursor() as cur:
             cur.execute(
                 """
-                SELECT script_name, sync_mode, status, message, started_at, finished_at
+                SELECT id, script_name, sync_mode, status, message, started_at, finished_at
                 FROM admin_sync_logs
                 WHERE club_id = %s
                 ORDER BY started_at DESC
@@ -528,6 +529,16 @@ def club_details(club_id: int):
             "logs": get_club_sync_logs(club_id),
         }
     )
+
+
+@admin_bp.route("/clubs/<int:club_id>/sync-logs")
+@admin_required
+def club_sync_logs(club_id: int):
+    club = get_club_by_id(club_id)
+    if not club:
+        return jsonify({"status": False, "message": "Клуб не найден"}), 404
+
+    return jsonify({"status": True, "logs": get_club_sync_logs(club_id)})
 
 
 @admin_bp.route("/clubs/<int:club_id>/service", methods=["POST"])
