@@ -1,15 +1,19 @@
-from app.routes.admin.clubs import _insert_admin_club, _parse_club_id
+from app.routes.admin.clubs import _insert_admin_club, _next_club_id
 
 
 class FakeCursor:
-    def __init__(self, existing_club=False, service_enabled_column=True):
+    def __init__(self, existing_club=False, service_enabled_column=True, next_club_id=12):
         self.existing_club = existing_club
         self.service_enabled_column = service_enabled_column
+        self.next_club_id = next_club_id
         self.queries = []
         self._next_result = None
 
     def execute(self, sql, params=None):
         self.queries.append((sql, params))
+        if "MAX(club_id)" in sql:
+            self._next_result = {"club_id": self.next_club_id}
+            return
         if "FROM clubs WHERE club_id" in sql:
             self._next_result = {"club_id": params[0]} if self.existing_club else None
             return
@@ -22,14 +26,10 @@ class FakeCursor:
         return self._next_result
 
 
-def test_parse_club_id_accepts_positive_numbers():
-    assert _parse_club_id("12") == 12
+def test_next_club_id_uses_next_available_number():
+    cursor = FakeCursor(next_club_id=8)
 
-
-def test_parse_club_id_rejects_empty_non_numeric_and_zero():
-    assert _parse_club_id("") is None
-    assert _parse_club_id("abc") is None
-    assert _parse_club_id("0") is None
+    assert _next_club_id(cursor) == 8
 
 
 def test_insert_admin_club_creates_disabled_club_when_column_exists():

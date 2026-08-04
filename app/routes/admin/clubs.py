@@ -20,12 +20,10 @@ def _column_exists(cursor, table_name: str, column_name: str) -> bool:
     return bool(row and row.get("cnt"))
 
 
-def _parse_club_id(raw_value: str):
-    try:
-        club_id = int(raw_value)
-    except (TypeError, ValueError):
-        return None
-    return club_id if club_id > 0 else None
+def _next_club_id(cursor) -> int:
+    cursor.execute("SELECT COALESCE(MAX(club_id), 0) + 1 AS club_id FROM clubs")
+    row = cursor.fetchone() or {}
+    return int(row.get("club_id") or 1)
 
 
 def _insert_admin_club(cursor, club_id: int, name: str, api_key: str, secret: str) -> None:
@@ -56,18 +54,18 @@ def _insert_admin_club(cursor, club_id: int, name: str, api_key: str, secret: st
 @admin_required
 def create_club():
     if request.method == "POST":
-        club_id = _parse_club_id((request.form.get("club_id") or "").strip())
         name = (request.form.get("name") or "").strip()
         api_key = (request.form.get("api_key") or "").strip()
         secret = (request.form.get("secret") or "").strip()
 
-        if not club_id or not name or not api_key or not secret:
-            flash("Заполни club_id, название, API key и secret", "error")
+        if not name or not api_key or not secret:
+            flash("Заполни название, API key и secret", "error")
             return redirect(url_for("admin.create_club"))
 
         with get_db_connection() as db:
             cur = db.cursor()
             try:
+                club_id = _next_club_id(cur)
                 _insert_admin_club(cur, club_id, name, api_key, secret)
                 db.commit()
             except ValueError as exc:
@@ -75,7 +73,7 @@ def create_club():
                 flash(str(exc), "error")
                 return redirect(url_for("admin.create_club"))
 
-        flash("Клуб создан выключенным. Включи обслуживание после проверки API и настроек.", "success")
+        flash(f"Клуб создан выключенным. Внутренний ID: {club_id}. Включи обслуживание после проверки API.", "success")
         return redirect("/admin/clubs")
 
     return render_template("admin/create_club.html")
