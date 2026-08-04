@@ -198,7 +198,28 @@ async function refreshClubLogs() {
         headers: {'Accept': 'application/json'},
     });
     const data = await readJsonResponse(resp);
-    if (data.status) renderLogs(data.logs);
+    if (data.status) {
+        renderLogs(data.logs);
+        return data.logs || [];
+    }
+    return [];
+}
+
+function stopSyncLogPolling() {
+    if (syncLogPoller) {
+        clearInterval(syncLogPoller);
+        syncLogPoller = null;
+    }
+}
+
+function startSyncLogPolling() {
+    stopSyncLogPolling();
+    syncLogPoller = setInterval(async () => {
+        const logs = await refreshClubLogs().catch(() => []);
+        if (!logs.some(log => log.status === 'running')) {
+            stopSyncLogPolling();
+        }
+    }, 1500);
 }
 
 async function openClubModal(clubId) {
@@ -226,10 +247,7 @@ async function openClubModal(clubId) {
 }
 
 function closeModal() {
-    if (syncLogPoller) {
-        clearInterval(syncLogPoller);
-        syncLogPoller = null;
-    }
+    stopSyncLogPolling();
     modal.hidden = true;
     currentClubId = null;
 }
@@ -288,7 +306,7 @@ document.querySelectorAll('.sync-btn').forEach(btn => {
         resultBox.className = 'sync-result';
         resultBox.textContent = 'Синхронизация запущена. Логи обновляются ниже...';
         await refreshClubLogs().catch(() => {});
-        syncLogPoller = setInterval(() => refreshClubLogs().catch(() => {}), 1500);
+        startSyncLogPolling();
 
         try {
             const resp = await fetch(`/admin/clubs/${currentClubId}/sync/${syncType}`, {
@@ -297,21 +315,13 @@ document.querySelectorAll('.sync-btn').forEach(btn => {
             });
             const data = await readJsonResponse(resp);
             if (!resp.ok || !data.status) throw new Error(data.message || 'Синхронизация завершилась ошибкой');
-            resultBox.className = `sync-result ${data.status ? 'success' : 'error'}`;
-            resultBox.textContent = data.message || (data.status ? 'Готово' : 'Ошибка');
+            resultBox.className = 'sync-result success';
+            resultBox.textContent = data.message || 'Синхронизация запущена в фоне. Прогресс обновляется ниже.';
             await refreshClubLogs().catch(() => {});
-            await openClubModal(currentClubId);
-            resultBox.hidden = false;
-            resultBox.className = `sync-result ${data.status ? 'success' : 'error'}`;
-            resultBox.textContent = data.message || (data.status ? 'Готово' : 'Ошибка');
         } catch (e) {
             resultBox.className = 'sync-result error';
             resultBox.textContent = e.message || 'Ошибка запроса';
         } finally {
-            if (syncLogPoller) {
-                clearInterval(syncLogPoller);
-                syncLogPoller = null;
-            }
             await refreshClubLogs().catch(() => {});
             btn.disabled = false;
             btn.textContent = oldText;

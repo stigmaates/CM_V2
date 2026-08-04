@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from functools import lru_cache
+from threading import Thread
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
@@ -344,16 +345,36 @@ def get_club_sync_logs(club_id: int, limit: int = 8):
             return cur.fetchall()
 
 
-def create_sync_log(club_id: int, script_name: str, sync_mode: str):
+def get_running_sync_log(club_id: int, script_name: str, sync_mode: str):
     ensure_admin_sync_logs_table()
     with get_db_connection() as db:
         with db.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO admin_sync_logs (club_id, script_name, sync_mode, status, started_at, created_by)
-                VALUES (%s, %s, %s, 'running', %s, NULL)
+                SELECT id, message, started_at
+                FROM admin_sync_logs
+                WHERE club_id = %s
+                  AND script_name = %s
+                  AND sync_mode = %s
+                  AND status = 'running'
+                ORDER BY started_at DESC
+                LIMIT 1
                 """,
-                (club_id, script_name, sync_mode, datetime.utcnow()),
+                (club_id, script_name, sync_mode),
+            )
+            return cur.fetchone()
+
+
+def create_sync_log(club_id: int, script_name: str, sync_mode: str, message: str | None = None):
+    ensure_admin_sync_logs_table()
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO admin_sync_logs (club_id, script_name, sync_mode, status, message, started_at, created_by)
+                VALUES (%s, %s, %s, 'running', %s, %s, NULL)
+                """,
+                (club_id, script_name, sync_mode, message, datetime.utcnow()),
             )
             log_id = cur.lastrowid
         db.commit()
@@ -395,6 +416,45 @@ def update_sync_log_progress(log_id: int, message: str):
 
 def _sync_progress(log_id: int):
     return lambda message: update_sync_log_progress(log_id, message)
+
+
+def run_admin_sync_job(
+    *,
+    club_id: int,
+    script_name: str,
+    sync_mode: str,
+    func,
+    log_id: int,
+    actor_user_id: int | None = None,
+    actor_role: str | None = None,
+):
+    try:
+        if sync_mode == "initial" and script_name in {"guests", "sessions"}:
+            result = func(club_id, log_id=log_id)
+        else:
+            result = func(club_id)
+        message = result or "Синхронизация завершена"
+        finish_sync_log(log_id, "success", message)
+        record_audit_event(
+            action="admin.club_sync.run",
+            club_id=club_id,
+            entity_type="admin_sync_log",
+            entity_id=log_id,
+            details={"script_name": script_name, "sync_mode": sync_mode, "status": "success"},
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
+        )
+    except Exception as e:
+        finish_sync_log(log_id, "error", str(e))
+        record_audit_event(
+            action="admin.club_sync.run",
+            club_id=club_id,
+            entity_type="admin_sync_log",
+            entity_id=log_id,
+            details={"script_name": script_name, "sync_mode": sync_mode, "status": "error", "error": str(e)},
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
+        )
 
 
 def run_guests_initial(club_id: int, log_id: int | None = None):
@@ -668,26 +728,55 @@ def club_sync(club_id: int, sync_type: str):
         return jsonify({"status": False, "message": "Клуб выключен, синхронизация недоступна"}), 400
 
     script_name, sync_mode, func = actions[sync_type]
-    log_id = create_sync_log(club_id, script_name, sync_mode)
-
-    try:
-        if sync_mode == "initial" and script_name in {"guests", "sessions"}:
-            result = func(club_id, log_id=log_id)
-        else:
-            result = func(club_id)
-        message = result or "Синхронизация завершена"
-        finish_sync_log(log_id, "success", message)
-        record_audit_event(
-            action="admin.club_sync.run",
-            club_id=club_id,
-            entity_type="admin_sync_log",
-            entity_id=log_id,
-            details={"script_name": script_name, "sync_mode": sync_mode, "status": "success"},
+    running_log = get_running_sync_log(club_id, script_name, sync_mode)
+    if running_log:
+        message = (
+            "Такая синхронизация уже выполняется. "
+            "Прогресс обновляется в логах ниже."
         )
-        return jsonify({"status": True, "message": message})
-    except Exception as e:
-        finish_sync_log(log_id, "error", str(e))
-        return jsonify({"status": False, "message": str(e)}), 500
+        return jsonify(
+            {
+                "status": True,
+                "queued": True,
+                "already_running": True,
+                "log_id": running_log["id"],
+                "message": message,
+            }
+        )
+
+    log_id = create_sync_log(
+        club_id,
+        script_name,
+        sync_mode,
+        message="Синхронизация поставлена в очередь",
+    )
+    worker = Thread(
+        target=run_admin_sync_job,
+        kwargs={
+            "club_id": club_id,
+            "script_name": script_name,
+            "sync_mode": sync_mode,
+            "func": func,
+            "log_id": log_id,
+            "actor_user_id": session.get("user_id"),
+            "actor_role": session.get("role"),
+        },
+        daemon=True,
+    )
+    worker.start()
+
+    message = (
+        "Синхронизация запущена в фоне. "
+        "Прогресс обновляется в логах ниже."
+    )
+    return jsonify(
+        {
+            "status": True,
+            "queued": True,
+            "log_id": log_id,
+            "message": message,
+        }
+    )
 
 
 @admin_bp.route("/clubs/<int:club_id>/impersonate", methods=["POST"])
