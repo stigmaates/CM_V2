@@ -68,6 +68,38 @@ class _CreateMissionConnection:
         self.closed = True
 
 
+class _CountCursor:
+    def __init__(self, count):
+        self.count = count
+        self.query = None
+        self.params = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, query, params=None):
+        self.query = query
+        self.params = params
+
+    def fetchone(self):
+        return {"cnt": self.count}
+
+
+class _CountConnection:
+    def __init__(self, count):
+        self.cursor_obj = _CountCursor(count)
+        self.closed = False
+
+    def cursor(self):
+        return self.cursor_obj
+
+    def close(self):
+        self.closed = True
+
+
 def test_create_club_mission_uses_next_free_club_id(monkeypatch):
     conn = _CreateMissionConnection()
     monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
@@ -86,6 +118,52 @@ def test_create_club_mission_uses_next_free_club_id(monkeypatch):
     assert insert_params[1] == 1
     assert insert_params[2] == 5
     assert conn.committed is True
+    assert conn.closed is True
+
+
+def test_case_openings_mission_counts_all_cases(monkeypatch):
+    conn = _CountConnection(4)
+    monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
+
+    progress = missions.calculate_mission_progress(
+        guest_id=10,
+        club_id=1,
+        mission={
+            "target_metric": "case_openings_count",
+            "target_amount": 3,
+            "start_at": None,
+            "end_at": None,
+            "config": {},
+        },
+    )
+
+    assert progress == 4
+    assert "guest_case_openings" in conn.cursor_obj.query
+    assert "case_id = %s" not in conn.cursor_obj.query
+    assert conn.cursor_obj.params == [10, 1]
+    assert conn.closed is True
+
+
+def test_specific_case_openings_mission_filters_case(monkeypatch):
+    conn = _CountConnection(2)
+    monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
+
+    progress = missions.calculate_mission_progress(
+        guest_id=10,
+        club_id=1,
+        mission={
+            "target_metric": "specific_case_openings_count",
+            "target_amount": 2,
+            "start_at": None,
+            "end_at": None,
+            "config": {"case_id": 55},
+        },
+    )
+
+    assert progress == 2
+    assert "guest_case_openings" in conn.cursor_obj.query
+    assert "case_id = %s" in conn.cursor_obj.query
+    assert conn.cursor_obj.params == [10, 1, 55]
     assert conn.closed is True
 
 

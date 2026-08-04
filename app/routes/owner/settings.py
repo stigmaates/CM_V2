@@ -141,10 +141,12 @@ def settings():
         )
 
     if active_tab == "missions":
+        cases = get_cases_for_admin(club_id_int)
         context.update(
             {
                 "templates": get_mission_templates(),
                 "missions": get_club_missions_all(club_id_int),
+                "active_cases": [case for case in cases if int(case.get("is_active") or 0)],
             }
         )
     elif active_tab == "wheel":
