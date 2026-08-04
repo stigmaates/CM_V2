@@ -54,6 +54,42 @@ def test_csrf_accepts_unsafe_request_with_header_token():
     assert response.get_json() == {"ok": True}
 
 
+def test_login_required_returns_json_for_json_requests_without_session():
+    from app.core import create_flask_app, login_required
+
+    flask_app = create_flask_app()
+
+    @flask_app.get("/private")
+    @login_required
+    def private():
+        return {"ok": True}
+
+    client = flask_app.test_client()
+    response = client.get("/private", headers={"Accept": "application/json"})
+
+    assert response.status_code == 401
+    assert response.content_type.startswith("application/json")
+    assert response.get_json()["error"] == "login_required"
+
+
+def test_admin_required_returns_json_for_json_requests_without_session():
+    from app.core import admin_required, create_flask_app
+
+    flask_app = create_flask_app()
+
+    @flask_app.get("/admin/private")
+    @admin_required
+    def private_admin():
+        return {"ok": True}
+
+    client = flask_app.test_client()
+    response = client.get("/admin/private", headers={"Accept": "application/json"})
+
+    assert response.status_code == 401
+    assert response.content_type.startswith("application/json")
+    assert response.get_json()["error"] == "login_required"
+
+
 def test_club_service_gate_blocks_owner_when_service_disabled(monkeypatch):
     import app.core as core
 

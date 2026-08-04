@@ -151,7 +151,17 @@ async function readJsonResponse(resp) {
                 : (compactText || `Сервер вернул не-JSON ответ: HTTP ${resp.status}`)
         );
     }
-    return resp.json();
+    const data = await resp.json();
+    if (data && data.error === 'login_required') {
+        throw new Error('Сессия админа истекла. Обнови страницу и войди заново.');
+    }
+    if (data && data.error === 'csrf_failed') {
+        throw new Error('Не прошла проверка безопасности формы. Обнови страницу и попробуй снова.');
+    }
+    if (data && data.error === 'forbidden') {
+        throw new Error('У текущего пользователя нет доступа к этому действию.');
+    }
+    return data;
 }
 
 async function refreshClubLogs() {
