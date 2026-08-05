@@ -1,5 +1,8 @@
 import app.services.guest_auth as guest_auth
+import app.routes.guest.main as guest_routes
 import bot.main as guest_bot
+from app.routes.guest import guest_bp
+from flask import Flask
 
 
 class FakeCursor:
@@ -70,3 +73,32 @@ def test_bot_phone_lookup_is_scoped_to_token_club(monkeypatch):
     lookup_sql, params = cursor.queries[0]
     assert "WHERE club_id = %s" in lookup_sql
     assert params == (2,)
+
+
+def test_guest_login_clears_session_when_link_targets_another_club(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+
+    created_tokens = []
+    monkeypatch.setattr(guest_routes, "BOT_USERNAME", "test_bot")
+    monkeypatch.setattr(guest_routes, "get_guest_login_club", lambda club_id: {"club_id": int(club_id), "name": "Club"})
+    monkeypatch.setattr(guest_routes, "create_guest_login_token", lambda club_id: created_tokens.append(club_id) or "token")
+    monkeypatch.setattr(guest_routes, "render_template", lambda *args, **kwargs: "login-page")
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["guest_id"] = 123
+            sess["guest_club_id"] = 1
+            sess["guest_name"] = "Guest"
+            sess["guest_telegram_id"] = 456
+            sess["guest_logged_in"] = True
+
+        response = client.get("/guest/login?club_id=2")
+
+        assert response.status_code == 200
+        assert created_tokens == [2]
+        with client.session_transaction() as sess:
+            assert "guest_id" not in sess
+            assert "guest_club_id" not in sess
+            assert "guest_logged_in" not in sess

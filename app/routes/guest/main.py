@@ -44,6 +44,14 @@ from app.services.wheel import (
 from . import guest_bp
 
 
+def _clear_guest_session():
+    session.pop("guest_id", None)
+    session.pop("guest_club_id", None)
+    session.pop("guest_name", None)
+    session.pop("guest_telegram_id", None)
+    session.pop("guest_logged_in", None)
+
+
 @guest_bp.route("/dashboard")
 @guest_required
 def dashboard():
@@ -140,6 +148,10 @@ def login():
     club = get_guest_login_club(requested_club_id)
     if not club:
         return render_template("guest/guest_login_error.html"), 400
+
+    current_guest_club_id = session.get("guest_club_id")
+    if current_guest_club_id is not None and int(current_guest_club_id) != int(club["club_id"]):
+        _clear_guest_session()
 
     token = create_guest_login_token(int(club["club_id"]))
     start_payload = f"login_{token}"
@@ -324,11 +336,7 @@ def api_cm_bonuses_redeem():
 @guest_bp.route("/logout")
 @guest_required
 def logout():
-    session.pop("guest_id", None)
-    session.pop("guest_club_id", None)
-    session.pop("guest_name", None)
-    session.pop("guest_telegram_id", None)
-    session.pop("guest_logged_in", None)
+    _clear_guest_session()
     flash("Вы вышли из гостевого кабинета", "success")
     return redirect(url_for("guest.login"))
 
