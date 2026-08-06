@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import pymysql
 from pymysql.cursors import DictCursor
 
-from app.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from app.config import BALANCE_TOPUP_MAX_AMOUNT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
 def get_connection():
@@ -283,6 +283,8 @@ def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any
         FROM guest_balance_topups
         WHERE club_id IS NOT NULL
           AND guest_id IS NOT NULL
+          AND amount > 0
+          AND amount <= %s
     """
 
     result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(
@@ -298,7 +300,7 @@ def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any
     topup_dates: Dict[Tuple[int, int], List[datetime]] = defaultdict(list)
 
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(sql, (BALANCE_TOPUP_MAX_AMOUNT,))
         rows = cur.fetchall()
 
     for row in rows:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.services.mailing import build_where_clause
 
 
@@ -115,9 +116,12 @@ def get_crm_cohort_analysis(
                 FROM guest_balance_topups gbt
                 JOIN filtered f ON f.club_id = gbt.club_id AND f.guest_id = gbt.guest_id
                 WHERE gbt.topup_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                  AND gbt.amount > 0
+                  AND gbt.amount <= %s
             ) AS avg_topup
         FROM filtered
     """
+    metrics_params = [*params, BALANCE_TOPUP_MAX_AMOUNT]
 
     funnel_sql = f"""
         WITH filtered AS (
@@ -177,7 +181,7 @@ def get_crm_cohort_analysis(
     """
 
     with conn.cursor() as cur:
-        cur.execute(metrics_sql, params)
+        cur.execute(metrics_sql, metrics_params)
         metrics_row = cur.fetchone() or {}
         total_guests = int(metrics_row.get("total_guests") or 0)
         if total_guests <= 0:

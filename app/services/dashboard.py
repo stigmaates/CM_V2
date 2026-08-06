@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.core import calc_percent_change, get_db_connection, get_period_range
 from app.services.missions import (
     _collapse_sessions_to_visits,
@@ -119,9 +120,11 @@ def _build_kpi_sparklines(cursor, club_id: int, current_start, current_end) -> d
         WHERE club_id = %s
           AND topup_at >= %s
           AND topup_at < %s
+          AND amount > 0
+          AND amount <= %s
         GROUP BY DATE(topup_at)
         """,
-        (club_id, current_start, current_end),
+        (club_id, current_start, current_end, BALANCE_TOPUP_MAX_AMOUNT),
     )
     for row in cursor.fetchall() or []:
         if row.get("d") in avg_check_map:
@@ -584,8 +587,10 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
                 WHERE club_id = %s
                   AND topup_at >= %s
                   AND topup_at < %s
+                  AND amount > 0
+                  AND amount <= %s
                 """,
-                (club_id, current_start, current_end),
+                (club_id, current_start, current_end, BALANCE_TOPUP_MAX_AMOUNT),
             )
             avg_check_current_row = cursor.fetchone()
 
@@ -602,8 +607,10 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
                 WHERE club_id = %s
                   AND topup_at >= %s
                   AND topup_at < %s
+                  AND amount > 0
+                  AND amount <= %s
                 """,
-                (club_id, previous_start, previous_end),
+                (club_id, previous_start, previous_end, BALANCE_TOPUP_MAX_AMOUNT),
             )
             avg_check_previous_row = cursor.fetchone()
 
