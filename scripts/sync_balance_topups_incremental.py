@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.config import (
+    BALANCE_TOPUP_MAX_AMOUNT,
     DB_CONNECT_TIMEOUT,
     DB_HOST,
     DB_NAME,
@@ -158,6 +159,16 @@ def prepare_rows(club_id: int, topups: list):
         topup_at = parse_datetime(item.get("date"))
         if not item.get("id") or not item.get("guest_id") or not topup_at:
             continue
+        amount = parse_amount(item.get("amount"))
+        if amount <= 0 or amount > Decimal(str(BALANCE_TOPUP_MAX_AMOUNT)):
+            logging.warning(
+                "Пропущено аномальное пополнение клуба %s: topup_id=%s guest_id=%s amount=%s",
+                club_id,
+                item.get("id"),
+                item.get("guest_id"),
+                amount,
+            )
+            continue
         rows.append(
             (
                 club_id,
@@ -165,7 +176,7 @@ def prepare_rows(club_id: int, topups: list):
                 item.get("guest_id"),
                 item.get("guest_name"),
                 normalize_phone(item.get("phone")),
-                parse_amount(item.get("amount")),
+                amount,
                 topup_at,
                 now,
                 now,
