@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -29,6 +30,8 @@ from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 logging.basicConfig(level=logging.INFO)
 
 PAGE_LIMIT = 500
+DB_RETRY_ATTEMPTS = 3
+DB_RETRY_DELAY_SECONDS = 2
 
 
 def get_db_connection():
@@ -75,20 +78,32 @@ def get_clubs(club_id=None):
 
 
 def get_existing_guest_ids(club_id):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT guest_id
-                FROM guests
-                WHERE club_id = %s
-            """,
-                (club_id,),
+    for attempt in range(1, DB_RETRY_ATTEMPTS + 1):
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT guest_id
+                    FROM guests
+                    WHERE club_id = %s
+                    """,
+                    (club_id,),
+                )
+                return {row["guest_id"] for row in cursor.fetchall()}
+        except pymysql.err.OperationalError as exc:
+            if attempt >= DB_RETRY_ATTEMPTS:
+                raise
+            logging.warning(
+                "Клуб %s | не удалось прочитать существующих гостей, попытка %s/%s: %s",
+                club_id,
+                attempt,
+                DB_RETRY_ATTEMPTS,
+                exc,
             )
-            return {row["guest_id"] for row in cursor.fetchall()}
-    finally:
-        conn.close()
+            time.sleep(DB_RETRY_DELAY_SECONDS * attempt)
+        finally:
+            conn.close()
 
 
 def fetch_guests(secret, api_key):
