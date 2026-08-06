@@ -50,6 +50,8 @@ def _clear_guest_session():
     session.pop("guest_name", None)
     session.pop("guest_telegram_id", None)
     session.pop("guest_logged_in", None)
+    session.pop("guest_test_mode", None)
+    session.pop("guest_test_label", None)
 
 
 @guest_bp.route("/dashboard")
@@ -237,6 +239,7 @@ def api_wheel_spin():
             club_id=club_id,
             prize_id=prize["id"],
             spent_tokens=spin_cost,
+            test_mode=bool(session.get("guest_test_mode")),
         )
     except ValueError:
         return {"error": "no_tokens"}, 400
@@ -284,7 +287,12 @@ def api_case_open(case_id):
         return {"error": "cases_disabled"}, 400
 
     try:
-        result = open_case(guest_id=guest_id, club_id=club_id, case_id=case_id)
+        result = open_case(
+            guest_id=guest_id,
+            club_id=club_id,
+            case_id=case_id,
+            test_mode=bool(session.get("guest_test_mode")),
+        )
     except ValueError as e:
         code = str(e)
         if code == "no_tokens":

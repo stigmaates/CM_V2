@@ -616,7 +616,7 @@ def choose_case_item(items):
     return weighted[-1][0]
 
 
-def open_case(guest_id: int, club_id: int, case_id: int):
+def open_case(guest_id: int, club_id: int, case_id: int, *, test_mode: bool = False):
     conn = get_db_connection()
     claim_id = None
     try:
@@ -715,6 +715,7 @@ def open_case(guest_id: int, club_id: int, case_id: int):
                         "image_url": item.get("image_url"),
                         "bonus_amount": 0,
                     },
+                    test_mode=test_mode,
                 )
 
         conn.commit()
