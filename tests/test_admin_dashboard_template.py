@@ -135,3 +135,6 @@ def test_admin_clubs_page_renders_service_toggle():
     assert "Обслуживание клуба" in html
     assert "Выключено" in html
     assert "clubServiceToggle" in html
+    assert "Тестовый гость" in html
+    assert "Открыть как гость" in html
+    assert "/admin/clubs/${club.club_id}/guest-test" in html

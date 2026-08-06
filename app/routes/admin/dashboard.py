@@ -11,6 +11,7 @@ from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_ru
 from app.services.operational_alerts import get_operational_alerts, summarize_alerts
 from app.services.service_control import get_restart_controls, restart_allowed_service
 from app.services.support_health import build_admin_readiness, get_admin_system_health
+from app.services.wheel import ensure_token_tables
 
 SYNC_JOB_TYPES = [
     "sync_guests_incremental",
@@ -142,6 +143,37 @@ def finish_impersonation_log(log_id):
                 (datetime.utcnow(), log_id),
             )
         db.commit()
+
+
+def ensure_admin_test_guest(club_id: int, club_name: str | None) -> dict:
+    guest_id = 900_000_000 + int(club_id)
+    guest_name = f"Тестовый гость · {club_name or f'Клуб {club_id}'}"
+
+    with get_db_connection() as db:
+        with db.cursor() as cur:
+            ensure_token_tables(cur)
+            cur.execute(
+                """
+                INSERT INTO guests (guest_id, club_id, phone, fio, created_at, date_insert)
+                VALUES (%s, %s, NULL, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    fio = VALUES(fio)
+                """,
+                (guest_id, club_id, guest_name, datetime.utcnow(), datetime.utcnow()),
+            )
+            cur.execute(
+                """
+                INSERT INTO guest_wheel_token_balances (club_id, guest_id, balance)
+                VALUES (%s, %s, 100)
+                ON DUPLICATE KEY UPDATE
+                    balance = GREATEST(balance, VALUES(balance)),
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (club_id, guest_id),
+            )
+        db.commit()
+
+    return {"guest_id": guest_id, "club_id": club_id, "fio": guest_name}
 
 
 @lru_cache(maxsize=64)
@@ -813,6 +845,35 @@ def start_owner_impersonation(club_id: int):
 
     flash(f"Открыт режим владельца для клуба «{club.get('name') or club_id}»", "success")
     return redirect(url_for("owner.dashboard"))
+
+
+@admin_bp.route("/clubs/<int:club_id>/guest-test", methods=["POST"])
+@admin_required
+def start_guest_test_mode(club_id: int):
+    club = get_club_by_id(club_id)
+    if not club:
+        flash("Клуб не найден", "error")
+        return redirect(url_for("admin.clubs_list"))
+
+    guest = ensure_admin_test_guest(int(club["club_id"]), club.get("name"))
+    session["guest_id"] = guest["guest_id"]
+    session["guest_club_id"] = guest["club_id"]
+    session["guest_name"] = guest["fio"]
+    session["guest_telegram_id"] = None
+    session["guest_logged_in"] = True
+    session["guest_test_mode"] = True
+    session["guest_test_label"] = f"Тестовый вход администратора · клуб {guest['club_id']}"
+
+    record_audit_event(
+        action="admin.guest_test.start",
+        club_id=int(club["club_id"]),
+        entity_type="guest",
+        entity_id=guest["guest_id"],
+        details={"club_name": club.get("name"), "test_mode": True},
+    )
+
+    flash(f"Открыт тестовый гостевой кабинет клуба «{club.get('name') or club_id}»", "success")
+    return redirect(url_for("guest.dashboard"))
 
 
 @admin_bp.route("/impersonation/stop")

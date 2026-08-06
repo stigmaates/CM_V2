@@ -127,7 +127,15 @@ def format_prize_claim_message(claim: dict[str, Any], issued: bool = False) -> s
     )
 
 
-def create_prize_claim(cursor, guest_id: int, club_id: int, spin_id: int, prize: dict[str, Any]) -> int | None:
+def create_prize_claim(
+    cursor,
+    guest_id: int,
+    club_id: int,
+    spin_id: int,
+    prize: dict[str, Any],
+    *,
+    test_mode: bool = False,
+) -> int | None:
     """Create a manual issue task for a wheel prize. Returns claim id.
 
     КБ-prizes are credited automatically and should not create claims.
@@ -143,6 +151,12 @@ def create_prize_claim(cursor, guest_id: int, club_id: int, spin_id: int, prize:
     prize_name = (prize.get("name") or "Приз колеса").strip()
     if not prize_id or not prize_name:
         return None
+
+    prize_description = prize.get("description")
+    if test_mode:
+        prize_name = f"[ТЕСТ] {prize_name}"
+        test_notice = "Тестовая заявка из админского режима. Реальный приз выдавать не нужно."
+        prize_description = f"{test_notice}\n\n{prize_description}" if prize_description else test_notice
 
     ensure_prize_claim_tables(cursor)
     cursor.execute(
@@ -166,7 +180,7 @@ def create_prize_claim(cursor, guest_id: int, club_id: int, spin_id: int, prize:
             spin_id,
             prize_id,
             prize_name,
-            prize.get("description"),
+            prize_description,
             prize.get("image_url"),
             datetime.utcnow(),
         ),

@@ -709,7 +709,14 @@ def choose_wheel_prize(prizes):
     return weighted_prizes[-1][0]
 
 
-def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_tokens: int = 2):
+def save_guest_wheel_spin(
+    guest_id: int,
+    club_id: int,
+    prize_id: int,
+    spent_tokens: int = 2,
+    *,
+    test_mode: bool = False,
+):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -780,6 +787,7 @@ def save_guest_wheel_spin(guest_id: int, club_id: int, prize_id: int, spent_toke
                     club_id=club_id,
                     spin_id=spin_id,
                     prize=prize,
+                    test_mode=test_mode,
                 )
         conn.commit()
     finally:
