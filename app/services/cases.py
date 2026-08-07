@@ -1,5 +1,5 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
@@ -18,6 +18,7 @@ from app.services.wheel import (
 
 _game_mode_column_ready = False
 _case_tables_ready = False
+VALUABLE_RARITIES = ("Очень редкий", "Ультра редкий")
 
 
 def ensure_game_mode_column(cursor):
@@ -591,6 +592,109 @@ def serialize_case(case):
         "price_tokens": int(case.get("price_tokens") or 0),
         "items": [serialize_case_item(i) for i in case.get("items") or []],
     }
+
+
+def _looks_like_patronymic(value: str) -> bool:
+    lower = (value or "").lower()
+    return lower.endswith(("ич", "вна", "чна", "инична", "овна", "евна"))
+
+
+def _looks_like_surname(value: str) -> bool:
+    lower = (value or "").lower()
+    return lower.endswith(
+        ("ов", "ова", "ев", "ева", "ёв", "ёва", "ин", "ина", "ын", "ына", "ский", "ская", "цкий", "цкая")
+    )
+
+
+def _first_name(fio: str | None) -> str:
+    value = (fio or "").strip()
+    if not value:
+        return "Гость"
+    parts = value.split()
+    if len(parts) >= 3:
+        if _looks_like_patronymic(parts[1]):
+            return parts[0]
+        if _looks_like_patronymic(parts[2]):
+            return parts[1]
+    if len(parts) == 2 and _looks_like_surname(parts[0]):
+        return parts[1]
+    return parts[0]
+
+
+def get_valuable_case_drops(limit: int = 24, days: int = 90):
+    """Return recent valuable case drops for the guest-facing hype ticker."""
+    safe_limit = max(1, min(int(limit or 24), 40))
+    safe_days = max(1, min(int(days or 90), 365))
+    since = datetime.utcnow() - timedelta(days=safe_days)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_case_tables(cursor)
+            ensure_prize_claim_tables(cursor)
+            placeholders = ", ".join(["%s"] * len(VALUABLE_RARITIES))
+            cursor.execute(
+                f"""
+                SELECT
+                    o.id AS opening_id,
+                    o.created_at,
+                    g.fio AS guest_name,
+                    c.name AS club_name,
+                    cc.name AS case_name,
+                    i.name AS item_name,
+                    i.description AS item_description,
+                    i.image_url AS item_image_url,
+                    i.rarity_label
+                FROM guest_case_openings o
+                JOIN club_case_items i
+                  ON i.id = o.item_id
+                 AND i.club_id = o.club_id
+                JOIN club_cases cc
+                  ON cc.id = o.case_id
+                 AND cc.club_id = o.club_id
+                JOIN guests g
+                  ON g.club_id = o.club_id
+                 AND g.guest_id = o.guest_id
+                JOIN clubs c
+                  ON c.club_id = o.club_id
+                LEFT JOIN guest_prize_claims pc
+                  ON pc.spin_id = -o.id
+                WHERE o.created_at >= %s
+                  AND i.rarity_label IN ({placeholders})
+                  AND COALESCE(c.service_enabled, 1) = 1
+                  AND COALESCE(g.fio, '') NOT LIKE 'Тестовый гость%%'
+                  AND COALESCE(pc.prize_name, '') NOT LIKE '[ТЕСТ]%%'
+                ORDER BY o.created_at DESC, o.id DESC
+                LIMIT %s
+                """,
+                (since, *VALUABLE_RARITIES, safe_limit),
+            )
+            rows = cursor.fetchall() or []
+
+        drops = []
+        for row in rows:
+            guest_first_name = _first_name(row.get("guest_name"))
+            club_name = row.get("club_name") or "клуба"
+            item_name = row.get("item_name") or "ценный приз"
+            rarity = row.get("rarity_label") or "Очень редкий"
+            drops.append(
+                {
+                    "opening_id": row.get("opening_id"),
+                    "guest_name": guest_first_name,
+                    "club_name": club_name,
+                    "item_name": item_name,
+                    "item_description": row.get("item_description") or "",
+                    "case_name": row.get("case_name") or "Кейс",
+                    "image_url": row.get("item_image_url"),
+                    "rarity_label": rarity,
+                    "headline": f"{guest_first_name} из {club_name}",
+                    "tooltip": f"{guest_first_name} из {club_name} выиграл(а) «{item_name}»",
+                    "created_at": row.get("created_at"),
+                }
+            )
+        return drops
+    finally:
+        conn.close()
 
 
 def choose_case_item(items):
