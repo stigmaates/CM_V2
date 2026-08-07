@@ -90,6 +90,17 @@ def test_guest_lookup_indexes_migration_exports_revision_and_upgrade():
     assert any("idx_guests_club_phone" in value for value in constants)
 
 
+def test_dashboard_performance_indexes_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0010_dashboard_performance_indexes")
+
+    assert migration.revision == "0010_dashboard_performance_indexes"
+    assert callable(migration.upgrade)
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("idx_guest_sessions_club_date_guest" in value for value in constants)
+    assert any("idx_guest_wheel_spins_club_date_guest" in value for value in constants)
+    assert any("idx_user_portrait_club_crm_telegram" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

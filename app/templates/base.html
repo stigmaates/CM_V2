@@ -12,6 +12,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 </head>
 <body>
+    <div class="page-loading" data-page-loading aria-hidden="true" role="status" aria-live="polite">
+        <div class="page-loading__panel">
+            <span class="page-loading__spinner" aria-hidden="true"></span>
+            <span class="page-loading__text">
+                <span class="page-loading__label" data-page-loading-label>Загружаем данные</span>
+                <span class="page-loading__hint">Это может занять несколько секунд</span>
+            </span>
+        </div>
+    </div>
     <div class="page">
         <div class="topbar">
             <a class="brand-mark" href="/" aria-label="На главную">
@@ -38,5 +47,6 @@
         {% block content %}{% endblock %}
     </div>
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/page_loading.js') }}"></script>
 </body>
 </html>
