@@ -66,10 +66,7 @@
             gap: 12px;
             width: max-content;
             padding: 0 16px;
-            animation: valuableDropsScroll 42s linear infinite;
-        }
-        .valuable-drops-panel:hover .valuable-drops-track {
-            animation-play-state: paused;
+            animation: valuableDropsScroll 68s linear infinite;
         }
         .valuable-drop {
             position: relative;
@@ -88,28 +85,6 @@
         .valuable-drop:hover {
             border-color: rgba(255, 212, 105, 0.45);
             background: rgba(255, 255, 255, 0.08);
-        }
-        .valuable-drop-hover {
-            position: absolute;
-            inset: 5px;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 8px 10px;
-            border-radius: 12px;
-            background: rgba(18, 9, 31, 0.94);
-            color: var(--text-main);
-            font-size: 12px;
-            font-weight: 800;
-            line-height: 1.35;
-            text-align: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity .14s ease;
-        }
-        .valuable-drop:hover .valuable-drop-hover {
-            opacity: 1;
         }
         .valuable-drop-thumb {
             width: 44px;
@@ -161,7 +136,7 @@
         @media (max-width: 720px) {
             .valuable-drops-panel { margin-bottom: 14px; border-radius: 15px; }
             .valuable-drops-head { padding-inline: 12px; font-size: 12px; }
-            .valuable-drops-track { gap: 9px; padding-inline: 12px; animation-duration: 34s; }
+            .valuable-drops-track { gap: 9px; padding-inline: 12px; animation-duration: 56s; }
             .valuable-drop { width: 205px; grid-template-columns: 38px minmax(0, 1fr); min-height: 56px; padding: 8px 10px; }
             .valuable-drop-thumb { width: 38px; height: 38px; border-radius: 10px; }
             .valuable-drop-title { font-size: 13px; }
@@ -2338,8 +2313,7 @@
                     <div class="valuable-drops-track">
                         {% for repeat in range(2) %}
                             {% for drop in valuable_drops %}
-                                <div class="valuable-drop" data-tooltip="{{ drop.tooltip }}" title="{{ drop.tooltip }}">
-                                    <div class="valuable-drop-hover">{{ drop.tooltip }}</div>
+                                <div class="valuable-drop">
                                     <div class="valuable-drop-thumb" aria-hidden="true">
                                         {% if drop.image_url %}
                                             <img src="{{ drop.image_url }}" alt="">
