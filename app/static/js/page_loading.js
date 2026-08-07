@@ -19,10 +19,6 @@
             if (!node) {
                 return;
             }
-            const labelNode = node.querySelector("[data-page-loading-label]");
-            if (labelNode && label) {
-                labelNode.textContent = label;
-            }
             shownAt = Date.now();
             node.classList.add("is-visible");
             node.setAttribute("aria-hidden", "false");
