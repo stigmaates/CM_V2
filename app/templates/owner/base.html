@@ -14,6 +14,15 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <div class="page-loading" data-page-loading aria-hidden="true" role="status" aria-live="polite">
+        <div class="page-loading__panel">
+            <span class="page-loading__spinner" aria-hidden="true"></span>
+            <span class="page-loading__text">
+                <span class="page-loading__label" data-page-loading-label>Загружаем данные</span>
+                <span class="page-loading__hint">Это может занять несколько секунд</span>
+            </span>
+        </div>
+    </div>
     {% if request.host.startswith('stage.') %}
     <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
     {% endif %}
@@ -71,6 +80,7 @@
         </div>
     </div>
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/page_loading.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 <script src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"></script>
