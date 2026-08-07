@@ -9,6 +9,7 @@ from app.services.cases import (
     get_cases,
     get_game_mode,
     get_guest_case_history,
+    get_valuable_case_drops,
     open_case,
     serialize_case,
 )
@@ -73,6 +74,7 @@ def dashboard():
     game_mode = get_game_mode(guest["club_id"])
     cases = [serialize_case(c) for c in get_cases(guest["club_id"])]
     case_history = get_guest_case_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=8)
+    valuable_case_drops = get_valuable_case_drops(limit=24, days=90)
     token_balance = get_guest_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
     token_history = get_guest_token_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=20)
     streak_info = get_guest_streak_info(guest_id=guest["guest_id"], club_id=guest["club_id"])
@@ -95,6 +97,7 @@ def dashboard():
         game_mode=game_mode,
         cases=cases,
         case_history=case_history,
+        valuable_case_drops=valuable_case_drops,
         token_balance=token_balance,
         token_history=token_history,
         streak_info=streak_info,
