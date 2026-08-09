@@ -18,7 +18,7 @@ from app.services.wheel import (
 
 _game_mode_column_ready = False
 _case_tables_ready = False
-VALUABLE_RARITIES = ("Очень редкий", "Ультра редкий")
+VALUABLE_RARITIES = ("Редкий", "Очень редкий", "Ультра редкий")
 
 
 def ensure_game_mode_column(cursor):
