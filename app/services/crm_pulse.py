@@ -57,6 +57,29 @@ def _first_name(fio: str | None) -> str:
     return parts[0]
 
 
+def _short_guest_label(fio: str | None, phone: str | None, guest_id: int) -> str:
+    parts = (fio or "").strip().split()
+    if len(parts) >= 2 and parts[0].lower().endswith(
+        ("ов", "ова", "ев", "ева", "ин", "ина", "ский", "ская", "цкий", "цкая")
+    ):
+        name = parts[1]
+        surname_initial = parts[0][:1]
+    elif len(parts) >= 2:
+        name = parts[0]
+        surname_initial = parts[1][:1]
+    elif parts:
+        name = parts[0]
+        surname_initial = ""
+    else:
+        name = f"#{guest_id}"
+        surname_initial = ""
+
+    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    masked_phone = f"**{digits[-2:]}" if len(digits) >= 2 else ""
+    name_part = f"{name} {surname_initial}.".strip() if surname_initial else name
+    return " ".join(part for part in (name_part, masked_phone) if part)
+
+
 def _auto_mailing_title(code: str | None) -> str:
     if not code:
         return "авторассылка"
@@ -215,6 +238,7 @@ def get_crm_pulse_groups(conn, club_id: int) -> List[Dict[str, Any]]:
             "guest_id": int(row.get("guest_id") or 0),
             "fio": row.get("fio") or "",
             "first_name": _first_name(row.get("fio")),
+            "card_label": _short_guest_label(row.get("fio"), row.get("phone"), int(row.get("guest_id") or 0)),
             "phone": row.get("phone") or "",
             "has_telegram": bool(row.get("telegram_id")),
             "changed_at": _json_value(row.get("changed_at")),

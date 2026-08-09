@@ -99,16 +99,16 @@
                             {% endif %}
                         </div>
                         <div class="crm-pulse-guests">
-                            {% for guest in group.guests[:6] %}
+                            {% for guest in group.guests[:3] %}
                                 <div class="crm-pulse-guest">
-                                    <span>{{ guest.first_name or guest.fio or ("#" ~ guest.guest_id) }}</span>
+                                    <span>{{ guest.card_label or guest.first_name or guest.fio or ("#" ~ guest.guest_id) }}</span>
                                     {% if guest.recent_auto_mailing_title %}
                                         <i title='Недавно была авторассылка "{{ guest.recent_auto_mailing_title }}"'>!</i>
                                     {% endif %}
                                 </div>
                             {% endfor %}
-                            {% if group.total_count > 6 %}
-                                <div class="crm-pulse-more">+ ещё {{ group.total_count - 6 }}</div>
+                            {% if group.total_count > 3 %}
+                                <div class="crm-pulse-more">+ ещё {{ group.total_count - 3 }}</div>
                             {% endif %}
                         </div>
                         <button
