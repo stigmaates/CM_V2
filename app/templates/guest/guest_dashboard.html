@@ -63,10 +63,15 @@
         .valuable-drops-track {
             display: flex;
             align-items: center;
-            gap: 12px;
             width: max-content;
-            padding: 0 16px;
             animation: valuableDropsScroll 68s linear infinite;
+        }
+        .valuable-drops-loop {
+            display: flex;
+            align-items: center;
+            flex: 0 0 auto;
+            gap: 12px;
+            padding-left: 16px;
         }
         .valuable-drop {
             position: relative;
@@ -136,7 +141,7 @@
         }
         @keyframes valuableDropsScroll {
             from { transform: translateX(0); }
-            to { transform: translateX(-50%); }
+            to { transform: translateX(-6.25%); }
         }
         @media (prefers-reduced-motion: reduce) {
             .valuable-drops-track {
@@ -146,7 +151,8 @@
         @media (max-width: 720px) {
             .valuable-drops-panel { margin-bottom: 14px; border-radius: 15px; }
             .valuable-drops-head { padding-inline: 12px; font-size: 12px; }
-            .valuable-drops-track { gap: 9px; padding-inline: 12px; animation-duration: 56s; }
+            .valuable-drops-track { animation-duration: 56s; }
+            .valuable-drops-loop { gap: 9px; padding-left: 12px; }
             .valuable-drop { width: 205px; grid-template-columns: 38px minmax(0, 1fr); min-height: 56px; padding: 8px 10px; }
             .valuable-drop-thumb { width: 38px; height: 38px; border-radius: 10px; }
             .valuable-drop-title { font-size: 13px; }
@@ -2322,7 +2328,8 @@
                 <div class="valuable-drops-head"><span aria-hidden="true"></span><b>Недавние ценные призы</b></div>
                 <div class="valuable-drops-viewport">
                     <div class="valuable-drops-track">
-                        {% for repeat in range(2) %}
+                        {% for repeat in range(16) %}
+                            <div class="valuable-drops-loop" aria-hidden="{{ 'true' if repeat > 0 else 'false' }}">
                             {% for drop in valuable_drops %}
                                 <div class="valuable-drop">
                                     <div class="valuable-drop-thumb" aria-hidden="true">
@@ -2339,6 +2346,7 @@
                                     </div>
                                 </div>
                             {% endfor %}
+                            </div>
                         {% endfor %}
                     </div>
                 </div>
