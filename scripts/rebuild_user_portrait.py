@@ -12,6 +12,7 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from app.services.crm_pulse import record_crm_status_changes
 
 
 def get_connection():
@@ -568,10 +569,11 @@ def rebuild_user_portrait():
     conn = get_connection()
     try:
         records = build_records(conn)
+        changes_count = record_crm_status_changes(conn, records)
         upsert_user_portrait(conn, records)
         cleanup_deleted_guests(conn)
         conn.commit()
-        print(f"OK: user_portrait updated, rows processed: {len(records)}")
+        print(f"OK: user_portrait updated, rows processed: {len(records)}, crm status changes: {changes_count}")
     except Exception:
         conn.rollback()
         raise

@@ -101,6 +101,16 @@ def test_dashboard_performance_indexes_migration_exports_revision_and_upgrade():
     assert any("idx_user_portrait_club_crm_telegram" in value for value in constants)
 
 
+def test_crm_status_pulse_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0011_crm_status_pulse")
+
+    assert migration.revision == "0011_crm_status_pulse"
+    assert callable(migration.upgrade)
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("crm_status_changes" in value for value in constants)
+    assert any("idx_auto_mailing_logs_guest_created" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

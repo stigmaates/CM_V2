@@ -505,6 +505,62 @@ def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[
         return cur.fetchall()
 
 
+def get_recipient_rows_for_guest_ids(conn, club_id: int, guest_ids: List[int]) -> List[Dict[str, Any]]:
+    guest_ids = sorted({int(guest_id) for guest_id in guest_ids if str(guest_id).strip().isdigit()})
+    if not guest_ids:
+        return []
+
+    with conn.cursor() as cur:
+        ensure_cm_bonus_tables(cur)
+        ensure_token_tables(cur)
+
+    placeholders = ", ".join(["%s"] * len(guest_ids))
+    sql = f"""
+        SELECT
+            g.guest_id,
+            g.telegram_id,
+            g.fio,
+            COALESCE(cbb.balance, 0) AS cm_bonus_balance,
+            COALESCE(gwtb.balance, 0) AS token_balance,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs7
+                WHERE gs7.club_id = g.club_id
+                  AND gs7.guest_id = g.guest_id
+                  AND gs7.date_start >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ) AS sessions_7d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs30
+                WHERE gs30.club_id = g.club_id
+                  AND gs30.guest_id = g.guest_id
+                  AND gs30.date_start >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            ) AS sessions_30d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs90
+                WHERE gs90.club_id = g.club_id
+                  AND gs90.guest_id = g.guest_id
+                  AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+            ) AS sessions_90d
+        FROM guests g
+        LEFT JOIN cm_bonus_balances cbb
+          ON cbb.club_id = g.club_id
+         AND cbb.guest_id = g.guest_id
+        LEFT JOIN guest_wheel_token_balances gwtb
+          ON gwtb.club_id = g.club_id
+         AND gwtb.guest_id = g.guest_id
+        WHERE g.club_id = %s
+          AND g.guest_id IN ({placeholders})
+          AND g.telegram_id IS NOT NULL
+        ORDER BY FIELD(g.guest_id, {placeholders})
+    """
+    params = [club_id, *guest_ids, *guest_ids]
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        return cur.fetchall()
+
+
 def _looks_like_patronymic(value: str) -> bool:
     lower = (value or "").lower()
     return lower.endswith(("ич", "вна", "чна", "инична", "овна", "евна"))
@@ -1967,6 +2023,8 @@ def create_bonus_giveaway(
     is_expiring: bool = False,
     expires_after_seconds: int | None = None,
     parse_mode: str = "HTML",
+    recipient_rows: List[Dict[str, Any]] | None = None,
+    filters_json_extra: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Начисляет КБ/жетоны выбранной аудитории и создаёт Telegram-рассылку.
 
@@ -1995,7 +2053,7 @@ def create_bonus_giveaway(
         raise ValueError("Сообщение раздачи пустое")
 
     ensure_bonus_giveaway_tables(conn)
-    recipients = get_recipient_rows(conn, club_id, rules)
+    recipients = list(recipient_rows) if recipient_rows is not None else get_recipient_rows(conn, club_id, rules)
     recipients_count = len(recipients)
     expires_at = (
         datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
@@ -2008,6 +2066,8 @@ def create_bonus_giveaway(
         "is_expiring": bool(is_expiring),
         "expires_after_seconds": expires_after_seconds,
     }
+    if filters_json_extra:
+        filters_json.update(filters_json_extra)
 
     with conn.cursor() as cur:
         cur.execute(

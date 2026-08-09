@@ -18,9 +18,32 @@ const crmCampaignBody = document.getElementById("crmCampaignBody");
 const crmCampaignTitle = document.getElementById("crmCampaignTitle");
 const crmCampaignStatus = document.getElementById("crmCampaignStatus");
 const crmCampaignsShowAllBtn = document.getElementById("crmCampaignsShowAll");
+const crmPulseGroups = window.CRM_PULSE_GROUPS || [];
+const crmMessageVariables = window.CRM_MESSAGE_VARIABLES || [];
+const crmPulseModal = document.getElementById("crmPulseModal");
+const crmPulseBackdrop = document.getElementById("crmPulseBackdrop");
+const crmPulseClose = document.getElementById("crmPulseClose");
+const crmPulseBody = document.getElementById("crmPulseBody");
+const crmPulseTitle = document.getElementById("crmPulseTitle");
+const crmPulseSubtitle = document.getElementById("crmPulseSubtitle");
+const crmPulseRecipientSummary = document.getElementById("crmPulseRecipientSummary");
+const crmPulseRecipientList = document.getElementById("crmPulseRecipientList");
+const crmPulseMessage = document.getElementById("crmPulseMessage");
+const crmPulseVariableSelect = document.getElementById("crmPulseVariableSelect");
+const crmPulseInsertVariable = document.getElementById("crmPulseInsertVariable");
+const crmPulseBonusAmount = document.getElementById("crmPulseBonusAmount");
+const crmPulseTokenAmount = document.getElementById("crmPulseTokenAmount");
+const crmPulseExpiringBonus = document.getElementById("crmPulseExpiringBonus");
+const crmPulseExpiration = document.getElementById("crmPulseExpiration");
+const crmPulseExpiresValue = document.getElementById("crmPulseExpiresValue");
+const crmPulseExpiresUnit = document.getElementById("crmPulseExpiresUnit");
+const crmPulseSubmit = document.getElementById("crmPulseSubmit");
+const crmPulseStatus = document.getElementById("crmPulseStatus");
 
 let crmFunnelPeriod = "all";
 let crmCampaignScrollY = 0;
+let crmPulseScrollY = 0;
+let crmActivePulseGroup = null;
 
 const CRM_OPERATOR_LABELS = {
     "=": "Равно",
@@ -314,10 +337,36 @@ function crmCloseCampaignModal() {
     window.scrollTo(0, crmCampaignScrollY);
 }
 
+function crmOpenPulseModal() {
+    if (!crmPulseModal) return;
+    crmPulseScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    crmPulseModal.classList.add("is-open");
+    crmPulseModal.setAttribute("aria-hidden", "false");
+    document.documentElement.classList.add("crm-modal-lock");
+    document.body.classList.add("crm-modal-lock");
+    document.body.style.top = `-${crmPulseScrollY}px`;
+}
+
+function crmClosePulseModal() {
+    if (!crmPulseModal) return;
+    crmPulseModal.classList.remove("is-open");
+    crmPulseModal.setAttribute("aria-hidden", "true");
+    document.documentElement.classList.remove("crm-modal-lock");
+    document.body.classList.remove("crm-modal-lock");
+    document.body.style.top = "";
+    window.scrollTo(0, crmPulseScrollY);
+}
+
 function crmRouteCampaignModalWheel(event) {
     if (!crmCampaignModal || !crmCampaignModal.classList.contains("is-open") || !crmCampaignBody) return;
     event.preventDefault();
     crmCampaignBody.scrollTop += event.deltaY;
+}
+
+function crmRoutePulseModalWheel(event) {
+    if (!crmPulseModal || !crmPulseModal.classList.contains("is-open") || !crmPulseBody) return;
+    event.preventDefault();
+    crmPulseBody.scrollTop += event.deltaY;
 }
 
 function crmRenderCampaignBar(items, className = "") {
@@ -454,6 +503,111 @@ async function crmOpenCampaignPassport(type, id) {
     }
 }
 
+function crmGetPulseGroup(key) {
+    return crmPulseGroups.find((group) => group.key === key);
+}
+
+function crmRenderPulseRecipients(group) {
+    const guests = group.guests || [];
+    const telegramGuests = guests.filter((guest) => guest.has_telegram);
+    crmPulseRecipientSummary.innerHTML = `
+        <article><span>Всего</span><strong>${group.total_count || guests.length}</strong></article>
+        <article><span>С Telegram</span><strong>${group.telegram_count || telegramGuests.length}</strong></article>
+        <article><span>После авторассылки</span><strong>${group.recent_auto_count || 0}</strong></article>
+    `;
+    crmPulseRecipientList.innerHTML = guests.map((guest) => {
+        const warning = guest.recent_auto_mailing_title
+            ? `<i title="Недавно была авторассылка &quot;${crmEscapeHtml(guest.recent_auto_mailing_title)}&quot;">!</i>`
+            : "";
+        const telegramLabel = guest.has_telegram ? "Telegram есть" : "без Telegram";
+        return `
+            <div class="crm-pulse-recipient-row ${guest.has_telegram ? "" : "is-muted"}">
+                <div>
+                    <strong>${crmEscapeHtml(guest.fio || `Гость #${guest.guest_id}`)}</strong>
+                    <span>${crmEscapeHtml(guest.phone || `ID ${guest.guest_id}`)}</span>
+                </div>
+                <div>${crmEscapeHtml(telegramLabel)}</div>
+                <div>${crmEscapeHtml(guest.visits_30d || 0)} визитов за 30 дней</div>
+                <div>${warning}</div>
+            </div>
+        `;
+    }).join("");
+}
+
+function crmFillPulseVariables() {
+    if (!crmPulseVariableSelect) return;
+    crmPulseVariableSelect.innerHTML = "";
+    crmMessageVariables.forEach((item) => {
+        crmPulseVariableSelect.appendChild(crmCreateOption(item.token, item.label));
+    });
+}
+
+function crmOpenPulseInteraction(key) {
+    const group = crmGetPulseGroup(key);
+    if (!group) return;
+    crmActivePulseGroup = group;
+    crmPulseTitle.textContent = `${group.old_label} → ${group.new_label}`;
+    crmPulseSubtitle.textContent = "Пульс базы";
+    crmPulseMessage.value = "";
+    crmPulseBonusAmount.value = "0";
+    crmPulseTokenAmount.value = "0";
+    crmPulseExpiringBonus.checked = false;
+    crmPulseExpiration.hidden = true;
+    crmPulseStatus.textContent = "";
+    crmRenderPulseRecipients(group);
+    crmFillPulseVariables();
+    crmOpenPulseModal();
+}
+
+function crmInsertPulseVariable() {
+    if (!crmPulseMessage || !crmPulseVariableSelect) return;
+    const token = crmPulseVariableSelect.value || "";
+    const start = crmPulseMessage.selectionStart || crmPulseMessage.value.length;
+    const end = crmPulseMessage.selectionEnd || start;
+    crmPulseMessage.value = `${crmPulseMessage.value.slice(0, start)}${token}${crmPulseMessage.value.slice(end)}`;
+    crmPulseMessage.focus();
+    const nextPosition = start + token.length;
+    crmPulseMessage.setSelectionRange(nextPosition, nextPosition);
+}
+
+async function crmSubmitPulseInteraction() {
+    if (!crmActivePulseGroup || !crmPulseSubmit) return;
+    crmPulseSubmit.disabled = true;
+    crmPulseStatus.textContent = "Отправляем...";
+    try {
+        const response = await fetch("/owner/api/crm-pulse/interact", {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "Accept": "application/json"},
+            body: JSON.stringify({
+                guest_ids: crmActivePulseGroup.guest_ids || [],
+                transition: {
+                    old_status: crmActivePulseGroup.old_status,
+                    new_status: crmActivePulseGroup.new_status,
+                    old_label: crmActivePulseGroup.old_label,
+                    new_label: crmActivePulseGroup.new_label,
+                },
+                message_text: crmPulseMessage.value,
+                bonus_amount: crmPulseBonusAmount.value,
+                token_amount: crmPulseTokenAmount.value,
+                is_expiring: crmPulseExpiringBonus.checked,
+                expires_value: crmPulseExpiresValue.value,
+                expires_unit: crmPulseExpiresUnit.value,
+            }),
+        });
+        const data = await response.json();
+        if (!data.ok) {
+            crmPulseStatus.textContent = data.error || "Не удалось отправить";
+            return;
+        }
+        crmPulseStatus.textContent = `Поставлено в очередь: ${data.recipients_count || 0} получателей`;
+        setTimeout(() => crmClosePulseModal(), 900);
+    } catch (error) {
+        crmPulseStatus.textContent = "Не удалось отправить";
+    } finally {
+        crmPulseSubmit.disabled = false;
+    }
+}
+
 async function crmApplyAnalysis() {
     applyCrmAnalysisBtn.disabled = true;
     try {
@@ -542,6 +696,12 @@ document.querySelectorAll(".crm-campaign-row").forEach((row) => {
     });
 });
 
+document.querySelectorAll(".crm-pulse-action").forEach((button) => {
+    button.addEventListener("click", () => {
+        crmOpenPulseInteraction(button.dataset.pulseKey);
+    });
+});
+
 if (crmCampaignsShowAllBtn) {
     crmCampaignsShowAllBtn.addEventListener("click", () => {
         document.querySelectorAll(".crm-campaign-row.is-campaign-hidden").forEach((row) => {
@@ -554,6 +714,16 @@ if (crmCampaignsShowAllBtn) {
 if (crmCampaignBackdrop) crmCampaignBackdrop.addEventListener("click", crmCloseCampaignModal);
 if (crmCampaignClose) crmCampaignClose.addEventListener("click", crmCloseCampaignModal);
 if (crmCampaignModal) crmCampaignModal.addEventListener("wheel", crmRouteCampaignModalWheel, {passive: false});
+if (crmPulseBackdrop) crmPulseBackdrop.addEventListener("click", crmClosePulseModal);
+if (crmPulseClose) crmPulseClose.addEventListener("click", crmClosePulseModal);
+if (crmPulseModal) crmPulseModal.addEventListener("wheel", crmRoutePulseModalWheel, {passive: false});
+if (crmPulseInsertVariable) crmPulseInsertVariable.addEventListener("click", crmInsertPulseVariable);
+if (crmPulseSubmit) crmPulseSubmit.addEventListener("click", crmSubmitPulseInteraction);
+if (crmPulseExpiringBonus) {
+    crmPulseExpiringBonus.addEventListener("change", () => {
+        crmPulseExpiration.hidden = !crmPulseExpiringBonus.checked;
+    });
+}
 
 crmFunnelPeriodBtns.forEach((button) => {
     button.addEventListener("click", () => {
@@ -572,5 +742,8 @@ crmFunnelPeriodBtns.forEach((button) => {
 document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && crmCampaignModal && crmCampaignModal.classList.contains("is-open")) {
         crmCloseCampaignModal();
+    }
+    if (event.key === "Escape" && crmPulseModal && crmPulseModal.classList.contains("is-open")) {
+        crmClosePulseModal();
     }
 });
