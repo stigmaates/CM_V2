@@ -124,6 +124,16 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .valuable-drop-date {
+            margin-top: 2px;
+            color: rgba(188, 171, 217, 0.78);
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1.15;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         @keyframes valuableDropsScroll {
             from { transform: translateX(0); }
             to { transform: translateX(-50%); }
@@ -140,6 +150,7 @@
             .valuable-drop { width: 205px; grid-template-columns: 38px minmax(0, 1fr); min-height: 56px; padding: 8px 10px; }
             .valuable-drop-thumb { width: 38px; height: 38px; border-radius: 10px; }
             .valuable-drop-title { font-size: 13px; }
+            .valuable-drop-date { font-size: 9px; }
         }
         .guest-test-banner {
             display: flex;
@@ -2324,6 +2335,7 @@
                                     <div>
                                         <div class="valuable-drop-title">{{ drop.headline }}</div>
                                         <div class="valuable-drop-sub">{{ drop.rarity_label }} · {{ drop.item_name }}</div>
+                                        {% if drop.created_at_label %}<div class="valuable-drop-date">{{ drop.created_at_label }}</div>{% endif %}
                                     </div>
                                 </div>
                             {% endfor %}
