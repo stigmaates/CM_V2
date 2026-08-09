@@ -677,6 +677,7 @@ def get_valuable_case_drops(limit: int = 24, days: int = 90):
             club_name = row.get("club_name") or "клуба"
             item_name = row.get("item_name") or "ценный приз"
             rarity = row.get("rarity_label") or "Очень редкий"
+            created_at = row.get("created_at")
             drops.append(
                 {
                     "opening_id": row.get("opening_id"),
@@ -689,7 +690,8 @@ def get_valuable_case_drops(limit: int = 24, days: int = 90):
                     "rarity_label": rarity,
                     "headline": f"{guest_first_name} из {club_name}",
                     "tooltip": f"{guest_first_name} из {club_name} выиграл(а) «{item_name}»",
-                    "created_at": row.get("created_at"),
+                    "created_at": created_at,
+                    "created_at_label": created_at.strftime("%d.%m · %H:%M") if created_at else "",
                 }
             )
         return drops
