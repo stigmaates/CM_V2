@@ -49,9 +49,27 @@ AUTO_MAILING_DEFAULTS = {
 }
 
 CRM_SEGMENT_OPTIONS = [
-    {"key": "top", "label": "Лучшие", "title": "Лучшие", "emoji": "👑", "description": "15+ визитов за 90 дней"},
-    {"key": "base", "label": "База", "title": "База", "emoji": "👥", "description": "10–14 визитов за 90 дней"},
-    {"key": "rare", "label": "Редкие", "title": "Редкие", "emoji": "✨", "description": "1–9 визитов, были недавно"},
+    {
+        "key": "top",
+        "label": "Лучшие",
+        "title": "Лучшие",
+        "emoji": "👑",
+        "description": "8+ визитов за 30 дней или 18+ за 90 дней при 4+ за 30 дней",
+    },
+    {
+        "key": "base",
+        "label": "База",
+        "title": "База",
+        "emoji": "👥",
+        "description": "3–7 визитов за 30 дней или 8+ за 90 дней при 2+ за 30 дней",
+    },
+    {
+        "key": "rare",
+        "label": "Редкие",
+        "title": "Редкие",
+        "emoji": "✨",
+        "description": "Были недавно, но не набрали активность для Базы",
+    },
     {"key": "risk", "label": "Риск", "title": "Риск", "emoji": "⚠️", "description": "Не были 14–29 дней"},
     {
         "key": "dead",
