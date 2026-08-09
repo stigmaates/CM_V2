@@ -38,6 +38,7 @@ const crmPulseExpiration = document.getElementById("crmPulseExpiration");
 const crmPulseExpiresValue = document.getElementById("crmPulseExpiresValue");
 const crmPulseExpiresUnit = document.getElementById("crmPulseExpiresUnit");
 const crmPulseSubmit = document.getElementById("crmPulseSubmit");
+const crmPulseDismiss = document.getElementById("crmPulseDismiss");
 const crmPulseStatus = document.getElementById("crmPulseStatus");
 
 let crmFunnelPeriod = "all";
@@ -507,6 +508,32 @@ function crmGetPulseGroup(key) {
     return crmPulseGroups.find((group) => group.key === key);
 }
 
+function crmPulseTransitionPayload(group) {
+    return {
+        old_status: group.old_status,
+        new_status: group.new_status,
+        old_label: group.old_label,
+        new_label: group.new_label,
+    };
+}
+
+function crmCreateEmptyState(message) {
+    const element = document.createElement("div");
+    element.className = "empty-state";
+    element.textContent = message;
+    return element;
+}
+
+function crmRemovePulseCard(group) {
+    if (!group || !group.key) return;
+    const button = document.querySelector(`.crm-pulse-action[data-pulse-key="${CSS.escape(group.key)}"]`);
+    button?.closest(".crm-pulse-card")?.remove();
+    if (!document.querySelector(".crm-pulse-card")) {
+        const board = document.querySelector(".crm-pulse-board");
+        board?.replaceWith(crmCreateEmptyState("На этой неделе переходов между CRM-группами пока нет."));
+    }
+}
+
 function crmRenderPulseRecipients(group) {
     const guests = group.guests || [];
     const telegramGuests = guests.filter((guest) => guest.has_telegram);
@@ -553,6 +580,7 @@ function crmOpenPulseInteraction(key) {
     crmPulseTokenAmount.value = "0";
     crmPulseExpiringBonus.checked = false;
     crmPulseExpiration.hidden = true;
+    if (crmPulseDismiss) crmPulseDismiss.disabled = false;
     crmPulseStatus.textContent = "";
     crmRenderPulseRecipients(group);
     crmFillPulseVariables();
@@ -580,12 +608,7 @@ async function crmSubmitPulseInteraction() {
             headers: {"Content-Type": "application/json", "Accept": "application/json"},
             body: JSON.stringify({
                 guest_ids: crmActivePulseGroup.guest_ids || [],
-                transition: {
-                    old_status: crmActivePulseGroup.old_status,
-                    new_status: crmActivePulseGroup.new_status,
-                    old_label: crmActivePulseGroup.old_label,
-                    new_label: crmActivePulseGroup.new_label,
-                },
+                transition: crmPulseTransitionPayload(crmActivePulseGroup),
                 message_text: crmPulseMessage.value,
                 bonus_amount: crmPulseBonusAmount.value,
                 token_amount: crmPulseTokenAmount.value,
@@ -600,11 +623,40 @@ async function crmSubmitPulseInteraction() {
             return;
         }
         crmPulseStatus.textContent = `Поставлено в очередь: ${data.recipients_count || 0} получателей`;
+        crmRemovePulseCard(crmActivePulseGroup);
         setTimeout(() => crmClosePulseModal(), 900);
     } catch (error) {
         crmPulseStatus.textContent = "Не удалось отправить";
     } finally {
         crmPulseSubmit.disabled = false;
+    }
+}
+
+async function crmDismissPulseInteraction() {
+    if (!crmActivePulseGroup || !crmPulseDismiss) return;
+    crmPulseDismiss.disabled = true;
+    crmPulseStatus.textContent = "Убираем из пульса...";
+    try {
+        const response = await fetch("/owner/api/crm-pulse/dismiss", {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "Accept": "application/json"},
+            body: JSON.stringify({
+                guest_ids: crmActivePulseGroup.guest_ids || [],
+                transition: crmPulseTransitionPayload(crmActivePulseGroup),
+            }),
+        });
+        const data = await response.json();
+        if (!data.ok) {
+            crmPulseStatus.textContent = data.error || "Не удалось убрать из пульса";
+            return;
+        }
+        crmPulseStatus.textContent = "Убрано из пульса";
+        crmRemovePulseCard(crmActivePulseGroup);
+        setTimeout(() => crmClosePulseModal(), 650);
+    } catch (error) {
+        crmPulseStatus.textContent = "Не удалось убрать из пульса";
+    } finally {
+        crmPulseDismiss.disabled = false;
     }
 }
 
@@ -719,6 +771,7 @@ if (crmPulseClose) crmPulseClose.addEventListener("click", crmClosePulseModal);
 if (crmPulseModal) crmPulseModal.addEventListener("wheel", crmRoutePulseModalWheel, {passive: false});
 if (crmPulseInsertVariable) crmPulseInsertVariable.addEventListener("click", crmInsertPulseVariable);
 if (crmPulseSubmit) crmPulseSubmit.addEventListener("click", crmSubmitPulseInteraction);
+if (crmPulseDismiss) crmPulseDismiss.addEventListener("click", crmDismissPulseInteraction);
 if (crmPulseExpiringBonus) {
     crmPulseExpiringBonus.addEventListener("change", () => {
         crmPulseExpiration.hidden = !crmPulseExpiringBonus.checked;

@@ -3,17 +3,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Dict, Iterable, List, Tuple
 
+from app.services.crm_segments import CRM_STATUS_META
 from app.services.mailing import AUTO_MAILING_DEFAULTS
-
-CRM_STATUS_META = {
-    "top": {"label": "Лучшие", "score": 6},
-    "base": {"label": "База", "score": 5},
-    "rare": {"label": "Редкие", "score": 4},
-    "risk": {"label": "Риск", "score": 3},
-    "lost": {"label": "Потерянные", "score": 2},
-    "dead": {"label": "Давно без визита", "score": 1},
-    "no_visits": {"label": "Без визитов", "score": 0},
-}
 
 
 def _json_value(value: Any) -> Any:
@@ -103,6 +94,22 @@ def _auto_mailing_code_expr(conn) -> str | None:
     return None
 
 
+def _column_exists(conn, table_name: str, column_name: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = %s
+              AND COLUMN_NAME = %s
+            """,
+            (table_name, column_name),
+        )
+        row = cur.fetchone() or {}
+    return int(row.get("cnt") or 0) > 0
+
+
 def ensure_crm_status_changes_table(conn) -> None:
     with conn.cursor() as cur:
         cur.execute("""
@@ -112,12 +119,78 @@ def ensure_crm_status_changes_table(conn) -> None:
                 guest_id INT NOT NULL,
                 old_crm_type VARCHAR(40) NULL,
                 new_crm_type VARCHAR(40) NOT NULL,
+                handled_at DATETIME NULL,
+                handled_reason VARCHAR(40) NULL,
+                handled_mailing_id INT NULL,
+                handled_giveaway_id INT NULL,
                 changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 KEY idx_crm_status_changes_club_changed (club_id, changed_at),
                 KEY idx_crm_status_changes_guest (club_id, guest_id, changed_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
+    _ensure_handled_columns(conn)
+
+
+def _ensure_handled_columns(conn) -> None:
+    columns = {
+        "handled_at": "DATETIME NULL",
+        "handled_reason": "VARCHAR(40) NULL",
+        "handled_mailing_id": "INT NULL",
+        "handled_giveaway_id": "INT NULL",
+    }
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'crm_status_changes'
+              AND COLUMN_NAME IN ('handled_at', 'handled_reason', 'handled_mailing_id', 'handled_giveaway_id')
+            """)
+        existing = {row.get("COLUMN_NAME") for row in cur.fetchall() or []}
+        for column, definition in columns.items():
+            if column in existing:
+                continue
+            cur.execute(f"ALTER TABLE crm_status_changes ADD COLUMN {column} {definition} AFTER new_crm_type")
+
+
+def mark_crm_pulse_handled(
+    conn,
+    *,
+    club_id: int,
+    guest_ids: Iterable[int],
+    old_status: str | None,
+    new_status: str | None,
+    reason: str,
+    mailing_id: int | None = None,
+    giveaway_id: int | None = None,
+) -> int:
+    ensure_crm_status_changes_table(conn)
+    normalized_guest_ids = [int(guest_id) for guest_id in guest_ids if str(guest_id).strip().isdigit()]
+    if not normalized_guest_ids:
+        return 0
+
+    with conn.cursor() as cur:
+        cur.executemany(
+            """
+            UPDATE crm_status_changes
+            SET handled_at = NOW(),
+                handled_reason = %s,
+                handled_mailing_id = %s,
+                handled_giveaway_id = %s
+            WHERE club_id = %s
+              AND guest_id = %s
+              AND old_crm_type <=> %s
+              AND new_crm_type <=> %s
+              AND handled_at IS NULL
+              AND changed_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+            """,
+            [
+                (reason, mailing_id, giveaway_id, int(club_id), guest_id, old_status, new_status)
+                for guest_id in normalized_guest_ids
+            ],
+        )
+        return int(cur.rowcount or 0)
 
 
 def record_crm_status_changes(conn, records: Iterable[Dict[str, Any]]) -> int:
@@ -188,6 +261,7 @@ def get_crm_pulse_groups(conn, club_id: int) -> List[Dict[str, Any]]:
                 up.visits_30d,
                 up.visits_90d,
                 up.days_since_last_visit,
+                up.crm_reason,
                 {auto_select} AS recent_auto_mailing_code
             FROM crm_status_changes c
             JOIN (
@@ -195,6 +269,7 @@ def get_crm_pulse_groups(conn, club_id: int) -> List[Dict[str, Any]]:
                 FROM crm_status_changes
                 WHERE club_id = %s
                   AND changed_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+                  AND handled_at IS NULL
                 GROUP BY club_id, guest_id
             ) latest
               ON latest.latest_id = c.id
@@ -246,6 +321,7 @@ def get_crm_pulse_groups(conn, club_id: int) -> List[Dict[str, Any]]:
             "visits_30d": int(row.get("visits_30d") or 0),
             "visits_90d": int(row.get("visits_90d") or 0),
             "days_since_last_visit": row.get("days_since_last_visit"),
+            "crm_reason": row.get("crm_reason") or "",
             "recent_auto_mailing_code": auto_code,
             "recent_auto_mailing_title": _auto_mailing_title(auto_code) if auto_code else None,
         }

@@ -4,7 +4,7 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 
 from app.core import get_db_connection, owner_required
 from app.services.crm_analysis import get_crm_cohort_analysis
-from app.services.crm_pulse import get_crm_pulse_groups
+from app.services.crm_pulse import get_crm_pulse_groups, mark_crm_pulse_handled
 from app.services.dashboard import get_dashboard_audience_stats, get_visit_heatmap_stats
 from app.services.mailing import (
     create_bonus_giveaway,
@@ -268,6 +268,16 @@ def api_crm_pulse_interact():
                 parse_mode="HTML",
                 filters_json=filters_json,
             )
+        mark_crm_pulse_handled(
+            conn,
+            club_id=int(club_id),
+            guest_ids=guest_ids,
+            old_status=transition.get("old_status"),
+            new_status=transition.get("new_status"),
+            reason="interaction",
+            mailing_id=int(result.get("mailing_id") or 0) or None,
+            giveaway_id=int(result.get("giveaway_id") or 0) or None,
+        )
         conn.commit()
     except ValueError as exc:
         conn.rollback()
@@ -280,3 +290,31 @@ def api_crm_pulse_interact():
 
     _start_crm_mailing_worker(int(result["mailing_id"]))
     return jsonify({"ok": True, "started": True, **result})
+
+
+@owner_bp.route("/api/crm-pulse/dismiss", methods=["POST"])
+@owner_required
+def api_crm_pulse_dismiss():
+    club_id = session.get("club_id")
+    data = request.get_json(force=True)
+    guest_ids = data.get("guest_ids") or []
+    transition = data.get("transition") or {}
+
+    conn = get_db_connection()
+    try:
+        handled_count = mark_crm_pulse_handled(
+            conn,
+            club_id=int(club_id),
+            guest_ids=guest_ids,
+            old_status=transition.get("old_status"),
+            new_status=transition.get("new_status"),
+            reason="dismissed",
+        )
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        conn.close()
+
+    return jsonify({"ok": True, "handled_count": handled_count})

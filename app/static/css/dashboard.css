@@ -1566,6 +1566,13 @@ body {
     margin-top: 16px;
 }
 
+.crm-pulse-dismiss {
+    width: 100%;
+    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.035);
+    color: rgba(216, 198, 255, 0.82);
+}
+
 .crm-pulse-status {
     min-height: 20px;
     margin-top: 10px;
