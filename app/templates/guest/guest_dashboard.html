@@ -64,7 +64,7 @@
             display: flex;
             align-items: center;
             width: max-content;
-            animation: valuableDropsScroll 68s linear infinite;
+            animation: valuableDropsScroll var(--valuable-drops-duration, 120s) linear infinite;
         }
         .valuable-drops-loop {
             display: flex;
@@ -151,7 +151,6 @@
         @media (max-width: 720px) {
             .valuable-drops-panel { margin-bottom: 14px; border-radius: 15px; }
             .valuable-drops-head { padding-inline: 12px; font-size: 12px; }
-            .valuable-drops-track { animation-duration: 56s; }
             .valuable-drops-loop { gap: 9px; padding-left: 12px; }
             .valuable-drop { width: 205px; grid-template-columns: 38px minmax(0, 1fr); min-height: 56px; padding: 8px 10px; }
             .valuable-drop-thumb { width: 38px; height: 38px; border-radius: 10px; }
@@ -2324,10 +2323,17 @@
 
         {% set valuable_drops = valuable_case_drops|default([]) %}
         {% if valuable_drops %}
+            {% set valuable_drops_duration = valuable_drops|length * 16 %}
+            {% if valuable_drops_duration < 96 %}
+                {% set valuable_drops_duration = 96 %}
+            {% endif %}
+            {% if valuable_drops_duration > 320 %}
+                {% set valuable_drops_duration = 320 %}
+            {% endif %}
             <section class="valuable-drops-panel" aria-label="Недавние ценные призы">
                 <div class="valuable-drops-head"><span aria-hidden="true"></span><b>Недавние ценные призы</b></div>
                 <div class="valuable-drops-viewport">
-                    <div class="valuable-drops-track">
+                    <div class="valuable-drops-track" style="--valuable-drops-duration: {{ valuable_drops_duration }}s;">
                         {% for repeat in range(16) %}
                             <div class="valuable-drops-loop" aria-hidden="{{ 'true' if repeat > 0 else 'false' }}">
                             {% for drop in valuable_drops %}
