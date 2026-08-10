@@ -1,4 +1,8 @@
-from app.services.mailing import _campaign_effect_summary, _fetch_campaign_effect_rows
+from app.services.mailing import (
+    _campaign_effect_summary,
+    _deduplicate_interaction_recipients,
+    _fetch_campaign_effect_rows,
+)
 
 
 def test_campaign_summary_counts_unique_guests_and_used_bonus_ratio():
@@ -29,6 +33,38 @@ def test_campaign_summary_counts_unique_guests_and_used_bonus_ratio():
     assert summary["topup_amount"] == 500
     assert summary["used_bonus"] == 50
     assert summary["topup_per_bonus"] == 10
+
+
+def test_interaction_recipients_deduplicate_grouped_auto_mailings_by_guest():
+    rows = [
+        {
+            "recipient_id": 20,
+            "guest_id": 101,
+            "delivery_status": "sent",
+            "interaction_at": "2026-08-10 06:05:00",
+            "next_visit_at": None,
+        },
+        {
+            "recipient_id": 21,
+            "guest_id": 101,
+            "delivery_status": "sent",
+            "interaction_at": "2026-08-10 06:10:00",
+            "next_visit_at": None,
+        },
+        {
+            "recipient_id": 22,
+            "guest_id": 102,
+            "delivery_status": "failed",
+            "interaction_at": "2026-08-10 06:05:00",
+            "next_visit_at": None,
+        },
+    ]
+
+    deduplicated = _deduplicate_interaction_recipients(rows)
+
+    assert len(deduplicated) == 2
+    assert [row["guest_id"] for row in deduplicated] == [101, 102]
+    assert deduplicated[0]["recipient_id"] == 20
 
 
 class _Cursor:

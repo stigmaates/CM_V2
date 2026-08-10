@@ -885,6 +885,34 @@ def _format_hours(*, avg_hours) -> str | None:
     return f"{round(days, 1)} дн"
 
 
+def _deduplicate_interaction_recipients(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collapse repeated recipient rows inside grouped auto-mailing campaigns."""
+    best_by_guest: Dict[Any, Dict[str, Any]] = {}
+    status_order = {"sent": 0, "pending": 1, "failed": 2}
+
+    def choice_key(row: Dict[str, Any]):
+        return (
+            status_order.get(row.get("delivery_status"), 3),
+            str(row.get("interaction_at") or ""),
+            int(row.get("recipient_id") or 0),
+        )
+
+    for row in rows:
+        key = row.get("guest_id") if row.get("guest_id") is not None else f"recipient-{row.get('recipient_id')}"
+        current = best_by_guest.get(key)
+        if current is None or choice_key(row) < choice_key(current):
+            best_by_guest[key] = row
+
+    return sorted(
+        best_by_guest.values(),
+        key=lambda row: (
+            row.get("next_visit_at") is None,
+            str(row.get("next_visit_at") or ""),
+            int(row.get("recipient_id") or 0),
+        ),
+    )
+
+
 def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str, Any]]:
     ensure_bonus_giveaway_tables(conn)
     with conn.cursor() as cur:
@@ -927,15 +955,15 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
                 NULL AS giveaway_id,
                 MIN(m.id) AS mailing_id,
                 CASE
-                    WHEN SUM(m.status IN ('queued', 'in_progress')) > 0 THEN 'in_progress'
-                    WHEN SUM(m.status = 'failed') > 0 THEN 'failed'
+                    WHEN MAX(m.status IN ('queued', 'in_progress')) > 0 THEN 'in_progress'
+                    WHEN MAX(m.status = 'failed') > 0 THEN 'failed'
                     ELSE 'completed'
                 END AS status,
                 0 AS bonus_amount,
                 0 AS token_amount,
-                SUM(COALESCE(m.recipients_count, 0)) AS recipients_count,
-                SUM(COALESCE(m.success_count, 0)) AS success_count,
-                SUM(COALESCE(m.failed_count, 0)) AS failed_count,
+                COUNT(DISTINCT mr.guest_id) AS recipients_count,
+                COUNT(DISTINCT CASE WHEN mr.status = 'sent' THEN mr.guest_id END) AS success_count,
+                COUNT(DISTINCT CASE WHEN mr.status = 'failed' THEN mr.guest_id END) AS failed_count,
                 NULL AS awarded_count,
                 NULL AS token_awarded_count,
                 MIN(m.created_at) AS created_at
@@ -943,6 +971,8 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
             LEFT JOIN bonus_giveaways bg
               ON bg.club_id = m.club_id
              AND bg.mailing_id = m.id
+            LEFT JOIN mailing_recipients mr
+              ON mr.mailing_id = m.id
             WHERE m.club_id = %s
               AND bg.id IS NULL
               AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) IS NOT NULL
@@ -1042,19 +1072,19 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
                     NULL AS giveaway_id,
                     MIN(m.id) AS mailing_id,
                     CASE
-                        WHEN SUM(m.status IN ('queued', 'in_progress')) > 0 THEN 'in_progress'
-                        WHEN SUM(m.status = 'failed') > 0 THEN 'failed'
+                        WHEN MAX(m.status IN ('queued', 'in_progress')) > 0 THEN 'in_progress'
+                        WHEN MAX(m.status = 'failed') > 0 THEN 'failed'
                         ELSE 'completed'
                     END AS status,
                     0 AS bonus_amount,
                     0 AS token_amount,
                     MIN(m.message_text) AS message_text,
-                    SUM(COALESCE(m.recipients_count, 0)) AS recipients_count,
+                    COUNT(DISTINCT mr.guest_id) AS recipients_count,
                     NULL AS awarded_count,
                     NULL AS token_awarded_count,
                     NULL AS skipped_count,
-                    SUM(COALESCE(m.success_count, 0)) AS success_count,
-                    SUM(COALESCE(m.failed_count, 0)) AS failed_count,
+                    COUNT(DISTINCT CASE WHEN mr.status = 'sent' THEN mr.guest_id END) AS success_count,
+                    COUNT(DISTINCT CASE WHEN mr.status = 'failed' THEN mr.guest_id END) AS failed_count,
                     MIN(m.created_at) AS created_at,
                     MAX(m.finished_at) AS finished_at,
                     %s AS auto_mailing_code,
@@ -1063,6 +1093,8 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
                 LEFT JOIN bonus_giveaways bg
                   ON bg.club_id = m.club_id
                  AND bg.mailing_id = m.id
+                LEFT JOIN mailing_recipients mr
+                  ON mr.mailing_id = m.id
                 WHERE m.club_id = %s
                   AND bg.id IS NULL
                   AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) = %s
@@ -1243,6 +1275,7 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
             )
             recipients = cur.fetchall()
 
+    recipients = _deduplicate_interaction_recipients(recipients)
     sent_count = sum(1 for row in recipients if row.get("delivery_status") == "sent")
     failed_count = sum(1 for row in recipients if row.get("delivery_status") == "failed")
     pending_count = sum(1 for row in recipients if row.get("delivery_status") == "pending")
