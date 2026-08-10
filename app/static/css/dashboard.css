@@ -1309,6 +1309,279 @@ body {
     line-height: 1.1;
 }
 
+.crm-pulse-section {
+    display: block;
+    margin-top: 24px;
+    padding: 28px 30px;
+    text-align: left;
+}
+
+.crm-pulse-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.crm-pulse-card {
+    display: grid;
+    gap: 14px;
+    min-height: 244px;
+    border: 1px solid rgba(143, 91, 255, 0.24);
+    border-radius: 20px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.crm-pulse-card--up {
+    border-color: rgba(73, 207, 130, 0.32);
+    background: linear-gradient(180deg, rgba(73, 207, 130, 0.08), rgba(255, 255, 255, 0.035));
+}
+
+.crm-pulse-card--down {
+    border-color: rgba(255, 107, 159, 0.32);
+    background: linear-gradient(180deg, rgba(255, 107, 159, 0.08), rgba(255, 255, 255, 0.035));
+}
+
+.crm-pulse-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.crm-pulse-transition {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 950;
+    line-height: 1.2;
+}
+
+.crm-pulse-transition b {
+    color: rgba(216, 198, 255, 0.62);
+}
+
+.crm-pulse-count {
+    margin-top: 6px;
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.crm-pulse-warning,
+.crm-pulse-guest i,
+.crm-pulse-recipient-row i {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: rgba(255, 202, 92, 0.16);
+    color: #ffd469;
+    font-style: normal;
+    font-size: 13px;
+    font-weight: 950;
+    cursor: help;
+}
+
+.crm-pulse-guests {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.crm-pulse-guest,
+.crm-pulse-more {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 34px;
+    border-radius: 12px;
+    padding: 7px 9px;
+    background: rgba(11, 6, 22, 0.3);
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.crm-pulse-more {
+    color: rgba(216, 198, 255, 0.72);
+    justify-content: center;
+}
+
+.crm-pulse-action {
+    align-self: end;
+    width: 100%;
+}
+
+.crm-pulse-modal__dialog {
+    width: min(1080px, 96vw);
+}
+
+.crm-pulse-modal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.crm-pulse-recipient-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.crm-pulse-recipient-summary article {
+    min-height: 70px;
+    border-radius: 14px;
+    padding: 11px;
+    border: 1px solid rgba(143, 91, 255, 0.22);
+    background: rgba(11, 6, 22, 0.32);
+}
+
+.crm-pulse-recipient-summary span,
+.crm-pulse-field span {
+    display: block;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.crm-pulse-recipient-summary strong {
+    display: block;
+    margin-top: 6px;
+    color: #ffffff;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.crm-pulse-recipient-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 430px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.crm-pulse-recipient-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.2fr) minmax(92px, 0.65fr) minmax(120px, 0.8fr) 28px;
+    gap: 10px;
+    align-items: center;
+    min-height: 58px;
+    border-radius: 14px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.045);
+    color: rgba(255, 255, 255, 0.64);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.crm-pulse-recipient-row.is-muted {
+    opacity: 0.56;
+}
+
+.crm-pulse-recipient-row strong,
+.crm-pulse-recipient-row span {
+    display: block;
+}
+
+.crm-pulse-recipient-row strong {
+    color: #ffffff;
+    margin-bottom: 3px;
+}
+
+.crm-pulse-field {
+    display: grid;
+    gap: 7px;
+}
+
+.crm-pulse-field input,
+.crm-pulse-field select,
+.crm-pulse-field textarea,
+.crm-pulse-variable-row select {
+    width: 100%;
+    border: 1px solid rgba(143, 91, 255, 0.42);
+    border-radius: 13px;
+    background: rgba(11, 6, 22, 0.72);
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 750;
+    outline: none;
+}
+
+.crm-pulse-field input,
+.crm-pulse-field select,
+.crm-pulse-variable-row select {
+    height: 42px;
+    padding: 0 12px;
+}
+
+.crm-pulse-field textarea {
+    min-height: 132px;
+    resize: vertical;
+    padding: 12px;
+    line-height: 1.45;
+}
+
+.crm-pulse-variable-row,
+.crm-pulse-reward-grid,
+.crm-pulse-expiration {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.crm-pulse-reward-grid,
+.crm-pulse-expiration {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.crm-pulse-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: max-content;
+    margin-top: 13px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.crm-pulse-check input {
+    width: 20px;
+    height: 20px;
+    accent-color: #8f5bff;
+}
+
+.crm-pulse-submit {
+    width: 100%;
+    margin-top: 16px;
+}
+
+.crm-pulse-dismiss {
+    width: 100%;
+    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.035);
+    color: rgba(216, 198, 255, 0.82);
+}
+
+.crm-pulse-status {
+    min-height: 20px;
+    margin-top: 10px;
+    color: rgba(216, 198, 255, 0.78);
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+}
+
 .crm-campaigns-section {
     display: block;
     margin-top: 24px;
@@ -1719,6 +1992,10 @@ body.crm-modal-lock {
     .crm-analysis-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .crm-pulse-modal-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 760px) {
@@ -1740,6 +2017,10 @@ body.crm-modal-lock {
     }
 
     .crm-campaigns-section {
+        padding: 20px 16px;
+    }
+
+    .crm-pulse-section {
         padding: 20px 16px;
     }
 
@@ -1769,6 +2050,17 @@ body.crm-modal-lock {
 
     .crm-campaign-passport-block {
         overflow-x: auto;
+    }
+
+    .crm-pulse-recipient-summary,
+    .crm-pulse-reward-grid,
+    .crm-pulse-expiration,
+    .crm-pulse-variable-row {
+        grid-template-columns: 1fr;
+    }
+
+    .crm-pulse-recipient-row {
+        min-width: 620px;
     }
 }
 .dashboard-toolbar {

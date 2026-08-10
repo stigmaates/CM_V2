@@ -71,6 +71,61 @@
         </div>
     </section>
 
+    <section class="crm-pulse-section card">
+        <div class="crm-campaigns-head">
+            <div>
+                <div class="section-title">Пульс базы</div>
+                <div class="muted crm-hero-text">Гости, у которых на этой неделе изменилась CRM-группа.</div>
+            </div>
+        </div>
+
+        {% if crm_pulse_groups %}
+            <div class="crm-pulse-board">
+                {% for group in crm_pulse_groups %}
+                    <article class="crm-pulse-card crm-pulse-card--{{ group.direction }}">
+                        <div class="crm-pulse-card__top">
+                            <div>
+                                <div class="crm-pulse-transition">
+                                    <span>{{ group.old_label }}</span>
+                                    <b>→</b>
+                                    <span>{{ group.new_label }}</span>
+                                </div>
+                                <div class="crm-pulse-count">
+                                    {{ group.total_count }} гостей · {{ group.telegram_count }} с Telegram
+                                </div>
+                            </div>
+                            {% if group.recent_auto_count %}
+                                <span class="crm-pulse-warning" title="{{ group.recent_auto_count }} гостям недавно уже уходила авторассылка">!</span>
+                            {% endif %}
+                        </div>
+                        <div class="crm-pulse-guests">
+                            {% for guest in group.guests[:3] %}
+                                <div class="crm-pulse-guest">
+                                    <span>{{ guest.card_label or guest.first_name or guest.fio or ("#" ~ guest.guest_id) }}</span>
+                                    {% if guest.recent_auto_mailing_title %}
+                                        <i title='Недавно была авторассылка "{{ guest.recent_auto_mailing_title }}"'>!</i>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                            {% if group.total_count > 3 %}
+                                <div class="crm-pulse-more">+ ещё {{ group.total_count - 3 }}</div>
+                            {% endif %}
+                        </div>
+                        <button
+                            type="button"
+                            class="crm-analysis-button crm-analysis-button--primary crm-pulse-action"
+                            data-pulse-key="{{ group.key }}"
+                        >
+                            Взаимодействовать
+                        </button>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">На этой неделе переходов между CRM-группами пока нет.</div>
+        {% endif %}
+    </section>
+
     <section class="crm-campaigns-section card">
         <div class="crm-campaigns-head">
             <div>
@@ -155,6 +210,74 @@
             </div>
             <div class="crm-campaign-modal__body" id="crmCampaignBody">
                 <div class="empty-state">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="crm-campaign-modal" id="crmPulseModal" aria-hidden="true">
+        <div class="crm-campaign-modal__backdrop" id="crmPulseBackdrop"></div>
+        <div class="crm-campaign-modal__dialog crm-pulse-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="crmPulseTitle">
+            <div class="crm-campaign-modal__header">
+                <div>
+                    <div class="crm-campaign-modal__eyebrow" id="crmPulseSubtitle">Пульс базы</div>
+                    <h2 id="crmPulseTitle">Взаимодействие с группой</h2>
+                </div>
+                <button type="button" class="crm-campaign-modal__close" id="crmPulseClose" aria-label="Закрыть">×</button>
+            </div>
+            <div class="crm-campaign-modal__body" id="crmPulseBody">
+                <div class="crm-pulse-modal-grid">
+                    <section class="crm-campaign-passport-block">
+                        <h3>Получатели</h3>
+                        <div class="crm-pulse-recipient-summary" id="crmPulseRecipientSummary"></div>
+                        <div class="crm-pulse-recipient-list" id="crmPulseRecipientList"></div>
+                    </section>
+                    <section class="crm-campaign-passport-block">
+                        <h3>Сообщение и награда</h3>
+                        <label class="crm-pulse-field">
+                            <span>Сообщение</span>
+                            <textarea id="crmPulseMessage" placeholder="{first_name}, привет! Есть повод заглянуть к нам на этой неделе."></textarea>
+                        </label>
+                        <div class="crm-pulse-variable-row">
+                            <select id="crmPulseVariableSelect" aria-label="Данные гостя для вставки"></select>
+                            <button type="button" class="crm-analysis-button" id="crmPulseInsertVariable">Вставить</button>
+                        </div>
+                        <div class="crm-pulse-reward-grid">
+                            <label class="crm-pulse-field">
+                                <span>КБ</span>
+                                <input type="number" id="crmPulseBonusAmount" min="0" step="1" value="0">
+                            </label>
+                            <label class="crm-pulse-field">
+                                <span>Жетоны</span>
+                                <input type="number" id="crmPulseTokenAmount" min="0" step="1" value="0">
+                            </label>
+                        </div>
+                        <label class="crm-pulse-check">
+                            <input type="checkbox" id="crmPulseExpiringBonus">
+                            <span>Сгорающий бонус</span>
+                        </label>
+                        <div class="crm-pulse-expiration" id="crmPulseExpiration" hidden>
+                            <label class="crm-pulse-field">
+                                <span>Сгорит через</span>
+                                <input type="number" id="crmPulseExpiresValue" min="1" step="1" value="7">
+                            </label>
+                            <label class="crm-pulse-field">
+                                <span>Единица</span>
+                                <select id="crmPulseExpiresUnit">
+                                    <option value="minutes">Минут</option>
+                                    <option value="hours">Часов</option>
+                                    <option value="days" selected>Дней</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button type="button" class="crm-analysis-button crm-analysis-button--primary crm-pulse-submit" id="crmPulseSubmit">
+                            Отправить
+                        </button>
+                        <button type="button" class="crm-analysis-button crm-pulse-dismiss" id="crmPulseDismiss">
+                            Убрать из пульса
+                        </button>
+                        <div class="crm-pulse-status" id="crmPulseStatus" aria-live="polite"></div>
+                    </section>
+                </div>
             </div>
         </div>
     </div>
@@ -283,6 +406,8 @@
 <script>
     window.CRM_ANALYSIS_FIELDS = {{ filter_fields | tojson | safe }};
     window.CRM_INITIAL_ANALYSIS = {{ initial_analysis | tojson | safe }};
+    window.CRM_MESSAGE_VARIABLES = {{ message_variables | tojson | safe }};
+    window.CRM_PULSE_GROUPS = {{ crm_pulse_groups | tojson | safe }};
 </script>
 <script src="{{ url_for('static', filename='js/crm_analytics.js') }}"></script>
 {% endblock %}

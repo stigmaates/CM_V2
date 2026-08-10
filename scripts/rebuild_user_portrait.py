@@ -12,6 +12,8 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from app.services.crm_pulse import record_crm_status_changes
+from app.services.crm_segments import calculate_crm_segment
 
 
 def get_connection():
@@ -65,34 +67,18 @@ def calc_favorite_period(day_count: int, evening_count: int, night_count: int) -
     return "night"
 
 
-def calc_crm_type(total_visits: int, visits_90d: int, days_since_last_visit: Optional[int]) -> str:
-    """
-    Финальная логика:
-    - no_visits: ни одного визита вообще
-    - dead: последний визит 90+ дней назад
-    - lost: последний визит 30-89 дней назад
-    - risk: последний визит 14-29 дней назад
-    - top: 15+ визитов за 90 дней
-    - rare: 0-9 визитов за 90 дней, если не попал в risk/lost/dead
-    - base: 10-14 визитов за 90 дней
-    """
-
-    if total_visits <= 0:
-        return "no_visits"
-
-    if days_since_last_visit is not None:
-        if days_since_last_visit >= 90:
-            return "dead"
-        if days_since_last_visit >= 30:
-            return "lost"
-        if days_since_last_visit >= 14:
-            return "risk"
-
-    if visits_90d >= 15:
-        return "top"
-    if visits_90d <= 9:
-        return "rare"
-    return "base"
+def calc_crm_type(
+    total_visits: int,
+    visits_90d: int,
+    days_since_last_visit: Optional[int],
+    visits_30d: int = 0,
+) -> str:
+    return calculate_crm_segment(
+        total_visits=total_visits,
+        visits_30d=visits_30d,
+        visits_90d=visits_90d,
+        days_since_last_visit=days_since_last_visit,
+    ).crm_type
 
 
 def fetch_guests(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
@@ -388,8 +374,12 @@ def build_records(conn) -> List[Dict[str, Any]]:
         visits_90d = sess.get("visits_90d", 0)
         days_since_last_visit = sess.get("days_since_last_visit")
 
-        crm_type = calc_crm_type(
-            total_visits=total_visits, visits_90d=visits_90d, days_since_last_visit=days_since_last_visit
+        visits_30d = sess.get("visits_30d", 0)
+        crm_segment = calculate_crm_segment(
+            total_visits=total_visits,
+            visits_30d=visits_30d,
+            visits_90d=visits_90d,
+            days_since_last_visit=days_since_last_visit,
         )
 
         record = {
@@ -400,9 +390,10 @@ def build_records(conn) -> List[Dict[str, Any]]:
             "registration_date": g.get("date_insert"),
             "first_visit_date": sess.get("first_visit_date"),
             "last_visit_date": sess.get("last_visit_date"),
-            "crm_type": crm_type,
+            "crm_type": crm_segment.crm_type,
+            "crm_reason": crm_segment.reason,
             "visits_7d": sess.get("visits_7d", 0),
-            "visits_30d": sess.get("visits_30d", 0),
+            "visits_30d": visits_30d,
             "visits_90d": visits_90d,
             "total_visits": total_visits,
             "avg_visits_per_month": sess.get("avg_visits_per_month"),
@@ -447,6 +438,7 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             first_visit_date,
             last_visit_date,
             crm_type,
+            crm_reason,
             visits_7d,
             visits_30d,
             visits_90d,
@@ -483,6 +475,7 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             %(first_visit_date)s,
             %(last_visit_date)s,
             %(crm_type)s,
+            %(crm_reason)s,
             %(visits_7d)s,
             %(visits_30d)s,
             %(visits_90d)s,
@@ -518,6 +511,7 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             first_visit_date = VALUES(first_visit_date),
             last_visit_date = VALUES(last_visit_date),
             crm_type = VALUES(crm_type),
+            crm_reason = VALUES(crm_reason),
             visits_7d = VALUES(visits_7d),
             visits_30d = VALUES(visits_30d),
             visits_90d = VALUES(visits_90d),
@@ -568,10 +562,11 @@ def rebuild_user_portrait():
     conn = get_connection()
     try:
         records = build_records(conn)
+        changes_count = record_crm_status_changes(conn, records)
         upsert_user_portrait(conn, records)
         cleanup_deleted_guests(conn)
         conn.commit()
-        print(f"OK: user_portrait updated, rows processed: {len(records)}")
+        print(f"OK: user_portrait updated, rows processed: {len(records)}, crm status changes: {changes_count}")
     except Exception:
         conn.rollback()
         raise

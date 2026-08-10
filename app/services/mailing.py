@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Tuple
 
 from werkzeug.utils import secure_filename
 
+from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.wheel import _add_token_transaction, ensure_token_tables
 
@@ -49,9 +50,27 @@ AUTO_MAILING_DEFAULTS = {
 }
 
 CRM_SEGMENT_OPTIONS = [
-    {"key": "top", "label": "Лучшие", "title": "Лучшие", "emoji": "👑", "description": "15+ визитов за 90 дней"},
-    {"key": "base", "label": "База", "title": "База", "emoji": "👥", "description": "10–14 визитов за 90 дней"},
-    {"key": "rare", "label": "Редкие", "title": "Редкие", "emoji": "✨", "description": "1–9 визитов, были недавно"},
+    {
+        "key": "top",
+        "label": "Лучшие",
+        "title": "Лучшие",
+        "emoji": "👑",
+        "description": "8+ визитов за 30 дней или 18+ за 90 дней при 4+ за 30 дней",
+    },
+    {
+        "key": "base",
+        "label": "База",
+        "title": "База",
+        "emoji": "👥",
+        "description": "3–7 визитов за 30 дней или 8+ за 90 дней при 2+ за 30 дней",
+    },
+    {
+        "key": "rare",
+        "label": "Редкие",
+        "title": "Редкие",
+        "emoji": "✨",
+        "description": "Были недавно, но не набрали активность для Базы",
+    },
     {"key": "risk", "label": "Риск", "title": "Риск", "emoji": "⚠️", "description": "Не были 14–29 дней"},
     {
         "key": "dead",
@@ -445,7 +464,7 @@ def build_where_clause(
 def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]]) -> int:
     where_sql, params = build_where_clause(club_id, rules)
     sql = f"""
-        SELECT COUNT(*) AS cnt
+        SELECT COUNT(DISTINCT up.guest_id) AS cnt
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         {where_sql}
@@ -454,6 +473,18 @@ def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]]) ->
         cur.execute(sql, params)
         row = cur.fetchone()
     return int(row["cnt"] or 0)
+
+
+def _dedupe_recipient_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    by_guest: Dict[int, Dict[str, Any]] = {}
+    for row in rows:
+        guest_id = row.get("guest_id")
+        if guest_id is None:
+            continue
+        guest_id = int(guest_id)
+        if guest_id not in by_guest:
+            by_guest[guest_id] = row
+    return list(by_guest.values())
 
 
 def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -502,7 +533,63 @@ def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[
     """
     with conn.cursor() as cur:
         cur.execute(sql, params)
-        return cur.fetchall()
+        return _dedupe_recipient_rows(cur.fetchall())
+
+
+def get_recipient_rows_for_guest_ids(conn, club_id: int, guest_ids: List[int]) -> List[Dict[str, Any]]:
+    guest_ids = sorted({int(guest_id) for guest_id in guest_ids if str(guest_id).strip().isdigit()})
+    if not guest_ids:
+        return []
+
+    with conn.cursor() as cur:
+        ensure_cm_bonus_tables(cur)
+        ensure_token_tables(cur)
+
+    placeholders = ", ".join(["%s"] * len(guest_ids))
+    sql = f"""
+        SELECT
+            g.guest_id,
+            g.telegram_id,
+            g.fio,
+            COALESCE(cbb.balance, 0) AS cm_bonus_balance,
+            COALESCE(gwtb.balance, 0) AS token_balance,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs7
+                WHERE gs7.club_id = g.club_id
+                  AND gs7.guest_id = g.guest_id
+                  AND gs7.date_start >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ) AS sessions_7d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs30
+                WHERE gs30.club_id = g.club_id
+                  AND gs30.guest_id = g.guest_id
+                  AND gs30.date_start >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            ) AS sessions_30d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs90
+                WHERE gs90.club_id = g.club_id
+                  AND gs90.guest_id = g.guest_id
+                  AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+            ) AS sessions_90d
+        FROM guests g
+        LEFT JOIN cm_bonus_balances cbb
+          ON cbb.club_id = g.club_id
+         AND cbb.guest_id = g.guest_id
+        LEFT JOIN guest_wheel_token_balances gwtb
+          ON gwtb.club_id = g.club_id
+         AND gwtb.guest_id = g.guest_id
+        WHERE g.club_id = %s
+          AND g.guest_id IN ({placeholders})
+          AND g.telegram_id IS NOT NULL
+        ORDER BY FIELD(g.guest_id, {placeholders})
+    """
+    params = [club_id, *guest_ids, *guest_ids]
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        return _dedupe_recipient_rows(cur.fetchall())
 
 
 def _looks_like_patronymic(value: str) -> bool:
@@ -1327,6 +1414,8 @@ def _fetch_campaign_effect_rows(
                     FROM guest_balance_topups gbt
                     WHERE gbt.club_id = m.club_id
                       AND gbt.guest_id = mr.guest_id
+                      AND gbt.amount > 0
+                      AND gbt.amount <= %s
                       AND gbt.topup_at >= COALESCE(mr.sent_at, m.started_at, m.created_at)
                       AND gbt.topup_at < DATE_ADD(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL %s DAY)
                 ), 0) AS topup_amount_after,
@@ -1335,6 +1424,8 @@ def _fetch_campaign_effect_rows(
                     FROM guest_balance_topups gbt
                     WHERE gbt.club_id = m.club_id
                       AND gbt.guest_id = mr.guest_id
+                      AND gbt.amount > 0
+                      AND gbt.amount <= %s
                       AND gbt.topup_at >= COALESCE(mr.sent_at, m.started_at, m.created_at)
                       AND gbt.topup_at < DATE_ADD(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL %s DAY)
                 ), 0) AS topups_after,
@@ -1380,7 +1471,9 @@ def _fetch_campaign_effect_rows(
                 mr.id ASC
             """,
             (
+                BALANCE_TOPUP_MAX_AMOUNT,
                 CRM_CAMPAIGN_EFFECT_DAYS,
+                BALANCE_TOPUP_MAX_AMOUNT,
                 CRM_CAMPAIGN_EFFECT_DAYS,
                 CRM_CAMPAIGN_EFFECT_DAYS,
                 club_id,
@@ -1392,16 +1485,65 @@ def _fetch_campaign_effect_rows(
         return cur.fetchall()
 
 
+def _dedupe_campaign_effect_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    by_guest: Dict[int, Dict[str, Any]] = {}
+    for row in rows:
+        guest_id = row.get("guest_id")
+        if guest_id is None:
+            continue
+
+        guest_id = int(guest_id)
+        current = by_guest.setdefault(guest_id, dict(row))
+        current["delivery_status"] = (
+            "sent"
+            if "sent" in {current.get("delivery_status"), row.get("delivery_status")}
+            else (
+                "failed"
+                if "failed" in {current.get("delivery_status"), row.get("delivery_status")}
+                else current.get("delivery_status")
+            )
+        )
+
+        if current.get("next_visit_at") is None or (
+            row.get("next_visit_at") is not None and row.get("next_visit_at") < current.get("next_visit_at")
+        ):
+            current["next_visit_at"] = row.get("next_visit_at")
+            current["return_delay_days"] = row.get("return_delay_days")
+            current["next_visit_minutes"] = row.get("next_visit_minutes")
+
+        current["topup_amount_after"] = max(
+            float(current.get("topup_amount_after") or 0),
+            float(row.get("topup_amount_after") or 0),
+        )
+        current["topups_after"] = max(int(current.get("topups_after") or 0), int(row.get("topups_after") or 0))
+        current["used_bonus_after"] = max(
+            float(current.get("used_bonus_after") or 0),
+            float(row.get("used_bonus_after") or 0),
+        )
+        if row.get("bonus_status") == "awarded":
+            current["bonus_status"] = "awarded"
+        if row.get("token_status") == "awarded":
+            current["token_status"] = "awarded"
+
+    return list(by_guest.values())
+
+
 def _campaign_effect_summary(base: Dict[str, Any], rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    recipients_count = int(base.get("recipients_count") or len(rows) or 0)
-    delivered_count = sum(1 for row in rows if row.get("delivery_status") == "sent")
-    failed_count = sum(1 for row in rows if row.get("delivery_status") == "failed")
-    visited_count = sum(1 for row in rows if row.get("next_visit_at") is not None)
-    topped_up_count = sum(1 for row in rows if float(row.get("topup_amount_after") or 0) > 0)
-    topup_amount = sum(float(row.get("topup_amount_after") or 0) for row in rows)
-    used_bonus = sum(float(row.get("used_bonus_after") or 0) for row in rows)
-    bonus_spent = int(base.get("bonus_amount") or 0) * sum(1 for row in rows if row.get("bonus_status") == "awarded")
-    token_spent = int(base.get("token_amount") or 0) * sum(1 for row in rows if row.get("token_status") == "awarded")
+    unique_rows = _dedupe_campaign_effect_rows(rows)
+    recipients_count = max(int(base.get("recipients_count") or 0), len(unique_rows))
+    delivered_count = sum(1 for row in unique_rows if row.get("delivery_status") == "sent")
+    failed_count = sum(1 for row in unique_rows if row.get("delivery_status") == "failed")
+    visited_count = sum(1 for row in unique_rows if row.get("next_visit_at") is not None)
+    topped_up_count = sum(1 for row in unique_rows if float(row.get("topup_amount_after") or 0) > 0)
+    topup_amount = sum(float(row.get("topup_amount_after") or 0) for row in unique_rows)
+    used_bonus = sum(float(row.get("used_bonus_after") or 0) for row in unique_rows)
+    bonus_spent = int(base.get("bonus_amount") or 0) * sum(
+        1 for row in unique_rows if row.get("bonus_status") == "awarded"
+    )
+    token_spent = int(base.get("token_amount") or 0) * sum(
+        1 for row in unique_rows if row.get("token_status") == "awarded"
+    )
+    bonus_denominator = used_bonus or bonus_spent
 
     return {
         "window_days": CRM_CAMPAIGN_EFFECT_DAYS,
@@ -1417,7 +1559,7 @@ def _campaign_effect_summary(base: Dict[str, Any], rows: List[Dict[str, Any]]) -
         "visit_conversion": round(visited_count / recipients_count * 100, 1) if recipients_count else 0,
         "topup_conversion": round(topped_up_count / recipients_count * 100, 1) if recipients_count else 0,
         "avg_topup": round(topup_amount / topped_up_count, 2) if topped_up_count else 0,
-        "topup_per_bonus": round(topup_amount / bonus_spent, 2) if bonus_spent else 0,
+        "topup_per_bonus": round(topup_amount / bonus_denominator, 2) if bonus_denominator else 0,
     }
 
 
@@ -1488,12 +1630,19 @@ def get_manual_crm_campaign_passport(
 
     mailing_ids = _campaign_mailing_ids(base)
     effect_rows = _fetch_campaign_effect_rows(conn, club_id, mailing_ids, base.get("giveaway_id"))
-    effect_by_recipient = {int(row.get("recipient_id")): row for row in effect_rows if row.get("recipient_id")}
+    unique_effect_rows = _dedupe_campaign_effect_rows(effect_rows)
+    effect_by_guest = {int(row.get("guest_id")): row for row in unique_effect_rows if row.get("guest_id")}
     summary = _campaign_effect_summary(base, effect_rows)
 
     recipients = []
+    seen_guest_ids = set()
     for row in detail.get("recipients", []):
-        effect = effect_by_recipient.get(int(row.get("recipient_id") or 0), {})
+        guest_id = int(row.get("guest_id") or 0)
+        if guest_id and guest_id in seen_guest_ids:
+            continue
+        if guest_id:
+            seen_guest_ids.add(guest_id)
+        effect = effect_by_guest.get(guest_id, {})
         item = dict(row)
         item["topups_after"] = int(effect.get("topups_after") or 0)
         item["topup_amount_after"] = round(float(effect.get("topup_amount_after") or 0), 2)
@@ -1522,7 +1671,7 @@ def get_manual_crm_campaign_passport(
             },
             {"label": "С визитом", "count": visited_count, "height": max(8, round(visited_count / funnel_max * 100))},
         ],
-        "return_funnel": _return_delay_funnel(effect_rows),
+        "return_funnel": _return_delay_funnel(unique_effect_rows),
         "recipients": recipients,
         "message_text": detail.get("interaction", {}).get("message_text") or base.get("message_text") or "",
     }
@@ -1967,6 +2116,8 @@ def create_bonus_giveaway(
     is_expiring: bool = False,
     expires_after_seconds: int | None = None,
     parse_mode: str = "HTML",
+    recipient_rows: List[Dict[str, Any]] | None = None,
+    filters_json_extra: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Начисляет КБ/жетоны выбранной аудитории и создаёт Telegram-рассылку.
 
@@ -1995,7 +2146,7 @@ def create_bonus_giveaway(
         raise ValueError("Сообщение раздачи пустое")
 
     ensure_bonus_giveaway_tables(conn)
-    recipients = get_recipient_rows(conn, club_id, rules)
+    recipients = list(recipient_rows) if recipient_rows is not None else get_recipient_rows(conn, club_id, rules)
     recipients_count = len(recipients)
     expires_at = (
         datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
@@ -2008,6 +2159,8 @@ def create_bonus_giveaway(
         "is_expiring": bool(is_expiring),
         "expires_after_seconds": expires_after_seconds,
     }
+    if filters_json_extra:
+        filters_json.update(filters_json_extra)
 
     with conn.cursor() as cur:
         cur.execute(
