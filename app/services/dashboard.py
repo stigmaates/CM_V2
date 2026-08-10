@@ -194,6 +194,54 @@ def _get_visit_streak_funnel(cursor, club_id: int, current_start, current_end) -
     ]
 
 
+def _count_guests_with_min_collapsed_visits(
+    cursor, club_id: int, current_start, current_end, min_visits: int = 2
+) -> int:
+    """Count guests with at least N collapsed visits in a period."""
+    cursor.execute(
+        """
+        WITH ordered_sessions AS (
+            SELECT
+                guest_id,
+                date_start,
+                date_stop,
+                LAG(date_stop) OVER (
+                    PARTITION BY guest_id
+                    ORDER BY date_start, date_stop
+                ) AS previous_stop
+            FROM guest_sessions
+            WHERE club_id = %s
+              AND date_start >= %s
+              AND date_start < %s
+              AND date_start IS NOT NULL
+              AND date_stop IS NOT NULL
+        ),
+        visit_flags AS (
+            SELECT
+                guest_id,
+                CASE
+                    WHEN previous_stop IS NULL
+                      OR date_start > DATE_ADD(previous_stop, INTERVAL 2 HOUR)
+                    THEN 1
+                    ELSE 0
+                END AS is_new_visit
+            FROM ordered_sessions
+        ),
+        visits_by_guest AS (
+            SELECT guest_id, SUM(is_new_visit) AS visits_count
+            FROM visit_flags
+            GROUP BY guest_id
+        )
+        SELECT COUNT(*) AS cnt
+        FROM visits_by_guest
+        WHERE visits_count >= %s
+        """,
+        (club_id, current_start, current_end, min_visits),
+    )
+    row = cursor.fetchone() or {}
+    return int(row.get("cnt") or 0)
+
+
 def get_unique_guests_chart(club_id: int, period_days: int):
     conn = get_db_connection()
     try:
@@ -544,39 +592,18 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
             )
             guests_previous = cursor.fetchone()["cnt"] or 0
 
-            cursor.execute(
-                """
-                SELECT COUNT(*) AS cnt
-                FROM (
-                    SELECT guest_id
-                    FROM guest_sessions
-                    WHERE club_id = %s
-                      AND date_start >= %s
-                      AND date_start < %s
-                    GROUP BY guest_id
-                    HAVING COUNT(*) >= 2
-                ) t
-                """,
-                (club_id, current_start, current_end),
+            returned_guests_current = _count_guests_with_min_collapsed_visits(
+                cursor,
+                club_id,
+                current_start,
+                current_end,
             )
-            returned_guests_current = cursor.fetchone()["cnt"] or 0
-
-            cursor.execute(
-                """
-                SELECT COUNT(*) AS cnt
-                FROM (
-                    SELECT guest_id
-                    FROM guest_sessions
-                    WHERE club_id = %s
-                      AND date_start >= %s
-                      AND date_start < %s
-                    GROUP BY guest_id
-                    HAVING COUNT(*) >= 2
-                ) t
-                """,
-                (club_id, previous_start, previous_end),
+            returned_guests_previous = _count_guests_with_min_collapsed_visits(
+                cursor,
+                club_id,
+                previous_start,
+                previous_end,
             )
-            returned_guests_previous = cursor.fetchone()["cnt"] or 0
 
             cursor.execute(
                 """
@@ -1126,6 +1153,15 @@ def _get_case_openings_by_guest(club_id: int, guest_ids=None):
         conn.close()
 
 
+def _has_later_collapsed_visit(guest_sessions, event_at) -> bool:
+    if not event_at:
+        return False
+    return any(
+        visit.get("date_start") and visit["date_start"] > event_at
+        for visit in _collapse_sessions_to_visits(guest_sessions)
+    )
+
+
 def _get_mission_completion_at_from_preloaded(
     guest_id,
     club_id,
@@ -1268,11 +1304,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     wheel_returned_guests = 0
 
     for guest_id, first_spin_at in first_spin_by_guest.items():
-        guest_sessions = sessions_by_guest.get(guest_id, [])
-        returned = any(
-            session_row["date_start"] and session_row["date_start"] > first_spin_at for session_row in guest_sessions
-        )
-        if returned:
+        if _has_later_collapsed_visit(sessions_by_guest.get(guest_id, []), first_spin_at):
             wheel_returned_guests += 1
 
     wheel_engagement_percent = _round_display((wheel_spun_guests / total_guests) * 100) if total_guests > 0 else 0
@@ -1288,12 +1320,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     case_returned_guests = 0
 
     for guest_id, first_case_opened_at in first_case_opening_by_guest.items():
-        guest_sessions = sessions_by_guest.get(guest_id, [])
-        returned = any(
-            session_row["date_start"] and session_row["date_start"] > first_case_opened_at
-            for session_row in guest_sessions
-        )
-        if returned:
+        if _has_later_collapsed_visit(sessions_by_guest.get(guest_id, []), first_case_opened_at):
             case_returned_guests += 1
 
     case_engagement_percent = _round_display((case_opened_guests / total_guests) * 100) if total_guests > 0 else 0
@@ -1330,11 +1357,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
             mission_completed_guests += 1
             first_completion_at = min(completion_dates)
 
-            returned = any(
-                session_row["date_start"] and session_row["date_start"] > first_completion_at
-                for session_row in guest_sessions
-            )
-            if returned:
+            if _has_later_collapsed_visit(guest_sessions, first_completion_at):
                 mission_returned_guests += 1
 
     mission_engagement_percent = (
