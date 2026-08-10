@@ -130,37 +130,69 @@ def get_crm_cohort_analysis(
             JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
             {where_sql}
         ),
-        visit_days AS (
-            SELECT DISTINCT
+        ordered_sessions AS (
+            SELECT
                 gs.club_id,
                 gs.guest_id,
-                DATE(gs.date_start) AS visit_day
+                gs.date_start,
+                gs.date_stop,
+                LAG(gs.date_stop) OVER (
+                    PARTITION BY gs.club_id, gs.guest_id
+                    ORDER BY gs.date_start, gs.date_stop
+                ) AS previous_stop
             FROM guest_sessions gs
             JOIN filtered f ON f.club_id = gs.club_id AND f.guest_id = gs.guest_id
             WHERE gs.date_start IS NOT NULL
+              AND gs.date_stop IS NOT NULL
               {funnel_period_sql}
         ),
-        ranked AS (
+        visit_flags AS (
             SELECT
                 club_id,
                 guest_id,
-                visit_day,
-                ROW_NUMBER() OVER (PARTITION BY club_id, guest_id ORDER BY visit_day) AS rn
-            FROM visit_days
+                date_start,
+                CASE
+                    WHEN previous_stop IS NULL
+                      OR date_start > DATE_ADD(previous_stop, INTERVAL 2 HOUR)
+                    THEN 1
+                    ELSE 0
+                END AS is_new_visit
+            FROM ordered_sessions
+        ),
+        numbered AS (
+            SELECT
+                club_id,
+                guest_id,
+                date_start,
+                SUM(is_new_visit) OVER (
+                    PARTITION BY club_id, guest_id
+                    ORDER BY date_start
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ) AS visit_number
+            FROM visit_flags
+        ),
+        visits AS (
+            SELECT
+                club_id,
+                guest_id,
+                visit_number,
+                MIN(date_start) AS visit_start
+            FROM numbered
+            WHERE visit_number <= 7
+            GROUP BY club_id, guest_id, visit_number
         ),
         per_guest AS (
             SELECT
                 club_id,
                 guest_id,
-                MAX(CASE WHEN rn = 1 THEN visit_day END) AS visit_1,
-                MAX(CASE WHEN rn = 2 THEN visit_day END) AS visit_2,
-                MAX(CASE WHEN rn = 3 THEN visit_day END) AS visit_3,
-                MAX(CASE WHEN rn = 4 THEN visit_day END) AS visit_4,
-                MAX(CASE WHEN rn = 5 THEN visit_day END) AS visit_5,
-                MAX(CASE WHEN rn = 6 THEN visit_day END) AS visit_6,
-                MAX(CASE WHEN rn = 7 THEN visit_day END) AS visit_7
-            FROM ranked
-            WHERE rn <= 7
+                MAX(CASE WHEN visit_number = 1 THEN visit_start END) AS visit_1,
+                MAX(CASE WHEN visit_number = 2 THEN visit_start END) AS visit_2,
+                MAX(CASE WHEN visit_number = 3 THEN visit_start END) AS visit_3,
+                MAX(CASE WHEN visit_number = 4 THEN visit_start END) AS visit_4,
+                MAX(CASE WHEN visit_number = 5 THEN visit_start END) AS visit_5,
+                MAX(CASE WHEN visit_number = 6 THEN visit_start END) AS visit_6,
+                MAX(CASE WHEN visit_number = 7 THEN visit_start END) AS visit_7
+            FROM visits
             GROUP BY club_id, guest_id
         )
         SELECT
@@ -229,9 +261,9 @@ def get_crm_cohort_analysis(
                 "hint": "Сессии с разрывом до 2 часов склеиваются",
             },
             {
-                "label": "Сессий в месяц",
+                "label": "Визитов в месяц",
                 "value": str(_round(metrics_row.get("avg_visits_per_month"), 1)),
-                "hint": "Среднее число сессий на гостя",
+                "hint": "Среднее число склеенных визитов на гостя",
             },
             {
                 "label": "Ночь / день",

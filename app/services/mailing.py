@@ -1219,6 +1219,16 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                     WHERE s.club_id = m.club_id
                       AND s.guest_id = mr.guest_id
                       AND s.date_start > COALESCE(mr.sent_at, m.started_at, m.created_at)
+                      AND s.date_stop IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM guest_sessions prev
+                          WHERE prev.club_id = s.club_id
+                            AND prev.guest_id = s.guest_id
+                            AND prev.date_start < s.date_start
+                            AND prev.date_stop IS NOT NULL
+                            AND s.date_start <= DATE_ADD(prev.date_stop, INTERVAL 2 HOUR)
+                      )
                     ORDER BY s.date_start ASC
                     LIMIT 1
                   )
@@ -1460,7 +1470,17 @@ def _fetch_campaign_effect_rows(
                 WHERE s.club_id = m.club_id
                   AND s.guest_id = mr.guest_id
                   AND s.date_start > COALESCE(mr.sent_at, m.started_at, m.created_at)
+                  AND s.date_stop IS NOT NULL
                   AND s.date_start < DATE_ADD(COALESCE(mr.sent_at, m.started_at, m.created_at), INTERVAL %s DAY)
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM guest_sessions prev
+                      WHERE prev.club_id = s.club_id
+                        AND prev.guest_id = s.guest_id
+                        AND prev.date_start < s.date_start
+                        AND prev.date_stop IS NOT NULL
+                        AND s.date_start <= DATE_ADD(prev.date_stop, INTERVAL 2 HOUR)
+                  )
                 ORDER BY s.date_start ASC
                 LIMIT 1
               )
