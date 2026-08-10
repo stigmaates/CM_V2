@@ -91,11 +91,16 @@
                                     <span>{{ group.new_label }}</span>
                                 </div>
                                 <div class="crm-pulse-count">
-                                    {{ group.total_count }} гостей · {{ group.telegram_count }} с Telegram
+                                    {{ group.total_count }} гостей с Telegram
                                 </div>
                             </div>
                             {% if group.recent_auto_count %}
-                                <span class="crm-pulse-warning" title="{{ group.recent_auto_count }} гостям недавно уже уходила авторассылка">!</span>
+                                <span class="crm-pulse-warning" tabindex="0" aria-label="{{ group.recent_auto_count }} гостям недавно уже уходила авторассылка">
+                                    !
+                                    <span class="crm-pulse-tooltip">
+                                        {{ group.recent_auto_count }} гостям недавно уже уходила авторассылка. Проверь сообщение перед повторным контактом.
+                                    </span>
+                                </span>
                             {% endif %}
                         </div>
                         <div class="crm-pulse-guests">
@@ -103,7 +108,12 @@
                                 <div class="crm-pulse-guest">
                                     <span>{{ guest.card_label or guest.first_name or guest.fio or ("#" ~ guest.guest_id) }}</span>
                                     {% if guest.recent_auto_mailing_title %}
-                                        <i title='Недавно была авторассылка "{{ guest.recent_auto_mailing_title }}"'>!</i>
+                                        <i class="crm-pulse-warning" tabindex="0" aria-label='Недавно была авторассылка "{{ guest.recent_auto_mailing_title }}"'>
+                                            !
+                                            <span class="crm-pulse-tooltip">
+                                                Недавно была авторассылка «{{ guest.recent_auto_mailing_title }}».
+                                            </span>
+                                        </i>
                                     {% endif %}
                                 </div>
                             {% endfor %}

@@ -1374,6 +1374,7 @@ body {
 .crm-pulse-warning,
 .crm-pulse-guest i,
 .crm-pulse-recipient-row i {
+    position: relative;
     display: inline-grid;
     place-items: center;
     width: 24px;
@@ -1385,6 +1386,42 @@ body {
     font-size: 13px;
     font-weight: 950;
     cursor: help;
+}
+
+.crm-pulse-tooltip {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    z-index: 50;
+    display: block;
+    width: max-content;
+    max-width: 260px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 202, 92, 0.28);
+    border-radius: 12px;
+    background: rgba(18, 8, 34, 0.98);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.34);
+    color: rgba(255, 242, 207, 0.94);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+    text-align: left;
+    white-space: normal;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.crm-pulse-warning:hover .crm-pulse-tooltip,
+.crm-pulse-warning:focus .crm-pulse-tooltip,
+.crm-pulse-warning:focus-within .crm-pulse-tooltip,
+.crm-pulse-guest i:hover .crm-pulse-tooltip,
+.crm-pulse-guest i:focus .crm-pulse-tooltip,
+.crm-pulse-recipient-row i:hover .crm-pulse-tooltip,
+.crm-pulse-recipient-row i:focus .crm-pulse-tooltip {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .crm-pulse-guests {
