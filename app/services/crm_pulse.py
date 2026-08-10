@@ -279,6 +279,7 @@ def get_crm_pulse_groups(conn, club_id: int) -> List[Dict[str, Any]]:
             LEFT JOIN user_portrait up
               ON up.club_id = c.club_id
              AND up.guest_id = c.guest_id
+            WHERE g.telegram_id IS NOT NULL
             ORDER BY c.changed_at DESC
             LIMIT 500
             """,
