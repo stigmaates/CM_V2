@@ -544,7 +544,14 @@ function crmRenderPulseRecipients(group) {
     `;
     crmPulseRecipientList.innerHTML = guests.map((guest) => {
         const warning = guest.recent_auto_mailing_title
-            ? `<i title="Недавно была авторассылка &quot;${crmEscapeHtml(guest.recent_auto_mailing_title)}&quot;">!</i>`
+            ? `
+                <i class="crm-pulse-warning" tabindex="0" aria-label="Недавно была авторассылка ${crmEscapeHtml(guest.recent_auto_mailing_title)}">
+                    !
+                    <span class="crm-pulse-tooltip">
+                        Недавно была авторассылка «${crmEscapeHtml(guest.recent_auto_mailing_title)}».
+                    </span>
+                </i>
+            `
             : "";
         const telegramLabel = guest.has_telegram ? "Telegram есть" : "без Telegram";
         return `
