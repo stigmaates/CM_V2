@@ -3,18 +3,26 @@ from decimal import Decimal
 
 import app.services.mailing as mailing_service
 from app.services.mailing import build_where_clause, render_message_template
+from scripts.process_auto_mailings import _format_streak_reminder_message
 
 
 def test_render_message_template_replaces_guest_metrics():
-    text = "{first_name}, привет! У тебя {sessions_30d} сессий, {cm_bonus_balance} КБ и {token_balance} жет."
+    text = (
+        "{first_name}, привет! У тебя {sessions_30d} сессий, {cm_bonus_balance} КБ, "
+        "{token_balance} жет. и {case_openings_count} открытий кейсов."
+    )
     recipient = {
         "fio": "Дмитрий Антонович Морозов",
         "sessions_30d": 7,
         "cm_bonus_balance": Decimal("150.00"),
         "token_balance": 3,
+        "case_openings_count": 4,
     }
 
-    assert render_message_template(text, recipient) == "Дмитрий, привет! У тебя 7 сессий, 150 КБ и 3 жет."
+    assert (
+        render_message_template(text, recipient)
+        == "Дмитрий, привет! У тебя 7 сессий, 150 КБ, 3 жет. и 4 открытий кейсов."
+    )
 
 
 def test_render_message_template_detects_first_name_in_surname_first_fio():
@@ -28,12 +36,39 @@ def test_render_message_template_replaces_club_name_and_keeps_unknown_variables(
     )
 
 
+def test_streak_reminder_template_replaces_common_and_streak_variables():
+    template = (
+        "Привет, {first_name}! У тебя в {club_name} стрик из дней — {streak_days}.\n"
+        "Приди еще раз до {date} и получи {next_reward} жетонов."
+    )
+    candidate = {
+        "fio": "Морозов Дмитрий Антонович",
+        "club_name": "WALLZ",
+        "streak_days": 4,
+        "cycle_end": "2026-08-14",
+        "next_reward": 5,
+    }
+
+    assert (
+        _format_streak_reminder_message(template, candidate)
+        == "Привет, Дмитрий! У тебя в WALLZ стрик из дней — 4.\nПриди еще раз до 2026-08-14 и получи 5 жетонов."
+    )
+
+
 def test_mailing_recipients_require_real_telegram_id_not_cached_portrait_flag():
     where_sql, params = build_where_clause(1, [])
 
     assert "g.telegram_id IS NOT NULL" in where_sql
     assert "up.has_telegram = 1" not in where_sql
     assert params == [1]
+
+
+def test_case_openings_count_is_available_as_number_filter():
+    field = mailing_service.FILTER_FIELDS["case_openings_count"]
+
+    assert field["type"] == "number"
+    assert field["label"] == "Количество открытий кейсов"
+    assert "guest_case_openings" in field["column"]
 
 
 def test_bonus_giveaway_recipient_insert_has_placeholder_for_token_error_text():

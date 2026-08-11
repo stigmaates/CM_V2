@@ -189,6 +189,12 @@ def get_first_visit_survey_candidates(
                       AND gs90.guest_id = gs.guest_id
                       AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
                 ) AS sessions_90d,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_case_openings gco
+                    WHERE gco.club_id = gs.club_id
+                      AND gco.guest_id = gs.guest_id
+                ) AS case_openings_count,
                 COUNT(gs_all.id) AS sessions_count
             FROM guest_sessions gs
             JOIN guests g

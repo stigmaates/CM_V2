@@ -124,6 +124,14 @@ FILTER_FIELDS = {
         "label": "Последняя активность по миссиям",
     },
     "spins_count": {"type": "number", "column": "up.spins_count", "label": "Количество прокрутов"},
+    "case_openings_count": {
+        "type": "number",
+        "column": (
+            "(SELECT COUNT(*) FROM guest_case_openings gco "
+            "WHERE gco.club_id = up.club_id AND gco.guest_id = up.guest_id)"
+        ),
+        "label": "Количество открытий кейсов",
+    },
     "last_spin_date": {"type": "date", "column": "up.last_spin_date", "label": "Последний прокрут"},
     "lifetime_days": {"type": "number", "column": "up.lifetime_days", "label": "Дней с первого визита"},
     "avg_days_between_visits": {
@@ -183,6 +191,30 @@ MESSAGE_VARIABLES = [
         "label": "Сессии за 90 дней",
         "token": "{sessions_90d}",
         "description": "Сырые Langame-сессии",
+    },
+    {
+        "key": "case_openings_count",
+        "label": "Открытий кейсов",
+        "token": "{case_openings_count}",
+        "description": "Сколько раз гость открывал кейсы",
+    },
+    {
+        "key": "streak_days",
+        "label": "Дней стрика",
+        "token": "{streak_days}",
+        "description": "Текущая длина недельной серии",
+    },
+    {
+        "key": "date",
+        "label": "Дата сгорания",
+        "token": "{date}",
+        "description": "Дата, до которой нужно продлить серию",
+    },
+    {
+        "key": "next_reward",
+        "label": "Следующая награда",
+        "token": "{next_reward}",
+        "description": "Сколько жетонов даст следующий день серии",
     },
 ]
 
@@ -488,7 +520,13 @@ def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[
                 WHERE gs90.club_id = up.club_id
                   AND gs90.guest_id = up.guest_id
                   AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
-            ) AS sessions_90d
+            ) AS sessions_90d,
+            (
+                SELECT COUNT(*)
+                FROM guest_case_openings gco
+                WHERE gco.club_id = up.club_id
+                  AND gco.guest_id = up.guest_id
+            ) AS case_openings_count
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         JOIN clubs c ON c.club_id = up.club_id
@@ -543,7 +581,13 @@ def get_recipient_rows_for_guest_ids(conn, club_id: int, guest_ids: List[int]) -
                 WHERE gs90.club_id = g.club_id
                   AND gs90.guest_id = g.guest_id
                   AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
-            ) AS sessions_90d
+            ) AS sessions_90d,
+            (
+                SELECT COUNT(*)
+                FROM guest_case_openings gco
+                WHERE gco.club_id = g.club_id
+                  AND gco.guest_id = g.guest_id
+            ) AS case_openings_count
         FROM guests g
         JOIN clubs c ON c.club_id = g.club_id
         LEFT JOIN cm_bonus_balances cbb
@@ -615,6 +659,10 @@ def render_message_template(message_text: str, recipient: Dict[str, Any]) -> str
         "sessions_7d": recipient.get("sessions_7d") or 0,
         "sessions_30d": recipient.get("sessions_30d") or 0,
         "sessions_90d": recipient.get("sessions_90d") or 0,
+        "case_openings_count": recipient.get("case_openings_count") or 0,
+        "streak_days": recipient.get("streak_days") or 0,
+        "date": recipient.get("date") or "",
+        "next_reward": recipient.get("next_reward") or 0,
     }
 
     def replace(match):
@@ -1947,7 +1995,13 @@ def get_inactive_auto_mailing_recipients(
                 WHERE gs90.club_id = up.club_id
                   AND gs90.guest_id = up.guest_id
                   AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
-            ) AS sessions_90d
+            ) AS sessions_90d,
+            (
+                SELECT COUNT(*)
+                FROM guest_case_openings gco
+                WHERE gco.club_id = up.club_id
+                  AND gco.guest_id = up.guest_id
+            ) AS case_openings_count
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
         JOIN clubs c ON c.club_id = up.club_id
