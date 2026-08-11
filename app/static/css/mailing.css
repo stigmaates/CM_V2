@@ -1240,6 +1240,7 @@
 
 .auto-mailing-card__content {
     min-width: 0;
+    width: 100%;
 }
 
 .auto-mailing-settings {
@@ -1258,7 +1259,17 @@
     font-weight: 800;
 }
 
-.auto-mailing-field input {
+.auto-mailing-field--full {
+    max-width: 760px;
+    margin-top: 12px;
+}
+
+.auto-mailing-card__content > .auto-mailing-field--full:first-child {
+    margin-top: 0;
+}
+
+.auto-mailing-field input,
+.auto-mailing-field textarea {
     width: 100%;
     border: 1px solid rgba(143, 91, 255, 0.28);
     border-radius: 12px;
@@ -1270,7 +1281,19 @@
     font-weight: 800;
 }
 
-.auto-mailing-field input:focus {
+.auto-mailing-field textarea {
+    min-height: 68px;
+    resize: vertical;
+    line-height: 1.45;
+    font-weight: 700;
+}
+
+.auto-mailing-message-text {
+    min-height: 150px;
+}
+
+.auto-mailing-field input:focus,
+.auto-mailing-field textarea:focus {
     border-color: rgba(143, 91, 255, 0.76);
     box-shadow: 0 0 0 3px rgba(143, 91, 255, 0.14);
 }
@@ -1294,7 +1317,9 @@
 }
 
 .auto-mailing-save:disabled,
-.auto-mailing-field input:disabled {
+.auto-mailing-field input:disabled,
+.auto-mailing-field textarea:disabled,
+.auto-mailing-field select:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
@@ -1310,17 +1335,8 @@
     color: #ffb0b0;
 }
 
-.auto-mailing-card__message {
-    margin-top: 12px;
-    max-width: 620px;
-    color: var(--text-main);
-    font-size: 14px;
-    line-height: 1.45;
-    white-space: pre-line;
-    border: 1px solid rgba(143, 91, 255, 0.18);
-    border-radius: 14px;
-    padding: 12px;
-    background: rgba(8, 4, 18, 0.38);
+.auto-mailing-message-field .message-variable-picker {
+    margin-bottom: 2px;
 }
 
 .toggle-switch {

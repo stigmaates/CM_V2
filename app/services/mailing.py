@@ -12,43 +12,6 @@ from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.wheel import _add_token_transaction, ensure_token_tables
 
-AUTO_MAILING_DEFAULTS = {
-    "inactive_14_bonus": {
-        "title": "Вернуть гостей после неактива",
-        "description": "Автоматически отправляет сообщение гостям, которых не было в клубе заданное количество дней.",
-        "message_text": (
-            "Привет! Тебя давно не было в клубе 😔\n\n"
-            "Мы начислили тебе 200 бонусов на 7 дней — приходи играть, будем ждать!"
-        ),
-        "days_inactive": 14,
-        "bonus_amount": 200,
-        "repeat_after_days": 30,
-    },
-    "first_visit_survey": {
-        "title": "Опрос после первого визита",
-        "description": "Через 20 минут после завершения первой сессии предлагает гостю пройти короткий опрос и получить бонусы.",
-        "message_text": (
-            "Спасибо за визит! 🙌\n\n"
-            "Начислим еще 100 бонусов для твоего второго визита — "
-            "ответь на два простых вопроса, это помогает нам стать лучше 😁"
-        ),
-        "days_inactive": 1,
-        "bonus_amount": 100,
-        "repeat_after_days": 3650,
-    },
-    "streak_expiring_reminder": {
-        "title": "Напоминание о стрике",
-        "description": "За 3 дня до сгорания стрика 2+ дней напоминает гостю прийти ещё раз и получить жетоны для колеса.",
-        "message_text": (
-            "Привет! У тебя в {club_name} стрик из дней — {streak_days}. "
-            "Приди еще раз до {date} и получи {next_reward} жетонов для колеса фортуны!"
-        ),
-        "days_inactive": 3,
-        "bonus_amount": 1,
-        "repeat_after_days": 7,
-    },
-}
-
 CRM_SEGMENT_OPTIONS = [
     {
         "key": "top",
@@ -188,6 +151,7 @@ FILTER_FIELDS = {
 }
 
 MESSAGE_VARIABLES = [
+    {"key": "club_name", "label": "Название клуба", "token": "{club_name}", "description": "Название текущего клуба"},
     {"key": "first_name", "label": "Имя", "token": "{first_name}", "description": "Первое слово из ФИО"},
     {"key": "fio", "label": "ФИО", "token": "{fio}", "description": "Полное имя гостя"},
     {
@@ -245,6 +209,7 @@ AUTO_MAILING_DEFAULTS = {
         ),
         "days_inactive": 14,
         "bonus_amount": 200,
+        "delay_minutes": None,
         "repeat_after_days": 30,
     },
     "first_visit_survey": {
@@ -257,6 +222,7 @@ AUTO_MAILING_DEFAULTS = {
         ),
         "days_inactive": 1,
         "bonus_amount": 100,
+        "delay_minutes": 20,
         "repeat_after_days": 3650,
     },
     "streak_expiring_reminder": {
@@ -268,6 +234,7 @@ AUTO_MAILING_DEFAULTS = {
         ),
         "days_inactive": 3,
         "bonus_amount": 1,
+        "delay_minutes": None,
         "repeat_after_days": 7,
     },
 }
@@ -498,6 +465,7 @@ def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[
             up.guest_id,
             g.telegram_id,
             g.fio,
+            c.name AS club_name,
             COALESCE(cbb.balance, 0) AS cm_bonus_balance,
             COALESCE(gwtb.balance, 0) AS token_balance,
             (
@@ -523,6 +491,7 @@ def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[
             ) AS sessions_90d
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
+        JOIN clubs c ON c.club_id = up.club_id
         LEFT JOIN cm_bonus_balances cbb
           ON cbb.club_id = up.club_id
          AND cbb.guest_id = up.guest_id
@@ -551,6 +520,7 @@ def get_recipient_rows_for_guest_ids(conn, club_id: int, guest_ids: List[int]) -
             g.guest_id,
             g.telegram_id,
             g.fio,
+            c.name AS club_name,
             COALESCE(cbb.balance, 0) AS cm_bonus_balance,
             COALESCE(gwtb.balance, 0) AS token_balance,
             (
@@ -575,6 +545,7 @@ def get_recipient_rows_for_guest_ids(conn, club_id: int, guest_ids: List[int]) -
                   AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
             ) AS sessions_90d
         FROM guests g
+        JOIN clubs c ON c.club_id = g.club_id
         LEFT JOIN cm_bonus_balances cbb
           ON cbb.club_id = g.club_id
          AND cbb.guest_id = g.guest_id
@@ -634,6 +605,7 @@ def _format_variable_value(value: Any) -> str:
 def render_message_template(message_text: str, recipient: Dict[str, Any]) -> str:
     values = {
         "fio": recipient.get("fio") or "",
+        "club_name": recipient.get("club_name") or "",
         "name": _first_name(recipient.get("fio")),
         "first_name": _first_name(recipient.get("fio")),
         "cm_bonus_balance": recipient.get("cm_bonus_balance") or 0,
@@ -1759,6 +1731,7 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                 message_text TEXT NOT NULL,
                 days_inactive INT NOT NULL DEFAULT 14,
                 bonus_amount INT NOT NULL DEFAULT 200,
+                delay_minutes INT NULL,
                 repeat_after_days INT NOT NULL DEFAULT 30,
                 is_enabled TINYINT(1) NOT NULL DEFAULT 0,
                 last_run_at DATETIME NULL,
@@ -1772,6 +1745,7 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
             """)
         _ensure_auto_mailing_column(cur, "days_inactive", "INT NOT NULL DEFAULT 14")
         _ensure_auto_mailing_column(cur, "bonus_amount", "INT NOT NULL DEFAULT 200")
+        _ensure_auto_mailing_column(cur, "delay_minutes", "INT NULL")
         _ensure_auto_mailing_column(cur, "repeat_after_days", "INT NOT NULL DEFAULT 30")
         _ensure_auto_mailing_column(cur, "last_run_at", "DATETIME NULL")
         _ensure_auto_mailing_column(cur, "last_mailing_id", "INT NULL")
@@ -1787,14 +1761,13 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                     message_text,
                     days_inactive,
                     bonus_amount,
+                    delay_minutes,
                     repeat_after_days,
                     is_enabled
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0)
                 ON DUPLICATE KEY UPDATE
-                    title = VALUES(title),
-                    description = VALUES(description),
-                    updated_at = NOW()
+                    id = id
                 """,
                 (
                     club_id,
@@ -1804,41 +1777,10 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                     defaults["message_text"],
                     defaults["days_inactive"],
                     defaults["bonus_amount"],
+                    defaults.get("delay_minutes"),
                     defaults["repeat_after_days"],
                 ),
             )
-
-
-def _build_inactive_auto_message(bonus_amount: int) -> str:
-    bonus_amount = int(bonus_amount or 0)
-    return (
-        "Привет! Тебя давно не было в клубе 😔\n\n"
-        f"Мы начислили тебе {bonus_amount} бонусов — приходи играть, будем ждать!"
-    )
-
-
-def _build_first_visit_survey_message(bonus_amount: int) -> str:
-    bonus_amount = int(bonus_amount or 0)
-    return (
-        "Спасибо за визит! 🙌\n\n"
-        f"Начислим еще {bonus_amount} бонусов для твоего второго визита, если ответишь на 2 простых вопроса! "
-        "Это займет всего 20с и очень поможет нам стать лучше 😁"
-    )
-
-
-def _build_streak_expiring_message(_: int = 0) -> str:
-    return (
-        "Привет! У тебя в {club_name} стрик из дней — {streak_days}. 🔥\n\n"
-        "Приди еще раз до {date} и получи {next_reward} 🪙 жетонов для колеса фортуны!"
-    )
-
-
-def _build_auto_mailing_message(code: str, bonus_amount: int) -> str:
-    if code == "first_visit_survey":
-        return _build_first_visit_survey_message(bonus_amount)
-    if code == "streak_expiring_reminder":
-        return _build_streak_expiring_message(bonus_amount)
-    return _build_inactive_auto_message(bonus_amount)
 
 
 def list_auto_mailings(conn, club_id: int):
@@ -1856,6 +1798,7 @@ def list_auto_mailings(conn, club_id: int):
                 message_text,
                 days_inactive,
                 bonus_amount,
+                delay_minutes,
                 repeat_after_days,
                 is_enabled,
                 last_run_at,
@@ -1881,6 +1824,10 @@ def update_auto_mailing_settings(
     is_enabled: bool | None = None,
     days_inactive: int | None = None,
     bonus_amount: int | None = None,
+    delay_minutes: int | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    message_text: str | None = None,
 ) -> Dict[str, Any] | None:
     """Обновляет настройки авторассылки и возвращает актуальную запись."""
     ensure_auto_mailings(conn, club_id)
@@ -1897,12 +1844,27 @@ def update_auto_mailing_settings(
         fields.append("days_inactive = %s")
         params.append(days_inactive)
 
+    if delay_minutes is not None:
+        delay_minutes = max(int(delay_minutes or 0), 1)
+        fields.append("delay_minutes = %s")
+        params.append(delay_minutes)
+
     if bonus_amount is not None:
         bonus_amount = max(int(bonus_amount or 0), 1)
         fields.append("bonus_amount = %s")
         params.append(bonus_amount)
+
+    if title is not None:
+        fields.append("title = %s")
+        params.append(title.strip()[:255])
+
+    if description is not None:
+        fields.append("description = %s")
+        params.append(description.strip())
+
+    if message_text is not None:
         fields.append("message_text = %s")
-        params.append(_build_auto_mailing_message(code, bonus_amount))
+        params.append(message_text.strip())
 
     if not fields:
         fields.append("updated_at = NOW()")
@@ -1934,6 +1896,7 @@ def update_auto_mailing_settings(
                 message_text,
                 days_inactive,
                 bonus_amount,
+                delay_minutes,
                 repeat_after_days,
                 is_enabled,
                 last_run_at,
@@ -1959,9 +1922,41 @@ def get_inactive_auto_mailing_recipients(
     sql = """
         SELECT
             up.guest_id,
-            g.telegram_id
+            g.telegram_id,
+            g.fio,
+            c.name AS club_name,
+            COALESCE(cbb.balance, 0) AS cm_bonus_balance,
+            COALESCE(gwtb.balance, 0) AS token_balance,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs7
+                WHERE gs7.club_id = up.club_id
+                  AND gs7.guest_id = up.guest_id
+                  AND gs7.date_start >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ) AS sessions_7d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs30
+                WHERE gs30.club_id = up.club_id
+                  AND gs30.guest_id = up.guest_id
+                  AND gs30.date_start >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            ) AS sessions_30d,
+            (
+                SELECT COUNT(*)
+                FROM guest_sessions gs90
+                WHERE gs90.club_id = up.club_id
+                  AND gs90.guest_id = up.guest_id
+                  AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+            ) AS sessions_90d
         FROM user_portrait up
         JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
+        JOIN clubs c ON c.club_id = up.club_id
+        LEFT JOIN cm_bonus_balances cbb
+          ON cbb.club_id = up.club_id
+         AND cbb.guest_id = up.guest_id
+        LEFT JOIN guest_wheel_token_balances gwtb
+          ON gwtb.club_id = up.club_id
+         AND gwtb.guest_id = up.guest_id
         WHERE up.club_id = %s
           AND g.telegram_id IS NOT NULL
           AND up.days_since_last_visit >= %s
@@ -1975,6 +1970,8 @@ def get_inactive_auto_mailing_recipients(
           )
     """
     with conn.cursor() as cur:
+        ensure_cm_bonus_tables(cur)
+        ensure_token_tables(cur)
         cur.execute(sql, (club_id, days_inactive, automation_code, repeat_after_days))
         return cur.fetchall()
 

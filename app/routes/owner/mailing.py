@@ -194,6 +194,27 @@ def api_auto_mailing_toggle(code):
         if bonus_amount > 1000000:
             return jsonify({"ok": False, "error": "Слишком большое количество бонусов"}), 400
 
+    delay_minutes = None
+    if "delay_minutes" in data:
+        try:
+            delay_minutes = int(data.get("delay_minutes") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Задержка отправки должна быть числом"}), 400
+        if delay_minutes < 1:
+            return jsonify({"ok": False, "error": "Задержка отправки должна быть больше 0"}), 400
+        if delay_minutes > 10080:
+            return jsonify({"ok": False, "error": "Слишком большая задержка отправки"}), 400
+
+    title = (data.get("title") or "").strip() if "title" in data else None
+    if title is not None and not title:
+        return jsonify({"ok": False, "error": "Укажи название авторассылки"}), 400
+
+    description = (data.get("description") or "").strip() if "description" in data else None
+
+    message_text = (data.get("message_text") or "").strip() if "message_text" in data else None
+    if message_text is not None and not message_text:
+        return jsonify({"ok": False, "error": "Сообщение пустое"}), 400
+
     conn = get_db_connection()
     try:
         updated = update_auto_mailing_settings(
@@ -203,6 +224,10 @@ def api_auto_mailing_toggle(code):
             is_enabled=is_enabled,
             days_inactive=days_inactive,
             bonus_amount=bonus_amount,
+            delay_minutes=delay_minutes,
+            title=title,
+            description=description,
+            message_text=message_text,
         )
         conn.commit()
     finally:
