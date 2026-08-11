@@ -220,8 +220,6 @@ def api_crm_pulse_interact():
     is_expiring = bool(data.get("is_expiring"))
     expires_after_seconds = None
     if is_expiring:
-        if bonus_amount <= 0:
-            return jsonify({"ok": False, "error": "Сгорающий бонус можно включить только для КБ"}), 400
         try:
             expires_value = int(data.get("expires_value") or 0)
         except (TypeError, ValueError):
@@ -229,7 +227,7 @@ def api_crm_pulse_interact():
         unit_seconds = {"minutes": 60, "hours": 60 * 60, "days": 24 * 60 * 60}
         expires_unit = (data.get("expires_unit") or "days").strip()
         if expires_value < 1 or expires_unit not in unit_seconds:
-            return jsonify({"ok": False, "error": "Укажи корректный срок сгорания"}), 400
+            return jsonify({"ok": False, "error": "Укажи корректный срок сгорания раздачи"}), 400
         expires_after_seconds = expires_value * unit_seconds[expires_unit]
 
     conn = get_db_connection()

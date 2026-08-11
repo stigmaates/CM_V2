@@ -1,0 +1,61 @@
+"""Add expiring wheel token grants."""
+
+revision = "0013_expiring_wheel_tokens"
+
+
+def _column_exists(cursor, table_name: str, column_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND COLUMN_NAME = %s
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone() or {}
+    return int(row.get("cnt") or 0) > 0
+
+
+def _index_exists(cursor, table_name: str, index_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND INDEX_NAME = %s
+        """,
+        (table_name, index_name),
+    )
+    row = cursor.fetchone() or {}
+    return int(row.get("cnt") or 0) > 0
+
+
+def _add_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
+    if not _column_exists(cursor, table_name, column_name):
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
+
+
+def upgrade(cursor) -> None:
+    _add_column(cursor, "guest_wheel_token_transactions", "expires_at", "DATETIME NULL AFTER description")
+    _add_column(
+        cursor,
+        "guest_wheel_token_transactions",
+        "expires_status",
+        "VARCHAR(30) NOT NULL DEFAULT 'none' AFTER expires_at",
+    )
+    _add_column(cursor, "guest_wheel_token_transactions", "expired_at", "DATETIME NULL AFTER expires_status")
+    _add_column(
+        cursor,
+        "guest_wheel_token_transactions",
+        "expiration_transaction_id",
+        "INT NULL AFTER expired_at",
+    )
+
+    if not _index_exists(cursor, "guest_wheel_token_transactions", "idx_guest_wheel_token_expiration"):
+        cursor.execute("""
+            ALTER TABLE guest_wheel_token_transactions
+            ADD KEY idx_guest_wheel_token_expiration (expires_status, expires_at)
+            """)
