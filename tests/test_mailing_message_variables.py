@@ -89,6 +89,15 @@ def test_bonus_giveaway_supports_expiring_bonus_columns():
     assert any("is_expiring" in value for value in constants)
     assert any("expires_after_seconds" in value for value in constants)
     assert any("expires_at" in value for value in constants)
+    assert not any("только для раздачи КБ" in value for value in constants)
+
+
+def test_bonus_giveaway_expiring_supports_token_transactions():
+    constants = [value for value in mailing_service.create_bonus_giveaway.__code__.co_consts if isinstance(value, str)]
+
+    assert any("token_amount" in value for value in constants)
+    assert any("Раздача жетонов" in value for value in constants)
+    assert any("expires_at" in value and "token_transaction_status" in value for value in constants)
 
 
 def test_auto_mailings_support_editable_delay_and_message_templates():

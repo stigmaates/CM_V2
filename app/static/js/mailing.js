@@ -447,13 +447,8 @@ async function createBonusGiveaway() {
         return;
     }
 
-    if (isExpiring && bonusAmount <= 0) {
-        alert("Сгорающий бонус можно включить только для КБ");
-        return;
-    }
-
     if (isExpiring && (!Number.isFinite(expiresValue) || expiresValue < 1)) {
-        alert("Укажи срок сгорания бонуса больше 0");
+        alert("Укажи срок сгорания раздачи больше 0");
         return;
     }
 

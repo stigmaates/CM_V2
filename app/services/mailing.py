@@ -2236,12 +2236,10 @@ def create_bonus_giveaway(
         raise ValueError("Количество жетонов не может быть отрицательным")
     if bonus_amount <= 0 and token_amount <= 0:
         raise ValueError("Укажи бонусы или жетоны больше 0")
-    if is_expiring and bonus_amount <= 0:
-        raise ValueError("Сгорающий бонус можно включить только для раздачи КБ")
     if is_expiring:
         expires_after_seconds = int(expires_after_seconds or 0)
         if expires_after_seconds <= 0:
-            raise ValueError("Укажи срок сгорания бонуса")
+            raise ValueError("Укажи срок сгорания раздачи")
     else:
         expires_after_seconds = None
 
@@ -2341,6 +2339,7 @@ def create_bonus_giveaway(
                         source_type="bonus_giveaway",
                         source_id=str(giveaway_id),
                         description=f"Раздача жетонов #{giveaway_id}",
+                        expires_at=expires_at,
                     )
                     if token_awarded:
                         token_awarded_count += 1
@@ -2382,7 +2381,7 @@ def create_bonus_giveaway(
                     telegram_id,
                     bonus_amount,
                     token_amount,
-                    expires_at if status == "awarded" else None,
+                    expires_at if status == "awarded" or token_status == "awarded" else None,
                     status,
                     token_status,
                     error_text,

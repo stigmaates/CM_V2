@@ -12,6 +12,7 @@ from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
+from app.services.wheel import _add_token_transaction, ensure_token_tables
 
 
 def _guest_visited_after_grant(cursor, grant: dict) -> bool:
@@ -49,21 +50,45 @@ def _current_bonus_balance(cursor, club_id: int, guest_id: int) -> int:
     return int(row.get("balance") or 0)
 
 
+def _current_token_balance(cursor, club_id: int, guest_id: int) -> int:
+    cursor.execute(
+        """
+        SELECT balance
+        FROM guest_wheel_token_balances
+        WHERE club_id = %s AND guest_id = %s
+        FOR UPDATE
+        """,
+        (club_id, guest_id),
+    )
+    row = cursor.fetchone() or {}
+    return int(row.get("balance") or 0)
+
+
 def process_expiring_bonuses(limit: int = 500) -> dict:
     conn = get_db_connection()
     job_id = None
     try:
         with conn.cursor() as cur:
             ensure_cm_bonus_tables(cur)
+            ensure_token_tables(cur)
         conn.commit()
 
         with job_lock("process_expiring_bonuses", club_id=0, ttl_minutes=10) as lock:
             if not lock.acquired:
-                return {"status": "skipped", "reason": "lock_active", "expired": 0, "kept": 0}
+                return {
+                    "status": "skipped",
+                    "reason": "lock_active",
+                    "expired": 0,
+                    "kept": 0,
+                    "token_expired": 0,
+                    "token_kept": 0,
+                }
 
             job_id = start_job_run("process_expiring_bonuses", club_id=0)
             expired = 0
             kept = 0
+            token_expired = 0
+            token_kept = 0
 
             with conn.cursor() as cur:
                 cur.execute(
@@ -157,14 +182,111 @@ def process_expiring_bonuses(limit: int = 500) -> dict:
                     expired += 1
                     conn.commit()
 
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        club_id,
+                        guest_id,
+                        amount,
+                        created_at,
+                        expires_at,
+                        description,
+                        expires_status
+                    FROM guest_wheel_token_transactions
+                    WHERE amount > 0
+                      AND expires_status = 'active'
+                      AND expires_at IS NOT NULL
+                      AND expires_at <= NOW()
+                    ORDER BY expires_at ASC, id ASC
+                    LIMIT %s
+                    """,
+                    (int(limit),),
+                )
+                token_grants = cur.fetchall()
+
+            for grant in token_grants:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            id,
+                            club_id,
+                            guest_id,
+                            amount,
+                            created_at,
+                            expires_at,
+                            description,
+                            expires_status
+                        FROM guest_wheel_token_transactions
+                        WHERE id = %s
+                        FOR UPDATE
+                        """,
+                        (grant["id"],),
+                    )
+                    locked_grant = cur.fetchone()
+                    if not locked_grant or locked_grant.get("expires_status") != "active":
+                        conn.commit()
+                        continue
+
+                    if _guest_visited_after_grant(cur, locked_grant):
+                        cur.execute(
+                            """
+                            UPDATE guest_wheel_token_transactions
+                            SET expires_status = 'kept',
+                                expired_at = NOW()
+                            WHERE id = %s
+                            """,
+                            (locked_grant["id"],),
+                        )
+                        token_kept += 1
+                        conn.commit()
+                        continue
+
+                    balance = _current_token_balance(cur, int(locked_grant["club_id"]), int(locked_grant["guest_id"]))
+                    burn_amount = min(int(locked_grant["amount"] or 0), balance)
+                    expiration_transaction_id = None
+                    if burn_amount > 0:
+                        added = _add_token_transaction(
+                            cursor=cur,
+                            guest_id=int(locked_grant["guest_id"]),
+                            club_id=int(locked_grant["club_id"]),
+                            amount=-burn_amount,
+                            source_type="token_expiration",
+                            source_id=str(locked_grant["id"]),
+                            description=f"Сгорели жетоны #{locked_grant['id']}",
+                        )
+                        if added:
+                            expiration_transaction_id = cur.lastrowid
+
+                    cur.execute(
+                        """
+                        UPDATE guest_wheel_token_transactions
+                        SET expires_status = 'expired',
+                            expired_at = NOW(),
+                            expiration_transaction_id = %s
+                        WHERE id = %s
+                        """,
+                        (expiration_transaction_id, locked_grant["id"]),
+                    )
+                    token_expired += 1
+                    conn.commit()
+
             finish_job_run(
                 job_id,
                 "success",
-                rows_received=len(grants),
-                rows_saved=expired,
-                metadata={"expired": expired, "kept": kept},
+                rows_received=len(grants) + len(token_grants),
+                rows_saved=expired + token_expired,
+                metadata={"expired": expired, "kept": kept, "token_expired": token_expired, "token_kept": token_kept},
             )
-            return {"status": "success", "expired": expired, "kept": kept}
+            return {
+                "status": "success",
+                "expired": expired,
+                "kept": kept,
+                "token_expired": token_expired,
+                "token_kept": token_kept,
+            }
     except Exception as exc:
         conn.rollback()
         if job_id:

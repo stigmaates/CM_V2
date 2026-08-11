@@ -17,6 +17,38 @@ _token_tables_ready = False
 _wheel_prize_bonus_columns_ready = False
 
 
+def _ensure_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND COLUMN_NAME = %s
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone() or {}
+    if int(row.get("cnt") or 0) == 0:
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
+
+
+def _ensure_index(cursor, table_name: str, index_name: str, ddl: str) -> None:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND INDEX_NAME = %s
+        """,
+        (table_name, index_name),
+    )
+    row = cursor.fetchone() or {}
+    if int(row.get("cnt") or 0) == 0:
+        cursor.execute(f"ALTER TABLE {table_name} ADD {ddl}")
+
+
 def ensure_wheel_prize_bonus_columns(cursor):
     """Add КБ prize columns to club_wheel_prizes for older installations."""
     global _wheel_prize_bonus_columns_ready
@@ -93,6 +125,21 @@ def ensure_token_tables(cursor):
             KEY idx_guest_wheel_token_source_type (source_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """)
+    _ensure_column(cursor, "guest_wheel_token_transactions", "expires_at", "DATETIME NULL AFTER description")
+    _ensure_column(
+        cursor,
+        "guest_wheel_token_transactions",
+        "expires_status",
+        "VARCHAR(30) NOT NULL DEFAULT 'none' AFTER expires_at",
+    )
+    _ensure_column(cursor, "guest_wheel_token_transactions", "expired_at", "DATETIME NULL AFTER expires_status")
+    _ensure_column(cursor, "guest_wheel_token_transactions", "expiration_transaction_id", "INT NULL AFTER expired_at")
+    _ensure_index(
+        cursor,
+        "guest_wheel_token_transactions",
+        "idx_guest_wheel_token_expiration",
+        "KEY idx_guest_wheel_token_expiration (expires_status, expires_at)",
+    )
     _token_tables_ready = True
 
 
@@ -279,7 +326,15 @@ def _transaction_exists(cursor, guest_id: int, club_id: int, source_type: str, s
 
 
 def _add_token_transaction(
-    cursor, guest_id: int, club_id: int, amount: int, source_type: str, source_id: str, description: str | None = None
+    cursor,
+    guest_id: int,
+    club_id: int,
+    amount: int,
+    source_type: str,
+    source_id: str,
+    description: str | None = None,
+    expires_at: datetime | None = None,
+    expires_status: str | None = None,
 ) -> bool:
     """Add a token transaction once. Returns True when inserted, False when duplicate."""
     if amount == 0:
@@ -313,11 +368,24 @@ def _add_token_transaction(
             source_type,
             source_id,
             description,
+            expires_at,
+            expires_status,
             created_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        (club_id, guest_id, int(amount), balance_after, source_type, source_id, description, datetime.utcnow()),
+        (
+            club_id,
+            guest_id,
+            int(amount),
+            balance_after,
+            source_type,
+            source_id,
+            description,
+            expires_at,
+            expires_status or ("active" if expires_at and amount > 0 else "none"),
+            datetime.utcnow(),
+        ),
     )
     return True
 
