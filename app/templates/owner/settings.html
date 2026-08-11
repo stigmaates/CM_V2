@@ -467,7 +467,7 @@
                 </div>
 
                 <div class="settings-side-stack">
-                    <div class="card settings-card settings-guest-link-card">
+                    <div class="card settings-card settings-guest-link-card" id="guest-login">
                         <div class="section-title">Ссылка входа гостей</div>
                         <p class="settings-guest-link-note">
                             Используйте эту ссылку или QR на стойке клуба. В ней уже указан текущий клуб.
@@ -485,6 +485,10 @@
                             </button>
                         </div>
                         <div class="settings-copy-status" id="guestLoginCopyStatus" aria-live="polite"></div>
+                        <form method="POST" action="{{ url_for('owner.guest_test_mode_start') }}" style="margin-top: 12px;">
+                            <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                            <button class="btn btn-secondary" type="submit">Открыть как гость</button>
+                        </form>
                     </div>
 
                     <div class="card settings-card settings-status-card">

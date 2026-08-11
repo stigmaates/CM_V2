@@ -79,10 +79,10 @@ def _fetch_club_for_user_create(cursor, club_id: int) -> dict | None:
 
 
 def _validate_club_for_user_create(cursor, role: str, club_id: int | None) -> str | None:
-    if role not in {"owner", "reception"}:
+    if role not in {"owner", "co-owner", "reception"}:
         return None
     if club_id is None:
-        return "Для owner и reception нужно указать club_id"
+        return "Для owner, co-owner и reception нужно указать club_id"
 
     club = _fetch_club_for_user_create(cursor, club_id)
     if not club:
@@ -176,7 +176,7 @@ def users_create():
             flash("Заполни обязательные поля", "error")
             return redirect(url_for("admin.users_create"))
 
-        if role not in {"admin", "owner", "reception"}:
+        if role not in {"admin", "owner", "co-owner", "reception"}:
             flash("Недопустимая роль пользователя", "error")
             return redirect(url_for("admin.users_create"))
 

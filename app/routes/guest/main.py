@@ -5,6 +5,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 
 from app.config import BOT_USERNAME
 from app.core import guest_required
+from app.services.audit import record_audit_event
 from app.services.cases import (
     get_cases,
     get_game_mode,
@@ -53,6 +54,8 @@ def _clear_guest_session():
     session.pop("guest_logged_in", None)
     session.pop("guest_test_mode", None)
     session.pop("guest_test_label", None)
+    session.pop("guest_test_source", None)
+    session.pop("guest_test_return_label", None)
 
 
 @guest_bp.route("/dashboard")
@@ -349,6 +352,39 @@ def api_cm_bonuses_redeem():
 def logout():
     _clear_guest_session()
     flash("Вы вышли из гостевого кабинета", "success")
+    return redirect(url_for("guest.login"))
+
+
+@guest_bp.route("/test-mode/stop", methods=["POST"])
+@guest_required
+def stop_test_mode():
+    if not session.get("guest_test_mode"):
+        _clear_guest_session()
+        return redirect(url_for("guest.login"))
+
+    source = session.get("guest_test_source")
+    guest_id = session.get("guest_id")
+    club_id = session.get("guest_club_id")
+
+    if guest_id and club_id:
+        record_audit_event(
+            action="guest.test.stop",
+            club_id=int(club_id),
+            entity_type="guest",
+            entity_id=guest_id,
+            details={"source": source},
+        )
+
+    _clear_guest_session()
+
+    if source == "admin_clubs" and session.get("role") == "admin":
+        return redirect(url_for("admin.clubs_list"))
+    if source == "owner_settings":
+        return redirect(url_for("owner.settings", tab="club") + "#guest-login")
+    if session.get("role") == "admin":
+        return redirect(url_for("admin.clubs_list"))
+    if session.get("role") in {"owner", "co-owner"} or session.get("impersonating_owner"):
+        return redirect(url_for("owner.dashboard"))
     return redirect(url_for("guest.login"))
 
 

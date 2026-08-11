@@ -161,6 +161,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-wrap: wrap;
             gap: 10px;
             margin: 0 0 18px;
             padding: 12px 16px;
@@ -170,6 +171,19 @@
             color: #ffe7a4;
             font-weight: 900;
             text-align: center;
+        }
+        .guest-test-exit-form { margin: 0; }
+        .guest-test-exit-btn {
+            border: 1px solid rgba(255, 231, 164, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 8px 12px;
+            color: #fff6d7;
+            font: inherit;
+            cursor: pointer;
+        }
+        .guest-test-exit-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
         }
         .token-pill, .logout-link, .mini-btn {
             border: 1px solid var(--border);
@@ -2318,6 +2332,10 @@
             <div class="guest-test-banner">
                 <span>Тестовый гостевой режим</span>
                 <span>{{ session.get('guest_test_label') or 'Физические призы создаются как тестовые заявки' }}</span>
+                <form class="guest-test-exit-form" method="POST" action="{{ url_for('guest.stop_test_mode') }}">
+                    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                    <button class="guest-test-exit-btn" type="submit">{{ session.get('guest_test_return_label') or 'Выйти из режима' }}</button>
+                </form>
             </div>
         {% endif %}
 

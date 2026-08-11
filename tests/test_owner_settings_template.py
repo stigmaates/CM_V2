@@ -30,3 +30,5 @@ def test_owner_settings_renders_guest_login_copy_link():
     assert "Ссылка входа гостей" in html
     assert "https://cyber-bonus.ru/guest/login?club_id=1" in html
     assert "copyGuestLoginUrlBtn" in html
+    assert "Открыть как гость" in html
+    assert "/owner/settings/guest-test" in html

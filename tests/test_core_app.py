@@ -114,6 +114,52 @@ def test_club_service_gate_blocks_owner_when_service_disabled(monkeypatch):
     assert "Пожалуйста, свяжитесь с нами" in response.get_data(as_text=True)
 
 
+def test_club_service_gate_blocks_co_owner_when_service_disabled(monkeypatch):
+    import app.core as core
+
+    flask_app = core.create_flask_app()
+
+    @flask_app.get("/owner/dashboard")
+    def owner_dashboard():
+        return "owner ok"
+
+    monkeypatch.setattr(core, "is_club_service_enabled", lambda club_id: False)
+
+    client = flask_app.test_client()
+    with client.session_transaction() as sess:
+        sess["user_id"] = 10
+        sess["role"] = "co-owner"
+        sess["club_id"] = 7
+        sess["club_name"] = "Test Club"
+
+    response = client.get("/owner/dashboard")
+
+    assert response.status_code == 403
+    assert "Пожалуйста, свяжитесь с нами" in response.get_data(as_text=True)
+
+
+def test_owner_required_allows_co_owner():
+    from app.core import create_flask_app, owner_required
+
+    flask_app = create_flask_app()
+
+    @flask_app.get("/owner/private")
+    @owner_required
+    def private_owner():
+        return "owner ok"
+
+    client = flask_app.test_client()
+    with client.session_transaction() as sess:
+        sess["user_id"] = 10
+        sess["role"] = "co-owner"
+        sess["club_id"] = 7
+
+    response = client.get("/owner/private")
+
+    assert response.status_code == 200
+    assert response.get_data(as_text=True) == "owner ok"
+
+
 def test_club_service_gate_does_not_block_admin(monkeypatch):
     import app.core as core
 
