@@ -114,3 +114,6 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert "Настроить кейс: Золотой кейс" in html
     assert "document.body.style.overflow = 'hidden'" in html
     assert "modal.addEventListener('wheel', stopModalBackgroundScroll" in html
+    assert "data-case-item-form data-no-loading" in html
+    assert "data-case-item-add-form data-no-loading" in html
+    assert "data-case-item-delete data-no-loading" in html
