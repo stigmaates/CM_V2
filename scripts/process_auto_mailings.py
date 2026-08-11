@@ -225,26 +225,32 @@ def _is_streak_reminder_send_window() -> bool:
     return 9 <= now.hour < 21
 
 
-def _format_streak_reminder_message(
-    template: str, club_name: str, streak_days: int, cycle_end, next_reward: int
-) -> str:
+def _format_streak_reminder_message(template: str, candidate: dict) -> str:
     text = template or (
         "Привет! У тебя в {club_name} стрик из дней — {streak_days}. "
         "Приди еще раз до {date} и получи {next_reward} жетонов для колеса фортуны!"
     )
+    club_name = candidate.get("club_name") or "клубе"
+    streak_days = int(candidate.get("streak_days") or 0)
+    cycle_end = candidate.get("cycle_end")
+    next_reward = int(candidate.get("next_reward") or 0)
     date_text = cycle_end.strftime("%d.%m") if hasattr(cycle_end, "strftime") else str(cycle_end)
-    return (
-        text.replace("[club_name]", str(club_name or "клубе"))
+    text = (
+        text.replace("[club_name]", str(club_name))
         .replace("[х]", str(streak_days))
         .replace("[x]", str(streak_days))
         .replace("[date]", date_text)
         .replace("[y]", str(next_reward))
-        .replace("{club_name}", str(club_name or "клубе"))
-        .replace("{streak_days}", str(streak_days))
-        .replace("{x}", str(streak_days))
-        .replace("{date}", date_text)
-        .replace("{next_reward}", str(next_reward))
-        .replace("{y}", str(next_reward))
+    )
+    return render_message_template(
+        text,
+        {
+            **candidate,
+            "club_name": club_name,
+            "streak_days": streak_days,
+            "date": date_text,
+            "next_reward": next_reward,
+        },
     )
 
 
@@ -311,6 +317,12 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
                       AND gs90.guest_id = g.guest_id
                       AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
                 ) AS sessions_90d,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_case_openings gco
+                    WHERE gco.club_id = g.club_id
+                      AND gco.guest_id = g.guest_id
+                ) AS case_openings_count,
                 DATE(gs.date_start) AS visit_day
             FROM guests g
             JOIN guest_sessions gs
@@ -357,6 +369,7 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
                 "sessions_7d": row.get("sessions_7d") or 0,
                 "sessions_30d": row.get("sessions_30d") or 0,
                 "sessions_90d": row.get("sessions_90d") or 0,
+                "case_openings_count": row.get("case_openings_count") or 0,
             },
         )
         visit_day = row.get("visit_day")
@@ -445,10 +458,7 @@ def process_streak_expiring_reminder(conn, setting: dict) -> int:
     for candidate in candidates:
         message_text = _format_streak_reminder_message(
             template=template,
-            club_name=candidate.get("club_name"),
-            streak_days=int(candidate.get("streak_days") or 0),
-            cycle_end=candidate.get("cycle_end"),
-            next_reward=int(candidate.get("next_reward") or 0),
+            candidate=candidate,
         )
         mailing = create_mailing_for_recipients(
             conn=conn,
