@@ -411,7 +411,7 @@
                                      data-case-id="{{ case.id }}"
                                      data-item-id="{{ item.id }}"
                                      {% if not loop.first %}hidden{% endif %}>
-                                    <form id="case-item-update-{{ item.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}" data-case-item-form data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
+                                    <form id="case-item-update-{{ item.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}" data-case-item-form data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
                                         <div class="case-item-grid">
                                             <div class="form-group">
                                                 <label for="item_name_{{ item.id }}">Название</label>
@@ -473,7 +473,7 @@
                                     </form>
                                     <div class="prize-card-actions">
                                         <button type="submit" class="btn" form="case-item-update-{{ item.id }}">Сохранить предмет</button>
-                                        <form method="POST" action="{{ url_for('owner.case_item_delete', case_id=case.id, item_id=item.id) }}" data-case-item-delete data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
+                                        <form method="POST" action="{{ url_for('owner.case_item_delete', case_id=case.id, item_id=item.id) }}" data-case-item-delete data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
                                             <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот предмет?')">Удалить</button>
                                         </form>
                                     </div>
@@ -484,7 +484,7 @@
 
                         <details style="margin-top: 12px;">
                             <summary style="cursor:pointer; font-weight:800; color: var(--accent-strong);">+ Добавить предмет в кейс</summary>
-                            <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;" data-case-item-add-form data-case-id="{{ case.id }}">
+                            <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;" data-case-item-add-form data-no-loading data-case-id="{{ case.id }}">
                                 <div class="case-item-grid">
                                     <div class="form-group">
                                         <label>Название</label>
@@ -745,7 +745,7 @@
             row.dataset.caseId = String(caseId);
             row.dataset.itemId = String(item.id);
             row.innerHTML = `
-                <form id="case-item-update-${item.id}" method="POST" enctype="multipart/form-data" action="${escapeHtml(updateAction)}" data-case-item-form data-case-id="${caseId}" data-item-id="${item.id}">
+                <form id="case-item-update-${item.id}" method="POST" enctype="multipart/form-data" action="${escapeHtml(updateAction)}" data-case-item-form data-no-loading data-case-id="${caseId}" data-item-id="${item.id}">
                     <div class="case-item-grid">
                         <div class="form-group">
                             <label>Название</label>
@@ -795,7 +795,7 @@
                 </form>
                 <div class="prize-card-actions">
                     <button type="submit" class="btn" form="case-item-update-${item.id}">Сохранить предмет</button>
-                    <form method="POST" action="${escapeHtml(deleteAction)}" data-case-item-delete data-case-id="${caseId}" data-item-id="${item.id}">
+                    <form method="POST" action="${escapeHtml(deleteAction)}" data-case-item-delete data-no-loading data-case-id="${caseId}" data-item-id="${item.id}">
                         <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот предмет?')">Удалить</button>
                     </form>
                 </div>
