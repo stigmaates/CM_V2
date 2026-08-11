@@ -7,6 +7,7 @@ from app.services.clubs import get_club_info, update_club_info
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 from app.services.system_status import get_owner_settings_system_status
+from app.services.test_guests import ensure_test_guest
 from app.services.upload_storage import get_club_upload_usage_info
 from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
 
@@ -14,6 +15,42 @@ from . import owner_bp
 
 SETTINGS_TABS = {"club", "missions", "wheel"}
 BONUS_EDITORS = {"wheel", "cases"}
+
+
+@owner_bp.route("/settings/guest-test", methods=["POST"])
+@owner_required
+def guest_test_mode_start():
+    club_id = session.get("club_id")
+    if not club_id:
+        flash("Сначала создайте клуб", "error")
+        return redirect(url_for("owner.club_create"))
+
+    club = get_club_info(club_id)
+    if not club:
+        flash("Клуб не найден", "error")
+        return redirect(url_for("owner.settings", tab="club"))
+
+    club_id_int = int(club_id)
+    guest = ensure_test_guest(club_id_int, club.get("name") if isinstance(club, dict) else getattr(club, "name", None))
+    session["guest_id"] = guest["guest_id"]
+    session["guest_club_id"] = guest["club_id"]
+    session["guest_name"] = guest["fio"]
+    session["guest_telegram_id"] = None
+    session["guest_logged_in"] = True
+    session["guest_test_mode"] = True
+    session["guest_test_label"] = f"Тестовый вход владельца · клуб {guest['club_id']}"
+    session["guest_test_source"] = "owner_settings"
+    session["guest_test_return_label"] = "Выйти из режима"
+
+    record_audit_event(
+        action="owner.guest_test.start",
+        club_id=club_id_int,
+        entity_type="guest",
+        entity_id=guest["guest_id"],
+        details={"test_mode": True},
+    )
+
+    return redirect(url_for("guest.dashboard"))
 
 
 @owner_bp.route("/settings/pc-names", methods=["POST"])

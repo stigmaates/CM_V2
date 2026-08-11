@@ -11,7 +11,7 @@ from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_ru
 from app.services.operational_alerts import get_operational_alerts, summarize_alerts
 from app.services.service_control import get_restart_controls, restart_allowed_service
 from app.services.support_health import build_admin_readiness, get_admin_system_health
-from app.services.wheel import ensure_token_tables
+from app.services.test_guests import ensure_test_guest
 
 SYNC_JOB_TYPES = [
     "sync_guests_incremental",
@@ -145,37 +145,6 @@ def finish_impersonation_log(log_id):
         db.commit()
 
 
-def ensure_admin_test_guest(club_id: int, club_name: str | None) -> dict:
-    guest_id = 900_000_000 + int(club_id)
-    guest_name = f"Тестовый гость · {club_name or f'Клуб {club_id}'}"
-
-    with get_db_connection() as db:
-        with db.cursor() as cur:
-            ensure_token_tables(cur)
-            cur.execute(
-                """
-                INSERT INTO guests (guest_id, club_id, phone, fio, created_at, date_insert)
-                VALUES (%s, %s, NULL, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    fio = VALUES(fio)
-                """,
-                (guest_id, club_id, guest_name, datetime.utcnow(), datetime.utcnow()),
-            )
-            cur.execute(
-                """
-                INSERT INTO guest_wheel_token_balances (club_id, guest_id, balance)
-                VALUES (%s, %s, 100)
-                ON DUPLICATE KEY UPDATE
-                    balance = GREATEST(balance, VALUES(balance)),
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (club_id, guest_id),
-            )
-        db.commit()
-
-    return {"guest_id": guest_id, "club_id": club_id, "fio": guest_name}
-
-
 @lru_cache(maxsize=64)
 def table_has_column(table_name: str, column_name: str) -> bool:
     with get_db_connection() as db:
@@ -224,7 +193,7 @@ def get_admin_metrics():
             cur.execute("SELECT COUNT(*) AS cnt FROM users")
             users_count = cur.fetchone()["cnt"]
 
-            cur.execute("SELECT COUNT(*) AS cnt FROM users WHERE role = 'owner'")
+            cur.execute("SELECT COUNT(*) AS cnt FROM users WHERE role IN ('owner', 'co-owner')")
             owners_count = cur.fetchone()["cnt"]
 
             cur.execute("SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin'")
@@ -762,10 +731,7 @@ def club_sync(club_id: int, sync_type: str):
     script_name, sync_mode, func = actions[sync_type]
     running_log = get_running_sync_log(club_id, script_name, sync_mode)
     if running_log:
-        message = (
-            "Такая синхронизация уже выполняется. "
-            "Прогресс обновляется в логах ниже."
-        )
+        message = "Такая синхронизация уже выполняется. " "Прогресс обновляется в логах ниже."
         return jsonify(
             {
                 "status": True,
@@ -797,10 +763,7 @@ def club_sync(club_id: int, sync_type: str):
     )
     worker.start()
 
-    message = (
-        "Синхронизация запущена в фоне. "
-        "Прогресс обновляется в логах ниже."
-    )
+    message = "Синхронизация запущена в фоне. " "Прогресс обновляется в логах ниже."
     return jsonify(
         {
             "status": True,
@@ -855,7 +818,7 @@ def start_guest_test_mode(club_id: int):
         flash("Клуб не найден", "error")
         return redirect(url_for("admin.clubs_list"))
 
-    guest = ensure_admin_test_guest(int(club["club_id"]), club.get("name"))
+    guest = ensure_test_guest(int(club["club_id"]), club.get("name"))
     session["guest_id"] = guest["guest_id"]
     session["guest_club_id"] = guest["club_id"]
     session["guest_name"] = guest["fio"]
@@ -863,6 +826,8 @@ def start_guest_test_mode(club_id: int):
     session["guest_logged_in"] = True
     session["guest_test_mode"] = True
     session["guest_test_label"] = f"Тестовый вход администратора · клуб {guest['club_id']}"
+    session["guest_test_source"] = "admin_clubs"
+    session["guest_test_return_label"] = "Вернуться в админку"
 
     record_audit_event(
         action="admin.guest_test.start",

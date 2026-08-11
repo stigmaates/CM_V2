@@ -4,7 +4,7 @@ from functools import wraps
 from flask import flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
-from app.core import get_db_connection
+from app.core import OWNER_ACCESS_ROLES, get_db_connection
 from app.services.rate_limit import client_ip, is_rate_limited
 
 from . import auth_bp
@@ -121,7 +121,7 @@ def owner_required(view_func):
     def wrapper(*args, **kwargs):
         if "user_id" not in session:
             return redirect("/login")
-        is_owner = session.get("role") == "owner"
+        is_owner = session.get("role") in OWNER_ACCESS_ROLES
         is_admin_impersonation = (
             session.get("role") == "admin"
             and bool(session.get("impersonating_owner"))

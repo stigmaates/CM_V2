@@ -24,6 +24,7 @@ CSRF_SESSION_KEY = "_csrf_token"
 CSRF_FORM_FIELD = "csrf_token"
 CSRF_HEADER_NAMES = ("X-CSRFToken", "X-CSRF-Token")
 CSRF_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+OWNER_ACCESS_ROLES = {"owner", "co-owner"}
 
 
 def generate_csrf_token() -> str:
@@ -115,7 +116,7 @@ def _service_gate_club_id():
         return None
     if session.get("guest_logged_in"):
         return session.get("guest_club_id")
-    if session.get("role") in {"owner", "reception"}:
+    if session.get("role") in {*OWNER_ACCESS_ROLES, "reception"}:
         return session.get("club_id")
     return None
 
@@ -224,7 +225,7 @@ def reception_required(func):
 
 def is_owner_access_session():
     """Allow real owners and admins who opened a club in owner-impersonation mode."""
-    if session.get("role") == "owner":
+    if session.get("role") in OWNER_ACCESS_ROLES:
         return True
     return (
         session.get("role") == "admin"
