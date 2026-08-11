@@ -7,6 +7,7 @@ import httpx
 
 from app.config import BOT_TOKEN, TG_PROXY_URL
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.wheel import ensure_token_tables
 
 _first_visit_tables_ready = False
 _club_social_columns_ready = False
@@ -50,6 +51,7 @@ def ensure_club_social_columns(cursor) -> None:
 def ensure_first_visit_survey_tables(cursor) -> None:
     global _first_visit_tables_ready
     ensure_cm_bonus_tables(cursor)
+    ensure_token_tables(cursor)
     ensure_club_social_columns(cursor)
 
     cursor.execute("""
@@ -163,15 +165,47 @@ def get_first_visit_survey_candidates(
                 gs.date_stop AS session_ended_at,
                 g.telegram_id,
                 g.fio,
+                c.name AS club_name,
+                COALESCE(cbb.balance, 0) AS cm_bonus_balance,
+                COALESCE(gwtb.balance, 0) AS token_balance,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_sessions gs7
+                    WHERE gs7.club_id = gs.club_id
+                      AND gs7.guest_id = gs.guest_id
+                      AND gs7.date_start >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                ) AS sessions_7d,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_sessions gs30
+                    WHERE gs30.club_id = gs.club_id
+                      AND gs30.guest_id = gs.guest_id
+                      AND gs30.date_start >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                ) AS sessions_30d,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_sessions gs90
+                    WHERE gs90.club_id = gs.club_id
+                      AND gs90.guest_id = gs.guest_id
+                      AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+                ) AS sessions_90d,
                 COUNT(gs_all.id) AS sessions_count
             FROM guest_sessions gs
             JOIN guests g
               ON g.club_id = gs.club_id
              AND g.guest_id = gs.guest_id
+            JOIN clubs c
+              ON c.club_id = gs.club_id
             JOIN guest_sessions gs_all
               ON gs_all.club_id = gs.club_id
              AND gs_all.guest_id = gs.guest_id
              AND gs_all.date_stop IS NOT NULL
+            LEFT JOIN cm_bonus_balances cbb
+              ON cbb.club_id = gs.club_id
+             AND cbb.guest_id = gs.guest_id
+            LEFT JOIN guest_wheel_token_balances gwtb
+              ON gwtb.club_id = gs.club_id
+             AND gwtb.guest_id = gs.guest_id
             LEFT JOIN first_visit_surveys fvs
               ON fvs.club_id = gs.club_id
              AND fvs.guest_id = gs.guest_id
@@ -181,7 +215,16 @@ def get_first_visit_survey_candidates(
               AND gs.date_stop <= DATE_SUB(NOW(), INTERVAL %s MINUTE)
               AND gs.date_stop >= DATE_SUB(NOW(), INTERVAL %s HOUR)
               AND fvs.id IS NULL
-            GROUP BY gs.id, gs.club_id, gs.guest_id, gs.date_stop, g.telegram_id, g.fio
+            GROUP BY
+                gs.id,
+                gs.club_id,
+                gs.guest_id,
+                gs.date_stop,
+                g.telegram_id,
+                g.fio,
+                c.name,
+                cbb.balance,
+                gwtb.balance
             HAVING sessions_count = 1
             ORDER BY gs.date_stop ASC
             LIMIT 200

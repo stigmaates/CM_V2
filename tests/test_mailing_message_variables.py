@@ -21,8 +21,11 @@ def test_render_message_template_detects_first_name_in_surname_first_fio():
     assert render_message_template("Привет, {first_name}!", {"fio": "Морозов Дмитрий Антонович"}) == "Привет, Дмитрий!"
 
 
-def test_render_message_template_keeps_unknown_variables():
-    assert render_message_template("Привет, {club_name}", {}) == "Привет, {club_name}"
+def test_render_message_template_replaces_club_name_and_keeps_unknown_variables():
+    assert (
+        render_message_template("Привет из {club_name}, {unknown_var}", {"club_name": "WALLZ"})
+        == "Привет из WALLZ, {unknown_var}"
+    )
 
 
 def test_mailing_recipients_require_real_telegram_id_not_cached_portrait_flag():
@@ -51,3 +54,17 @@ def test_bonus_giveaway_supports_expiring_bonus_columns():
     assert any("is_expiring" in value for value in constants)
     assert any("expires_after_seconds" in value for value in constants)
     assert any("expires_at" in value for value in constants)
+
+
+def test_auto_mailings_support_editable_delay_and_message_templates():
+    ensure_constants = [
+        value for value in mailing_service.ensure_auto_mailings.__code__.co_consts if isinstance(value, str)
+    ]
+    update_constants = [
+        value for value in mailing_service.update_auto_mailing_settings.__code__.co_consts if isinstance(value, str)
+    ]
+
+    assert any("delay_minutes" in value for value in ensure_constants)
+    assert any("message_text = %s" in value for value in update_constants)
+    assert any("title = %s" in value for value in update_constants)
+    assert any("description = %s" in value for value in update_constants)

@@ -23,6 +23,7 @@ from app.services.job_runs import finish_job_run, start_job_run
 from app.services.mailing import (
     create_mailing_for_recipients,
     get_inactive_auto_mailing_recipients,
+    render_message_template,
 )
 from app.services.wheel import _calculate_streak_rows
 from scripts.process_mailings import process_one_mailing
@@ -143,6 +144,7 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
 
 def process_first_visit_survey(conn, setting: dict) -> int:
     bonus_amount = int(setting.get("bonus_amount") or 100)
+    delay_minutes = int(setting.get("delay_minutes") or 20)
     message_text = setting.get("message_text") or (
         "Спасибо за первый визит! 🙌\n\n"
         f"Пожалуйста, потрать 30 секунд на быстрый опрос — за прохождение начислим {bonus_amount} бонусов рубль к рублю."
@@ -151,7 +153,7 @@ def process_first_visit_survey(conn, setting: dict) -> int:
     candidates = get_first_visit_survey_candidates(
         conn=conn,
         setting=setting,
-        delay_minutes=20,
+        delay_minutes=delay_minutes,
         window_hours=24,
     )
 
@@ -173,7 +175,7 @@ def process_first_visit_survey(conn, setting: dict) -> int:
         if not survey_id:
             continue
         try:
-            if send_first_visit_survey_invite(conn, survey_id, message_text):
+            if send_first_visit_survey_invite(conn, survey_id, render_message_template(message_text, candidate)):
                 sent_count += 1
         except Exception as exc:
             with conn.cursor() as cur:
@@ -285,17 +287,53 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
             SELECT
                 g.guest_id,
                 g.telegram_id,
+                g.fio,
+                COALESCE(cbb.balance, 0) AS cm_bonus_balance,
+                COALESCE(gwtb.balance, 0) AS token_balance,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_sessions gs7
+                    WHERE gs7.club_id = g.club_id
+                      AND gs7.guest_id = g.guest_id
+                      AND gs7.date_start >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                ) AS sessions_7d,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_sessions gs30
+                    WHERE gs30.club_id = g.club_id
+                      AND gs30.guest_id = g.guest_id
+                      AND gs30.date_start >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                ) AS sessions_30d,
+                (
+                    SELECT COUNT(*)
+                    FROM guest_sessions gs90
+                    WHERE gs90.club_id = g.club_id
+                      AND gs90.guest_id = g.guest_id
+                      AND gs90.date_start >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+                ) AS sessions_90d,
                 DATE(gs.date_start) AS visit_day
             FROM guests g
             JOIN guest_sessions gs
               ON gs.club_id = g.club_id
              AND gs.guest_id = g.guest_id
+            LEFT JOIN cm_bonus_balances cbb
+              ON cbb.club_id = g.club_id
+             AND cbb.guest_id = g.guest_id
+            LEFT JOIN guest_wheel_token_balances gwtb
+              ON gwtb.club_id = g.club_id
+             AND gwtb.guest_id = g.guest_id
             WHERE g.club_id = %s
               AND g.telegram_id IS NOT NULL
               AND TRIM(CAST(g.telegram_id AS CHAR)) <> ''
               AND gs.date_start IS NOT NULL
               AND gs.date_start >= %s
-            GROUP BY g.guest_id, g.telegram_id, DATE(gs.date_start)
+            GROUP BY
+                g.guest_id,
+                g.telegram_id,
+                g.fio,
+                cbb.balance,
+                gwtb.balance,
+                DATE(gs.date_start)
             ORDER BY g.guest_id, DATE(gs.date_start)
             """,
             (club_id, tokens_start_date),
@@ -305,9 +343,22 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
     today = _get_auto_mailing_now().date()
     visits_by_guest = {}
     telegram_by_guest = {}
+    guest_data_by_guest = {}
     for row in rows:
         guest_id = int(row["guest_id"])
         telegram_by_guest[guest_id] = row.get("telegram_id")
+        guest_data_by_guest.setdefault(
+            guest_id,
+            {
+                "fio": row.get("fio"),
+                "club_name": club_name,
+                "cm_bonus_balance": row.get("cm_bonus_balance") or 0,
+                "token_balance": row.get("token_balance") or 0,
+                "sessions_7d": row.get("sessions_7d") or 0,
+                "sessions_30d": row.get("sessions_30d") or 0,
+                "sessions_90d": row.get("sessions_90d") or 0,
+            },
+        )
         visit_day = row.get("visit_day")
         if hasattr(visit_day, "date"):
             visit_day = visit_day.date()
@@ -351,19 +402,19 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
             if cur.fetchone():
                 continue
 
-            candidates.append(
-                {
-                    "guest_id": guest_id,
-                    "telegram_id": telegram_by_guest.get(guest_id),
-                    "club_id": club_id,
-                    "club_name": club_name,
-                    "streak_days": streak_days,
-                    "cycle_start": cycle_start,
-                    "cycle_end": cycle_end,
-                    "days_left": days_left,
-                    "next_reward": min(streak_days + 1, 7),
-                }
-            )
+            candidate = {
+                "guest_id": guest_id,
+                "telegram_id": telegram_by_guest.get(guest_id),
+                "club_id": club_id,
+                "club_name": club_name,
+                "streak_days": streak_days,
+                "cycle_start": cycle_start,
+                "cycle_end": cycle_end,
+                "days_left": days_left,
+                "next_reward": min(streak_days + 1, 7),
+            }
+            candidate.update(guest_data_by_guest.get(guest_id) or {})
+            candidates.append(candidate)
     return candidates
 
 

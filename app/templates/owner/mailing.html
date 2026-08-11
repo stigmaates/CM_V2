@@ -279,15 +279,33 @@
                         <div class="auto-mailing-card__main">
                             <div class="auto-mailing-card__icon">↩</div>
                             <div class="auto-mailing-card__content">
-                                <div class="auto-mailing-card__title">{{ item.title }}</div>
-                                <div class="auto-mailing-card__desc">{{ item.description }}</div>
+                                <label class="auto-mailing-field auto-mailing-field--full">
+                                    <span>Название</span>
+                                    <input
+                                        type="text"
+                                        class="auto-mailing-title-input"
+                                        value="{{ item.title }}"
+                                        maxlength="255"
+                                    >
+                                </label>
+                                <label class="auto-mailing-field auto-mailing-field--full">
+                                    <span>Описание</span>
+                                    <textarea class="auto-mailing-description-input" rows="2">{{ item.description }}</textarea>
+                                </label>
 
                                 <div class="auto-mailing-settings">
                                     {% if item.code == 'first_visit_survey' %}
-                                        <div class="auto-mailing-field auto-mailing-field--readonly">
+                                        <label class="auto-mailing-field">
                                             <span>Когда отправлять</span>
-                                            <div class="auto-mailing-readonly-value">Через 20 минут после первой сессии</div>
-                                        </div>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="10080"
+                                                step="1"
+                                                class="auto-mailing-delay"
+                                                value="{{ item.delay_minutes or 20 }}"
+                                            >
+                                        </label>
                                     {% elif item.code == 'streak_expiring_reminder' %}
                                         <div class="auto-mailing-field auto-mailing-field--readonly">
                                             <span>Когда отправлять</span>
@@ -325,7 +343,14 @@
                                     {% endif %}
                                 </div>
 
-                                <div class="auto-mailing-card__message">{{ item.message_text }}</div>
+                                <label class="auto-mailing-field auto-mailing-field--full auto-mailing-message-field">
+                                    <span>Сообщение</span>
+                                    <div class="message-variable-picker">
+                                        <select class="message-variable-select auto-mailing-variable-select" aria-label="Данные для вставки в авторассылку"></select>
+                                        <button type="button" class="btn btn-secondary message-variable-insert auto-mailing-variable-insert">Вставить</button>
+                                    </div>
+                                    <textarea class="message-textarea auto-mailing-message-text" rows="5">{{ item.message_text }}</textarea>
+                                </label>
 
                                 <div class="auto-mailing-actions">
                                     <button
