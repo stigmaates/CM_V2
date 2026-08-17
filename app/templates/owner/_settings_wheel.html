@@ -808,7 +808,8 @@
                     Жетоны используются и в колесе, и в кейсах. Цена открытия кейса настраивается в редакторе кейсов.
                 </p>
 
-            <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm">
+            <form class="wheel-main-form" method="POST" action="{{ url_for('owner.wheel_settings') }}" id="wheelSettingsForm" data-no-loading>
+                <input type="hidden" name="bonus_editor" value="{{ active_bonus_editor }}">
                 <div class="wheel-form-grid">
                     <div class="form-group">
                         <label for="tokens_start_date">Дата начала начисления жетонов</label>
@@ -822,6 +823,7 @@
                         >
                     </div>
 
+                    {% if active_bonus_editor == 'wheel' %}
                     <div class="form-group">
                         <label for="spin_cost">Стоимость прокрута колеса</label>
                         <input
@@ -835,6 +837,9 @@
                             required
                         >
                     </div>
+                    {% else %}
+                        <input type="hidden" name="spin_cost" value="{{ wheel_settings.spin_cost or 1 }}">
+                    {% endif %}
 
                     <div class="form-group full">
                         <label class="form-check" for="is_enabled">
@@ -1105,11 +1110,15 @@
         const wheelSettingsForm = document.getElementById('wheelSettingsForm');
         const wheelEnabled = document.getElementById('is_enabled');
         const probabilityOk = {{ 'true' if prob_ok else 'false' }};
+        const shouldValidateWheelProbabilities = {{ 'true' if game_mode == 'wheel' else 'false' }};
 
         if (wheelSettingsForm && wheelEnabled) {
             wheelSettingsForm.addEventListener('submit', function (event) {
-                if (wheelEnabled.checked && !probabilityOk) {
+                if (shouldValidateWheelProbabilities && wheelEnabled.checked && !probabilityOk) {
                     event.preventDefault();
+                    if (window.CyberBonusPageLoading) {
+                        window.CyberBonusPageLoading.hide();
+                    }
                     alert('Сумма вероятностей активных призов должна быть ровно 100%. Исправь призы и попробуй снова.');
                 }
             });

@@ -1,6 +1,7 @@
 from flask import flash, redirect, render_template, request, session, url_for
 
 from app.core import login_required, parse_datetime_local
+from app.services.cases import get_game_mode
 from app.services.clubs import get_club_info
 from app.services.wheel import (
     assert_active_wheel_probabilities_sum_is_100,
@@ -49,7 +50,7 @@ def wheel_settings():
             return redirect(url_for("wheel_settings"))
 
         try:
-            if is_enabled:
+            if is_enabled and get_game_mode(club_id_int) == "wheel":
                 assert_active_wheel_probabilities_sum_is_100(club_id_int)
             save_wheel_settings(
                 club_id=club_id_int,
