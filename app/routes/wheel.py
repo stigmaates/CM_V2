@@ -26,6 +26,7 @@ def wheel_settings():
         tokens_start_date_raw = request.form.get("tokens_start_date", "").strip()
         spin_cost_raw = request.form.get("spin_cost", "").strip()
         is_enabled = 1 if request.form.get("is_enabled") == "1" else 0
+        show_only_own_valuable_drops = 1 if request.form.get("show_only_own_valuable_drops") == "1" else 0
 
         if not tokens_start_date_raw:
             flash("Укажи дату начала начисления жетонов", "error")
@@ -55,6 +56,7 @@ def wheel_settings():
                 tokens_start_date=tokens_start_date,
                 spin_cost=spin_cost,
                 is_enabled=is_enabled,
+                show_only_own_valuable_drops=show_only_own_valuable_drops,
             )
             flash("Настройки колеса сохранены", "success")
         except Exception as e:

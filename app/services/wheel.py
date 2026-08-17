@@ -15,6 +15,7 @@ _token_tables_ready = False
 
 
 _wheel_prize_bonus_columns_ready = False
+_wheel_settings_display_columns_ready = False
 
 
 def _ensure_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
@@ -87,6 +88,21 @@ def ensure_wheel_prize_bonus_columns(cursor):
     _wheel_prize_bonus_columns_ready = True
 
 
+def ensure_wheel_settings_display_columns(cursor):
+    """Add guest-facing display settings to wheel/cases configuration."""
+    global _wheel_settings_display_columns_ready
+    if _wheel_settings_display_columns_ready:
+        return
+
+    _ensure_column(
+        cursor,
+        "club_wheel_settings",
+        "show_only_own_valuable_drops",
+        "TINYINT(1) NOT NULL DEFAULT 0 AFTER is_enabled",
+    )
+    _wheel_settings_display_columns_ready = True
+
+
 def ensure_token_tables(cursor):
     """Create wheel token balance/ledger tables when they are missing.
 
@@ -147,9 +163,17 @@ def get_wheel_settings(club_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            ensure_wheel_settings_display_columns(cursor)
             cursor.execute(
                 """
-                SELECT club_id, tokens_start_date, spin_cost, is_enabled, created_at, updated_at
+                SELECT
+                    club_id,
+                    tokens_start_date,
+                    spin_cost,
+                    is_enabled,
+                    show_only_own_valuable_drops,
+                    created_at,
+                    updated_at
                 FROM club_wheel_settings
                 WHERE club_id = %s
                 LIMIT 1
@@ -928,13 +952,21 @@ def get_wheel_settings_for_admin(club_id: int):
         "tokens_start_date": None,
         "spin_cost": 2,
         "is_enabled": 0,
+        "show_only_own_valuable_drops": 0,
     }
 
 
-def save_wheel_settings(club_id: int, tokens_start_date, spin_cost: int, is_enabled: int):
+def save_wheel_settings(
+    club_id: int,
+    tokens_start_date,
+    spin_cost: int,
+    is_enabled: int,
+    show_only_own_valuable_drops: int = 0,
+):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            ensure_wheel_settings_display_columns(cursor)
             cursor.execute(
                 """
                 SELECT club_id
@@ -953,10 +985,11 @@ def save_wheel_settings(club_id: int, tokens_start_date, spin_cost: int, is_enab
                     SET tokens_start_date = %s,
                         spin_cost = %s,
                         is_enabled = %s,
+                        show_only_own_valuable_drops = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE club_id = %s
                     """,
-                    (tokens_start_date, spin_cost, is_enabled, club_id),
+                    (tokens_start_date, spin_cost, is_enabled, show_only_own_valuable_drops, club_id),
                 )
             else:
                 cursor.execute(
@@ -965,11 +998,12 @@ def save_wheel_settings(club_id: int, tokens_start_date, spin_cost: int, is_enab
                         club_id,
                         tokens_start_date,
                         spin_cost,
-                        is_enabled
+                        is_enabled,
+                        show_only_own_valuable_drops
                     )
-                    VALUES (%s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (club_id, tokens_start_date, spin_cost, is_enabled),
+                    (club_id, tokens_start_date, spin_cost, is_enabled, show_only_own_valuable_drops),
                 )
 
         conn.commit()

@@ -77,7 +77,12 @@ def dashboard():
     game_mode = get_game_mode(guest["club_id"])
     cases = [serialize_case(c) for c in get_cases(guest["club_id"])]
     case_history = get_guest_case_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=8)
-    valuable_case_drops = get_valuable_case_drops(limit=24, days=90)
+    show_only_own_valuable_drops = bool((wheel_settings or {}).get("show_only_own_valuable_drops"))
+    valuable_case_drops = get_valuable_case_drops(
+        limit=24,
+        days=90,
+        club_id=guest["club_id"] if show_only_own_valuable_drops else None,
+    )
     token_balance = get_guest_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
     token_history = get_guest_token_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=20)
     streak_info = get_guest_streak_info(guest_id=guest["guest_id"], club_id=guest["club_id"])

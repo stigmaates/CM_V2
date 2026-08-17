@@ -621,11 +621,16 @@ def _first_name(fio: str | None) -> str:
     return parts[0]
 
 
-def get_valuable_case_drops(limit: int = 24, days: int = 90):
+def get_valuable_case_drops(limit: int = 24, days: int = 90, club_id: int | None = None):
     """Return recent valuable case drops for the guest-facing hype ticker."""
     safe_limit = max(1, min(int(limit or 24), 40))
     safe_days = max(1, min(int(days or 90), 365))
     since = datetime.utcnow() - timedelta(days=safe_days)
+    club_filter = ""
+    club_params: tuple[int, ...] = ()
+    if club_id is not None:
+        club_filter = "AND o.club_id = %s"
+        club_params = (int(club_id),)
 
     conn = get_db_connection()
     try:
@@ -661,13 +666,14 @@ def get_valuable_case_drops(limit: int = 24, days: int = 90):
                   ON pc.spin_id = -o.id
                 WHERE o.created_at >= %s
                   AND i.rarity_label IN ({placeholders})
+                  {club_filter}
                   AND COALESCE(c.service_enabled, 1) = 1
                   AND COALESCE(g.fio, '') NOT LIKE 'Тестовый гость%%'
                   AND COALESCE(pc.prize_name, '') NOT LIKE '[ТЕСТ]%%'
                 ORDER BY o.created_at DESC, o.id DESC
                 LIMIT %s
                 """,
-                (since, *VALUABLE_RARITIES, safe_limit),
+                (since, *VALUABLE_RARITIES, *club_params, safe_limit),
             )
             rows = cursor.fetchall() or []
 
