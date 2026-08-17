@@ -100,7 +100,7 @@ class _CountConnection:
         self.closed = True
 
 
-def test_create_club_mission_uses_next_free_club_id(monkeypatch):
+def test_create_club_mission_uses_next_free_global_id(monkeypatch):
     conn = _CreateMissionConnection()
     monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
     monkeypatch.setattr(missions, "ensure_mission_reward_columns", lambda cursor: None)
@@ -113,10 +113,12 @@ def test_create_club_mission_uses_next_free_club_id(monkeypatch):
     )
 
     insert_params = conn.cursor_obj.params[-1]
+    next_id_query = conn.cursor_obj.queries[0]
     assert mission_id == 6
     assert insert_params[0] == 6
     assert insert_params[1] == 1
     assert insert_params[2] == 5
+    assert "WHERE club_id" not in next_id_query
     assert conn.committed is True
     assert conn.closed is True
 
