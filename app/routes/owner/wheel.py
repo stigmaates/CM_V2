@@ -2,6 +2,7 @@ from flask import flash, redirect, request, session, url_for
 
 from app.core import owner_required, parse_datetime_local
 from app.services.audit import record_audit_event
+from app.services.cases import get_game_mode
 from app.services.wheel import (
     assert_active_wheel_probabilities_sum_is_100,
     create_wheel_prize,
@@ -15,8 +16,13 @@ from app.services.wheel import (
 from . import owner_bp
 
 
+def _redirect_bonus_editor(editor: str = "wheel"):
+    safe_editor = editor if editor in {"wheel", "cases"} else "wheel"
+    return redirect(url_for("owner.settings", tab="wheel", editor=safe_editor))
+
+
 def _redirect_wheel_editor():
-    return redirect(url_for("owner.settings", tab="wheel", editor="wheel"))
+    return _redirect_bonus_editor("wheel")
 
 
 @owner_bp.route("/wheel", methods=["GET", "POST"])
@@ -28,6 +34,7 @@ def wheel_settings():
         return redirect(url_for("owner.club_create"))
 
     club_id_int = int(club_id)
+    bonus_editor = request.form.get("bonus_editor", "wheel").strip()
 
     if request.method == "POST":
         tokens_start_date_raw = request.form.get("tokens_start_date", "").strip()
@@ -37,26 +44,26 @@ def wheel_settings():
 
         if not tokens_start_date_raw:
             flash("Укажи дату начала начисления жетонов", "error")
-            return _redirect_wheel_editor()
+            return _redirect_bonus_editor(bonus_editor)
 
         try:
             tokens_start_date = parse_datetime_local(tokens_start_date_raw)
         except ValueError as e:
             flash(str(e), "error")
-            return _redirect_wheel_editor()
+            return _redirect_bonus_editor(bonus_editor)
 
         try:
             spin_cost = int(spin_cost_raw)
         except ValueError:
             flash("Стоимость прокрута должна быть числом", "error")
-            return _redirect_wheel_editor()
+            return _redirect_bonus_editor(bonus_editor)
 
         if spin_cost <= 0:
             flash("Стоимость прокрута должна быть больше 0", "error")
-            return _redirect_wheel_editor()
+            return _redirect_bonus_editor(bonus_editor)
 
         try:
-            if is_enabled:
+            if is_enabled and get_game_mode(club_id_int) == "wheel":
                 assert_active_wheel_probabilities_sum_is_100(club_id_int)
             save_wheel_settings(
                 club_id=club_id_int,
@@ -81,9 +88,9 @@ def wheel_settings():
         except Exception as e:
             flash(f"Ошибка сохранения настроек колеса: {e}", "error")
 
-        return _redirect_wheel_editor()
+        return _redirect_bonus_editor(bonus_editor)
 
-    return _redirect_wheel_editor()
+    return _redirect_bonus_editor()
 
 
 PRIZE_ICON_CHOICES = {

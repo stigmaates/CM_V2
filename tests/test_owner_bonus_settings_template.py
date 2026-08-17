@@ -23,6 +23,8 @@ def test_bonus_settings_shows_case_editor_while_wheel_mode_is_active():
     assert "Кейсы" in html
     assert "openCaseAddModal" in html
     assert "Добавить кейс" in html
+    assert "Стоимость прокрута колеса" not in html
+    assert 'type="hidden" name="spin_cost"' in html
     assert "Призы колеса" not in html
 
 
@@ -72,6 +74,7 @@ def test_bonus_settings_token_summary_uses_shared_token_language():
     assert "Только клуб" in html
     assert "+1 жетон" in html
     assert "Начислять жетоны за посещения" in html
+    assert "Стоимость прокрута колеса" not in html
     assert "Колесо включено" not in html
 
 
