@@ -38,6 +38,11 @@ from app.services.prize_claims import (
 )
 from app.services.wheel import award_first_authorization_token
 
+LOGIN_CONTACT_PROMPT = (
+    "Для входа отправьте свой номер телефона кнопкой ниже.\n\n"
+    "*телефон аккаунта должен совпадать с телефоном, зарегистрированным в клубе"
+)
+
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
@@ -215,7 +220,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [[KeyboardButton("Отправить номер телефона", request_contact=True)]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
-        await message.reply_text("Для входа отправьте свой номер телефона кнопкой ниже.", reply_markup=reply_markup)
+        await message.reply_text(LOGIN_CONTACT_PROMPT, reply_markup=reply_markup)
         return
 
     keyboard = [[KeyboardButton("Отправить номер телефона", request_contact=True)]]
@@ -618,7 +623,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[KeyboardButton("Отправить номер телефона", request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
-    await message.reply_text("Нажмите кнопку ниже и отправьте номер телефона.", reply_markup=reply_markup)
+    await message.reply_text(LOGIN_CONTACT_PROMPT, reply_markup=reply_markup)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
