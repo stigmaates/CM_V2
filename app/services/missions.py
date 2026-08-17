@@ -492,15 +492,11 @@ def get_club_missions_all(club_id: int):
         conn.close()
 
 
-def _next_club_mission_id(cursor, club_id: int) -> int:
-    cursor.execute(
-        """
+def _next_club_mission_id(cursor) -> int:
+    cursor.execute("""
         SELECT COALESCE(MAX(id), 0) + 1 AS next_id
         FROM club_missions
-        WHERE club_id = %s
-        """,
-        (club_id,),
-    )
+        """)
     row = cursor.fetchone() or {}
     return int(row.get("next_id") or 1)
 
@@ -591,7 +587,7 @@ def create_club_mission(
     try:
         with conn.cursor() as cursor:
             ensure_mission_reward_columns(cursor)
-            mission_id = _next_club_mission_id(cursor, club_id)
+            mission_id = _next_club_mission_id(cursor)
             cursor.execute(
                 """
                 INSERT INTO club_missions (
