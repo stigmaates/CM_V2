@@ -1,8 +1,9 @@
-import app.services.guest_auth as guest_auth
+from flask import Flask
+
 import app.routes.guest.main as guest_routes
+import app.services.guest_auth as guest_auth
 import bot.main as guest_bot
 from app.routes.guest import guest_bp
-from flask import Flask
 
 
 class FakeCursor:
@@ -83,7 +84,9 @@ def test_guest_login_clears_session_when_link_targets_another_club(monkeypatch):
     created_tokens = []
     monkeypatch.setattr(guest_routes, "BOT_USERNAME", "test_bot")
     monkeypatch.setattr(guest_routes, "get_guest_login_club", lambda club_id: {"club_id": int(club_id), "name": "Club"})
-    monkeypatch.setattr(guest_routes, "create_guest_login_token", lambda club_id: created_tokens.append(club_id) or "token")
+    monkeypatch.setattr(
+        guest_routes, "create_guest_login_token", lambda club_id: created_tokens.append(club_id) or "token"
+    )
     monkeypatch.setattr(guest_routes, "render_template", lambda *args, **kwargs: "login-page")
 
     with flask_app.test_client() as client:
@@ -102,3 +105,40 @@ def test_guest_login_clears_session_when_link_targets_another_club(monkeypatch):
             assert "guest_id" not in sess
             assert "guest_club_id" not in sess
             assert "guest_logged_in" not in sess
+
+
+def test_guest_login_reuses_existing_session_for_same_club(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+
+    created_tokens = []
+    monkeypatch.setattr(guest_routes, "BOT_USERNAME", "test_bot")
+    monkeypatch.setattr(guest_routes, "get_guest_login_club", lambda club_id: {"club_id": int(club_id), "name": "Club"})
+    monkeypatch.setattr(
+        guest_routes,
+        "get_guest_by_id",
+        lambda guest_id, club_id=None: {
+            "guest_id": int(guest_id),
+            "club_id": int(club_id),
+            "fio": "Гость",
+            "telegram_id": 456,
+        },
+    )
+    monkeypatch.setattr(
+        guest_routes, "create_guest_login_token", lambda club_id: created_tokens.append(club_id) or "token"
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["guest_id"] = 123
+            sess["guest_club_id"] = 2
+            sess["guest_name"] = "Гость"
+            sess["guest_telegram_id"] = 456
+            sess["guest_logged_in"] = True
+
+        response = client.get("/guest/login?club_id=2")
+
+        assert response.status_code == 302
+        assert response.location == "/guest/dashboard"
+        assert created_tokens == []

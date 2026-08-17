@@ -9,7 +9,6 @@ from app.services.audit import record_audit_event
 from app.services.cases import (
     get_cases,
     get_game_mode,
-    get_guest_case_history,
     get_valuable_case_drops,
     open_case,
     serialize_case,
@@ -26,6 +25,7 @@ from app.services.guest_auth import (
     get_guest_login_club,
     get_guest_login_token,
 )
+from app.services.guest_rewards import get_guest_reward_history
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.rate_limit import client_ip, is_rate_limited
@@ -33,9 +33,7 @@ from app.services.wheel import (
     choose_wheel_prize,
     get_guest_profile_stats,
     get_guest_streak_info,
-    get_guest_token_history,
     get_guest_tokens,
-    get_guest_wheel_history,
     get_wheel_prizes,
     get_wheel_settings,
     save_guest_wheel_spin,
@@ -73,10 +71,8 @@ def dashboard():
     profile_stats = get_guest_profile_stats(guest_id=guest["guest_id"], club_id=guest["club_id"])
     wheel_settings = get_wheel_settings(guest["club_id"])
     wheel_prizes = [serialize_wheel_prize(p) for p in get_wheel_prizes(guest["club_id"])]
-    wheel_history = get_guest_wheel_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=8)
     game_mode = get_game_mode(guest["club_id"])
     cases = [serialize_case(c) for c in get_cases(guest["club_id"])]
-    case_history = get_guest_case_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=8)
     show_only_own_valuable_drops = bool((wheel_settings or {}).get("show_only_own_valuable_drops"))
     valuable_case_drops = get_valuable_case_drops(
         limit=24,
@@ -84,7 +80,7 @@ def dashboard():
         club_id=guest["club_id"] if show_only_own_valuable_drops else None,
     )
     token_balance = get_guest_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
-    token_history = get_guest_token_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=20)
+    reward_history = get_guest_reward_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=12)
     streak_info = get_guest_streak_info(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_balance = get_cm_bonus_balance(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_history = get_cm_bonus_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=10)
@@ -101,13 +97,11 @@ def dashboard():
         profile_stats=profile_stats,
         wheel_settings=wheel_settings,
         wheel_prizes=wheel_prizes,
-        wheel_history=wheel_history,
         game_mode=game_mode,
         cases=cases,
-        case_history=case_history,
         valuable_case_drops=valuable_case_drops,
         token_balance=token_balance,
-        token_history=token_history,
+        reward_history=reward_history,
         streak_info=streak_info,
         cm_bonus_balance=cm_bonus_balance,
         cm_bonus_history=cm_bonus_history,
@@ -164,6 +158,14 @@ def login():
 
     current_guest_club_id = session.get("guest_club_id")
     if current_guest_club_id is not None and int(current_guest_club_id) != int(club["club_id"]):
+        _clear_guest_session()
+    elif session.get("guest_logged_in") and session.get("guest_id"):
+        current_guest = get_guest_by_id(session.get("guest_id"), int(club["club_id"]))
+        if current_guest:
+            session["guest_club_id"] = current_guest["club_id"]
+            session["guest_name"] = current_guest.get("fio")
+            session["guest_telegram_id"] = current_guest.get("telegram_id")
+            return redirect(url_for("guest.dashboard"))
         _clear_guest_session()
 
     token = create_guest_login_token(int(club["club_id"]))

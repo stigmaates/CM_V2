@@ -1234,6 +1234,13 @@
         .history-thumb-placeholder { font-size: 22px; line-height: 1; }
         .history-title { font-weight: 700; }
         .history-date { font-size: 12px; color: var(--text-muted); }
+        .history-amount {
+            font-size: 13px;
+            font-weight: 900;
+            color: #fff;
+            white-space: nowrap;
+            text-align: right;
+        }
         .history-status {
             display: inline-flex;
             align-items: center;
@@ -2310,7 +2317,7 @@
     {% set profile = profile_stats|default({"total_hours": 0, "bonus_balance_placeholder": "—", "loyalty_level_placeholder": "—"}) %}
     {% set missions_list = guest_missions|default([], true) %}
     {% set prizes_list = wheel_prizes|default([]) %}
-    {% set history_list = wheel_history|default([]) %}
+    {% set rewards_list = reward_history|default([]) %}
     {% set spin_cost = wheel_settings.spin_cost if wheel_settings else 2 %}
     {% set streak = streak_info|default({}) %}
     {% set cm_balance = cm_bonus_balance|default(0) %}
@@ -2501,29 +2508,35 @@
 
                 <section class="panel wheel-history-panel" {% if game_mode == 'cases' %}style="display:none;"{% endif %}>
                     <div class="section-title">
-                        <span>История выпадений</span>
+                        <span>История начислений</span>
                     </div>
-                    {% if history_list %}
+                    {% if rewards_list %}
                         <div class="history-list" id="historyList">
-                            {% for item in history_list %}
+                            {% for item in rewards_list %}
                                 <div class="history-item">
                                     <div class="history-thumb" aria-hidden="true">
-                                        <span class="history-thumb-placeholder">{{ item.icon_emoji or '🎁' }}</span>
-                                    </div>
-                                    <div>
-                                        <div class="history-title">{{ item.name }}</div>
-                                        <div class="history-date">{{ item.description or 'Приз сохранён за тобой' }}</div>
-                                        {% if item.prize_status_label %}
-                                            {% set status_class = 'issued' if item.claim_status == 'issued' or item.bonus_amount|int > 0 else ('cancelled' if item.claim_status == 'cancelled' else 'pending') %}
-                                            <div class="history-status history-status--{{ status_class }}">{{ item.prize_status_label }}</div>
+                                        {% if item.image_url %}
+                                            <img class="history-thumb-img" src="{{ item.image_url }}" alt="{{ item.title }}">
+                                        {% else %}
+                                            <span class="history-thumb-placeholder">{{ item.icon or '🎁' }}</span>
                                         {% endif %}
                                     </div>
-                                    <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                    <div>
+                                        <div class="history-title">{{ item.title }}</div>
+                                        <div class="history-date">{{ item.subtitle or '' }}</div>
+                                        {% if item.status_label %}
+                                            <div class="history-status history-status--{{ item.status_class }}">{{ item.status_label }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="history-amount">{{ item.amount_label }}</div>
+                                        <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                    </div>
                                 </div>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="empty" id="historyEmpty">Пока нет побед. Крути колесо и получай призы!</div>
+                        <div class="empty" id="historyEmpty">Пока нет начислений. Выполняй задания, открывай кейсы и получай награды!</div>
                         <div class="history-list" id="historyList"></div>
                     {% endif %}
                 </section>
@@ -2564,31 +2577,35 @@
 
                 <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
                     <div class="section-title">
-                        <span>История открытий</span>
+                        <span>История начислений</span>
                     </div>
-                    {% set case_history_list = case_history|default([]) %}
-                    {% if case_history_list %}
+                    {% if rewards_list %}
                         <div class="history-list" id="caseHistoryList">
-                            {% for item in case_history_list %}
+                            {% for item in rewards_list %}
                                 <div class="history-item">
                                     <div class="history-thumb" aria-hidden="true">
                                         {% if item.image_url %}
-                                            <img class="history-thumb-img" src="{{ item.image_url }}" alt="{{ item.name }}">
+                                            <img class="history-thumb-img" src="{{ item.image_url }}" alt="{{ item.title }}">
                                         {% else %}
-                                            <span class="history-thumb-placeholder">🎁</span>
+                                            <span class="history-thumb-placeholder">{{ item.icon or '🎁' }}</span>
                                         {% endif %}
                                     </div>
                                     <div>
-                                        <div class="history-title">{{ item.name }}</div>
-                                        <div class="history-date">{{ item.case_name }}{% if item.description %} • {{ item.description }}{% endif %}</div>
-                                        <div class="history-status {{ 'history-status--issued' if (item.bonus_amount|int > 0 or item.token_amount|int > 0 or item.claim_status == 'issued') else ('history-status--cancelled' if item.claim_status == 'cancelled' else 'history-status--pending') }}">{{ item.prize_status_label }}</div>
+                                        <div class="history-title">{{ item.title }}</div>
+                                        <div class="history-date">{{ item.subtitle or '' }}</div>
+                                        {% if item.status_label %}
+                                            <div class="history-status history-status--{{ item.status_class }}">{{ item.status_label }}</div>
+                                        {% endif %}
                                     </div>
-                                    <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                    <div>
+                                        <div class="history-amount">{{ item.amount_label }}</div>
+                                        <div class="history-date">{{ item.created_at.strftime('%d.%m %H:%M') if item.created_at else '' }}</div>
+                                    </div>
                                 </div>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="empty" id="caseHistoryEmpty">Пока нет открытий. Открой кейс и получи приз!</div>
+                        <div class="empty" id="caseHistoryEmpty">Пока нет начислений. Открой кейс или выполни задание!</div>
                         <div class="history-list" id="caseHistoryList"></div>
                     {% endif %}
                 </section>
