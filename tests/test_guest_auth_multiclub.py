@@ -76,6 +76,13 @@ def test_bot_phone_lookup_is_scoped_to_token_club(monkeypatch):
     assert params == (2,)
 
 
+def test_bot_login_prompt_explains_matching_phone_requirement():
+    assert "Для входа отправьте свой номер телефона кнопкой ниже." in guest_bot.LOGIN_CONTACT_PROMPT
+    assert "телефон аккаунта должен совпадать с телефоном, зарегистрированным в клубе" in (
+        guest_bot.LOGIN_CONTACT_PROMPT
+    )
+
+
 def test_guest_login_clears_session_when_link_targets_another_club(monkeypatch):
     flask_app = Flask(__name__)
     flask_app.secret_key = "test-secret"
