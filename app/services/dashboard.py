@@ -510,6 +510,7 @@ def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
     )
     sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
     spins_by_guest = _get_wheel_spins_by_guest(club_id, guest_ids)
+    case_openings_by_guest = _get_case_openings_by_guest(club_id, guest_ids)
 
     completion_counts = defaultdict(int)
     completion_cache = {}
@@ -517,6 +518,7 @@ def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
     for guest_id in guest_ids:
         guest_sessions = sessions_by_guest.get(guest_id, [])
         guest_spins = spins_by_guest.get(guest_id, [])
+        guest_case_openings = case_openings_by_guest.get(guest_id, [])
 
         for mission in active_missions:
             completed_at = _get_mission_completion_at_from_preloaded(
@@ -525,6 +527,7 @@ def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
                 mission,
                 guest_sessions,
                 guest_spins,
+                guest_case_openings,
                 active_missions,
                 completion_cache,
             )
@@ -1134,7 +1137,7 @@ def _get_case_openings_by_guest(club_id: int, guest_ids=None):
             guest_filter_sql, guest_filter_params = _build_guest_filter_sql(guest_ids)
             cursor.execute(
                 f"""
-                SELECT guest_id, created_at
+                SELECT guest_id, case_id, created_at
                 FROM guest_case_openings
                 WHERE club_id = %s
                   AND created_at IS NOT NULL
@@ -1147,7 +1150,7 @@ def _get_case_openings_by_guest(club_id: int, guest_ids=None):
 
         openings_by_guest = defaultdict(list)
         for row in rows:
-            openings_by_guest[row["guest_id"]].append(row["created_at"])
+            openings_by_guest[row["guest_id"]].append(row)
         return openings_by_guest
     finally:
         conn.close()
@@ -1168,6 +1171,7 @@ def _get_mission_completion_at_from_preloaded(
     mission,
     guest_sessions,
     guest_spins,
+    guest_case_openings,
     active_missions,
     completion_cache,
     stack=None,
@@ -1250,6 +1254,31 @@ def _get_mission_completion_at_from_preloaded(
         if len(spin_dates) >= target:
             completed_at = spin_dates[target - 1]
 
+    # Case openings.
+    elif metric in {"case_openings_count", "specific_case_openings_count"}:
+        expected_case_id = None
+        if metric == "specific_case_openings_count":
+            config = mission.get("config") or {}
+            if isinstance(config, dict):
+                expected_case_id = int(config.get("case_id") or 0)
+            if not expected_case_id:
+                completion_cache[cache_key] = None
+                stack.discard(mission_id)
+                return None
+
+        opening_dates = []
+        for opening in guest_case_openings:
+            opening_at = opening.get("created_at")
+            if not _event_allowed_by_mission_period(opening_at, mission):
+                continue
+            if expected_case_id and int(opening.get("case_id") or 0) != expected_case_id:
+                continue
+            opening_dates.append(opening_at)
+
+        opening_dates.sort()
+        if len(opening_dates) >= target:
+            completed_at = opening_dates[target - 1]
+
     # Meta-mission: complete N other missions.
     elif metric == "completed_missions_count":
         other_completion_dates = []
@@ -1264,6 +1293,7 @@ def _get_mission_completion_at_from_preloaded(
                 other_mission,
                 guest_sessions,
                 guest_spins,
+                guest_case_openings,
                 active_missions,
                 completion_cache,
                 stack=stack,
@@ -1275,6 +1305,7 @@ def _get_mission_completion_at_from_preloaded(
         if len(other_completion_dates) >= target:
             completed_at = other_completion_dates[target - 1]
 
+    stack.discard(mission_id)
     completion_cache[cache_key] = completed_at
     return completed_at
 
@@ -1313,7 +1344,9 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     # CASES
     # -------------------------
     first_case_opening_by_guest = {
-        guest_id: min(opening_dates) for guest_id, opening_dates in case_openings_by_guest.items() if opening_dates
+        guest_id: min(opening["created_at"] for opening in opening_rows if opening.get("created_at"))
+        for guest_id, opening_rows in case_openings_by_guest.items()
+        if opening_rows
     }
 
     case_opened_guests = len(first_case_opening_by_guest)
@@ -1338,6 +1371,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
     for guest_id in guest_ids:
         guest_sessions = sessions_by_guest.get(guest_id, [])
         guest_spins = spins_by_guest.get(guest_id, [])
+        guest_case_openings = case_openings_by_guest.get(guest_id, [])
         completion_dates = []
 
         for mission in active_missions:
@@ -1347,6 +1381,7 @@ def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time
                 mission,
                 guest_sessions,
                 guest_spins,
+                guest_case_openings,
                 active_missions,
                 completion_cache,
             )
