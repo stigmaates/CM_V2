@@ -49,7 +49,12 @@ def test_bonus_settings_token_summary_uses_shared_token_language():
     with app.test_request_context("/owner/settings?tab=wheel"):
         html = render_template(
             "owner/_settings_wheel.html",
-            wheel_settings=SimpleNamespace(tokens_start_date=None, spin_cost=2, is_enabled=True),
+            wheel_settings=SimpleNamespace(
+                tokens_start_date=None,
+                spin_cost=2,
+                is_enabled=True,
+                show_only_own_valuable_drops=True,
+            ),
             prizes=[],
             wheel_active_prob_sum=0,
             prize_icon_choices=["gift"],
@@ -62,6 +67,9 @@ def test_bonus_settings_token_summary_uses_shared_token_language():
     assert "Активный режим" in html
     assert "Старт жетонов" in html
     assert "За первое посещение" in html
+    assert "Показывать призы только моего клуба" in html
+    assert "Лента призов" in html
+    assert "Только клуб" in html
     assert "+1 жетон" in html
     assert "Начислять жетоны за посещения" in html
     assert "Колесо включено" not in html

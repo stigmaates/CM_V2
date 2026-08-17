@@ -64,6 +64,12 @@
         grid-column: 1 / -1;
     }
 
+    .bonus-display-option {
+        align-self: start;
+        width: fit-content;
+        max-width: 100%;
+    }
+
     .token-summary-card {
         border: 1px solid var(--border);
         border-radius: 18px;
@@ -844,6 +850,21 @@
                             <span class="form-check-text">Начислять жетоны за посещения</span>
                         </label>
                     </div>
+
+                    <div class="form-group full bonus-display-option">
+                        <label class="form-check" for="show_only_own_valuable_drops">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                id="show_only_own_valuable_drops"
+                                name="show_only_own_valuable_drops"
+                                value="1"
+                                {% if wheel_settings.show_only_own_valuable_drops %}checked{% endif %}
+                            >
+                            <span class="form-check-box" aria-hidden="true"></span>
+                            <span class="form-check-text">Показывать призы только моего клуба</span>
+                        </label>
+                    </div>
                 </div>
             </form>
             </section>
@@ -870,6 +891,10 @@
                     <strong class="token-summary-status {% if not wheel_settings.is_enabled %}is-off{% endif %}">
                         {% if wheel_settings.is_enabled %}Активно{% else %}Выключено{% endif %}
                     </strong>
+                </div>
+                <div class="token-summary-row">
+                    <span>Лента призов</span>
+                    <strong>{% if wheel_settings.show_only_own_valuable_drops %}Только клуб{% else %}Все клубы{% endif %}</strong>
                 </div>
                 <button type="submit" form="wheelSettingsForm" class="btn token-summary-save">Сохранить</button>
             </aside>
