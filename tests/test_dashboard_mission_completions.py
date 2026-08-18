@@ -32,6 +32,7 @@ CASE_OPENINGS = [
     ("mission", "expected_completed_at"),
     [
         (_mission("visits_count", target=2), datetime(2026, 8, 15, 23, 0)),
+        (_mission("visits_in_period_count", target=2, config={"period_days": 7}), datetime(2026, 8, 15, 23, 0)),
         (_mission("night_visits_count"), datetime(2026, 8, 15, 23, 0)),
         (_mission("weekend_visits_count"), datetime(2026, 8, 15, 23, 0)),
         (_mission("long_visits_count", config={"min_hours": 3}), datetime(2026, 8, 10, 10, 0)),

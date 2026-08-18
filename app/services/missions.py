@@ -20,6 +20,14 @@ MISSION_METRICS = {
         "min_hours_label": "X — минимум часов за каждый визит",
         "config_fields": ["min_hours"],
     },
+    "visits_in_period_count": {
+        "name": "Прийти N раз за X дней",
+        "description": "Считает максимум визитов гостя в любом X-дневном промежутке.",
+        "target_label": "N — сколько визитов нужно",
+        "target_hint": "Например: 4 = гость должен прийти 4 раза внутри выбранного промежутка.",
+        "period_days_label": "X — за сколько дней",
+        "config_fields": ["period_days"],
+    },
     "night_hours_total": {
         "name": "Прийти на N часов ночью",
         "description": "Считает суммарное количество ночных игровых часов. Ночь: 22:00–08:00.",
@@ -129,6 +137,13 @@ DEFAULT_MISSION_TEMPLATES = [
         "short_description": "Посетить клуб N раз, каждый визит должен быть не короче X часов.",
         "target_metric": "visits_min_hours_count",
         "config_schema": {"min_hours": {"label": "Минимум часов за визит", "min": 1, "default": 3}},
+    },
+    {
+        "code": "visits_in_period_count",
+        "name": "Прийти N раз за X дней",
+        "short_description": "Сделать N визитов внутри настраиваемого промежутка X дней.",
+        "target_metric": "visits_in_period_count",
+        "config_schema": {"period_days": {"label": "Период, дней", "min": 1, "default": 7}},
     },
     {
         "code": "night_hours_total",
@@ -288,6 +303,14 @@ def _config_schema_for_metric(metric: str, explicit_schema=None):
         }
     if "case_id" in metric_info.get("config_fields", []):
         return {"case_id": {"label": "Кейс", "source": "active_cases"}}
+    if "period_days" in metric_info.get("config_fields", []):
+        return {
+            "period_days": {
+                "label": metric_info.get("period_days_label") or "X — за сколько дней",
+                "min": 1,
+                "default": 7,
+            }
+        }
     return None
 
 
@@ -308,9 +331,11 @@ def _enrich_mission_row(row):
     row["metric_info"] = MISSION_METRICS.get(metric, {})
     row["requires_min_hours"] = "min_hours" in (row["metric_info"].get("config_fields") or [])
     row["requires_case_select"] = "case_id" in (row["metric_info"].get("config_fields") or [])
+    row["requires_period_days"] = "period_days" in (row["metric_info"].get("config_fields") or [])
     row["target_label"] = row["metric_info"].get("target_label") or "Цель"
     row["target_hint"] = row["metric_info"].get("target_hint") or ""
     row["min_hours_label"] = row["metric_info"].get("min_hours_label") or "X — минимум часов за визит"
+    row["period_days_label"] = row["metric_info"].get("period_days_label") or "X — за сколько дней"
     if row.get("config") is None:
         row["config"] = {}
     return row
@@ -322,9 +347,11 @@ def _enrich_template_row(row):
     row["metric_info"] = MISSION_METRICS.get(metric, {})
     row["requires_min_hours"] = "min_hours" in (row["metric_info"].get("config_fields") or [])
     row["requires_case_select"] = "case_id" in (row["metric_info"].get("config_fields") or [])
+    row["requires_period_days"] = "period_days" in (row["metric_info"].get("config_fields") or [])
     row["target_label"] = row["metric_info"].get("target_label") or "Цель"
     row["target_hint"] = row["metric_info"].get("target_hint") or ""
     row["min_hours_label"] = row["metric_info"].get("min_hours_label") or "X — минимум часов за визит"
+    row["period_days_label"] = row["metric_info"].get("period_days_label") or "X — за сколько дней"
     if not row.get("config_schema"):
         row["config_schema"] = _config_schema_for_metric(metric)
     return row
@@ -537,6 +564,16 @@ def _mission_requires_case_select(template_or_mission) -> bool:
     return "case_id" in (MISSION_METRICS.get(metric, {}).get("config_fields") or [])
 
 
+def _mission_requires_period_days(template_or_mission) -> bool:
+    metric = template_or_mission.get("target_metric")
+    schema = template_or_mission.get("config_schema")
+    if isinstance(schema, str):
+        schema = _decode_json(schema)
+    if isinstance(schema, dict) and "period_days" in schema:
+        return True
+    return "period_days" in (MISSION_METRICS.get(metric, {}).get("config_fields") or [])
+
+
 def build_mission_config_from_form(template, form):
     config = {}
 
@@ -563,6 +600,18 @@ def build_mission_config_from_form(template, form):
         if case_id <= 0:
             raise ValueError("Выбери кейс для задания")
         config["case_id"] = case_id
+
+    if _mission_requires_period_days(template):
+        period_days = form.get("period_days", "").strip()
+        if not period_days:
+            raise ValueError("Укажи период в днях")
+        try:
+            period_days = int(period_days)
+        except ValueError:
+            raise ValueError("Период должен быть числом")
+        if period_days <= 0:
+            raise ValueError("Период должен быть больше 0")
+        config["period_days"] = period_days
 
     return config or None
 
@@ -839,11 +888,43 @@ def _get_min_hours(mission) -> int:
     return 0
 
 
+def _get_period_days(mission) -> int:
+    config = mission.get("config") or {}
+    if isinstance(config, str):
+        config = _decode_json(config) or {}
+    if isinstance(config, dict):
+        try:
+            return int(config.get("period_days", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
 def _count_visits(cursor, guest_id: int, club_id: int, mission, predicate=None) -> int:
     visits = _fetch_visits(cursor, guest_id, club_id, mission)
     if predicate is None:
         return len(visits)
     return sum(1 for visit in visits if predicate(visit))
+
+
+def _count_visits_in_period(cursor, guest_id: int, club_id: int, mission) -> int:
+    period_days = _get_period_days(mission)
+    if period_days <= 0:
+        return 0
+
+    visits = _fetch_visits(cursor, guest_id, club_id, mission)
+    starts = sorted(visit["date_start"] for visit in visits if visit.get("date_start"))
+    if not starts:
+        return 0
+
+    window = timedelta(days=period_days)
+    best = 0
+    left = 0
+    for right, started_at in enumerate(starts):
+        while started_at - starts[left] >= window:
+            left += 1
+        best = max(best, right - left + 1)
+    return best
 
 
 def _count_case_openings(cursor, guest_id: int, club_id: int, mission, case_id: int | None = None) -> int:
@@ -882,6 +963,9 @@ def calculate_mission_progress(guest_id: int, club_id: int, mission):
         with conn.cursor() as cursor:
             if metric == "visits_count":
                 return _count_visits(cursor, guest_id, club_id, mission)
+
+            if metric == "visits_in_period_count":
+                return _count_visits_in_period(cursor, guest_id, club_id, mission)
 
             if metric == "night_visits_count":
                 return _count_visits(

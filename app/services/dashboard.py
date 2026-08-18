@@ -1028,6 +1028,16 @@ def _get_min_hours_from_mission(mission) -> int:
     return 0
 
 
+def _get_period_days_from_mission(mission) -> int:
+    config = mission.get("config") or {}
+    if isinstance(config, dict):
+        try:
+            return int(config.get("period_days", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
 def _session_duration_hours(session_row) -> float:
     date_start = session_row.get("date_start")
     date_stop = session_row.get("date_stop")
@@ -1102,6 +1112,27 @@ def _mission_matching_session_dates(guest_sessions, mission) -> list:
             matched_dates.append(date_start)
 
     return sorted(matched_dates)
+
+
+def _mission_completion_for_visits_in_period(guest_sessions, mission, target: int):
+    period_days = _get_period_days_from_mission(mission)
+    if period_days <= 0:
+        return None
+
+    period_sessions = [row for row in guest_sessions if _session_allowed_by_mission_period(row, mission)]
+    visits = _collapse_sessions_to_visits(period_sessions)
+    starts = sorted(visit["date_start"] for visit in visits if visit.get("date_start"))
+    if len(starts) < target:
+        return None
+
+    window = timedelta(days=period_days)
+    left = 0
+    for right, started_at in enumerate(starts):
+        while started_at - starts[left] >= window:
+            left += 1
+        if right - left + 1 >= target:
+            return started_at
+    return None
 
 
 def _get_wheel_spins_by_guest(club_id: int, guest_ids=None):
@@ -1211,6 +1242,9 @@ def _get_mission_completion_at_from_preloaded(
         matched_dates = _mission_matching_session_dates(guest_sessions, mission)
         if len(matched_dates) >= target:
             completed_at = matched_dates[target - 1]
+
+    elif metric == "visits_in_period_count":
+        completed_at = _mission_completion_for_visits_in_period(guest_sessions, mission, target)
 
     # Total hours missions.
     elif metric in {"total_hours", "night_hours_total", "day_hours_total"}:
