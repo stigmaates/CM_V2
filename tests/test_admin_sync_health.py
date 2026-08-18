@@ -81,6 +81,58 @@ def test_clubs_list_does_not_create_log_tables_on_page_load(monkeypatch):
     assert called == []
 
 
+def test_get_clubs_for_admin_includes_guest_counts(monkeypatch):
+    class FakeCursor:
+        def __init__(self):
+            self.queries = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql):
+            self.queries.append(sql)
+
+        def fetchall(self):
+            return [
+                {
+                    "club_id": 1,
+                    "name": "Club",
+                    "owner_name": "Owner",
+                    "guests_count": 42,
+                    "telegram_guests_count": 17,
+                }
+            ]
+
+    class FakeConnection:
+        def __init__(self, cursor):
+            self.cursor_obj = cursor
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return self.cursor_obj
+
+    cursor = FakeCursor()
+    monkeypatch.setattr(admin_dashboard, "table_has_column", lambda table, column: column == "service_enabled")
+    monkeypatch.setattr(admin_dashboard, "get_db_connection", lambda: FakeConnection(cursor))
+
+    clubs = admin_dashboard.get_clubs_for_admin()
+
+    assert clubs[0]["guests_count"] == 42
+    assert clubs[0]["telegram_guests_count"] == 17
+    query = cursor.queries[0]
+    assert "FROM guests" in query
+    assert "telegram_guests_count" in query
+    assert "created_at" not in query
+
+
 def test_club_sync_rejects_disabled_club_before_creating_log(monkeypatch):
     created_logs = []
 

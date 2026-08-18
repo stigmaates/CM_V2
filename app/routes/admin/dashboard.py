@@ -164,7 +164,6 @@ def table_has_column(table_name: str, column_name: str) -> bool:
 
 
 def get_clubs_for_admin():
-    created_expr = "c.created_at" if table_has_column("clubs", "created_at") else "NULL"
     service_enabled_expr = "c.service_enabled" if table_has_column("clubs", "service_enabled") else "1"
     with get_db_connection() as db:
         with db.cursor() as cur:
@@ -176,9 +175,18 @@ def get_clubs_for_admin():
                     c.owner_id,
                     u.name AS owner_name,
                     u.login AS owner_login,
-                    {created_expr} AS created_at
+                    COALESCE(guest_stats.guests_count, 0) AS guests_count,
+                    COALESCE(guest_stats.telegram_guests_count, 0) AS telegram_guests_count
                 FROM clubs c
                 LEFT JOIN users u ON u.user_id = c.owner_id
+                LEFT JOIN (
+                    SELECT
+                        club_id,
+                        COUNT(*) AS guests_count,
+                        SUM(CASE WHEN telegram_id IS NOT NULL THEN 1 ELSE 0 END) AS telegram_guests_count
+                    FROM guests
+                    GROUP BY club_id
+                ) guest_stats ON guest_stats.club_id = c.club_id
                 ORDER BY c.club_id DESC
                 """)
             return cur.fetchall()

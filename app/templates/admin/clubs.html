@@ -13,7 +13,7 @@
     <div class="admin-table-wrap">
         <table class="admin-table clubs-table">
             <thead>
-                <tr><th>ID</th><th>Название</th><th>Owner</th><th>Обслуживание</th><th>Дата создания</th></tr>
+                <tr><th>ID</th><th>Название</th><th>Owner</th><th>Гостей</th><th>С Telegram</th><th>Обслуживание</th></tr>
             </thead>
             <tbody>
                 {% for club in clubs %}
@@ -21,15 +21,16 @@
                         <td>{{ club.club_id }}</td>
                         <td>{{ club.name }}</td>
                         <td>{{ club.owner_name or club.owner_login or '—' }}</td>
+                        <td>{{ club.guests_count or 0 }}</td>
+                        <td>{{ club.telegram_guests_count or 0 }}</td>
                         <td>
                             <span class="club-service-badge {{ 'enabled' if club.service_enabled else 'disabled' }}">
                                 {{ 'Включено' if club.service_enabled else 'Выключено' }}
                             </span>
                         </td>
-                        <td>{{ club.created_at or '—' }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="5" class="empty-cell">Клубов пока нет</td></tr>
+                    <tr><td colspan="6" class="empty-cell">Клубов пока нет</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -123,7 +124,7 @@ const serviceToggle = document.getElementById('clubServiceToggle');
 const serviceText = document.getElementById('clubServiceText');
 
 function formatValue(value) {
-    return value || '—';
+    return value === null || value === undefined || value === '' ? '—' : value;
 }
 
 const syncScriptLabels = {
@@ -251,7 +252,7 @@ async function openClubModal(clubId) {
 
     const club = data.club;
     document.getElementById('modalClubName').textContent = club.name || 'Клуб';
-    document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Создан: ${formatValue(club.created_at)}`;
+    document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Гостей: ${formatValue(club.guests_count)} · Telegram: ${formatValue(club.telegram_guests_count)}`;
     document.getElementById('impersonateForm').action = `/admin/clubs/${club.club_id}/impersonate`;
     document.getElementById('guestTestForm').action = `/admin/clubs/${club.club_id}/guest-test`;
     updateServiceUi(serviceEnabledValue(club.service_enabled));
