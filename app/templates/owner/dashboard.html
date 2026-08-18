@@ -441,7 +441,7 @@
                 <div class="cb-case-period-chart__group">
                     <div class="cb-case-period-chart__bars">
                         {% for serie in case_openings_period_chart['series'] %}
-                        {% set value = serie.values[period_index] %}
+                        {% set value = serie['values'][period_index] %}
                         <span
                             class="cb-case-period-chart__bar"
                             style="--bar-color: {{ serie.color }}; --bar-height: {{ ((value / case_openings_period_chart.max_value) * 100)|round(1) if case_openings_period_chart.max_value else 0 }}%;"
