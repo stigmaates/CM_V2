@@ -11,9 +11,16 @@
 
 <section class="admin-card">
     <div class="admin-table-wrap">
-        <table class="admin-table clubs-table">
+        <table class="admin-table clubs-table" id="clubsTable">
             <thead>
-                <tr><th>ID</th><th>Название</th><th>Owner</th><th>Гостей</th><th>С Telegram</th><th>Обслуживание</th></tr>
+                <tr>
+                    <th><button type="button" class="clubs-sort-btn" data-column="0" data-type="number">ID <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="1" data-type="text">Название <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="2" data-type="text">Owner <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="3" data-type="number">Гостей <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="4" data-type="number">С Telegram <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="5" data-type="text">Обслуживание <span class="clubs-sort-indicator">↕</span></button></th>
+                </tr>
             </thead>
             <tbody>
                 {% for club in clubs %}
@@ -122,9 +129,63 @@ const closeBtn = document.getElementById('clubModalClose');
 const resultBox = document.getElementById('syncResult');
 const serviceToggle = document.getElementById('clubServiceToggle');
 const serviceText = document.getElementById('clubServiceText');
+const clubsTableBody = document.querySelector('#clubsTable tbody');
+const clubsSortButtons = document.querySelectorAll('.clubs-sort-btn');
+const clubsSortState = {
+    column: null,
+    direction: 'asc',
+};
 
 function formatValue(value) {
     return value === null || value === undefined || value === '' ? '—' : value;
+}
+
+function getClubSortValue(row, column, type) {
+    const cell = row.cells[column];
+    const rawValue = (cell ? cell.textContent : '').trim();
+    if (type === 'number') {
+        const numericValue = Number(rawValue.replace(/\s+/g, '').replace(',', '.'));
+        return Number.isFinite(numericValue) ? numericValue : 0;
+    }
+    return rawValue.toLocaleLowerCase('ru-RU');
+}
+
+function updateClubSortIndicators(activeButton) {
+    clubsSortButtons.forEach((button) => {
+        const indicator = button.querySelector('.clubs-sort-indicator');
+        const isActive = button === activeButton;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-sort', isActive ? clubsSortState.direction : 'none');
+        if (indicator) {
+            indicator.textContent = isActive ? (clubsSortState.direction === 'asc' ? '↑' : '↓') : '↕';
+        }
+    });
+}
+
+function sortClubsTable(button) {
+    if (!clubsTableBody) return;
+
+    const column = Number(button.dataset.column);
+    const type = button.dataset.type || 'text';
+    const direction = clubsSortState.column === column && clubsSortState.direction === 'asc' ? 'desc' : 'asc';
+    clubsSortState.column = column;
+    clubsSortState.direction = direction;
+
+    const rows = Array.from(clubsTableBody.querySelectorAll('tr.club-row'));
+    rows.sort((firstRow, secondRow) => {
+        const firstValue = getClubSortValue(firstRow, column, type);
+        const secondValue = getClubSortValue(secondRow, column, type);
+        let result = 0;
+        if (type === 'number') {
+            result = firstValue - secondValue;
+        } else {
+            result = firstValue.localeCompare(secondValue, 'ru', {numeric: true, sensitivity: 'base'});
+        }
+        return direction === 'asc' ? result : -result;
+    });
+
+    rows.forEach((row) => clubsTableBody.appendChild(row));
+    updateClubSortIndicators(button);
 }
 
 const syncScriptLabels = {
@@ -268,6 +329,10 @@ function closeModal() {
 
 document.querySelectorAll('.club-row').forEach(row => {
     row.addEventListener('click', () => openClubModal(row.dataset.clubId));
+});
+
+clubsSortButtons.forEach((button) => {
+    button.addEventListener('click', () => sortClubsTable(button));
 });
 
 closeBtn.addEventListener('click', closeModal);

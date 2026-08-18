@@ -136,6 +136,9 @@ def test_admin_clubs_page_renders_service_toggle():
     assert "Обслуживание клуба" in html
     assert "Гостей" in html
     assert "С Telegram" in html
+    assert 'class="clubs-sort-btn"' in html
+    assert 'data-column="3" data-type="number"' in html
+    assert 'data-column="5" data-type="text"' in html
     assert "<td>42</td>" in html
     assert "<td>17</td>" in html
     assert "Дата создания" not in html
