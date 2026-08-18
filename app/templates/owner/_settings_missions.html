@@ -339,11 +339,16 @@
                                         </div>
                                     {% endif %}
 
-                                    {% if m.requires_period_days %}
+                                    {% if m.requires_time_range %}
                                         <div class="form-group">
-                                            <label for="period_days_{{ m.id }}">{{ m.period_days_label or 'X — за сколько дней' }}</label>
-                                            <input class="form-input" type="number" id="period_days_{{ m.id }}" name="period_days" min="1" step="1" value="{{ (m.config or {}).get('period_days', 7) }}">
-                                            <span class="mission-field-hint">X задаёт промежуток, внутри которого нужно набрать N визитов.</span>
+                                            <label for="time_start_{{ m.id }}">{{ m.time_start_label or 'Начало интервала' }}</label>
+                                            <input class="form-input" type="time" id="time_start_{{ m.id }}" name="time_start" value="{{ (m.config or {}).get('time_start', '18:00') }}">
+                                            <span class="mission-field-hint">Засчитываются сессии, начатые не раньше этого времени.</span>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="time_end_{{ m.id }}">{{ m.time_end_label or 'Конец интервала' }}</label>
+                                            <input class="form-input" type="time" id="time_end_{{ m.id }}" name="time_end" value="{{ (m.config or {}).get('time_end', '23:00') }}">
+                                            <span class="mission-field-hint">Если конец раньше начала, интервал считается через полночь.</span>
                                         </div>
                                     {% endif %}
 
@@ -430,11 +435,12 @@
                                 value="{{ t.id }}"
                                 data-requires-min-hours="{{ 1 if t.requires_min_hours else 0 }}"
                                 data-requires-case-select="{{ 1 if t.requires_case_select else 0 }}"
-                                data-requires-period-days="{{ 1 if t.requires_period_days else 0 }}"
+                                data-requires-time-range="{{ 1 if t.requires_time_range else 0 }}"
                                 data-target-label="{{ t.target_label or 'Цель' }}"
                                 data-target-hint="{{ t.target_hint or '' }}"
                                 data-min-hours-label="{{ t.min_hours_label or 'X — минимум часов за визит' }}"
-                                data-period-days-label="{{ t.period_days_label or 'X — за сколько дней' }}"
+                                data-time-start-label="{{ t.time_start_label or 'Начало интервала' }}"
+                                data-time-end-label="{{ t.time_end_label or 'Конец интервала' }}"
                             >{{ t.name }} - {{ t.short_description }}</option>
                         {% endfor %}
                     </select>
@@ -490,10 +496,16 @@
                     <span class="mission-field-hint">Задание будет считать открытия только выбранного активного кейса.</span>
                 </div>
 
-                <div class="form-group" id="periodDaysGroup" style="display: none;">
-                    <label for="period_days" id="periodDaysLabel">X — за сколько дней</label>
-                    <input class="form-input" type="number" id="period_days" name="period_days" min="1" step="1" value="7">
-                    <span class="mission-field-hint">X задаёт промежуток, внутри которого нужно набрать N визитов.</span>
+                <div class="form-group" id="timeStartGroup" style="display: none;">
+                    <label for="time_start" id="timeStartLabel">Начало интервала</label>
+                    <input class="form-input" type="time" id="time_start" name="time_start" value="18:00">
+                    <span class="mission-field-hint">Засчитываются сессии, начатые не раньше этого времени.</span>
+                </div>
+
+                <div class="form-group" id="timeEndGroup" style="display: none;">
+                    <label for="time_end" id="timeEndLabel">Конец интервала</label>
+                    <input class="form-input" type="time" id="time_end" name="time_end" value="23:00">
+                    <span class="mission-field-hint">Если конец раньше начала, интервал считается через полночь.</span>
                 </div>
 
                 <div class="form-group">
@@ -527,10 +539,13 @@
         const minHoursInput = document.getElementById('min_hours');
         const caseSelectGroup = document.getElementById('caseSelectGroup');
         const caseSelectInput = document.getElementById('case_id');
-        const periodDaysGroup = document.getElementById('periodDaysGroup');
-        const periodDaysInput = document.getElementById('period_days');
+        const timeStartGroup = document.getElementById('timeStartGroup');
+        const timeStartInput = document.getElementById('time_start');
+        const timeEndGroup = document.getElementById('timeEndGroup');
+        const timeEndInput = document.getElementById('time_end');
         const minHoursLabel = document.getElementById('minHoursLabel');
-        const periodDaysLabel = document.getElementById('periodDaysLabel');
+        const timeStartLabel = document.getElementById('timeStartLabel');
+        const timeEndLabel = document.getElementById('timeEndLabel');
         const targetAmountLabel = document.getElementById('targetAmountLabel');
         const targetAmountHint = document.getElementById('targetAmountHint');
 
@@ -539,7 +554,7 @@
             const selected = templateSelect.options[templateSelect.selectedIndex];
             const needsMinHours = selected && selected.dataset.requiresMinHours === '1';
             const needsCaseSelect = selected && selected.dataset.requiresCaseSelect === '1';
-            const needsPeriodDays = selected && selected.dataset.requiresPeriodDays === '1';
+            const needsTimeRange = selected && selected.dataset.requiresTimeRange === '1';
 
             if (targetAmountLabel) {
                 targetAmountLabel.textContent = selected?.dataset.targetLabel || 'Цель';
@@ -550,8 +565,11 @@
             if (minHoursLabel) {
                 minHoursLabel.textContent = selected?.dataset.minHoursLabel || 'X — минимум часов за визит';
             }
-            if (periodDaysLabel) {
-                periodDaysLabel.textContent = selected?.dataset.periodDaysLabel || 'X — за сколько дней';
+            if (timeStartLabel) {
+                timeStartLabel.textContent = selected?.dataset.timeStartLabel || 'Начало интервала';
+            }
+            if (timeEndLabel) {
+                timeEndLabel.textContent = selected?.dataset.timeEndLabel || 'Конец интервала';
             }
 
             minHoursGroup.style.display = needsMinHours ? '' : 'none';
@@ -560,9 +578,11 @@
                 caseSelectGroup.style.display = needsCaseSelect ? '' : 'none';
                 caseSelectInput.required = Boolean(needsCaseSelect);
             }
-            if (periodDaysGroup && periodDaysInput) {
-                periodDaysGroup.style.display = needsPeriodDays ? '' : 'none';
-                periodDaysInput.required = Boolean(needsPeriodDays);
+            if (timeStartGroup && timeStartInput && timeEndGroup && timeEndInput) {
+                timeStartGroup.style.display = needsTimeRange ? '' : 'none';
+                timeEndGroup.style.display = needsTimeRange ? '' : 'none';
+                timeStartInput.required = Boolean(needsTimeRange);
+                timeEndInput.required = Boolean(needsTimeRange);
             }
         }
 

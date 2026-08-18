@@ -206,12 +206,12 @@ def test_min_hours_mission_counts_collapsed_visit_not_raw_sessions(monkeypatch):
     assert conn.closed is True
 
 
-def test_visits_in_period_counts_best_rolling_window(monkeypatch):
+def test_sessions_started_in_time_range_count_raw_session_starts(monkeypatch):
     rows = [
-        {"date_start": datetime(2026, 8, 1, 12, 0), "date_stop": datetime(2026, 8, 1, 14, 0)},
-        {"date_start": datetime(2026, 8, 3, 12, 0), "date_stop": datetime(2026, 8, 3, 14, 0)},
-        {"date_start": datetime(2026, 8, 5, 12, 0), "date_stop": datetime(2026, 8, 5, 14, 0)},
-        {"date_start": datetime(2026, 8, 20, 12, 0), "date_stop": datetime(2026, 8, 20, 14, 0)},
+        {"date_start": datetime(2026, 8, 1, 17, 59), "date_stop": datetime(2026, 8, 1, 18, 30)},
+        {"date_start": datetime(2026, 8, 1, 18, 0), "date_stop": datetime(2026, 8, 1, 19, 0)},
+        {"date_start": datetime(2026, 8, 2, 20, 15), "date_stop": datetime(2026, 8, 2, 21, 0)},
+        {"date_start": datetime(2026, 8, 3, 23, 0), "date_stop": datetime(2026, 8, 3, 23, 30)},
     ]
     conn = _Connection(rows)
     monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
@@ -220,25 +220,54 @@ def test_visits_in_period_counts_best_rolling_window(monkeypatch):
         guest_id=10,
         club_id=1,
         mission={
-            "target_metric": "visits_in_period_count",
-            "target_amount": 4,
+            "target_metric": "sessions_started_in_time_range_count",
+            "target_amount": 2,
             "start_at": None,
             "end_at": None,
-            "config": {"period_days": 7},
+            "config": {"time_start": "18:00", "time_end": "23:00"},
         },
     )
 
-    assert progress == 3
+    assert progress == 2
     assert conn.closed is True
 
 
-def test_build_mission_config_reads_period_days():
-    config = missions.build_mission_config_from_form(
-        template={
-            "target_metric": "visits_in_period_count",
-            "config_schema": {"period_days": {"label": "Период, дней"}},
+def test_sessions_started_in_time_range_supports_overnight_window(monkeypatch):
+    rows = [
+        {"date_start": datetime(2026, 8, 1, 21, 59), "date_stop": datetime(2026, 8, 1, 22, 30)},
+        {"date_start": datetime(2026, 8, 1, 22, 0), "date_stop": datetime(2026, 8, 1, 23, 0)},
+        {"date_start": datetime(2026, 8, 2, 5, 59), "date_stop": datetime(2026, 8, 2, 6, 30)},
+        {"date_start": datetime(2026, 8, 2, 6, 0), "date_stop": datetime(2026, 8, 2, 7, 0)},
+    ]
+    conn = _Connection(rows)
+    monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
+
+    progress = missions.calculate_mission_progress(
+        guest_id=10,
+        club_id=1,
+        mission={
+            "target_metric": "sessions_started_in_time_range_count",
+            "target_amount": 2,
+            "start_at": None,
+            "end_at": None,
+            "config": {"time_start": "22:00", "time_end": "06:00"},
         },
-        form={"period_days": "14"},
     )
 
-    assert config == {"period_days": 14}
+    assert progress == 2
+    assert conn.closed is True
+
+
+def test_build_mission_config_reads_time_range():
+    config = missions.build_mission_config_from_form(
+        template={
+            "target_metric": "sessions_started_in_time_range_count",
+            "config_schema": {
+                "time_start": {"label": "Начало интервала"},
+                "time_end": {"label": "Конец интервала"},
+            },
+        },
+        form={"time_start": "18:00", "time_end": "23:00"},
+    )
+
+    assert config == {"time_start": "18:00", "time_end": "23:00"}

@@ -1028,14 +1028,22 @@ def _get_min_hours_from_mission(mission) -> int:
     return 0
 
 
-def _get_period_days_from_mission(mission) -> int:
+def _get_time_range_from_mission(mission):
     config = mission.get("config") or {}
     if isinstance(config, dict):
         try:
-            return int(config.get("period_days", 0) or 0)
-        except (TypeError, ValueError):
-            return 0
-    return 0
+            time_start = datetime.strptime(str(config.get("time_start") or ""), "%H:%M").time()
+            time_end = datetime.strptime(str(config.get("time_end") or ""), "%H:%M").time()
+        except ValueError:
+            return None
+        return time_start, time_end
+    return None
+
+
+def _time_in_range(value, time_start, time_end) -> bool:
+    if time_start <= time_end:
+        return time_start <= value < time_end
+    return value >= time_start or value < time_end
 
 
 def _session_duration_hours(session_row) -> float:
@@ -1114,24 +1122,21 @@ def _mission_matching_session_dates(guest_sessions, mission) -> list:
     return sorted(matched_dates)
 
 
-def _mission_completion_for_visits_in_period(guest_sessions, mission, target: int):
-    period_days = _get_period_days_from_mission(mission)
-    if period_days <= 0:
+def _mission_completion_for_sessions_started_in_time_range(guest_sessions, mission, target: int):
+    time_range = _get_time_range_from_mission(mission)
+    if not time_range:
         return None
 
-    period_sessions = [row for row in guest_sessions if _session_allowed_by_mission_period(row, mission)]
-    visits = _collapse_sessions_to_visits(period_sessions)
-    starts = sorted(visit["date_start"] for visit in visits if visit.get("date_start"))
-    if len(starts) < target:
-        return None
-
-    window = timedelta(days=period_days)
-    left = 0
-    for right, started_at in enumerate(starts):
-        while started_at - starts[left] >= window:
-            left += 1
-        if right - left + 1 >= target:
-            return started_at
+    time_start, time_end = time_range
+    matching_dates = sorted(
+        row["date_start"]
+        for row in guest_sessions
+        if _session_allowed_by_mission_period(row, mission)
+        and row.get("date_start")
+        and _time_in_range(row["date_start"].time(), time_start, time_end)
+    )
+    if len(matching_dates) >= target:
+        return matching_dates[target - 1]
     return None
 
 
@@ -1243,8 +1248,8 @@ def _get_mission_completion_at_from_preloaded(
         if len(matched_dates) >= target:
             completed_at = matched_dates[target - 1]
 
-    elif metric == "visits_in_period_count":
-        completed_at = _mission_completion_for_visits_in_period(guest_sessions, mission, target)
+    elif metric == "sessions_started_in_time_range_count":
+        completed_at = _mission_completion_for_sessions_started_in_time_range(guest_sessions, mission, target)
 
     # Total hours missions.
     elif metric in {"total_hours", "night_hours_total", "day_hours_total"}:
