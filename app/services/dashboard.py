@@ -518,9 +518,9 @@ def _activity_period_sql(field_name: str, bucket: str) -> str:
             "STR_TO_DATE("
             f"CONCAT(YEAR({field_name}), '-', "
             f"LPAD(((QUARTER({field_name}) - 1) * 3 + 1), 2, '0'), '-01'), "
-            "'%Y-%m-%d')"
+            "'%%Y-%%m-%%d')"
         )
-    return f"STR_TO_DATE(DATE_FORMAT({field_name}, '%Y-%m-01'), '%Y-%m-%d')"
+    return f"STR_TO_DATE(DATE_FORMAT({field_name}, '%%Y-%%m-01'), '%%Y-%%m-%%d')"
 
 
 def _normalize_period_start(value):
