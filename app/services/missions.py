@@ -29,6 +29,15 @@ MISSION_METRICS = {
         "time_end_label": "Конец интервала",
         "config_fields": ["time_range"],
     },
+    "session_hours_in_time_range_total": {
+        "name": "Отыграть N часов в промежуток времени",
+        "description": "Считает суммарную длительность сессий, начатых в заданный интервал времени суток.",
+        "target_label": "N — сколько часов нужно отыграть",
+        "target_hint": "Например: 6 = гость должен суммарно отыграть 6 часов в выбранный временной интервал.",
+        "time_start_label": "Начало интервала",
+        "time_end_label": "Конец интервала",
+        "config_fields": ["time_range"],
+    },
     "night_hours_total": {
         "name": "Прийти на N часов ночью",
         "description": "Считает суммарное количество ночных игровых часов. Ночь: 22:00–08:00.",
@@ -144,6 +153,16 @@ DEFAULT_MISSION_TEMPLATES = [
         "name": "Начать N сессий в промежуток времени",
         "short_description": "Начать N сессий в заданный временной интервал.",
         "target_metric": "sessions_started_in_time_range_count",
+        "config_schema": {
+            "time_start": {"label": "Начало интервала", "default": "18:00"},
+            "time_end": {"label": "Конец интервала", "default": "23:00"},
+        },
+    },
+    {
+        "code": "session_hours_in_time_range_total",
+        "name": "Отыграть N часов в промежуток времени",
+        "short_description": "Отыграть суммарно N часов в сессиях, начатых в заданный временной интервал.",
+        "target_metric": "session_hours_in_time_range_total",
         "config_schema": {
             "time_start": {"label": "Начало интервала", "default": "18:00"},
             "time_end": {"label": "Конец интервала", "default": "23:00"},
@@ -942,6 +961,21 @@ def _count_sessions_started_in_time_range(cursor, guest_id: int, club_id: int, m
     )
 
 
+def _sum_session_hours_in_time_range(cursor, guest_id: int, club_id: int, mission) -> int:
+    time_range = _get_time_range(mission)
+    if not time_range:
+        return 0
+
+    time_start, time_end = time_range
+    sessions = _fetch_sessions(cursor, guest_id, club_id, mission)
+    total_hours = sum(
+        _session_duration_hours(session)
+        for session in sessions
+        if session.get("date_start") and _time_in_range(session["date_start"].time(), time_start, time_end)
+    )
+    return int(total_hours)
+
+
 def _count_case_openings(cursor, guest_id: int, club_id: int, mission, case_id: int | None = None) -> int:
     period_conditions, period_params = build_period_filter(mission, date_field="created_at")
     where_parts = ["guest_id = %s", "club_id = %s"] + period_conditions
@@ -981,6 +1015,9 @@ def calculate_mission_progress(guest_id: int, club_id: int, mission):
 
             if metric == "sessions_started_in_time_range_count":
                 return _count_sessions_started_in_time_range(cursor, guest_id, club_id, mission)
+
+            if metric == "session_hours_in_time_range_total":
+                return _sum_session_hours_in_time_range(cursor, guest_id, club_id, mission)
 
             if metric == "night_visits_count":
                 return _count_visits(
