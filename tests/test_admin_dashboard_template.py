@@ -126,13 +126,19 @@ def test_admin_clubs_page_renders_service_toggle():
                     "owner_name": "Owner",
                     "owner_login": "owner",
                     "service_enabled": 0,
-                    "created_at": None,
+                    "guests_count": 42,
+                    "telegram_guests_count": 17,
                 }
             ],
             active_page="clubs",
         )
 
     assert "Обслуживание клуба" in html
+    assert "Гостей" in html
+    assert "С Telegram" in html
+    assert "<td>42</td>" in html
+    assert "<td>17</td>" in html
+    assert "Дата создания" not in html
     assert "Выключено" in html
     assert "clubServiceToggle" in html
     assert "Тестовый гость" in html
