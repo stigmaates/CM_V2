@@ -170,3 +170,12 @@ def test_wheel_spins_period_chart_fills_empty_weeks(monkeypatch):
     assert [item["label"] for item in chart["items"]] == ["03.08", "10.08", "17.08"]
     assert [item["count"] for item in chart["items"]] == [4, 0, 2]
     assert chart["total"] == 6
+
+
+def test_activity_period_sql_escapes_mysql_date_format_percent_signs():
+    month_sql = dashboard._activity_period_sql("created_at", "month")
+    quarter_sql = dashboard._activity_period_sql("created_at", "quarter")
+
+    assert "%%Y-%%m-01" in month_sql
+    assert "%%Y-%%m-%%d" in month_sql
+    assert "%%Y-%%m-%%d" in quarter_sql
