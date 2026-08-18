@@ -26,6 +26,7 @@
 }) %}
 {% set spark = stats.kpi_sparklines|default({"guests_path": "", "retention_path": "", "avg_check_path": ""}) %}
 {% set streak_funnel = stats.visit_streak_funnel|default([]) %}
+{% set activity_bucket_options = [("week", "Недели"), ("month", "Месяцы"), ("quarter", "Кварталы")] %}
 
 <main class="cb-dashboard content">
     <div class="cb-dashboard-head">
@@ -273,6 +274,46 @@
         </div>
     </section>
 
+    <section
+        class="cb-panel cb-period-panel"
+        id="wheelPeriodChartPanel"
+        data-engagement-extra="wheel"
+        aria-label="Динамика прокрутов колеса"
+    >
+        <div class="cb-panel-head cb-period-panel-head">
+            <div>
+                <h2>Прокруты колеса по периодам</h2>
+                <p>Все прокруты клуба, сгруппированные по {{ wheel_spins_period_chart.bucket_label|lower }}</p>
+            </div>
+            <div class="cb-period-switcher" aria-label="Группировка прокрутов колеса">
+                {% for bucket_value, bucket_label in activity_bucket_options %}
+                <a
+                    class="cb-period-switcher__item {% if selected_wheel_bucket == bucket_value %}is-active{% endif %}"
+                    href="{{ url_for('owner.dashboard', period=selected_period, wheel_bucket=bucket_value, case_bucket=selected_case_bucket, engagement_tab='wheel') }}#wheelPeriodChartPanel"
+                >{{ bucket_label }}</a>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if wheel_spins_period_chart['items'] %}
+        <div class="cb-period-single-chart" aria-label="Гистограмма прокрутов колеса">
+            {% for item in wheel_spins_period_chart['items'] %}
+            <div class="cb-period-single-chart__item" title="{{ item.label }}: {{ item.count }} прокрутов">
+                <b>{{ item.count }}</b>
+                <div class="cb-period-single-chart__bar-wrap">
+                    <span class="cb-period-single-chart__bar" style="--bar-height: {{ item.height }}%;"></span>
+                </div>
+                <span>{{ item.label }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="cb-case-openings-empty">
+            Прокрутов пока нет. Когда гости начнут крутить колесо, здесь появится динамика.
+        </div>
+        {% endif %}
+    </section>
+
 
     <section
         class="cb-panel cb-case-openings-panel hidden-block"
@@ -375,6 +416,53 @@
                     </div>
                 </div>
             </aside>
+        </div>
+
+        <div class="cb-case-period-panel" id="casePeriodChartPanel">
+            <div class="cb-panel-head cb-period-panel-head">
+                <div>
+                    <h2>Открытия кейсов по периодам</h2>
+                    <p>Каждый столбец внутри периода — отдельный кейс</p>
+                </div>
+                <div class="cb-period-switcher" aria-label="Группировка открытий кейсов">
+                    {% for bucket_value, bucket_label in activity_bucket_options %}
+                    <a
+                        class="cb-period-switcher__item {% if selected_case_bucket == bucket_value %}is-active{% endif %}"
+                        href="{{ url_for('owner.dashboard', period=selected_period, wheel_bucket=selected_wheel_bucket, case_bucket=bucket_value, engagement_tab='cases') }}#casePeriodChartPanel"
+                    >{{ bucket_label }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if case_openings_period_chart['labels'] and case_openings_period_chart['series'] %}
+            <div class="cb-case-period-chart" aria-label="Гистограмма открытий кейсов">
+                {% for label in case_openings_period_chart['labels'] %}
+                {% set period_index = loop.index0 %}
+                <div class="cb-case-period-chart__group">
+                    <div class="cb-case-period-chart__bars">
+                        {% for serie in case_openings_period_chart['series'] %}
+                        {% set value = serie.values[period_index] %}
+                        <span
+                            class="cb-case-period-chart__bar"
+                            style="--bar-color: {{ serie.color }}; --bar-height: {{ ((value / case_openings_period_chart.max_value) * 100)|round(1) if case_openings_period_chart.max_value else 0 }}%;"
+                            title="{{ serie.name }} · {{ label }}: {{ value }} открытий"
+                        ></span>
+                        {% endfor %}
+                    </div>
+                    <span class="cb-case-period-chart__label">{{ label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="cb-case-period-legend" aria-label="Легенда кейсов">
+                {% for serie in case_openings_period_chart['series'] %}
+                <span><i style="background: {{ serie.color }}"></i>{{ serie.name }}</span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="cb-case-openings-empty">
+                Открытий кейсов пока нет. График появится после первых открытий.
+            </div>
+            {% endif %}
         </div>
     </section>
 
@@ -499,6 +587,7 @@
     const engagementPeriodData = {{ engagement|tojson|safe }};
     const engagementAllTimeData = {{ engagement_all_time_data|default(engagement)|tojson|safe }};
     const engagementPeriodDays = {{ stats.period_days|tojson|safe }};
+    const initialEngagementTab = {{ active_engagement_tab|default('wheel')|tojson|safe }};
     let engagementAllTimeMode = false;
 
     const engagementMetricBlocks = document.querySelectorAll('[data-engagement-metrics]');
@@ -551,7 +640,7 @@
     engagementTabs.forEach((tab) => {
         tab.addEventListener('click', () => setEngagementMode(tab.dataset.engagementTab));
     });
-    setEngagementMode('wheel');
+    setEngagementMode(initialEngagementTab);
     if (engagementScopeToggle) {
         engagementScopeToggle.addEventListener('click', () => {
             engagementAllTimeMode = !engagementAllTimeMode;
