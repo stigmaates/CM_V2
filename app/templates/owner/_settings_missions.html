@@ -339,6 +339,14 @@
                                         </div>
                                     {% endif %}
 
+                                    {% if m.requires_period_days %}
+                                        <div class="form-group">
+                                            <label for="period_days_{{ m.id }}">{{ m.period_days_label or 'X — за сколько дней' }}</label>
+                                            <input class="form-input" type="number" id="period_days_{{ m.id }}" name="period_days" min="1" step="1" value="{{ (m.config or {}).get('period_days', 7) }}">
+                                            <span class="mission-field-hint">X задаёт промежуток, внутри которого нужно набрать N визитов.</span>
+                                        </div>
+                                    {% endif %}
+
                                     <div class="form-group">
                                         <label for="reward_{{ m.id }}">Приз</label>
                                         <input class="form-input" type="text" id="reward_{{ m.id }}" name="reward_text" value="{{ m.reward_text or '' }}" placeholder="Например: бесплатный напиток или скидка 10%">
@@ -422,9 +430,11 @@
                                 value="{{ t.id }}"
                                 data-requires-min-hours="{{ 1 if t.requires_min_hours else 0 }}"
                                 data-requires-case-select="{{ 1 if t.requires_case_select else 0 }}"
+                                data-requires-period-days="{{ 1 if t.requires_period_days else 0 }}"
                                 data-target-label="{{ t.target_label or 'Цель' }}"
                                 data-target-hint="{{ t.target_hint or '' }}"
                                 data-min-hours-label="{{ t.min_hours_label or 'X — минимум часов за визит' }}"
+                                data-period-days-label="{{ t.period_days_label or 'X — за сколько дней' }}"
                             >{{ t.name }} - {{ t.short_description }}</option>
                         {% endfor %}
                     </select>
@@ -480,6 +490,12 @@
                     <span class="mission-field-hint">Задание будет считать открытия только выбранного активного кейса.</span>
                 </div>
 
+                <div class="form-group" id="periodDaysGroup" style="display: none;">
+                    <label for="period_days" id="periodDaysLabel">X — за сколько дней</label>
+                    <input class="form-input" type="number" id="period_days" name="period_days" min="1" step="1" value="7">
+                    <span class="mission-field-hint">X задаёт промежуток, внутри которого нужно набрать N визитов.</span>
+                </div>
+
                 <div class="form-group">
                     <label for="start_at">Дата начала</label>
                     <input class="form-input" type="datetime-local" id="start_at" name="start_at">
@@ -511,7 +527,10 @@
         const minHoursInput = document.getElementById('min_hours');
         const caseSelectGroup = document.getElementById('caseSelectGroup');
         const caseSelectInput = document.getElementById('case_id');
+        const periodDaysGroup = document.getElementById('periodDaysGroup');
+        const periodDaysInput = document.getElementById('period_days');
         const minHoursLabel = document.getElementById('minHoursLabel');
+        const periodDaysLabel = document.getElementById('periodDaysLabel');
         const targetAmountLabel = document.getElementById('targetAmountLabel');
         const targetAmountHint = document.getElementById('targetAmountHint');
 
@@ -520,6 +539,7 @@
             const selected = templateSelect.options[templateSelect.selectedIndex];
             const needsMinHours = selected && selected.dataset.requiresMinHours === '1';
             const needsCaseSelect = selected && selected.dataset.requiresCaseSelect === '1';
+            const needsPeriodDays = selected && selected.dataset.requiresPeriodDays === '1';
 
             if (targetAmountLabel) {
                 targetAmountLabel.textContent = selected?.dataset.targetLabel || 'Цель';
@@ -530,12 +550,19 @@
             if (minHoursLabel) {
                 minHoursLabel.textContent = selected?.dataset.minHoursLabel || 'X — минимум часов за визит';
             }
+            if (periodDaysLabel) {
+                periodDaysLabel.textContent = selected?.dataset.periodDaysLabel || 'X — за сколько дней';
+            }
 
             minHoursGroup.style.display = needsMinHours ? '' : 'none';
             minHoursInput.required = Boolean(needsMinHours);
             if (caseSelectGroup && caseSelectInput) {
                 caseSelectGroup.style.display = needsCaseSelect ? '' : 'none';
                 caseSelectInput.required = Boolean(needsCaseSelect);
+            }
+            if (periodDaysGroup && periodDaysInput) {
+                periodDaysGroup.style.display = needsPeriodDays ? '' : 'none';
+                periodDaysInput.required = Boolean(needsPeriodDays);
             }
         }
 

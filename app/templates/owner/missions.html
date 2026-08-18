@@ -263,6 +263,38 @@
                                         {% if m.target_hint %}<span class="mission-field-hint">{{ m.target_hint }}</span>{% endif %}
                                     </div>
 
+                                    {% if m.requires_min_hours %}
+                                        <div class="form-group">
+                                            <label for="min_hours_{{ m.id }}">{{ m.min_hours_label or 'X — минимум часов за визит' }}</label>
+                                            <input class="form-input" type="number" id="min_hours_{{ m.id }}" name="min_hours" min="1" step="1" value="{{ (m.config or {}).get('min_hours', 3) }}">
+                                            <span class="mission-field-hint">X задаёт минимальную длительность каждого подходящего визита.</span>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if m.requires_case_select %}
+                                        <div class="form-group">
+                                            <label for="case_id_{{ m.id }}">Кейс</label>
+                                            <select class="form-input" id="case_id_{{ m.id }}" name="case_id" required>
+                                                <option value="">Выберите кейс</option>
+                                                {% for case in active_cases|default([]) %}
+                                                    <option
+                                                        value="{{ case.id }}"
+                                                        {% if (m.config or {}).get('case_id')|int == case.id|int %}selected{% endif %}
+                                                    >{{ case.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <span class="mission-field-hint">Задание будет считать открытия только выбранного активного кейса.</span>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if m.requires_period_days %}
+                                        <div class="form-group">
+                                            <label for="period_days_{{ m.id }}">{{ m.period_days_label or 'X — за сколько дней' }}</label>
+                                            <input class="form-input" type="number" id="period_days_{{ m.id }}" name="period_days" min="1" step="1" value="{{ (m.config or {}).get('period_days', 7) }}">
+                                            <span class="mission-field-hint">X задаёт промежуток, внутри которого нужно набрать N визитов.</span>
+                                        </div>
+                                    {% endif %}
+
                                     <div class="form-group">
                                         <label for="enabled_{{ m.id }}">Включено</label>
                                         <select class="form-input" id="enabled_{{ m.id }}" name="is_enabled">
@@ -327,7 +359,16 @@
                     <label for="mission_template_id">Шаблон</label>
                     <select class="form-input" id="mission_template_id" name="mission_template_id" required>
                         {% for t in templates %}
-                            <option value="{{ t.id }}">{{ t.name }} - {{ t.short_description }}</option>
+                            <option
+                                value="{{ t.id }}"
+                                data-requires-min-hours="{{ 1 if t.requires_min_hours else 0 }}"
+                                data-requires-case-select="{{ 1 if t.requires_case_select else 0 }}"
+                                data-requires-period-days="{{ 1 if t.requires_period_days else 0 }}"
+                                data-target-label="{{ t.target_label or 'Цель' }}"
+                                data-target-hint="{{ t.target_hint or '' }}"
+                                data-min-hours-label="{{ t.min_hours_label or 'X — минимум часов за визит' }}"
+                                data-period-days-label="{{ t.period_days_label or 'X — за сколько дней' }}"
+                            >{{ t.name }} - {{ t.short_description }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -351,8 +392,41 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="min_hours">Минимум часов</label>
-                    <input class="form-input" type="number" id="min_hours" name="min_hours" min="0">
+                    <label for="reward_text">Приз</label>
+                    <input class="form-input" type="text" id="reward_text" name="reward_text" placeholder="Например: бесплатный напиток или скидка 10%">
+                </div>
+
+                <div class="form-group">
+                    <label for="token_reward">Жетонов за выполнение</label>
+                    <input class="form-input" type="number" id="token_reward" name="token_reward" min="0" step="1" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="cm_bonus_reward">КБ за выполнение</label>
+                    <input class="form-input" type="number" id="cm_bonus_reward" name="cm_bonus_reward" min="0" step="1" value="0">
+                </div>
+
+                <div class="form-group" id="minHoursGroup" style="display: none;">
+                    <label for="min_hours" id="minHoursLabel">X — минимум часов за визит</label>
+                    <input class="form-input" type="number" id="min_hours" name="min_hours" min="1" step="1" value="3">
+                    <span class="mission-field-hint">X задаёт минимальную длительность каждого подходящего визита.</span>
+                </div>
+
+                <div class="form-group" id="caseSelectGroup" style="display: none;">
+                    <label for="case_id">Кейс</label>
+                    <select class="form-input" id="case_id" name="case_id">
+                        <option value="">Выберите кейс</option>
+                        {% for case in active_cases|default([]) %}
+                            <option value="{{ case.id }}">{{ case.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="mission-field-hint">Задание будет считать открытия только выбранного активного кейса.</span>
+                </div>
+
+                <div class="form-group" id="periodDaysGroup" style="display: none;">
+                    <label for="period_days" id="periodDaysLabel">X — за сколько дней</label>
+                    <input class="form-input" type="number" id="period_days" name="period_days" min="1" step="1" value="7">
+                    <span class="mission-field-hint">X задаёт промежуток, внутри которого нужно набрать N визитов.</span>
                 </div>
 
                 <div class="form-group">
@@ -380,6 +454,55 @@
         const closeBtn = document.getElementById('closeMissionAddModal');
 
         if (!modal || !openBtn || !closeBtn) return;
+
+        const templateSelect = document.getElementById('mission_template_id');
+        const minHoursGroup = document.getElementById('minHoursGroup');
+        const minHoursInput = document.getElementById('min_hours');
+        const caseSelectGroup = document.getElementById('caseSelectGroup');
+        const caseSelectInput = document.getElementById('case_id');
+        const periodDaysGroup = document.getElementById('periodDaysGroup');
+        const periodDaysInput = document.getElementById('period_days');
+        const minHoursLabel = document.getElementById('minHoursLabel');
+        const periodDaysLabel = document.getElementById('periodDaysLabel');
+        const targetAmountLabel = document.getElementById('targetAmountLabel');
+        const targetAmountHint = document.getElementById('targetAmountHint');
+
+        function updateConfigFields() {
+            if (!templateSelect || !minHoursGroup || !minHoursInput) return;
+            const selected = templateSelect.options[templateSelect.selectedIndex];
+            const needsMinHours = selected && selected.dataset.requiresMinHours === '1';
+            const needsCaseSelect = selected && selected.dataset.requiresCaseSelect === '1';
+            const needsPeriodDays = selected && selected.dataset.requiresPeriodDays === '1';
+
+            if (targetAmountLabel) {
+                targetAmountLabel.textContent = selected?.dataset.targetLabel || 'Цель';
+            }
+            if (targetAmountHint) {
+                targetAmountHint.textContent = selected?.dataset.targetHint || '';
+            }
+            if (minHoursLabel) {
+                minHoursLabel.textContent = selected?.dataset.minHoursLabel || 'X — минимум часов за визит';
+            }
+            if (periodDaysLabel) {
+                periodDaysLabel.textContent = selected?.dataset.periodDaysLabel || 'X — за сколько дней';
+            }
+
+            minHoursGroup.style.display = needsMinHours ? '' : 'none';
+            minHoursInput.required = Boolean(needsMinHours);
+            if (caseSelectGroup && caseSelectInput) {
+                caseSelectGroup.style.display = needsCaseSelect ? '' : 'none';
+                caseSelectInput.required = Boolean(needsCaseSelect);
+            }
+            if (periodDaysGroup && periodDaysInput) {
+                periodDaysGroup.style.display = needsPeriodDays ? '' : 'none';
+                periodDaysInput.required = Boolean(needsPeriodDays);
+            }
+        }
+
+        if (templateSelect) {
+            templateSelect.addEventListener('change', updateConfigFields);
+            updateConfigFields();
+        }
 
         function openModal() {
             modal.classList.add('is-open');

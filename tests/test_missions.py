@@ -204,3 +204,41 @@ def test_min_hours_mission_counts_collapsed_visit_not_raw_sessions(monkeypatch):
 
     assert progress == 1
     assert conn.closed is True
+
+
+def test_visits_in_period_counts_best_rolling_window(monkeypatch):
+    rows = [
+        {"date_start": datetime(2026, 8, 1, 12, 0), "date_stop": datetime(2026, 8, 1, 14, 0)},
+        {"date_start": datetime(2026, 8, 3, 12, 0), "date_stop": datetime(2026, 8, 3, 14, 0)},
+        {"date_start": datetime(2026, 8, 5, 12, 0), "date_stop": datetime(2026, 8, 5, 14, 0)},
+        {"date_start": datetime(2026, 8, 20, 12, 0), "date_stop": datetime(2026, 8, 20, 14, 0)},
+    ]
+    conn = _Connection(rows)
+    monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
+
+    progress = missions.calculate_mission_progress(
+        guest_id=10,
+        club_id=1,
+        mission={
+            "target_metric": "visits_in_period_count",
+            "target_amount": 4,
+            "start_at": None,
+            "end_at": None,
+            "config": {"period_days": 7},
+        },
+    )
+
+    assert progress == 3
+    assert conn.closed is True
+
+
+def test_build_mission_config_reads_period_days():
+    config = missions.build_mission_config_from_form(
+        template={
+            "target_metric": "visits_in_period_count",
+            "config_schema": {"period_days": {"label": "Период, дней"}},
+        },
+        form={"period_days": "14"},
+    )
+
+    assert config == {"period_days": 14}
