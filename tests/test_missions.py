@@ -258,6 +258,58 @@ def test_sessions_started_in_time_range_supports_overnight_window(monkeypatch):
     assert conn.closed is True
 
 
+def test_session_hours_in_time_range_sums_started_sessions(monkeypatch):
+    rows = [
+        {"date_start": datetime(2026, 8, 1, 17, 59), "date_stop": datetime(2026, 8, 1, 20, 0)},
+        {"date_start": datetime(2026, 8, 1, 18, 0), "date_stop": datetime(2026, 8, 1, 20, 30)},
+        {"date_start": datetime(2026, 8, 2, 20, 15), "date_stop": datetime(2026, 8, 2, 22, 0)},
+        {"date_start": datetime(2026, 8, 3, 23, 0), "date_stop": datetime(2026, 8, 4, 1, 0)},
+    ]
+    conn = _Connection(rows)
+    monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
+
+    progress = missions.calculate_mission_progress(
+        guest_id=10,
+        club_id=1,
+        mission={
+            "target_metric": "session_hours_in_time_range_total",
+            "target_amount": 4,
+            "start_at": None,
+            "end_at": None,
+            "config": {"time_start": "18:00", "time_end": "23:00"},
+        },
+    )
+
+    assert progress == 4
+    assert conn.closed is True
+
+
+def test_session_hours_in_time_range_supports_overnight_window(monkeypatch):
+    rows = [
+        {"date_start": datetime(2026, 8, 1, 21, 59), "date_stop": datetime(2026, 8, 1, 23, 0)},
+        {"date_start": datetime(2026, 8, 1, 22, 0), "date_stop": datetime(2026, 8, 2, 0, 30)},
+        {"date_start": datetime(2026, 8, 2, 5, 30), "date_stop": datetime(2026, 8, 2, 7, 0)},
+        {"date_start": datetime(2026, 8, 2, 6, 0), "date_stop": datetime(2026, 8, 2, 8, 0)},
+    ]
+    conn = _Connection(rows)
+    monkeypatch.setattr(missions, "get_db_connection", lambda: conn)
+
+    progress = missions.calculate_mission_progress(
+        guest_id=10,
+        club_id=1,
+        mission={
+            "target_metric": "session_hours_in_time_range_total",
+            "target_amount": 4,
+            "start_at": None,
+            "end_at": None,
+            "config": {"time_start": "22:00", "time_end": "06:00"},
+        },
+    )
+
+    assert progress == 4
+    assert conn.closed is True
+
+
 def test_build_mission_config_reads_time_range():
     config = missions.build_mission_config_from_form(
         template={

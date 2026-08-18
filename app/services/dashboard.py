@@ -1140,6 +1140,29 @@ def _mission_completion_for_sessions_started_in_time_range(guest_sessions, missi
     return None
 
 
+def _mission_completion_for_session_hours_in_time_range(guest_sessions, mission, target: int):
+    time_range = _get_time_range_from_mission(mission)
+    if not time_range:
+        return None
+
+    time_start, time_end = time_range
+    total_hours = 0.0
+    for row in sorted(guest_sessions, key=lambda item: item.get("date_start") or datetime.min):
+        date_start = row.get("date_start")
+        if (
+            not _session_allowed_by_mission_period(row, mission)
+            or not date_start
+            or not _time_in_range(date_start.time(), time_start, time_end)
+        ):
+            continue
+
+        total_hours += _session_duration_hours(row)
+        if int(total_hours) >= target:
+            return date_start
+
+    return None
+
+
 def _get_wheel_spins_by_guest(club_id: int, guest_ids=None):
     conn = get_db_connection()
     try:
@@ -1250,6 +1273,9 @@ def _get_mission_completion_at_from_preloaded(
 
     elif metric == "sessions_started_in_time_range_count":
         completed_at = _mission_completion_for_sessions_started_in_time_range(guest_sessions, mission, target)
+
+    elif metric == "session_hours_in_time_range_total":
+        completed_at = _mission_completion_for_session_hours_in_time_range(guest_sessions, mission, target)
 
     # Total hours missions.
     elif metric in {"total_hours", "night_hours_total", "day_hours_total"}:

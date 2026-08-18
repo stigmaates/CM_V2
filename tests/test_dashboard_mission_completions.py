@@ -38,6 +38,12 @@ CASE_OPENINGS = [
             ),
             datetime(2026, 8, 16, 12, 0),
         ),
+        (
+            _mission(
+                "session_hours_in_time_range_total", target=4, config={"time_start": "10:00", "time_end": "14:00"}
+            ),
+            datetime(2026, 8, 16, 12, 0),
+        ),
         (_mission("night_visits_count"), datetime(2026, 8, 15, 23, 0)),
         (_mission("weekend_visits_count"), datetime(2026, 8, 15, 23, 0)),
         (_mission("long_visits_count", config={"min_hours": 3}), datetime(2026, 8, 10, 10, 0)),
