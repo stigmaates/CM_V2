@@ -148,6 +148,11 @@
         gap: 20px;
     }
 
+    .topup-bonus-section > form {
+        display: grid;
+        gap: 20px;
+    }
+
     .topup-bonus-head {
         display: flex;
         align-items: flex-start;
@@ -203,7 +208,7 @@
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
         gap: 16px;
-        align-items: stretch;
+        align-items: start;
     }
 
     .topup-bonus-message-grid textarea {
@@ -211,27 +216,24 @@
         resize: vertical;
     }
 
-    .topup-bonus-variables {
-        display: flex;
-        align-content: flex-start;
-        flex-wrap: wrap;
-        gap: 8px;
+    .topup-bonus-variable-picker {
+        display: grid;
+        gap: 12px;
         padding: 14px;
         border: 1px solid rgba(165, 114, 255, 0.2);
         border-radius: 14px;
         background: rgba(20, 12, 36, 0.42);
     }
 
-    .topup-variable-button {
-        border: 1px solid rgba(165, 114, 255, 0.32);
-        border-radius: 10px;
-        background: rgba(143, 91, 255, 0.12);
-        color: var(--text-main);
-        padding: 8px 10px;
-        font: inherit;
-        font-size: 13px;
+    .topup-bonus-variable-picker label {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 14px;
         font-weight: 700;
-        cursor: pointer;
+    }
+
+    .topup-bonus-variable-picker .btn {
+        width: 100%;
     }
 
     .topup-bonus-foot {
@@ -1070,10 +1072,15 @@
                     <label for="topupBonusMessage">Сообщение гостю</label>
                     <textarea class="form-input" id="topupBonusMessage" name="message_template" required>{{ topup_bonus_settings.message_template }}</textarea>
                 </div>
-                <div class="topup-bonus-variables" aria-label="Переменные сообщения">
-                    {% for key, label in topup_bonus_variables %}
-                        <button class="topup-variable-button" type="button" data-variable="{{ key }}">{{ label }}</button>
-                    {% endfor %}
+                <div class="topup-bonus-variable-picker">
+                    <label for="topupBonusVariable">Вставить в сообщение</label>
+                    <select class="form-input" id="topupBonusVariable">
+                        <option value="">Выберите переменную</option>
+                        {% for key, label in topup_bonus_variables %}
+                            <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn" type="button" id="insertTopupBonusVariable">Вставить</button>
                 </div>
             </div>
 
@@ -1287,6 +1294,8 @@
         const rules = document.getElementById('topupBonusRules');
         const addRule = document.getElementById('addTopupBonusRule');
         const topupMessage = document.getElementById('topupBonusMessage');
+        const topupVariable = document.getElementById('topupBonusVariable');
+        const insertTopupVariable = document.getElementById('insertTopupBonusVariable');
 
         function bindTopupRuleRemove(button) {
             button.addEventListener('click', function () {
@@ -1313,16 +1322,17 @@
             });
         }
 
-        document.querySelectorAll('.topup-variable-button').forEach(function (button) {
-            button.addEventListener('click', function () {
-                if (!topupMessage) return;
-                const token = '{' + button.dataset.variable + '}';
+        if (topupMessage && topupVariable && insertTopupVariable) {
+            insertTopupVariable.addEventListener('click', function () {
+                if (!topupVariable.value) return;
+                const token = '{' + topupVariable.value + '}';
                 const start = topupMessage.selectionStart ?? topupMessage.value.length;
                 const end = topupMessage.selectionEnd ?? start;
                 topupMessage.setRangeText(token, start, end, 'end');
                 topupMessage.focus();
+                topupVariable.value = '';
             });
-        });
+        }
 
         const modal = document.getElementById('prizeAddModal');
         const openBtn = document.getElementById('openPrizeAddModal');
