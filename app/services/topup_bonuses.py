@@ -132,8 +132,8 @@ def save_topup_bonus_settings(
         bonus_amount = int(rule.get("bonus_amount") or 0)
         if min_amount <= 0 or bonus_amount <= 0:
             raise ValueError("Порог пополнения и количество КБ должны быть больше нуля")
-        if min_amount > Decimal(str(TOPUP_BONUS_MAX_AMOUNT)):
-            raise ValueError(f"Порог не может быть выше {TOPUP_BONUS_MAX_AMOUNT} ₽")
+        if min_amount >= Decimal(str(TOPUP_BONUS_MAX_AMOUNT)):
+            raise ValueError(f"Порог должен быть меньше {TOPUP_BONUS_MAX_AMOUNT} ₽")
         if min_amount in seen_thresholds:
             raise ValueError("Пороги пополнений не должны повторяться")
         seen_thresholds.add(min_amount)
@@ -232,7 +232,7 @@ def process_topup_bonus_awards(
                       FROM club_topup_bonus_rules r
                       WHERE r.club_id = t.club_id
                   )
-                  AND t.amount <= %s
+                  AND t.amount < %s
                   AND a.id IS NULL
                 ORDER BY t.topup_at, t.topup_id
                 LIMIT %s

@@ -1,6 +1,12 @@
 from decimal import Decimal
 
-from app.services.topup_bonuses import render_topup_bonus_message, select_topup_bonus_rule
+import pytest
+
+from app.services.topup_bonuses import (
+    render_topup_bonus_message,
+    save_topup_bonus_settings,
+    select_topup_bonus_rule,
+)
 
 
 def test_select_topup_bonus_rule_uses_highest_matching_threshold():
@@ -44,3 +50,13 @@ def test_render_topup_bonus_message_preserves_unknown_variable():
 
 def test_render_topup_bonus_message_extracts_first_name_from_female_fio():
     assert render_topup_bonus_message("Привет, {first_name}", {"fio": "Петрова Анна Сергеевна"}) == "Привет, Анна"
+
+
+def test_topup_bonus_rule_rejects_excluded_amount_boundary():
+    with pytest.raises(ValueError, match="меньше 30000"):
+        save_topup_bonus_settings(
+            1,
+            is_enabled=True,
+            message_template="Тест",
+            rules=[{"min_amount": 30000, "bonus_amount": 500}],
+        )

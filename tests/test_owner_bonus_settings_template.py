@@ -65,7 +65,8 @@ def test_bonus_settings_shows_configurable_topup_rewards():
                 "rules": [{"min_amount": 1000, "bonus_amount": 300}],
             },
             topup_bonus_variables=[("first_name", "Имя"), ("bonus_amount", "Начислено КБ")],
-            topup_bonus_max_amount=10000,
+            topup_bonus_exclude_from_amount=30000,
+            topup_bonus_max_rule_amount=29999.99,
         )
 
     assert "Бонусы за пополнения" in html
@@ -76,6 +77,8 @@ def test_bonus_settings_shows_configurable_topup_rewards():
     assert "{bonus_amount}" in html
     assert 'id="topupBonusVariable"' in html
     assert 'id="insertTopupBonusVariable"' in html
+    assert 'max="29999.99"' in html
+    assert "Пополнения от 30000 ₽ не участвуют" in html
 
 
 def test_bonus_settings_token_summary_uses_shared_token_language():

@@ -3,7 +3,8 @@
 {% set active_bonus_editor = bonus_editor|default('wheel') %}
 {% set topup_bonus_settings = topup_bonus_settings|default({'is_enabled': 0, 'rules': [], 'message_template': ''}) %}
 {% set topup_bonus_variables = topup_bonus_variables|default([]) %}
-{% set topup_bonus_max_amount = topup_bonus_max_amount|default(10000) %}
+{% set topup_bonus_exclude_from_amount = topup_bonus_exclude_from_amount|default(30000) %}
+{% set topup_bonus_max_rule_amount = topup_bonus_max_rule_amount|default(29999.99) %}
 <style>
     .wheel-page {
         width: 100%;
@@ -1057,7 +1058,7 @@
                 {% for rule in topup_bonus_settings.rules %}
                     <div class="topup-bonus-rule">
                         <span class="topup-bonus-rule-label">Пополнение от</span>
-                        <input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_amount }}" step="0.01" value="{{ rule.min_amount }}" required>
+                        <input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_rule_amount }}" step="0.01" value="{{ rule.min_amount }}" required>
                         <span class="topup-bonus-rule-label">даёт КБ</span>
                         <input class="form-input" type="number" name="bonus_amount" min="1" step="1" value="{{ rule.bonus_amount }}" required>
                         <button class="topup-bonus-remove" type="button" aria-label="Удалить правило">×</button>
@@ -1086,7 +1087,7 @@
 
             <div class="topup-bonus-foot">
                 <div class="topup-bonus-note">
-                    Если подходят несколько правил, применяется самый высокий порог. Старые пополнения до момента включения не обрабатываются. Аномальные суммы выше {{ topup_bonus_max_amount }} ₽ не участвуют.
+                    Если подходят несколько правил, применяется самый высокий порог. Старые пополнения до момента включения не обрабатываются. Пополнения от {{ topup_bonus_exclude_from_amount }} ₽ не участвуют.
                 </div>
                 <button class="btn" type="submit">Сохранить правила</button>
             </div>
@@ -1311,7 +1312,7 @@
                 row.className = 'topup-bonus-rule';
                 row.innerHTML = [
                     '<span class="topup-bonus-rule-label">Пополнение от</span>',
-                    '<input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_amount }}" step="0.01" placeholder="1000" required>',
+                    '<input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_rule_amount }}" step="0.01" placeholder="1000" required>',
                     '<span class="topup-bonus-rule-label">даёт КБ</span>',
                     '<input class="form-input" type="number" name="bonus_amount" min="1" step="1" placeholder="300" required>',
                     '<button class="topup-bonus-remove" type="button" aria-label="Удалить правило">×</button>'

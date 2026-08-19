@@ -271,7 +271,8 @@ def settings():
                 "case_upload_usage": get_club_upload_usage_info(club_id_int),
                 "topup_bonus_settings": get_topup_bonus_settings(club_id_int),
                 "topup_bonus_variables": TOPUP_BONUS_VARIABLES,
-                "topup_bonus_max_amount": TOPUP_BONUS_MAX_AMOUNT,
+                "topup_bonus_exclude_from_amount": TOPUP_BONUS_MAX_AMOUNT,
+                "topup_bonus_max_rule_amount": TOPUP_BONUS_MAX_AMOUNT - 0.01,
             }
         )
 
