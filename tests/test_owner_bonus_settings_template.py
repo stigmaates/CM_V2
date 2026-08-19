@@ -74,6 +74,8 @@ def test_bonus_settings_shows_configurable_topup_rewards():
     assert "Добавить правило" in html
     assert "{first_name}" in html
     assert "{bonus_amount}" in html
+    assert 'id="topupBonusVariable"' in html
+    assert 'id="insertTopupBonusVariable"' in html
 
 
 def test_bonus_settings_token_summary_uses_shared_token_language():
