@@ -283,12 +283,15 @@ def sync_balance_topups_incremental(club_id=None):
         try:
             topups = fetch_topups(secret, api_key, date_from, date_to)
             saved = save_topups(current_club_id, topups)
+            from scripts.process_topup_bonuses import process_topup_bonuses
+
+            reward_summary = process_topup_bonuses(current_club_id)
             finish_job_run(
                 job_run_id,
                 "success",
                 rows_received=len(topups),
                 rows_saved=saved,
-                metadata={"date_from": date_from, "date_to": date_to},
+                metadata={"date_from": date_from, "date_to": date_to, "topup_bonuses": reward_summary},
             )
             summary.append(
                 {
@@ -297,6 +300,7 @@ def sync_balance_topups_incremental(club_id=None):
                     "saved": saved,
                     "date_from": date_from,
                     "date_to": date_to,
+                    "topup_bonuses": reward_summary,
                 }
             )
         except Exception as exc:
