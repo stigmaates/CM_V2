@@ -1,6 +1,9 @@
 {% set prize_icon_choices = prize_icon_choices|default(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']) %}
 {% set prob_ok = (wheel_active_prob_sum|float - 100)|abs < 0.06 %}
 {% set active_bonus_editor = bonus_editor|default('wheel') %}
+{% set topup_bonus_settings = topup_bonus_settings|default({'is_enabled': 0, 'rules': [], 'message_template': ''}) %}
+{% set topup_bonus_variables = topup_bonus_variables|default([]) %}
+{% set topup_bonus_max_amount = topup_bonus_max_amount|default(10000) %}
 <style>
     .wheel-page {
         width: 100%;
@@ -138,6 +141,111 @@
         width: 100%;
         min-height: 46px;
         margin-top: 16px;
+    }
+
+    .topup-bonus-section {
+        display: grid;
+        gap: 20px;
+    }
+
+    .topup-bonus-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+    .topup-bonus-toggle {
+        flex-shrink: 0;
+        width: fit-content;
+    }
+
+    .topup-bonus-rules {
+        display: grid;
+        gap: 10px;
+    }
+
+    .topup-bonus-rule {
+        display: grid;
+        grid-template-columns: auto minmax(160px, 1fr) auto minmax(160px, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        border: 1px solid rgba(165, 114, 255, 0.2);
+        border-radius: 14px;
+        background: rgba(20, 12, 36, 0.42);
+    }
+
+    .topup-bonus-rule-label {
+        color: var(--text-muted);
+        font-size: 14px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .topup-bonus-remove {
+        width: 44px;
+        height: 44px;
+        border: 1px solid rgba(255, 107, 139, 0.35);
+        border-radius: 12px;
+        background: rgba(255, 80, 120, 0.12);
+        color: #ff9bb3;
+        font-size: 24px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .topup-bonus-add {
+        justify-self: start;
+    }
+
+    .topup-bonus-message-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+        gap: 16px;
+        align-items: stretch;
+    }
+
+    .topup-bonus-message-grid textarea {
+        min-height: 172px;
+        resize: vertical;
+    }
+
+    .topup-bonus-variables {
+        display: flex;
+        align-content: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 14px;
+        border: 1px solid rgba(165, 114, 255, 0.2);
+        border-radius: 14px;
+        background: rgba(20, 12, 36, 0.42);
+    }
+
+    .topup-variable-button {
+        border: 1px solid rgba(165, 114, 255, 0.32);
+        border-radius: 10px;
+        background: rgba(143, 91, 255, 0.12);
+        color: var(--text-main);
+        padding: 8px 10px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .topup-bonus-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+    }
+
+    .topup-bonus-note {
+        max-width: 720px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.45;
     }
 
     .wheel-prize-workspace {
@@ -743,6 +851,21 @@
     }
 
     @media (max-width: 920px) {
+        .topup-bonus-head,
+        .topup-bonus-foot {
+            align-items: stretch;
+            flex-direction: column;
+        }
+        .topup-bonus-rule,
+        .topup-bonus-message-grid {
+            grid-template-columns: 1fr;
+        }
+        .topup-bonus-rule-label {
+            display: none;
+        }
+        .topup-bonus-remove {
+            width: 100%;
+        }
         .game-mode-picker,
         .bonus-editor-switch {
             grid-template-columns: 1fr;
@@ -905,6 +1028,63 @@
             </aside>
         </aside>
     </div>
+
+    <section class="card wheel-section topup-bonus-section" id="topup-bonuses">
+        <form method="POST" action="{{ url_for('owner.settings_topup_bonuses_save') }}" id="topupBonusForm">
+            <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+            <div class="topup-bonus-head">
+                <div>
+                    <div class="section-title">Бонусы за пополнения</div>
+                    <p class="wheel-subtitle">Автоматически начисляет КБ после пополнения баланса гостя.</p>
+                </div>
+                <label class="form-check topup-bonus-toggle" for="topup_bonus_enabled">
+                    <input
+                        type="checkbox"
+                        class="form-check-input"
+                        id="topup_bonus_enabled"
+                        name="is_enabled"
+                        value="1"
+                        {% if topup_bonus_settings.is_enabled %}checked{% endif %}
+                    >
+                    <span class="form-check-box" aria-hidden="true"></span>
+                    <span class="form-check-text">Механика включена</span>
+                </label>
+            </div>
+
+            <div class="topup-bonus-rules" id="topupBonusRules">
+                {% for rule in topup_bonus_settings.rules %}
+                    <div class="topup-bonus-rule">
+                        <span class="topup-bonus-rule-label">Пополнение от</span>
+                        <input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_amount }}" step="0.01" value="{{ rule.min_amount }}" required>
+                        <span class="topup-bonus-rule-label">даёт КБ</span>
+                        <input class="form-input" type="number" name="bonus_amount" min="1" step="1" value="{{ rule.bonus_amount }}" required>
+                        <button class="topup-bonus-remove" type="button" aria-label="Удалить правило">×</button>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button class="wheel-add-trigger topup-bonus-add" type="button" id="addTopupBonusRule">+ Добавить правило</button>
+
+            <div class="topup-bonus-message-grid">
+                <div class="form-group">
+                    <label for="topupBonusMessage">Сообщение гостю</label>
+                    <textarea class="form-input" id="topupBonusMessage" name="message_template" required>{{ topup_bonus_settings.message_template }}</textarea>
+                </div>
+                <div class="topup-bonus-variables" aria-label="Переменные сообщения">
+                    {% for key, label in topup_bonus_variables %}
+                        <button class="topup-variable-button" type="button" data-variable="{{ key }}">{{ label }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="topup-bonus-foot">
+                <div class="topup-bonus-note">
+                    Если подходят несколько правил, применяется самый высокий порог. Старые пополнения до момента включения не обрабатываются. Аномальные суммы выше {{ topup_bonus_max_amount }} ₽ не участвуют.
+                </div>
+                <button class="btn" type="submit">Сохранить правила</button>
+            </div>
+        </form>
+    </section>
 
     {% if active_bonus_editor == 'wheel' %}
     <section class="wheel-prize-workspace">
@@ -1104,6 +1284,46 @@
 
 <script>
     (function () {
+        const rules = document.getElementById('topupBonusRules');
+        const addRule = document.getElementById('addTopupBonusRule');
+        const topupMessage = document.getElementById('topupBonusMessage');
+
+        function bindTopupRuleRemove(button) {
+            button.addEventListener('click', function () {
+                const row = button.closest('.topup-bonus-rule');
+                if (row) row.remove();
+            });
+        }
+
+        if (rules && addRule) {
+            rules.querySelectorAll('.topup-bonus-remove').forEach(bindTopupRuleRemove);
+            addRule.addEventListener('click', function () {
+                const row = document.createElement('div');
+                row.className = 'topup-bonus-rule';
+                row.innerHTML = [
+                    '<span class="topup-bonus-rule-label">Пополнение от</span>',
+                    '<input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_amount }}" step="0.01" placeholder="1000" required>',
+                    '<span class="topup-bonus-rule-label">даёт КБ</span>',
+                    '<input class="form-input" type="number" name="bonus_amount" min="1" step="1" placeholder="300" required>',
+                    '<button class="topup-bonus-remove" type="button" aria-label="Удалить правило">×</button>'
+                ].join('');
+                rules.appendChild(row);
+                bindTopupRuleRemove(row.querySelector('.topup-bonus-remove'));
+                row.querySelector('input').focus();
+            });
+        }
+
+        document.querySelectorAll('.topup-variable-button').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (!topupMessage) return;
+                const token = '{' + button.dataset.variable + '}';
+                const start = topupMessage.selectionStart ?? topupMessage.value.length;
+                const end = topupMessage.selectionEnd ?? start;
+                topupMessage.setRangeText(token, start, end, 'end');
+                topupMessage.focus();
+            });
+        });
+
         const modal = document.getElementById('prizeAddModal');
         const openBtn = document.getElementById('openPrizeAddModal');
         const closeBtn = document.getElementById('closePrizeAddModal');

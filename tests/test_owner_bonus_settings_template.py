@@ -47,6 +47,35 @@ def test_bonus_settings_shows_wheel_editor_by_default():
     assert "openCaseAddModal" not in html
 
 
+def test_bonus_settings_shows_configurable_topup_rewards():
+    with app.test_request_context("/owner/settings?tab=wheel"):
+        html = render_template(
+            "owner/_settings_wheel.html",
+            wheel_settings=SimpleNamespace(tokens_start_date=None, spin_cost=2, is_enabled=True),
+            prizes=[],
+            wheel_active_prob_sum=0,
+            prize_icon_choices=["gift"],
+            game_mode="wheel",
+            bonus_editor="wheel",
+            cases=[],
+            case_upload_usage=None,
+            topup_bonus_settings={
+                "is_enabled": 1,
+                "message_template": "{first_name}: +{bonus_amount} КБ",
+                "rules": [{"min_amount": 1000, "bonus_amount": 300}],
+            },
+            topup_bonus_variables=[("first_name", "Имя"), ("bonus_amount", "Начислено КБ")],
+            topup_bonus_max_amount=10000,
+        )
+
+    assert "Бонусы за пополнения" in html
+    assert 'name="min_amount"' in html
+    assert 'name="bonus_amount"' in html
+    assert "Добавить правило" in html
+    assert "{first_name}" in html
+    assert "{bonus_amount}" in html
+
+
 def test_bonus_settings_token_summary_uses_shared_token_language():
     with app.test_request_context("/owner/settings?tab=wheel"):
         html = render_template(

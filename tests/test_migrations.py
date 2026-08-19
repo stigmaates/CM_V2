@@ -139,6 +139,17 @@ def test_valuable_drops_club_scope_migration_exports_revision_and_upgrade():
     assert any("show_only_own_valuable_drops" in value for value in constants)
 
 
+def test_topup_bonus_rewards_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0015_topup_bonus_rewards")
+
+    assert migration.revision == "0015_topup_bonus_rewards"
+    assert callable(migration.upgrade)
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("club_topup_bonus_settings" in value for value in constants)
+    assert any("club_topup_bonus_rules" in value for value in constants)
+    assert any("guest_topup_bonus_awards" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False
