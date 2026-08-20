@@ -125,3 +125,7 @@ def test_crm_analytics_renders_manual_campaign_passports():
     assert "is-campaign-hidden" in html
     assert "Показать все" in html
     assert "crmCampaignModal" in html
+    assert "Ручные" in html
+    assert "Авторассылки" in html
+    assert 'id="crmAutoCampaignsPanel"' in html
+    assert "Уникальных получателей" not in html

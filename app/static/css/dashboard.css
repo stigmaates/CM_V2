@@ -1634,6 +1634,134 @@ body {
     margin-bottom: 16px;
 }
 
+.crm-campaign-mode,
+.crm-auto-periods__presets {
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(112px, auto);
+    gap: 4px;
+    border: 1px solid rgba(143, 91, 255, 0.32);
+    border-radius: 12px;
+    padding: 4px;
+    background: rgba(9, 5, 20, 0.58);
+}
+
+.crm-campaign-mode__button,
+.crm-auto-period {
+    min-height: 38px;
+    border: 0;
+    border-radius: 8px;
+    padding: 0 16px;
+    background: transparent;
+    color: rgba(230, 219, 255, 0.66);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 850;
+    cursor: pointer;
+}
+
+.crm-campaign-mode__button.is-active,
+.crm-auto-period.is-active {
+    background: #8050df;
+    color: #fff;
+}
+
+.crm-auto-periods {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.crm-auto-periods__presets {
+    grid-auto-columns: minmax(84px, auto);
+}
+
+.crm-auto-custom-period {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.crm-auto-custom-period[hidden] {
+    display: none;
+}
+
+.crm-auto-custom-period label {
+    display: grid;
+    gap: 5px;
+    color: rgba(230, 219, 255, 0.62);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.crm-auto-custom-period input {
+    min-height: 40px;
+    border: 1px solid rgba(143, 91, 255, 0.38);
+    border-radius: 10px;
+    padding: 0 12px;
+    background: rgba(9, 5, 20, 0.74);
+    color: #fff;
+    color-scheme: dark;
+    font: inherit;
+}
+
+.crm-auto-period-label {
+    margin-left: auto;
+    color: rgba(230, 219, 255, 0.56);
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.crm-auto-campaigns-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(105px, 0.65fr)) minmax(190px, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 54px;
+    border: 1px solid rgba(143, 91, 255, 0.22);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 13px;
+    font-weight: 750;
+    text-align: center;
+}
+
+.crm-auto-campaigns-row > div:first-child {
+    text-align: left;
+}
+
+.crm-auto-campaigns-row strong {
+    color: #fff;
+}
+
+.crm-auto-campaigns-row--head {
+    min-height: auto;
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.crm-auto-loading {
+    width: 28px;
+    height: 28px;
+    margin: 32px auto;
+    border: 3px solid rgba(143, 91, 255, 0.22);
+    border-top-color: #a77cff;
+    border-radius: 50%;
+    animation: crm-auto-spin 0.8s linear infinite;
+}
+
+@keyframes crm-auto-spin {
+    to { transform: rotate(360deg); }
+}
+
 .crm-campaigns-table {
     display: flex;
     flex-direction: column;
@@ -2064,6 +2192,28 @@ body.crm-modal-lock {
     .crm-campaigns-table {
         overflow-x: auto;
         padding-bottom: 4px;
+    }
+
+    .crm-campaigns-head {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .crm-campaign-mode {
+        align-self: flex-start;
+    }
+
+    .crm-auto-campaigns-table {
+        overflow-x: auto;
+    }
+
+    .crm-auto-campaigns-row {
+        min-width: 860px;
+    }
+
+    .crm-auto-period-label {
+        width: 100%;
+        margin-left: 0;
     }
 
     .crm-campaigns-row {
