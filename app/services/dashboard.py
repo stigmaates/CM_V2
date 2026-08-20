@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.core import calc_percent_change, get_db_connection, get_period_range
@@ -485,6 +485,152 @@ def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
         "total_openings": sum(item["openings"] for item in items),
         "unique_openers": unique_openers,
         "period_days": period_days,
+    }
+
+
+_CASE_TIMELINE_COLORS = (
+    "#8f5bff",
+    "#3fc9f2",
+    "#f4a261",
+    "#56d6a2",
+    "#ef6f9b",
+    "#ffd166",
+    "#7f8cff",
+    "#c77dff",
+)
+_CASE_TIMELINE_MONTHS = (
+    "",
+    "янв",
+    "фев",
+    "мар",
+    "апр",
+    "май",
+    "июн",
+    "июл",
+    "авг",
+    "сен",
+    "окт",
+    "ноя",
+    "дек",
+)
+
+
+def _case_timeline_bucket_start(value: date, group_by: str) -> date:
+    if group_by == "week":
+        return value - timedelta(days=value.weekday())
+    if group_by == "month":
+        return value.replace(day=1)
+    return value
+
+
+def _case_timeline_label(bucket_start: date, group_by: str) -> str:
+    if group_by == "month":
+        return f"{_CASE_TIMELINE_MONTHS[bucket_start.month]} {bucket_start.year}"
+    if group_by == "week":
+        bucket_end = bucket_start + timedelta(days=6)
+        if bucket_start.month == bucket_end.month:
+            return f"{bucket_start.day:02d}–{bucket_end.day:02d}.{bucket_end.month:02d}"
+        return f"{bucket_start.day:02d}.{bucket_start.month:02d}–" f"{bucket_end.day:02d}.{bucket_end.month:02d}"
+    return f"{bucket_start.day:02d}.{bucket_start.month:02d}"
+
+
+def get_case_openings_timeline(
+    club_id: int,
+    date_from: date,
+    date_to: date,
+    group_by: str = "day",
+) -> dict:
+    """Return case opening series grouped into calendar buckets."""
+    group_by = group_by if group_by in {"day", "week", "month"} else "day"
+    if not club_id or date_to < date_from:
+        return {"cases": [], "buckets": [], "group_by": group_by, "max_value": 0}
+
+    start_dt = datetime.combine(date_from, time.min)
+    end_dt = datetime.combine(date_to + timedelta(days=1), time.min)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id AS case_id, name AS case_name, sort_order
+                FROM club_cases
+                WHERE club_id = %s
+                ORDER BY sort_order ASC, id ASC
+                """,
+                (club_id,),
+            )
+            case_rows = cursor.fetchall() or []
+            cursor.execute(
+                """
+                SELECT case_id, DATE(created_at) AS opening_date, COUNT(*) AS openings_count
+                FROM guest_case_openings
+                WHERE club_id = %s
+                  AND created_at >= %s
+                  AND created_at < %s
+                GROUP BY case_id, DATE(created_at)
+                ORDER BY opening_date ASC, case_id ASC
+                """,
+                (club_id, start_dt, end_dt),
+            )
+            opening_rows = cursor.fetchall() or []
+    finally:
+        conn.close()
+
+    cases = []
+    case_ids = set()
+    for index, row in enumerate(case_rows):
+        case_id = int(row.get("case_id") or 0)
+        case_ids.add(case_id)
+        cases.append(
+            {
+                "case_id": case_id,
+                "name": row.get("case_name") or "Без названия",
+                "color": _CASE_TIMELINE_COLORS[index % len(_CASE_TIMELINE_COLORS)],
+            }
+        )
+
+    bucket_starts = []
+    seen_buckets = set()
+    current = date_from
+    while current <= date_to:
+        bucket_start = _case_timeline_bucket_start(current, group_by)
+        if bucket_start not in seen_buckets:
+            seen_buckets.add(bucket_start)
+            bucket_starts.append(bucket_start)
+        current += timedelta(days=1)
+
+    counts = defaultdict(int)
+    for row in opening_rows:
+        case_id = int(row.get("case_id") or 0)
+        opening_date = row.get("opening_date")
+        if case_id not in case_ids or not opening_date:
+            continue
+        if isinstance(opening_date, datetime):
+            opening_date = opening_date.date()
+        bucket_start = _case_timeline_bucket_start(opening_date, group_by)
+        counts[(bucket_start, case_id)] += int(row.get("openings_count") or 0)
+
+    max_value = 0
+    buckets = []
+    for bucket_start in bucket_starts:
+        values = []
+        for case in cases:
+            value = counts[(bucket_start, case["case_id"])]
+            max_value = max(max_value, value)
+            values.append(value)
+        buckets.append(
+            {
+                "key": bucket_start.isoformat(),
+                "label": _case_timeline_label(bucket_start, group_by),
+                "values": values,
+            }
+        )
+
+    return {
+        "cases": cases,
+        "buckets": buckets,
+        "group_by": group_by,
+        "max_value": max_value,
     }
 
 
