@@ -376,6 +376,37 @@
                 </div>
             </aside>
         </div>
+
+        <div class="cb-case-timeline" id="caseOpeningsTimeline">
+            <div class="cb-case-timeline-head">
+                <div>
+                    <h3>Динамика открытий</h3>
+                    <p>Количество открытий каждого кейса за выбранный период</p>
+                </div>
+                <div class="cb-case-timeline-controls">
+                    <div class="cb-case-timeline-control-group" aria-label="Период графика">
+                        <button type="button" data-case-period="week">Неделя</button>
+                        <button type="button" class="is-active" data-case-period="month">Месяц</button>
+                        <button type="button" data-case-period="custom">Даты</button>
+                    </div>
+                    <div class="cb-case-timeline-control-group" aria-label="Группировка графика">
+                        <button type="button" class="is-active" data-case-group="day">Дни</button>
+                        <button type="button" data-case-group="week">Недели</button>
+                        <button type="button" data-case-group="month">Месяцы</button>
+                    </div>
+                </div>
+            </div>
+            <div class="cb-case-timeline-dates" data-case-custom-dates hidden>
+                <label>С <input type="date" data-case-date-from></label>
+                <label>По <input type="date" data-case-date-to></label>
+                <button type="button" data-case-dates-apply>Показать</button>
+            </div>
+            <div class="cb-case-timeline-legend" data-case-timeline-legend></div>
+            <div class="cb-case-timeline-state" data-case-timeline-state>Загрузка...</div>
+            <div class="cb-case-timeline-scroll" data-case-timeline-scroll hidden>
+                <div class="cb-case-timeline-plot" data-case-timeline-plot></div>
+            </div>
+        </div>
     </section>
 
     <section
@@ -507,6 +538,10 @@
     const engagementScopeHint = document.getElementById('engagementScopeHint');
     const engagementVisuals = document.querySelectorAll('[data-engagement-visual]');
     const engagementExtras = document.querySelectorAll('[data-engagement-extra]');
+    const caseTimeline = document.getElementById('caseOpeningsTimeline');
+    let caseTimelineLoaded = false;
+    let caseTimelinePeriod = 'month';
+    let caseTimelineGroup = 'day';
 
     function getNestedValue(source, path) {
         return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : 0), source);
@@ -546,6 +581,138 @@
             tab.classList.toggle('is-active', isActive);
             tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
         });
+
+        if (mode === 'cases' && !caseTimelineLoaded) {
+            loadCaseTimeline();
+        }
+    }
+
+    function localIsoDate(value) {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function initializeCaseTimelineDates() {
+        if (!caseTimeline) return;
+        const today = new Date();
+        const monthAgo = new Date(today);
+        monthAgo.setDate(today.getDate() - 29);
+        const fromInput = caseTimeline.querySelector('[data-case-date-from]');
+        const toInput = caseTimeline.querySelector('[data-case-date-to]');
+        fromInput.value = localIsoDate(monthAgo);
+        toInput.value = localIsoDate(today);
+        fromInput.max = localIsoDate(today);
+        toInput.max = localIsoDate(today);
+    }
+
+    function renderCaseTimeline(data) {
+        const legend = caseTimeline.querySelector('[data-case-timeline-legend]');
+        const state = caseTimeline.querySelector('[data-case-timeline-state]');
+        const scroll = caseTimeline.querySelector('[data-case-timeline-scroll]');
+        const plot = caseTimeline.querySelector('[data-case-timeline-plot]');
+
+        legend.replaceChildren();
+        plot.replaceChildren();
+
+        if (!data.cases.length) {
+            state.textContent = 'Кейсы пока не созданы';
+            state.hidden = false;
+            scroll.hidden = true;
+            return;
+        }
+
+        data.cases.forEach((caseItem) => {
+            const item = document.createElement('span');
+            const marker = document.createElement('i');
+            marker.style.backgroundColor = caseItem.color;
+            item.append(marker, document.createTextNode(caseItem.name));
+            legend.append(item);
+        });
+
+        const maxValue = Math.max(Number(data.max_value) || 0, 1);
+        const bucketWidth = Math.max(66, data.cases.length * 18 + 28);
+        plot.style.setProperty('--case-bucket-width', `${bucketWidth}px`);
+
+        data.buckets.forEach((bucket) => {
+            const column = document.createElement('div');
+            column.className = 'cb-case-timeline-bucket';
+            const bars = document.createElement('div');
+            bars.className = 'cb-case-timeline-bars';
+
+            bucket.values.forEach((rawValue, index) => {
+                const value = Number(rawValue) || 0;
+                const bar = document.createElement('div');
+                bar.className = 'cb-case-timeline-bar';
+                bar.style.height = value ? `${Math.max((value / maxValue) * 100, 3)}%` : '2px';
+                bar.style.backgroundColor = data.cases[index].color;
+                bar.classList.toggle('is-empty', value === 0);
+                bar.title = `${data.cases[index].name}: ${value}`;
+                if (value) {
+                    const count = document.createElement('span');
+                    count.textContent = value;
+                    bar.append(count);
+                }
+                bars.append(bar);
+            });
+
+            const label = document.createElement('span');
+            label.className = 'cb-case-timeline-label';
+            label.textContent = bucket.label;
+            column.append(bars, label);
+            plot.append(column);
+        });
+
+        state.hidden = true;
+        scroll.hidden = false;
+    }
+
+    async function loadCaseTimeline() {
+        if (!caseTimeline) return;
+        const state = caseTimeline.querySelector('[data-case-timeline-state]');
+        const scroll = caseTimeline.querySelector('[data-case-timeline-scroll]');
+        const params = new URLSearchParams({period: caseTimelinePeriod, group_by: caseTimelineGroup});
+        if (caseTimelinePeriod === 'custom') {
+            params.set('date_from', caseTimeline.querySelector('[data-case-date-from]').value);
+            params.set('date_to', caseTimeline.querySelector('[data-case-date-to]').value);
+        }
+        state.textContent = 'Загрузка...';
+        state.hidden = false;
+        scroll.hidden = true;
+        try {
+            const response = await fetch(`/owner/api/dashboard/case-openings-timeline?${params.toString()}`);
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.error || 'Не удалось загрузить график');
+            renderCaseTimeline(data);
+            caseTimelineLoaded = true;
+        } catch (error) {
+            state.textContent = error.message || 'Не удалось загрузить график';
+        }
+    }
+
+    if (caseTimeline) {
+        initializeCaseTimelineDates();
+        caseTimeline.querySelectorAll('[data-case-period]').forEach((button) => {
+            button.addEventListener('click', () => {
+                caseTimelinePeriod = button.dataset.casePeriod;
+                caseTimeline.querySelectorAll('[data-case-period]').forEach((item) => {
+                    item.classList.toggle('is-active', item === button);
+                });
+                caseTimeline.querySelector('[data-case-custom-dates]').hidden = caseTimelinePeriod !== 'custom';
+                if (caseTimelinePeriod !== 'custom') loadCaseTimeline();
+            });
+        });
+        caseTimeline.querySelectorAll('[data-case-group]').forEach((button) => {
+            button.addEventListener('click', () => {
+                caseTimelineGroup = button.dataset.caseGroup;
+                caseTimeline.querySelectorAll('[data-case-group]').forEach((item) => {
+                    item.classList.toggle('is-active', item === button);
+                });
+                loadCaseTimeline();
+            });
+        });
+        caseTimeline.querySelector('[data-case-dates-apply]').addEventListener('click', loadCaseTimeline);
     }
 
     engagementTabs.forEach((tab) => {
