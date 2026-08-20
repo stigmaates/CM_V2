@@ -618,14 +618,31 @@
         legend.replaceChildren();
         plot.replaceChildren();
 
+        const activeCaseIndexes = data.cases
+            .map((caseItem, index) => ({caseItem, index}))
+            .filter(({index}) => data.buckets.some((bucket) => Number(bucket.values[index]) > 0));
+        const visibleCases = activeCaseIndexes.map(({caseItem}) => caseItem);
+        const visibleBuckets = data.buckets
+            .map((bucket) => ({
+                ...bucket,
+                values: activeCaseIndexes.map(({index}) => Number(bucket.values[index]) || 0)
+            }))
+            .filter((bucket) => bucket.values.some((value) => value > 0));
+
         if (!data.cases.length) {
             state.textContent = 'Кейсы пока не созданы';
             state.hidden = false;
             scroll.hidden = true;
             return;
         }
+        if (!visibleBuckets.length) {
+            state.textContent = 'За выбранный период открытий не было';
+            state.hidden = false;
+            scroll.hidden = true;
+            return;
+        }
 
-        data.cases.forEach((caseItem) => {
+        visibleCases.forEach((caseItem) => {
             const item = document.createElement('span');
             const marker = document.createElement('i');
             marker.style.backgroundColor = caseItem.color;
@@ -633,13 +650,13 @@
             legend.append(item);
         });
 
-        const maxValue = Math.max(Number(data.max_value) || 0, 1);
-        const bucketWidth = Math.max(66, data.cases.length * 18 + 28);
+        const maxValue = Math.max(...visibleBuckets.flatMap((bucket) => bucket.values), 1);
+        const bucketWidth = Math.max(76, visibleCases.length * 24 + 28);
         plot.style.setProperty('--case-bucket-width', `${bucketWidth}px`);
-        plot.style.setProperty('--case-bucket-count', data.buckets.length || 1);
-        plot.style.minWidth = `${bucketWidth * Math.max(data.buckets.length, 1)}px`;
+        plot.style.setProperty('--case-bucket-count', visibleBuckets.length);
+        plot.style.minWidth = `${bucketWidth * visibleBuckets.length}px`;
 
-        data.buckets.forEach((bucket) => {
+        visibleBuckets.forEach((bucket) => {
             const column = document.createElement('div');
             column.className = 'cb-case-timeline-bucket';
             const bars = document.createElement('div');
@@ -650,9 +667,9 @@
                 const bar = document.createElement('div');
                 bar.className = 'cb-case-timeline-bar';
                 bar.style.height = value ? `${Math.max((value / maxValue) * 100, 3)}%` : '2px';
-                bar.style.backgroundColor = data.cases[index].color;
+                bar.style.backgroundColor = visibleCases[index].color;
                 bar.classList.toggle('is-empty', value === 0);
-                bar.title = `${data.cases[index].name}: ${value}`;
+                bar.title = `${visibleCases[index].name}: ${value}`;
                 if (value) {
                     const count = document.createElement('span');
                     count.textContent = value;

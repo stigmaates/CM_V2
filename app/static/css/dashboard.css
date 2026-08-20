@@ -5526,13 +5526,13 @@ body.modal-open { overflow: hidden; }
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    gap: 3px;
+    gap: 5px;
 }
 
 .cb-case-timeline-bar {
     position: relative;
-    width: 12px;
-    max-width: 18px;
+    width: 18px;
+    max-width: 22px;
     min-height: 2px;
     border-radius: 4px 4px 1px 1px;
 }
@@ -5547,7 +5547,7 @@ body.modal-open { overflow: hidden; }
     left: 50%;
     transform: translateX(-50%);
     color: #ede5fb;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 900;
     white-space: nowrap;
 }
@@ -5556,7 +5556,7 @@ body.modal-open { overflow: hidden; }
     display: block;
     align-self: center;
     color: #8f80b0;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     text-align: center;
     white-space: nowrap;
