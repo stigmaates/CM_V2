@@ -1750,6 +1750,169 @@ def get_manual_crm_campaign_passport(
     }
 
 
+def _chunked(values: List[int], size: int = 500):
+    for start in range(0, len(values), size):
+        yield values[start : start + size]
+
+
+def _collapse_sessions_into_visits(rows: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, datetime]]]:
+    visits_by_guest: Dict[int, List[Dict[str, datetime]]] = {}
+    for row in rows:
+        guest_id = int(row["guest_id"])
+        session_start = row.get("date_start")
+        session_stop = row.get("date_stop") or session_start
+        if not session_start:
+            continue
+
+        guest_visits = visits_by_guest.setdefault(guest_id, [])
+        if guest_visits and session_start <= guest_visits[-1]["end"] + timedelta(hours=2):
+            guest_visits[-1]["end"] = max(guest_visits[-1]["end"], session_stop)
+        else:
+            guest_visits.append({"start": session_start, "end": max(session_start, session_stop)})
+    return visits_by_guest
+
+
+def _summarize_auto_crm_events(
+    events: List[Dict[str, Any]],
+    sessions: List[Dict[str, Any]],
+    topups: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    visits_by_guest = _collapse_sessions_into_visits(sessions)
+    topups_by_guest: Dict[int, List[Dict[str, Any]]] = {}
+    for row in topups:
+        topups_by_guest.setdefault(int(row["guest_id"]), []).append(row)
+
+    summaries: Dict[str, Dict[str, Any]] = {}
+    for event in events:
+        code = str(event.get("automation_code") or "unknown")
+        interaction_at = event.get("interaction_at")
+        guest_id = int(event["guest_id"])
+        summary = summaries.setdefault(
+            code,
+            {
+                "code": code,
+                "title": event.get("title") or code,
+                "unique_recipients": 0,
+                "returned_count": 0,
+                "conversion_percent": 0,
+                "topped_up_count": 0,
+                "topup_amount": 0.0,
+            },
+        )
+        summary["unique_recipients"] += 1
+        if not interaction_at:
+            continue
+
+        effect_deadline = interaction_at + timedelta(days=CRM_CAMPAIGN_EFFECT_DAYS)
+        next_visit = next(
+            (visit for visit in visits_by_guest.get(guest_id, []) if interaction_at < visit["start"] < effect_deadline),
+            None,
+        )
+        if not next_visit:
+            continue
+
+        summary["returned_count"] += 1
+        visit_topup_amount = sum(
+            float(row.get("amount") or 0)
+            for row in topups_by_guest.get(guest_id, [])
+            if next_visit["start"] <= row["topup_at"] <= next_visit["end"]
+        )
+        if visit_topup_amount > 0:
+            summary["topped_up_count"] += 1
+            summary["topup_amount"] += visit_topup_amount
+
+    result = []
+    for summary in summaries.values():
+        recipient_count = int(summary["unique_recipients"])
+        summary["conversion_percent"] = (
+            round(int(summary["returned_count"]) / recipient_count * 100, 1) if recipient_count else 0
+        )
+        summary["topup_amount"] = round(float(summary["topup_amount"]), 2)
+        result.append(summary)
+    return sorted(result, key=lambda row: (-int(row["unique_recipients"]), str(row["title"])))
+
+
+def list_auto_crm_campaigns(
+    conn,
+    club_id: int,
+    date_from: datetime,
+    date_to: datetime,
+) -> List[Dict[str, Any]]:
+    """Aggregate automatic mailings by unique recipient and attribute the next visit."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) AS automation_code,
+                COALESCE(
+                    MAX(ams.title),
+                    MAX(JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')))
+                ) AS title,
+                mr.guest_id,
+                MIN(COALESCE(mr.sent_at, m.started_at, m.created_at)) AS interaction_at
+            FROM mailings m
+            JOIN mailing_recipients mr
+              ON mr.mailing_id = m.id
+            LEFT JOIN auto_mailing_settings ams
+              ON ams.club_id = m.club_id
+             AND ams.code = JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing'))
+            WHERE m.club_id = %s
+              AND mr.status = 'sent'
+              AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(m.filters_json, '{}'), '$.auto_mailing')) IS NOT NULL
+              AND COALESCE(mr.sent_at, m.started_at, m.created_at) >= %s
+              AND COALESCE(mr.sent_at, m.started_at, m.created_at) < %s
+            GROUP BY automation_code, mr.guest_id
+            ORDER BY interaction_at ASC
+            """,
+            (club_id, date_from, date_to),
+        )
+        events = cur.fetchall()
+
+    if not events:
+        return []
+
+    guest_ids = sorted({int(row["guest_id"]) for row in events})
+    min_interaction = min(row["interaction_at"] for row in events) - timedelta(hours=2)
+    max_effect_at = max(row["interaction_at"] for row in events) + timedelta(days=CRM_CAMPAIGN_EFFECT_DAYS)
+    sessions: List[Dict[str, Any]] = []
+    topups: List[Dict[str, Any]] = []
+
+    for guest_id_chunk in _chunked(guest_ids):
+        placeholders = ", ".join(["%s"] * len(guest_id_chunk))
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT guest_id, date_start, date_stop
+                FROM guest_sessions
+                WHERE club_id = %s
+                  AND guest_id IN ({placeholders})
+                  AND date_stop >= %s
+                  AND date_start < %s
+                  AND date_stop IS NOT NULL
+                ORDER BY guest_id, date_start, id
+                """,
+                (club_id, *guest_id_chunk, min_interaction, max_effect_at),
+            )
+            sessions.extend(cur.fetchall())
+            cur.execute(
+                f"""
+                SELECT guest_id, amount, topup_at
+                FROM guest_balance_topups
+                WHERE club_id = %s
+                  AND guest_id IN ({placeholders})
+                  AND topup_at >= %s
+                  AND topup_at < %s
+                  AND amount > 0
+                  AND amount <= %s
+                ORDER BY guest_id, topup_at, id
+                """,
+                (club_id, *guest_id_chunk, min_interaction, max_effect_at, BALANCE_TOPUP_MAX_AMOUNT),
+            )
+            topups.extend(cur.fetchall())
+
+    return _summarize_auto_crm_events(events, sessions, topups)
+
+
 def _ensure_auto_mailing_column(cursor, column_name: str, ddl: str) -> None:
     cursor.execute(
         """

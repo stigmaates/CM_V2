@@ -18,6 +18,16 @@ const crmCampaignBody = document.getElementById("crmCampaignBody");
 const crmCampaignTitle = document.getElementById("crmCampaignTitle");
 const crmCampaignStatus = document.getElementById("crmCampaignStatus");
 const crmCampaignsShowAllBtn = document.getElementById("crmCampaignsShowAll");
+const crmCampaignModeButtons = Array.from(document.querySelectorAll(".crm-campaign-mode__button"));
+const crmManualCampaignsPanel = document.getElementById("crmManualCampaignsPanel");
+const crmAutoCampaignsPanel = document.getElementById("crmAutoCampaignsPanel");
+const crmAutoPeriodButtons = Array.from(document.querySelectorAll(".crm-auto-period"));
+const crmAutoCustomPeriod = document.getElementById("crmAutoCustomPeriod");
+const crmAutoDateFrom = document.getElementById("crmAutoDateFrom");
+const crmAutoDateTo = document.getElementById("crmAutoDateTo");
+const crmAutoApplyDates = document.getElementById("crmAutoApplyDates");
+const crmAutoPeriodLabel = document.getElementById("crmAutoPeriodLabel");
+const crmAutoCampaignsContent = document.getElementById("crmAutoCampaignsContent");
 const crmPulseGroups = window.CRM_PULSE_GROUPS || [];
 const crmMessageVariables = window.CRM_MESSAGE_VARIABLES || [];
 const crmPulseModal = document.getElementById("crmPulseModal");
@@ -45,6 +55,7 @@ let crmFunnelPeriod = "all";
 let crmCampaignScrollY = 0;
 let crmPulseScrollY = 0;
 let crmActivePulseGroup = null;
+let crmAutoCampaignsLoaded = false;
 
 const CRM_OPERATOR_LABELS = {
     "=": "Равно",
@@ -100,6 +111,82 @@ function crmFormatStatus(status) {
 function crmFormatMoney(value) {
     const number = Number(value || 0);
     return `${Math.round(number).toLocaleString("ru-RU")} ₽`;
+}
+
+function crmFormatDate(value) {
+    if (!value) return "";
+    const parts = String(value).split("-");
+    return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
+}
+
+function crmDateInputValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function crmRenderAutoCampaigns(campaigns) {
+    if (!crmAutoCampaignsContent) return;
+    if (!campaigns || !campaigns.length) {
+        crmAutoCampaignsContent.innerHTML = `<div class="empty-state">За выбранный период доставленных авторассылок нет.</div>`;
+        return;
+    }
+    crmAutoCampaignsContent.innerHTML = `
+        <div class="crm-campaigns-table crm-auto-campaigns-table">
+            <div class="crm-auto-campaigns-row crm-auto-campaigns-row--head">
+                <div>Авторассылка</div>
+                <div>Уникальных получателей</div>
+                <div>Вернулись</div>
+                <div>Конверсия</div>
+                <div>Пополнили</div>
+                <div>Пополнено в следующий визит</div>
+            </div>
+            ${campaigns.map((campaign) => `
+                <div class="crm-auto-campaigns-row">
+                    <div><strong>${crmEscapeHtml(campaign.title || campaign.code)}</strong></div>
+                    <div>${crmEscapeHtml(campaign.unique_recipients || 0)}</div>
+                    <div>${crmEscapeHtml(campaign.returned_count || 0)}</div>
+                    <div><strong>${crmEscapeHtml(campaign.conversion_percent || 0)}%</strong></div>
+                    <div>${crmEscapeHtml(campaign.topped_up_count || 0)}</div>
+                    <div><strong>${crmEscapeHtml(crmFormatMoney(campaign.topup_amount))}</strong></div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+async function crmLoadAutoCampaigns(period = "7") {
+    if (!crmAutoCampaignsContent) return;
+    const params = new URLSearchParams({period});
+    if (period === "custom") {
+        if (!crmAutoDateFrom?.value || !crmAutoDateTo?.value) return;
+        params.set("date_from", crmAutoDateFrom.value);
+        params.set("date_to", crmAutoDateTo.value);
+    }
+    crmAutoCampaignsContent.innerHTML = `<div class="crm-auto-loading" aria-label="Загрузка"></div>`;
+    try {
+        const response = await fetch(`/owner/api/crm-auto-campaigns?${params.toString()}`);
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || "Не удалось загрузить статистику");
+        crmAutoCampaignsLoaded = true;
+        crmAutoPeriodLabel.textContent = `${crmFormatDate(data.date_from)} — ${crmFormatDate(data.date_to)}`;
+        crmRenderAutoCampaigns(data.campaigns || []);
+    } catch (error) {
+        crmAutoCampaignsContent.innerHTML = `<div class="empty-state">${crmEscapeHtml(error.message || "Не удалось загрузить статистику.")}</div>`;
+    }
+}
+
+function crmSetCampaignMode(mode) {
+    const isAuto = mode === "auto";
+    if (crmManualCampaignsPanel) crmManualCampaignsPanel.hidden = isAuto;
+    if (crmAutoCampaignsPanel) crmAutoCampaignsPanel.hidden = !isAuto;
+    crmCampaignModeButtons.forEach((button) => {
+        const active = button.dataset.campaignMode === mode;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", String(active));
+    });
+    if (isAuto && !crmAutoCampaignsLoaded) crmLoadAutoCampaigns("7");
 }
 
 function crmFormatBonus(value) {
@@ -768,6 +855,30 @@ if (crmCampaignsShowAllBtn) {
         });
         crmCampaignsShowAllBtn.remove();
     });
+}
+
+crmCampaignModeButtons.forEach((button) => {
+    button.addEventListener("click", () => crmSetCampaignMode(button.dataset.campaignMode));
+});
+
+crmAutoPeriodButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        const period = button.dataset.autoPeriod;
+        crmAutoPeriodButtons.forEach((item) => item.classList.toggle("is-active", item === button));
+        if (crmAutoCustomPeriod) crmAutoCustomPeriod.hidden = period !== "custom";
+        if (period === "custom" && crmAutoDateFrom && crmAutoDateTo && !crmAutoDateFrom.value) {
+            const today = new Date();
+            const monthAgo = new Date(today);
+            monthAgo.setDate(today.getDate() - 29);
+            crmAutoDateFrom.value = crmDateInputValue(monthAgo);
+            crmAutoDateTo.value = crmDateInputValue(today);
+        }
+        if (period !== "custom") crmLoadAutoCampaigns(period);
+    });
+});
+
+if (crmAutoApplyDates) {
+    crmAutoApplyDates.addEventListener("click", () => crmLoadAutoCampaigns("custom"));
 }
 
 if (crmCampaignBackdrop) crmCampaignBackdrop.addEventListener("click", crmCloseCampaignModal);

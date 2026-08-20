@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from app.services.mailing import (
     _campaign_effect_summary,
     _deduplicate_interaction_recipients,
     _fetch_campaign_effect_rows,
+    _summarize_auto_crm_events,
 )
 
 
@@ -101,3 +104,55 @@ def test_campaign_effect_rows_select_next_collapsed_visit_start():
 
     assert "NOT EXISTS" in conn.cursor_obj.query
     assert "DATE_ADD(prev.date_stop, INTERVAL 2 HOUR)" in conn.cursor_obj.query
+
+
+def test_auto_campaign_summary_uses_unique_events_and_next_collapsed_visit_topups():
+    events = [
+        {
+            "automation_code": "inactive_return",
+            "title": "Вернуть после неактива",
+            "guest_id": 101,
+            "interaction_at": datetime(2026, 8, 1, 10, 0),
+        },
+        {
+            "automation_code": "inactive_return",
+            "title": "Вернуть после неактива",
+            "guest_id": 102,
+            "interaction_at": datetime(2026, 8, 1, 10, 0),
+        },
+    ]
+    sessions = [
+        {
+            "guest_id": 101,
+            "date_start": datetime(2026, 8, 3, 12, 0),
+            "date_stop": datetime(2026, 8, 3, 13, 0),
+        },
+        {
+            "guest_id": 101,
+            "date_start": datetime(2026, 8, 3, 14, 30),
+            "date_stop": datetime(2026, 8, 3, 16, 0),
+        },
+        {
+            "guest_id": 102,
+            "date_start": datetime(2026, 9, 5, 12, 0),
+            "date_stop": datetime(2026, 9, 5, 13, 0),
+        },
+    ]
+    topups = [
+        {"guest_id": 101, "amount": 500, "topup_at": datetime(2026, 8, 3, 15, 0)},
+        {"guest_id": 101, "amount": 700, "topup_at": datetime(2026, 8, 4, 15, 0)},
+    ]
+
+    result = _summarize_auto_crm_events(events, sessions, topups)
+
+    assert result == [
+        {
+            "code": "inactive_return",
+            "title": "Вернуть после неактива",
+            "unique_recipients": 2,
+            "returned_count": 1,
+            "conversion_percent": 50.0,
+            "topped_up_count": 1,
+            "topup_amount": 500.0,
+        }
+    ]

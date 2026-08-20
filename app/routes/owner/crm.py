@@ -1,4 +1,5 @@
 import threading
+from datetime import datetime, timedelta
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
@@ -14,6 +15,7 @@ from app.services.mailing import (
     get_manual_crm_campaign_passport,
     get_message_variables,
     get_recipient_rows_for_guest_ids,
+    list_auto_crm_campaigns,
     list_manual_crm_campaigns,
     list_segments,
     save_segment,
@@ -189,6 +191,54 @@ def api_crm_campaign_passport(campaign_type, campaign_id):
     if not passport:
         return jsonify({"ok": False, "error": "Кампания не найдена"}), 404
     return jsonify({"ok": True, "passport": passport})
+
+
+@owner_bp.route("/api/crm-auto-campaigns")
+@owner_required
+def api_crm_auto_campaigns():
+    club_id = session.get("club_id")
+    period = request.args.get("period", "30")
+    today = datetime.now().date()
+
+    if period == "custom":
+        try:
+            start_date = datetime.strptime(request.args.get("date_from", ""), "%Y-%m-%d").date()
+            end_date = datetime.strptime(request.args.get("date_to", ""), "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({"ok": False, "error": "Укажи корректный диапазон дат"}), 400
+        if end_date < start_date:
+            return jsonify({"ok": False, "error": "Дата окончания раньше даты начала"}), 400
+        if (end_date - start_date).days > 366:
+            return jsonify({"ok": False, "error": "Максимальный диапазон — 366 дней"}), 400
+    else:
+        try:
+            period_days = int(period)
+        except (TypeError, ValueError):
+            period_days = 30
+        if period_days not in (7, 30):
+            period_days = 30
+        end_date = today
+        start_date = today - timedelta(days=period_days - 1)
+        period = str(period_days)
+
+    date_from = datetime.combine(start_date, datetime.min.time())
+    date_to = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    conn = get_db_connection()
+    try:
+        campaigns = list_auto_crm_campaigns(conn, int(club_id), date_from, date_to)
+    finally:
+        conn.close()
+
+    return jsonify(
+        {
+            "ok": True,
+            "campaigns": campaigns,
+            "period": period,
+            "date_from": start_date.isoformat(),
+            "date_to": end_date.isoformat(),
+            "effect_days": 30,
+        }
+    )
 
 
 @owner_bp.route("/api/crm-pulse/interact", methods=["POST"])

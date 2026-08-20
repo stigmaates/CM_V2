@@ -141,8 +141,13 @@
             <div>
                 <div class="section-title">Аналитика коммуникаций</div>
             </div>
+            <div class="crm-campaign-mode" role="tablist" aria-label="Тип коммуникаций">
+                <button type="button" class="crm-campaign-mode__button is-active" data-campaign-mode="manual" role="tab" aria-selected="true">Ручные</button>
+                <button type="button" class="crm-campaign-mode__button" data-campaign-mode="auto" role="tab" aria-selected="false">Авторассылки</button>
+            </div>
         </div>
 
+        <div id="crmManualCampaignsPanel" role="tabpanel">
         {% if manual_campaigns %}
             {% set campaign_status_labels = {
                 "completed": "Завершено",
@@ -206,6 +211,26 @@
         {% else %}
             <div class="empty-state">Ручных коммуникаций пока нет.</div>
         {% endif %}
+        </div>
+
+        <div id="crmAutoCampaignsPanel" role="tabpanel" hidden>
+            <div class="crm-auto-periods">
+                <div class="crm-auto-periods__presets" role="group" aria-label="Период авторассылок">
+                    <button type="button" class="crm-auto-period is-active" data-auto-period="7">Неделя</button>
+                    <button type="button" class="crm-auto-period" data-auto-period="30">Месяц</button>
+                    <button type="button" class="crm-auto-period" data-auto-period="custom">Даты</button>
+                </div>
+                <div class="crm-auto-custom-period" id="crmAutoCustomPeriod" hidden>
+                    <label><span>С</span><input type="date" id="crmAutoDateFrom"></label>
+                    <label><span>По</span><input type="date" id="crmAutoDateTo"></label>
+                    <button type="button" class="crm-analysis-button crm-analysis-button--primary" id="crmAutoApplyDates">Применить</button>
+                </div>
+                <div class="crm-auto-period-label" id="crmAutoPeriodLabel"></div>
+            </div>
+            <div id="crmAutoCampaignsContent" aria-live="polite">
+                <div class="empty-state">Выбери авторассылки, чтобы загрузить статистику.</div>
+            </div>
+        </div>
     </section>
 
     <div class="crm-campaign-modal" id="crmCampaignModal" aria-hidden="true">
