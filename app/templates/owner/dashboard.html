@@ -379,29 +379,31 @@
 
         <div class="cb-case-timeline" id="caseOpeningsTimeline">
             <div class="cb-case-timeline-head">
-                <div>
+                <div class="cb-case-timeline-intro">
                     <h3>Динамика открытий</h3>
                     <p>Количество открытий каждого кейса за выбранный период</p>
+                    <div class="cb-case-timeline-legend" data-case-timeline-legend></div>
                 </div>
                 <div class="cb-case-timeline-controls">
-                    <div class="cb-case-timeline-control-group" aria-label="Период графика">
-                        <button type="button" data-case-period="week">Неделя</button>
-                        <button type="button" class="is-active" data-case-period="month">Месяц</button>
-                        <button type="button" data-case-period="custom">Даты</button>
+                    <div class="cb-case-timeline-switches">
+                        <div class="cb-case-timeline-control-group" aria-label="Период графика">
+                            <button type="button" data-case-period="week">Неделя</button>
+                            <button type="button" class="is-active" data-case-period="month">Месяц</button>
+                            <button type="button" data-case-period="custom">Даты</button>
+                        </div>
+                        <div class="cb-case-timeline-control-group" aria-label="Группировка графика">
+                            <button type="button" class="is-active" data-case-group="day">Дни</button>
+                            <button type="button" data-case-group="week">Недели</button>
+                            <button type="button" data-case-group="month">Месяцы</button>
+                        </div>
                     </div>
-                    <div class="cb-case-timeline-control-group" aria-label="Группировка графика">
-                        <button type="button" class="is-active" data-case-group="day">Дни</button>
-                        <button type="button" data-case-group="week">Недели</button>
-                        <button type="button" data-case-group="month">Месяцы</button>
+                    <div class="cb-case-timeline-dates" data-case-custom-dates hidden>
+                        <input type="date" aria-label="Начальная дата" data-case-date-from>
+                        <input type="date" aria-label="Конечная дата" data-case-date-to>
+                        <button type="button" data-case-dates-apply>Показать</button>
                     </div>
                 </div>
             </div>
-            <div class="cb-case-timeline-dates" data-case-custom-dates hidden>
-                <label>С <input type="date" data-case-date-from></label>
-                <label>По <input type="date" data-case-date-to></label>
-                <button type="button" data-case-dates-apply>Показать</button>
-            </div>
-            <div class="cb-case-timeline-legend" data-case-timeline-legend></div>
             <div class="cb-case-timeline-state" data-case-timeline-state>Загрузка...</div>
             <div class="cb-case-timeline-scroll" data-case-timeline-scroll hidden>
                 <div class="cb-case-timeline-plot" data-case-timeline-plot></div>
@@ -634,6 +636,8 @@
         const maxValue = Math.max(Number(data.max_value) || 0, 1);
         const bucketWidth = Math.max(66, data.cases.length * 18 + 28);
         plot.style.setProperty('--case-bucket-width', `${bucketWidth}px`);
+        plot.style.setProperty('--case-bucket-count', data.buckets.length || 1);
+        plot.style.minWidth = `${bucketWidth * Math.max(data.buckets.length, 1)}px`;
 
         data.buckets.forEach((bucket) => {
             const column = document.createElement('div');
