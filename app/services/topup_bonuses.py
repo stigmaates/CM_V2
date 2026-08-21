@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Callable
+from zoneinfo import ZoneInfo
 
 from app.config import TOPUP_BONUS_MAX_AMOUNT
 from app.core import get_db_connection
@@ -23,6 +24,12 @@ TOPUP_BONUS_VARIABLES = (
     ("bonus_amount", "Начислено КБ"),
     ("cm_bonus_balance", "Баланс КБ"),
 )
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+
+def _moscow_now() -> datetime:
+    return datetime.now(MOSCOW_TZ).replace(tzinfo=None)
 
 
 def _looks_like_patronymic(value: str) -> bool:
@@ -173,7 +180,7 @@ def save_topup_bonus_settings(
             enabled_at = _resolve_enabled_at(
                 cursor.fetchone(),
                 is_enabled=is_enabled,
-                now=datetime.utcnow(),
+                now=_moscow_now(),
             )
             cursor.execute(
                 """
@@ -274,12 +281,13 @@ def process_topup_bonus_awards(
                 continue
             try:
                 with conn.cursor() as cursor:
+                    awarded_at = _moscow_now()
                     cursor.execute(
                         """
                         INSERT IGNORE INTO guest_topup_bonus_awards (
                             club_id, topup_id, guest_id, rule_id, topup_amount,
-                            bonus_amount, status, delivery_status, telegram_id
-                        ) VALUES (%s, %s, %s, %s, %s, %s, 'awarded', %s, %s)
+                            bonus_amount, status, delivery_status, telegram_id, created_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, 'awarded', %s, %s, %s)
                         """,
                         (
                             club_id,
@@ -290,6 +298,7 @@ def process_topup_bonus_awards(
                             rule["bonus_amount"],
                             "pending" if topup.get("telegram_id") else "no_telegram",
                             topup.get("telegram_id"),
+                            awarded_at,
                         ),
                     )
                     if cursor.rowcount == 0:
@@ -302,6 +311,7 @@ def process_topup_bonus_awards(
                         source_type="topup_reward",
                         source_id=str(topup["topup_id"]),
                         description=f"Бонус за пополнение от {_format_money(rule['min_amount'])} ₽",
+                        created_at=awarded_at,
                     )
                     if not changed:
                         raise RuntimeError("Транзакция начисления уже существует")
@@ -356,10 +366,16 @@ def process_topup_bonus_awards(
                         UPDATE guest_topup_bonus_awards
                         SET delivery_status = %s,
                             error_text = %s,
-                            sent_at = CASE WHEN %s = 'sent' THEN NOW() ELSE sent_at END
+                            sent_at = CASE WHEN %s = 'sent' THEN %s ELSE sent_at END
                         WHERE id = %s
                         """,
-                        ("sent" if ok else "failed", error_text, "sent" if ok else "failed", item["id"]),
+                        (
+                            "sent" if ok else "failed",
+                            error_text,
+                            "sent" if ok else "failed",
+                            _moscow_now(),
+                            item["id"],
+                        ),
                     )
                 conn.commit()
                 if ok:

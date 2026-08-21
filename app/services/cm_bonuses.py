@@ -145,6 +145,7 @@ def add_cm_bonus_transaction(
     status: str = "done",
     expires_at: datetime | None = None,
     expires_status: str | None = None,
+    created_at: datetime | None = None,
 ) -> bool:
     """Change КБ balance and write a ledger row. Returns False for duplicate idempotent sources."""
     amount = int(amount or 0)
@@ -197,7 +198,7 @@ def add_cm_bonus_transaction(
             status,
             expires_at,
             expires_status or ("active" if expires_at and amount > 0 else "none"),
-            datetime.utcnow(),
+            created_at or datetime.utcnow(),
         ),
     )
     return True
