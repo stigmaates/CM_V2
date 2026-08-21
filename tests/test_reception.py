@@ -1,5 +1,5 @@
 from app.main import app
-from app.services.reception import _phone_variants
+from app.services.reception import _phone_variants, _source_label
 
 
 def test_reception_role_is_redirected_back_to_reception_from_owner_page():
@@ -29,3 +29,7 @@ def test_reception_phone_variants_match_local_number_from_leading_eight():
     assert "89270086145" in variants
     assert "79270086145" in variants
     assert "9270086145" in variants
+
+
+def test_reception_labels_topup_reward_in_russian():
+    assert _source_label("topup_reward") == "Бонус за пополнение"

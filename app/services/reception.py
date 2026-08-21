@@ -86,6 +86,7 @@ def _source_label(source_type: str | None) -> str:
         "redeem_request": "Перевод КБ на игровой баланс",
         "auto_mailing": "Авторассылка",
         "bonus_giveaway": "Раздача КБ",
+        "topup_reward": "Бонус за пополнение",
     }
     return labels.get(str(source_type or ""), str(source_type or "Операция"))
 

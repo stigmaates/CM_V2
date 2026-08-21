@@ -1,8 +1,10 @@
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
 
 from app.services.topup_bonuses import (
+    _resolve_enabled_at,
     render_topup_bonus_message,
     save_topup_bonus_settings,
     select_topup_bonus_rule,
@@ -60,3 +62,20 @@ def test_topup_bonus_rule_rejects_excluded_amount_boundary():
             message_template="Тест",
             rules=[{"min_amount": 30000, "bonus_amount": 500}],
         )
+
+
+def test_resolve_enabled_at_preserves_original_activation_when_settings_are_edited():
+    enabled_at = datetime(2026, 8, 19, 10, 30)
+
+    assert _resolve_enabled_at(
+        {"is_enabled": 1, "enabled_at": enabled_at},
+        is_enabled=True,
+        now=datetime(2026, 8, 21, 12, 0),
+    ) == enabled_at
+
+
+def test_resolve_enabled_at_sets_activation_only_when_feature_is_enabled():
+    now = datetime(2026, 8, 21, 12, 0)
+
+    assert _resolve_enabled_at(None, is_enabled=True, now=now) == now
+    assert _resolve_enabled_at({"is_enabled": 1}, is_enabled=False, now=now) is None
