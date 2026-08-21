@@ -84,6 +84,19 @@ def render_topup_bonus_message(template: str, values: dict[str, Any]) -> str:
     return re.sub(r"\{([a-zA-Z0-9_]+)\}", replace, template or "")
 
 
+def _resolve_enabled_at(
+    existing_settings: dict[str, Any] | None,
+    *,
+    is_enabled: bool,
+    now: datetime,
+) -> datetime | None:
+    if not is_enabled:
+        return None
+    if existing_settings and existing_settings.get("is_enabled") and existing_settings.get("enabled_at"):
+        return existing_settings["enabled_at"]
+    return now
+
+
 def get_topup_bonus_settings(club_id: int) -> dict[str, Any]:
     conn = get_db_connection()
     try:
@@ -148,7 +161,20 @@ def save_topup_bonus_settings(
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            enabled_at = datetime.utcnow() if is_enabled else None
+            cursor.execute(
+                """
+                SELECT is_enabled, enabled_at
+                FROM club_topup_bonus_settings
+                WHERE club_id = %s
+                FOR UPDATE
+                """,
+                (club_id,),
+            )
+            enabled_at = _resolve_enabled_at(
+                cursor.fetchone(),
+                is_enabled=is_enabled,
+                now=datetime.utcnow(),
+            )
             cursor.execute(
                 """
                 INSERT INTO club_topup_bonus_settings (
