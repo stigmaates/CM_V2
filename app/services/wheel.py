@@ -678,9 +678,12 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
     finally:
         conn.close()
 
+    return missions
 
-def get_guest_tokens(guest_id: int, club_id: int):
-    sync_guest_wheel_tokens(guest_id, club_id)
+
+def get_guest_tokens(guest_id: int, club_id: int, *, sync: bool = True):
+    if sync:
+        sync_guest_wheel_tokens(guest_id, club_id)
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:

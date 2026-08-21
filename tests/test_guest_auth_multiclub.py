@@ -125,12 +125,7 @@ def test_guest_login_reuses_existing_session_for_same_club(monkeypatch):
     monkeypatch.setattr(
         guest_routes,
         "get_guest_by_id",
-        lambda guest_id, club_id=None: {
-            "guest_id": int(guest_id),
-            "club_id": int(club_id),
-            "fio": "Гость",
-            "telegram_id": 456,
-        },
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("login redirect must not query guest")),
     )
     monkeypatch.setattr(
         guest_routes, "create_guest_login_token", lambda club_id: created_tokens.append(club_id) or "token"
@@ -148,4 +143,23 @@ def test_guest_login_reuses_existing_session_for_same_club(monkeypatch):
 
         assert response.status_code == 302
         assert response.location == "/guest/dashboard"
+        assert response.headers["Cache-Control"].startswith("no-store")
         assert created_tokens == []
+
+
+def test_guest_login_page_is_not_cached(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+
+    monkeypatch.setattr(guest_routes, "BOT_USERNAME", "test_bot")
+    monkeypatch.setattr(guest_routes, "get_guest_login_club", lambda club_id: {"club_id": 2, "name": "Club"})
+    monkeypatch.setattr(guest_routes, "create_guest_login_token", lambda club_id: "token")
+    monkeypatch.setattr(guest_routes, "render_template", lambda *args, **kwargs: "login-page")
+
+    with flask_app.test_client() as client:
+        response = client.get("/guest/login?club_id=2")
+
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"].startswith("no-store")
+    assert response.headers["Pragma"] == "no-cache"
