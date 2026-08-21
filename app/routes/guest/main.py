@@ -1,7 +1,7 @@
 from datetime import datetime
 from urllib.parse import quote_plus
 
-from flask import flash, redirect, render_template, request, session, url_for
+from flask import after_this_request, flash, redirect, render_template, request, session, url_for
 
 from app.config import BOT_USERNAME
 from app.core import guest_required
@@ -56,6 +56,15 @@ def _clear_guest_session():
     session.pop("guest_test_return_label", None)
 
 
+def _disable_login_cache():
+    @after_this_request
+    def add_no_store_headers(response):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+
 @guest_bp.route("/dashboard")
 @guest_required
 def dashboard():
@@ -65,9 +74,7 @@ def dashboard():
         flash("Гость не найден", "error")
         return redirect(url_for("guest.login"))
 
-    sync_guest_wheel_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
-
-    missions = get_guest_missions_with_progress(guest_id=guest["guest_id"], club_id=guest["club_id"])
+    missions = sync_guest_wheel_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
     profile_stats = get_guest_profile_stats(guest_id=guest["guest_id"], club_id=guest["club_id"])
     wheel_settings = get_wheel_settings(guest["club_id"])
     wheel_prizes = [serialize_wheel_prize(p) for p in get_wheel_prizes(guest["club_id"])]
@@ -79,7 +86,7 @@ def dashboard():
         days=90,
         club_id=guest["club_id"] if show_only_own_valuable_drops else None,
     )
-    token_balance = get_guest_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"])
+    token_balance = get_guest_tokens(guest_id=guest["guest_id"], club_id=guest["club_id"], sync=False)
     reward_history = get_guest_reward_history(guest_id=guest["guest_id"], club_id=guest["club_id"], limit=12)
     streak_info = get_guest_streak_info(guest_id=guest["guest_id"], club_id=guest["club_id"])
     cm_bonus_balance = get_cm_bonus_balance(guest_id=guest["guest_id"], club_id=guest["club_id"])
@@ -111,6 +118,7 @@ def dashboard():
 
 @guest_bp.route("/check-login")
 def check_login():
+    _disable_login_cache()
     token = request.args.get("token", "").strip()
     if not token:
         return {"ok": False, "error": "token_required"}, 400
@@ -150,6 +158,7 @@ def check_login():
 
 @guest_bp.route("/login")
 def login():
+    _disable_login_cache()
     bot_username = BOT_USERNAME.lstrip("@")
     requested_club_id = request.args.get("club_id", type=int) or session.get("club_id")
     club = get_guest_login_club(requested_club_id)
@@ -160,13 +169,7 @@ def login():
     if current_guest_club_id is not None and int(current_guest_club_id) != int(club["club_id"]):
         _clear_guest_session()
     elif session.get("guest_logged_in") and session.get("guest_id"):
-        current_guest = get_guest_by_id(session.get("guest_id"), int(club["club_id"]))
-        if current_guest:
-            session["guest_club_id"] = current_guest["club_id"]
-            session["guest_name"] = current_guest.get("fio")
-            session["guest_telegram_id"] = current_guest.get("telegram_id")
-            return redirect(url_for("guest.dashboard"))
-        _clear_guest_session()
+        return redirect(url_for("guest.dashboard"))
 
     token = create_guest_login_token(int(club["club_id"]))
     start_payload = f"login_{token}"
