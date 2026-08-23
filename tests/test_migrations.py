@@ -170,6 +170,17 @@ def test_topup_bonus_moscow_timestamps_migration_exports_revision_and_upgrade():
     assert any("topup_reward" in value for value in constants)
 
 
+def test_legacy_redeem_notification_quarantine_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module(
+        "migrations.versions.0018_quarantine_legacy_redeem_notifications"
+    )
+
+    assert migration.revision == "0018_quarantine_legacy_redeem_notifications"
+    assert callable(migration.upgrade)
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("notify_failed_legacy" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

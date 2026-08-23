@@ -556,7 +556,7 @@ def notify_cm_bonus_redeem_request(request_id: int) -> dict[str, Any]:
 
 
 def retry_failed_cm_bonus_redeem_notifications(limit: int = 50) -> dict[str, Any]:
-    """Retry due notifications; stale in-flight rows are recovered after ten minutes."""
+    """Retry only notifications explicitly scheduled by the new queue."""
     now = _utcnow()
     stale_before = now - timedelta(minutes=10)
     conn = get_db_connection()
@@ -571,21 +571,24 @@ def retry_failed_cm_bonus_redeem_notifications(limit: int = 50) -> dict[str, Any
                   AND (
                         (
                             status = 'created'
-                            AND requested_at <= %s
+                            AND next_notify_attempt_at IS NOT NULL
+                            AND next_notify_attempt_at <= %s
                         )
                      OR (
                             status = 'notify_failed'
-                            AND (next_notify_attempt_at IS NULL OR next_notify_attempt_at <= %s)
+                            AND next_notify_attempt_at IS NOT NULL
+                            AND next_notify_attempt_at <= %s
                         )
                      OR (
                             status = 'notify_retrying'
+                            AND last_notify_attempt_at IS NOT NULL
                             AND last_notify_attempt_at < %s
                         )
                   )
                 ORDER BY COALESCE(next_notify_attempt_at, requested_at) ASC, id ASC
                 LIMIT %s
                 """,
-                (now - timedelta(minutes=1), now, stale_before, max(1, min(int(limit), 500))),
+                (now, now, stale_before, max(1, min(int(limit), 500))),
             )
             request_ids = [int(row["id"]) for row in cursor.fetchall()]
     finally:
@@ -627,12 +630,20 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
             if redeem_amount > balance:
                 raise ValueError("Недостаточно бонусов")
 
+            requested_at = _utcnow()
             cursor.execute(
                 """
-                INSERT INTO cm_bonus_redeem_requests (club_id, guest_id, amount, status, requested_at)
-                VALUES (%s, %s, %s, 'created', %s)
+                INSERT INTO cm_bonus_redeem_requests (
+                    club_id,
+                    guest_id,
+                    amount,
+                    status,
+                    requested_at,
+                    next_notify_attempt_at
+                )
+                VALUES (%s, %s, %s, 'created', %s, %s)
                 """,
-                (club_id, guest_id, redeem_amount, _utcnow()),
+                (club_id, guest_id, redeem_amount, requested_at, requested_at + timedelta(minutes=1)),
             )
             redeem_request_id = cursor.lastrowid
 
@@ -671,6 +682,7 @@ def get_cm_bonus_redeem_history(guest_id: int, club_id: int, limit: int = 30):
         "notify_retrying": "уведомляем администратора",
         "notified": "ожидает зачисления",
         "notify_failed": "ошибка уведомления",
+        "notify_failed_legacy": "архивная ошибка уведомления",
         "credited": "зачислено",
         "cancelled": "отменена",
         "failed": "ошибка",

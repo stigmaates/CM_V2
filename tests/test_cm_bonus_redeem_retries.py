@@ -19,6 +19,9 @@ class FakeCursor:
     def execute(self, query, params=None):
         self.executed.append((query, params))
 
+    def fetchall(self):
+        return []
+
 
 class FakeConnection:
     def __init__(self):
@@ -111,3 +114,16 @@ def test_failed_retry_schedules_next_attempt(monkeypatch):
     assert update_params[0] == "notify_failed"
     assert update_params[3] == "Telegram timeout"
     assert update_params[4] is not None
+
+
+def test_retry_queue_ignores_unscheduled_legacy_rows(monkeypatch):
+    conn = FakeConnection()
+    monkeypatch.setattr(cm_bonuses, "get_db_connection", lambda: conn)
+    monkeypatch.setattr(cm_bonuses, "ensure_cm_bonus_tables", lambda cursor: None)
+
+    result = cm_bonuses.retry_failed_cm_bonus_redeem_notifications()
+
+    assert result == {"selected": 0, "sent": 0, "failed": 0, "skipped": 0}
+    select_query = conn.cursor_obj.executed[-1][0]
+    assert select_query.count("next_notify_attempt_at IS NOT NULL") == 2
+    assert "last_notify_attempt_at IS NOT NULL" in select_query
