@@ -97,6 +97,7 @@ def _redeem_status_label(status: str | None) -> str:
         "notify_retrying": "уведомляем администратора",
         "notified": "ожидает зачисления",
         "notify_failed": "не удалось отправить уведомление",
+        "notify_failed_legacy": "архивная ошибка уведомления",
         "credited": "зачислено",
         "cancelled": "отменена",
         "failed": "ошибка",
