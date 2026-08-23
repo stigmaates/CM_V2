@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import traceback
 
 import httpx
 
@@ -245,6 +246,17 @@ def process_one_mailing(conn, mailing_id: int):
 
 
 def main():
+    # This script already runs every minute in production and stage, so it also
+    # keeps failed admin notifications moving without requiring another cron.
+    try:
+        from app.services.cm_bonuses import retry_failed_cm_bonus_redeem_notifications
+
+        retry_result = retry_failed_cm_bonus_redeem_notifications(limit=50)
+        if retry_result["selected"]:
+            print(f"КБ notifications retry: {retry_result}")
+    except Exception:
+        traceback.print_exc()
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:

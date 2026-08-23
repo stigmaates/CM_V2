@@ -94,6 +94,7 @@ def _source_label(source_type: str | None) -> str:
 def _redeem_status_label(status: str | None) -> str:
     labels = {
         "created": "создана",
+        "notify_retrying": "уведомляем администратора",
         "notified": "ожидает зачисления",
         "notify_failed": "не удалось отправить уведомление",
         "credited": "зачислено",
