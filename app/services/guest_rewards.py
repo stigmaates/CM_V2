@@ -20,7 +20,7 @@ def _format_status(status: str | None, fallback: str = "ожидает выда�
         return "выдан", "issued"
     if status == "cancelled":
         return "отменён", "cancelled"
-    if status in ("pending", "notified", "notify_failed"):
+    if status in ("pending", "notified", "notify_failed", "notify_retrying"):
         return fallback, "pending"
     return fallback, "pending"
 

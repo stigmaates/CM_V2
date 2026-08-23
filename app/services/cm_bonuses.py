@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Any
 
 import httpx
 
-from app.config import CM_BONUS_ADMIN_CHAT_ID, CM_BONUS_BOT_TOKEN, TG_PROXY_URL
+from app.config import CM_BONUS_ADMIN_CHAT_ID, CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL
 from app.core import get_db_connection
 from app.services.clubs import ensure_club_bonus_chat_column
 
 _cm_bonus_tables_ready = False
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _ensure_column(cursor, table_name: str, column_name: str, ddl: str) -> None:
@@ -82,6 +86,9 @@ def ensure_cm_bonus_tables(cursor) -> None:
         """)
     _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_telegram_id", "BIGINT NULL")
     _ensure_column(cursor, "cm_bonus_redeem_requests", "processed_by_username", "VARCHAR(255) NULL")
+    _ensure_column(cursor, "cm_bonus_redeem_requests", "notify_attempts", "INT NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "cm_bonus_redeem_requests", "last_notify_attempt_at", "DATETIME NULL")
+    _ensure_column(cursor, "cm_bonus_redeem_requests", "next_notify_attempt_at", "DATETIME NULL")
     _ensure_column(cursor, "cm_bonus_transactions", "expires_at", "DATETIME NULL")
     _ensure_column(cursor, "cm_bonus_transactions", "expires_status", "VARCHAR(30) NOT NULL DEFAULT 'none'")
     _ensure_column(cursor, "cm_bonus_transactions", "expired_at", "DATETIME NULL")
@@ -198,7 +205,7 @@ def add_cm_bonus_transaction(
             status,
             expires_at,
             expires_status or ("active" if expires_at and amount > 0 else "none"),
-            created_at or datetime.utcnow(),
+            created_at or _utcnow(),
         ),
     )
     return True
@@ -429,8 +436,9 @@ def _notify_admin_chat(
     }
     try:
         client_kwargs: dict[str, Any] = {"timeout": 20.0}
-        if TG_PROXY_URL:
-            client_kwargs["proxy"] = TG_PROXY_URL
+        proxy_url = (CM_BONUS_PROXY_URL or TG_PROXY_URL or "").strip()
+        if proxy_url:
+            client_kwargs["proxy"] = proxy_url
         with httpx.Client(**client_kwargs) as client:
             response = client.post(url, json=payload)
         data = response.json()
@@ -440,6 +448,167 @@ def _notify_admin_chat(
         return True, message_id, None, chat_id
     except Exception as e:
         return False, None, str(e), chat_id
+
+
+def _redeem_notification_retry_delay(attempts: int) -> timedelta:
+    """Back off persistent Telegram failures without abandoning the request."""
+    if attempts <= 1:
+        return timedelta(minutes=1)
+    if attempts == 2:
+        return timedelta(minutes=5)
+    if attempts == 3:
+        return timedelta(minutes=15)
+    return timedelta(minutes=60)
+
+
+def _claim_cm_bonus_redeem_notification(request_id: int) -> dict[str, Any] | None:
+    """Atomically claim a new, failed or stale notification for delivery."""
+    now = _utcnow()
+    stale_before = now - timedelta(minutes=10)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                UPDATE cm_bonus_redeem_requests
+                SET status = 'notify_retrying',
+                    notify_attempts = notify_attempts + 1,
+                    last_notify_attempt_at = %s,
+                    next_notify_attempt_at = NULL
+                WHERE id = %s
+                  AND telegram_message_id IS NULL
+                  AND (
+                        status = 'created'
+                     OR status = 'notify_failed'
+                     OR (status = 'notify_retrying' AND last_notify_attempt_at < %s)
+                  )
+                """,
+                (now, request_id, stale_before),
+            )
+            if cursor.rowcount == 0:
+                conn.rollback()
+                return None
+        conn.commit()
+    finally:
+        conn.close()
+
+    return get_cm_bonus_redeem_request_by_id(request_id)
+
+
+def notify_cm_bonus_redeem_request(request_id: int) -> dict[str, Any]:
+    """Deliver one admin notification without touching the guest balance."""
+    request = _claim_cm_bonus_redeem_notification(int(request_id))
+    if not request:
+        return {"ok": False, "request_id": int(request_id), "skipped": True}
+
+    guest = {
+        "club_id": request.get("club_id"),
+        "guest_id": request.get("guest_id"),
+        "fio": request.get("guest_name"),
+        "phone": request.get("guest_phone"),
+    }
+    sent, message_id, error_text, chat_id = _notify_admin_chat(
+        guest,
+        int(request.get("amount") or 0),
+        int(request_id),
+    )
+    attempts = int(request.get("notify_attempts") or 1)
+    next_attempt_at = None if sent else _utcnow() + _redeem_notification_retry_delay(attempts)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                UPDATE cm_bonus_redeem_requests
+                SET status = %s,
+                    admin_chat_id = %s,
+                    telegram_message_id = %s,
+                    error_text = %s,
+                    next_notify_attempt_at = %s
+                WHERE id = %s
+                  AND status = 'notify_retrying'
+                """,
+                (
+                    "notified" if sent else "notify_failed",
+                    str(chat_id or "") or None,
+                    message_id,
+                    error_text,
+                    next_attempt_at,
+                    request_id,
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "ok": sent,
+        "request_id": int(request_id),
+        "message_id": message_id,
+        "admin_chat_id": chat_id,
+        "error_text": error_text,
+        "notify_attempts": attempts,
+        "next_notify_attempt_at": next_attempt_at,
+    }
+
+
+def retry_failed_cm_bonus_redeem_notifications(limit: int = 50) -> dict[str, Any]:
+    """Retry due notifications; stale in-flight rows are recovered after ten minutes."""
+    now = _utcnow()
+    stale_before = now - timedelta(minutes=10)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            cursor.execute(
+                """
+                SELECT id
+                FROM cm_bonus_redeem_requests
+                WHERE telegram_message_id IS NULL
+                  AND (
+                        (
+                            status = 'created'
+                            AND requested_at <= %s
+                        )
+                     OR (
+                            status = 'notify_failed'
+                            AND (next_notify_attempt_at IS NULL OR next_notify_attempt_at <= %s)
+                        )
+                     OR (
+                            status = 'notify_retrying'
+                            AND last_notify_attempt_at < %s
+                        )
+                  )
+                ORDER BY COALESCE(next_notify_attempt_at, requested_at) ASC, id ASC
+                LIMIT %s
+                """,
+                (now - timedelta(minutes=1), now, stale_before, max(1, min(int(limit), 500))),
+            )
+            request_ids = [int(row["id"]) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+    sent = 0
+    failed = 0
+    skipped = 0
+    for request_id in request_ids:
+        result = notify_cm_bonus_redeem_request(request_id)
+        if result.get("skipped"):
+            skipped += 1
+        elif result.get("ok"):
+            sent += 1
+        else:
+            failed += 1
+
+    return {
+        "selected": len(request_ids),
+        "sent": sent,
+        "failed": failed,
+        "skipped": skipped,
+    }
 
 
 def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[str, Any]:
@@ -463,7 +632,7 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
                 INSERT INTO cm_bonus_redeem_requests (club_id, guest_id, amount, status, requested_at)
                 VALUES (%s, %s, %s, 'created', %s)
                 """,
-                (club_id, guest_id, redeem_amount, datetime.utcnow()),
+                (club_id, guest_id, redeem_amount, _utcnow()),
             )
             redeem_request_id = cursor.lastrowid
 
@@ -481,36 +650,9 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
     finally:
         conn.close()
 
-    notification_sent, message_id, error_text, admin_chat_id = _notify_admin_chat(
-        guest, redeem_amount, redeem_request_id
-    )
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            ensure_cm_bonus_tables(cursor)
-            cursor.execute(
-                """
-                UPDATE cm_bonus_redeem_requests
-                SET status = %s,
-                    admin_chat_id = %s,
-                    telegram_message_id = %s,
-                    error_text = %s,
-                    processed_at = %s
-                WHERE id = %s
-                """,
-                (
-                    "notified" if notification_sent else "notify_failed",
-                    str(admin_chat_id or "") or None,
-                    message_id,
-                    error_text,
-                    None,
-                    redeem_request_id,
-                ),
-            )
-        conn.commit()
-    finally:
-        conn.close()
+    notification = notify_cm_bonus_redeem_request(redeem_request_id)
+    notification_sent = bool(notification.get("ok"))
+    error_text = notification.get("error_text")
 
     return {
         "ok": True,
@@ -526,6 +668,7 @@ def get_cm_bonus_redeem_history(guest_id: int, club_id: int, limit: int = 30):
     """Return guest КБ transfer requests with user-friendly status labels."""
     status_labels = {
         "created": "создана",
+        "notify_retrying": "уведомляем администратора",
         "notified": "ожидает зачисления",
         "notify_failed": "ошибка уведомления",
         "credited": "зачислено",
@@ -621,7 +764,7 @@ def mark_cm_bonus_redeem_credited_by_telegram(
                     "message": f"Заявку КБ #{request_id} нельзя закрыть в статусе {status}.",
                 }
 
-            processed_at = datetime.utcnow()
+            processed_at = _utcnow()
             cursor.execute(
                 """
                 UPDATE cm_bonus_redeem_requests
