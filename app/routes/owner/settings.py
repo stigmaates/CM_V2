@@ -1,11 +1,12 @@
 from flask import flash, redirect, render_template, request, session, url_for
 
 from app.config import TOPUP_BONUS_MAX_AMOUNT
-from app.core import owner_required
+from app.core import OWNER_ACCESS_ROLES, owner_required
 from app.services.audit import record_audit_event
 from app.services.cases import get_cases_for_admin, get_game_mode
 from app.services.clubs import get_club_info, update_club_info
 from app.services.missions import get_club_missions_all, get_mission_templates
+from app.services.owner_profile import get_owner_profile, update_owner_profile
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 from app.services.system_status import get_owner_settings_system_status
 from app.services.test_guests import ensure_test_guest
@@ -19,8 +20,55 @@ from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_fo
 
 from . import owner_bp
 
-SETTINGS_TABS = {"club", "missions", "wheel"}
+SETTINGS_TABS = {"club", "missions", "wheel", "profile"}
 BONUS_EDITORS = {"wheel", "cases"}
+
+
+@owner_bp.route("/settings/profile", methods=["POST"])
+@owner_required
+def settings_profile_save():
+    if session.get("role") not in OWNER_ACCESS_ROLES:
+        flash("Профиль недоступен в режиме просмотра от администратора", "error")
+        return redirect(url_for("owner.settings", tab="club"))
+
+    user_id = session.get("user_id")
+    club_id = session.get("club_id")
+    if not user_id or not club_id:
+        flash("Профиль владельца не найден", "error")
+        return redirect(url_for("owner.settings", tab="profile"))
+
+    name = request.form.get("name", "")
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    new_password_confirm = request.form.get("new_password_confirm", "")
+
+    if new_password != new_password_confirm:
+        flash("Новые пароли не совпадают", "error")
+        return redirect(url_for("owner.settings", tab="profile"))
+
+    try:
+        result = update_owner_profile(
+            user_id=int(user_id),
+            club_id=int(club_id),
+            name=name,
+            current_password=current_password,
+            new_password=new_password,
+        )
+        session["name"] = result["name"]
+        record_audit_event(
+            action="owner.profile.update",
+            club_id=int(club_id),
+            entity_type="user",
+            entity_id=int(user_id),
+            details={"name_changed": True, "password_changed": result["password_changed"]},
+        )
+        flash("Профиль обновлён", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    except Exception as exc:
+        flash(f"Ошибка обновления профиля: {exc}", "error")
+
+    return redirect(url_for("owner.settings", tab="profile"))
 
 
 @owner_bp.route("/settings/topup-bonuses", methods=["POST"])
@@ -153,6 +201,9 @@ def settings():
     active_tab = request.args.get("tab", "club").strip()
     if active_tab not in SETTINGS_TABS:
         active_tab = "club"
+    if active_tab == "profile" and session.get("role") not in OWNER_ACCESS_ROLES:
+        flash("Профиль недоступен в режиме просмотра от администратора", "error")
+        return redirect(url_for("owner.settings", tab="club"))
     bonus_editor = request.args.get("editor", "wheel").strip()
     if bonus_editor not in BONUS_EDITORS:
         bonus_editor = "wheel"
@@ -220,6 +271,13 @@ def settings():
         "active_tab": active_tab,
         "guest_login_url": url_for("guest.login", club_id=club_id_int, _external=True),
     }
+
+    if active_tab == "profile":
+        profile_user = get_owner_profile(int(session["user_id"]), club_id_int)
+        if not profile_user:
+            flash("Профиль владельца не найден", "error")
+            return redirect(url_for("owner.settings", tab="club"))
+        context["profile_user"] = profile_user
 
     if active_tab == "club":
         context.update(
