@@ -351,11 +351,14 @@
         background: rgba(20, 12, 36, 0.42);
     }
 
-    .topup-bonus-variable-picker label {
-        margin: 0;
+    .topup-bonus-variable-group > label {
         color: var(--text-muted);
         font-size: 14px;
         font-weight: 700;
+    }
+
+    .topup-bonus-variable-group {
+        min-width: 0;
     }
 
     .topup-bonus-variable-picker .btn {
@@ -1220,15 +1223,17 @@
                     <label for="topupBonusMessage">Сообщение гостю</label>
                     <textarea class="form-input" id="topupBonusMessage" name="message_template" required>{{ topup_bonus_settings.message_template }}</textarea>
                 </div>
-                <div class="topup-bonus-variable-picker">
+                <div class="topup-bonus-variable-group">
                     <label for="topupBonusVariable">Вставить в сообщение</label>
-                    <select class="form-input" id="topupBonusVariable">
-                        <option value="">Выберите переменную</option>
-                        {% for key, label in topup_bonus_variables %}
-                            <option value="{{ key }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                    <button class="btn" type="button" id="insertTopupBonusVariable">Вставить</button>
+                    <div class="topup-bonus-variable-picker">
+                        <select class="form-input" id="topupBonusVariable">
+                            <option value="">Выберите переменную</option>
+                            {% for key, label in topup_bonus_variables %}
+                                <option value="{{ key }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn" type="button" id="insertTopupBonusVariable">Вставить</button>
+                    </div>
                 </div>
             </div>
 
