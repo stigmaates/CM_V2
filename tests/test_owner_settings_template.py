@@ -32,3 +32,29 @@ def test_owner_settings_renders_guest_login_copy_link():
     assert "copyGuestLoginUrlBtn" in html
     assert "Открыть как гость" in html
     assert "/owner/settings/guest-test" in html
+
+
+def test_owner_settings_renders_profile_tab_and_linked_club():
+    with app.test_request_context("/owner/settings?tab=profile"):
+        from flask import session
+
+        session["role"] = "owner"
+        html = render_template(
+            "owner/settings.html",
+            active_tab="profile",
+            profile_user=SimpleNamespace(
+                user_id=7,
+                name="Дмитрий",
+                login="owner@example.com",
+                role="owner",
+                club_id=2,
+                club_name="VENOM",
+            ),
+        )
+
+    assert "Профиль" in html
+    assert "Сохранить профиль" in html
+    assert "owner@example.com" in html
+    assert "VENOM" in html
+    assert "Владелец" in html
+    assert "/owner/settings/profile" in html
