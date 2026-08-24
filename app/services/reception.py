@@ -87,6 +87,7 @@ def _source_label(source_type: str | None) -> str:
         "auto_mailing": "Авторассылка",
         "bonus_giveaway": "Раздача КБ",
         "topup_reward": "Бонус за пополнение",
+        "owner_manual": "Ручная корректировка владельцем",
     }
     return labels.get(str(source_type or ""), str(source_type or "Операция"))
 

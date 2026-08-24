@@ -58,3 +58,37 @@ def test_owner_settings_renders_profile_tab_and_linked_club():
     assert "VENOM" in html
     assert "Владелец" in html
     assert "/owner/settings/profile" in html
+
+
+def test_owner_settings_renders_guest_management_and_histories():
+    with app.test_request_context("/owner/settings?tab=guests&phone=79990000000"):
+        from flask import session
+
+        session["role"] = "owner"
+        html = render_template(
+            "owner/settings.html",
+            active_tab="guests",
+            guest_management_phone="79990000000",
+            guest_lookup={
+                "found": True,
+                "guest": {
+                    "guest_id": 22,
+                    "fio": "Иван Петров",
+                    "phone": "79990000000",
+                    "has_telegram": True,
+                    "bonus_balance": 500,
+                    "token_balance": 4,
+                    "is_banned": False,
+                    "reason": None,
+                },
+                "bonus_transactions": [],
+                "token_transactions": [],
+            },
+        )
+
+    assert "Управление гостями" in html
+    assert "Иван Петров" in html
+    assert "500 КБ" in html
+    assert "/owner/settings/guests/adjust" in html
+    assert "/owner/settings/guests/access" in html
+    assert "Заблокировать" in html
