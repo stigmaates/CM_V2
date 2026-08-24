@@ -11,6 +11,7 @@ from app.services.cases import (
     get_case_by_id,
     get_case_item_by_id,
     get_cases_for_admin,
+    is_case_image_url_referenced,
     save_game_mode,
     serialize_case_item,
     update_case,
@@ -115,8 +116,13 @@ def _get_uploaded_image_url(*, club_id: int, kind: str, existing_url: str | None
 
 
 def _delete_old_image_if_replaced(old_url: str | None, new_url: str | None):
-    if old_url and old_url != new_url:
+    if old_url and old_url != new_url and not is_case_image_url_referenced(old_url):
         delete_local_upload(old_url)
+
+
+def _delete_image_if_unreferenced(image_url: str | None):
+    if image_url and not is_case_image_url_referenced(image_url):
+        delete_local_upload(image_url)
 
 
 def _delete_case_images_after_delete(case_id: int, club_id: int):
@@ -291,7 +297,7 @@ def case_delete(case_id):
     try:
         delete_case(case_id, club_id)
         for url in image_urls:
-            delete_local_upload(url)
+            _delete_image_if_unreferenced(url)
         record_audit_event(
             action="owner.case.delete",
             club_id=club_id,
@@ -512,7 +518,7 @@ def case_item_delete(case_id, item_id):
 
     try:
         delete_case_item(item_id, club_id)
-        delete_local_upload(image_url)
+        _delete_image_if_unreferenced(image_url)
         record_audit_event(
             action="owner.case_item.delete",
             club_id=club_id,
