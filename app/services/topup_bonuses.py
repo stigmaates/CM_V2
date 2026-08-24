@@ -9,11 +9,13 @@ from zoneinfo import ZoneInfo
 from app.config import TOPUP_BONUS_MAX_AMOUNT
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction
+from app.services.wheel import add_guest_token_transaction
+
+REWARD_TYPES = {"cm_bonus", "tokens"}
 
 DEFAULT_TOPUP_BONUS_MESSAGE = (
     "{first_name}, ты пополнил баланс на {topup_amount} ₽. "
-    "За пополнение от {min_sum} ₽ мы дарим тебе {bonus_amount} КБ! "
-    "Теперь у тебя {cm_bonus_balance} КБ."
+    "За пополнение от {min_sum} ₽ мы дарим тебе {reward_amount} {reward_name}!"
 )
 
 TOPUP_BONUS_VARIABLES = (
@@ -21,8 +23,11 @@ TOPUP_BONUS_VARIABLES = (
     ("club_name", "Клуб"),
     ("topup_amount", "Сумма пополнения"),
     ("min_sum", "Порог правила"),
-    ("bonus_amount", "Начислено КБ"),
+    ("reward_amount", "Начислено"),
+    ("reward_name", "Тип награды"),
+    ("bonus_amount", "Начислено (старый формат)"),
     ("cm_bonus_balance", "Баланс КБ"),
+    ("token_balance", "Баланс жетонов"),
 )
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
@@ -75,13 +80,18 @@ def select_topup_bonus_rule(rules: list[dict[str, Any]], amount: Any) -> dict[st
 
 
 def render_topup_bonus_message(template: str, values: dict[str, Any]) -> str:
+    reward_type = values.get("reward_type") or "cm_bonus"
+    reward_amount = int(values.get("reward_amount") or values.get("bonus_amount") or 0)
     replacements = {
         "first_name": _first_name(values.get("fio")),
         "club_name": values.get("club_name") or "",
         "topup_amount": _format_money(values.get("topup_amount")),
         "min_sum": _format_money(values.get("min_amount")),
-        "bonus_amount": int(values.get("bonus_amount") or 0),
+        "reward_amount": reward_amount,
+        "reward_name": "КБ" if reward_type == "cm_bonus" else "жет.",
+        "bonus_amount": reward_amount,
         "cm_bonus_balance": int(values.get("cm_bonus_balance") or 0),
+        "token_balance": int(values.get("token_balance") or 0),
     }
 
     def replace(match):
@@ -110,7 +120,8 @@ def get_topup_bonus_settings(club_id: int) -> dict[str, Any]:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT club_id, is_enabled, message_template, enabled_at
+                SELECT club_id, is_enabled, message_template, enabled_at,
+                       welcome_reward_enabled, welcome_reward_type, welcome_reward_amount
                 FROM club_topup_bonus_settings
                 WHERE club_id = %s
                 LIMIT 1
@@ -122,10 +133,13 @@ def get_topup_bonus_settings(club_id: int) -> dict[str, Any]:
                 "is_enabled": 0,
                 "message_template": DEFAULT_TOPUP_BONUS_MESSAGE,
                 "enabled_at": None,
+                "welcome_reward_enabled": 1,
+                "welcome_reward_type": "tokens",
+                "welcome_reward_amount": 1,
             }
             cursor.execute(
                 """
-                SELECT id, min_amount, bonus_amount, sort_order
+                SELECT id, min_amount, bonus_amount, reward_type, sort_order
                 FROM club_topup_bonus_rules
                 WHERE club_id = %s
                 ORDER BY min_amount, id
@@ -144,20 +158,33 @@ def save_topup_bonus_settings(
     is_enabled: bool,
     message_template: str,
     rules: list[dict[str, Any]],
+    welcome_reward_enabled: bool = True,
+    welcome_reward_type: str = "tokens",
+    welcome_reward_amount: int = 1,
 ) -> None:
     normalized_rules = []
     seen_thresholds = set()
     for index, rule in enumerate(rules):
         min_amount = Decimal(str(rule.get("min_amount") or 0))
         bonus_amount = int(rule.get("bonus_amount") or 0)
+        reward_type = str(rule.get("reward_type") or "cm_bonus")
         if min_amount <= 0 or bonus_amount <= 0:
-            raise ValueError("Порог пополнения и количество КБ должны быть больше нуля")
+            raise ValueError("Порог пополнения и количество награды должны быть больше нуля")
+        if reward_type not in REWARD_TYPES:
+            raise ValueError("Неизвестный тип награды")
         if min_amount >= Decimal(str(TOPUP_BONUS_MAX_AMOUNT)):
             raise ValueError(f"Порог должен быть меньше {TOPUP_BONUS_MAX_AMOUNT} ₽")
         if min_amount in seen_thresholds:
             raise ValueError("Пороги пополнений не должны повторяться")
         seen_thresholds.add(min_amount)
-        normalized_rules.append((club_id, min_amount, bonus_amount, index * 10))
+        normalized_rules.append((club_id, min_amount, bonus_amount, reward_type, index * 10))
+
+    welcome_reward_type = str(welcome_reward_type or "tokens")
+    welcome_reward_amount = int(welcome_reward_amount or 0)
+    if welcome_reward_type not in REWARD_TYPES:
+        raise ValueError("Неизвестный тип приветственной награды")
+    if welcome_reward_enabled and welcome_reward_amount <= 0:
+        raise ValueError("Количество приветственной награды должно быть больше нуля")
 
     if is_enabled and not normalized_rules:
         raise ValueError("Добавь хотя бы одно правило начисления")
@@ -185,22 +212,35 @@ def save_topup_bonus_settings(
             cursor.execute(
                 """
                 INSERT INTO club_topup_bonus_settings (
-                    club_id, is_enabled, message_template, enabled_at
-                ) VALUES (%s, %s, %s, %s)
+                    club_id, is_enabled, message_template, enabled_at,
+                    welcome_reward_enabled, welcome_reward_type, welcome_reward_amount
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     is_enabled = VALUES(is_enabled),
                     message_template = VALUES(message_template),
                     enabled_at = VALUES(enabled_at),
+                    welcome_reward_enabled = VALUES(welcome_reward_enabled),
+                    welcome_reward_type = VALUES(welcome_reward_type),
+                    welcome_reward_amount = VALUES(welcome_reward_amount),
                     updated_at = NOW()
                 """,
-                (club_id, int(is_enabled), message_template, enabled_at),
+                (
+                    club_id,
+                    int(is_enabled),
+                    message_template,
+                    enabled_at,
+                    int(welcome_reward_enabled),
+                    welcome_reward_type,
+                    welcome_reward_amount,
+                ),
             )
             cursor.execute("DELETE FROM club_topup_bonus_rules WHERE club_id = %s", (club_id,))
             if normalized_rules:
                 cursor.executemany(
                     """
-                    INSERT INTO club_topup_bonus_rules (club_id, min_amount, bonus_amount, sort_order)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO club_topup_bonus_rules (
+                        club_id, min_amount, bonus_amount, reward_type, sort_order
+                    ) VALUES (%s, %s, %s, %s, %s)
                     """,
                     normalized_rules,
                 )
@@ -241,7 +281,7 @@ def process_topup_bonus_awards(
                 return {"awarded": 0, "sent": 0, "failed": 0, "skipped": 0}
             cursor.execute(
                 """
-                SELECT id, min_amount, bonus_amount
+                SELECT id, min_amount, bonus_amount, reward_type
                 FROM club_topup_bonus_rules
                 WHERE club_id = %s
                 ORDER BY min_amount
@@ -286,8 +326,8 @@ def process_topup_bonus_awards(
                         """
                         INSERT IGNORE INTO guest_topup_bonus_awards (
                             club_id, topup_id, guest_id, rule_id, topup_amount,
-                            bonus_amount, status, delivery_status, telegram_id, created_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, 'awarded', %s, %s, %s)
+                            bonus_amount, reward_type, status, delivery_status, telegram_id, created_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'awarded', %s, %s, %s)
                         """,
                         (
                             club_id,
@@ -296,6 +336,7 @@ def process_topup_bonus_awards(
                             rule["id"],
                             topup["amount"],
                             rule["bonus_amount"],
+                            rule["reward_type"],
                             "pending" if topup.get("telegram_id") else "no_telegram",
                             topup.get("telegram_id"),
                             awarded_at,
@@ -303,23 +344,30 @@ def process_topup_bonus_awards(
                     )
                     if cursor.rowcount == 0:
                         continue
-                    changed = add_cm_bonus_transaction(
-                        cursor=cursor,
-                        guest_id=int(topup["guest_id"]),
-                        club_id=club_id,
-                        amount=int(rule["bonus_amount"]),
-                        source_type="topup_reward",
-                        source_id=str(topup["topup_id"]),
-                        description=f"Бонус за пополнение от {_format_money(rule['min_amount'])} ₽",
-                        created_at=awarded_at,
-                    )
+                    transaction_args = {
+                        "cursor": cursor,
+                        "guest_id": int(topup["guest_id"]),
+                        "club_id": club_id,
+                        "amount": int(rule["bonus_amount"]),
+                        "source_type": "topup_reward",
+                        "source_id": str(topup["topup_id"]),
+                        "description": f"Награда за пополнение от {_format_money(rule['min_amount'])} ₽",
+                    }
+                    if rule["reward_type"] == "tokens":
+                        changed = add_guest_token_transaction(**transaction_args)
+                    else:
+                        changed = add_cm_bonus_transaction(**transaction_args, created_at=awarded_at)
                     if not changed:
                         raise RuntimeError("Транзакция начисления уже существует")
                     cursor.execute(
-                        "SELECT balance FROM cm_bonus_balances WHERE club_id = %s AND guest_id = %s",
-                        (club_id, topup["guest_id"]),
+                        """
+                        SELECT
+                            (SELECT balance FROM cm_bonus_balances WHERE club_id = %s AND guest_id = %s) AS cm_balance,
+                            (SELECT balance FROM guest_wheel_token_balances WHERE club_id = %s AND guest_id = %s) AS token_balance
+                        """,
+                        (club_id, topup["guest_id"], club_id, topup["guest_id"]),
                     )
-                    balance = int((cursor.fetchone() or {}).get("balance") or 0)
+                    balances = cursor.fetchone() or {}
                     message = render_topup_bonus_message(
                         settings["message_template"],
                         {
@@ -328,7 +376,10 @@ def process_topup_bonus_awards(
                             "topup_amount": topup["amount"],
                             "min_amount": rule["min_amount"],
                             "bonus_amount": rule["bonus_amount"],
-                            "cm_bonus_balance": balance,
+                            "reward_amount": rule["bonus_amount"],
+                            "reward_type": rule["reward_type"],
+                            "cm_bonus_balance": balances.get("cm_balance"),
+                            "token_balance": balances.get("token_balance"),
                         },
                     )
                     cursor.execute(
@@ -384,5 +435,66 @@ def process_topup_bonus_awards(
                     failed += 1
 
         return {"awarded": awarded, "sent": sent, "failed": failed, "skipped": skipped}
+    finally:
+        conn.close()
+
+
+def award_first_authorization_reward(guest_id: int, club_id: int) -> dict[str, Any] | None:
+    """Award the configured welcome reward once across both reward ledgers."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT welcome_reward_enabled, welcome_reward_type, welcome_reward_amount
+                FROM club_topup_bonus_settings
+                WHERE club_id = %s
+                LIMIT 1
+                """,
+                (club_id,),
+            )
+            settings = cursor.fetchone() or {
+                "welcome_reward_enabled": 1,
+                "welcome_reward_type": "tokens",
+                "welcome_reward_amount": 1,
+            }
+            if not settings.get("welcome_reward_enabled"):
+                return None
+
+            cursor.execute(
+                """
+                SELECT 1 FROM guest_wheel_token_transactions
+                WHERE club_id = %s AND guest_id = %s
+                  AND source_type = 'first_authorization'
+                  AND source_id IN ('welcome_token', 'welcome_reward')
+                UNION ALL
+                SELECT 1 FROM cm_bonus_transactions
+                WHERE club_id = %s AND guest_id = %s
+                  AND source_type = 'first_authorization'
+                  AND source_id = 'welcome_reward'
+                LIMIT 1
+                """,
+                (club_id, guest_id, club_id, guest_id),
+            )
+            if cursor.fetchone():
+                return None
+
+            reward_type = str(settings.get("welcome_reward_type") or "tokens")
+            amount = int(settings.get("welcome_reward_amount") or 0)
+            args = {
+                "cursor": cursor,
+                "guest_id": guest_id,
+                "club_id": club_id,
+                "amount": amount,
+                "source_type": "first_authorization",
+                "source_id": "welcome_reward",
+                "description": "Приветственная награда за первую авторизацию в Cyber Bonus",
+            }
+            inserted = add_guest_token_transaction(**args) if reward_type == "tokens" else add_cm_bonus_transaction(**args)
+        conn.commit()
+        return {"reward_type": reward_type, "amount": amount} if inserted else None
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()

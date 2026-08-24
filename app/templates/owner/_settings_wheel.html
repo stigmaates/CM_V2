@@ -1,7 +1,7 @@
 {% set prize_icon_choices = prize_icon_choices|default(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']) %}
 {% set prob_ok = (wheel_active_prob_sum|float - 100)|abs < 0.06 %}
 {% set active_bonus_editor = bonus_editor|default('wheel') %}
-{% set topup_bonus_settings = topup_bonus_settings|default({'is_enabled': 0, 'rules': [], 'message_template': ''}) %}
+{% set topup_bonus_settings = topup_bonus_settings|default({'is_enabled': 0, 'rules': [], 'message_template': '', 'welcome_reward_enabled': 1, 'welcome_reward_type': 'tokens', 'welcome_reward_amount': 1}) %}
 {% set topup_bonus_variables = topup_bonus_variables|default([]) %}
 {% set topup_bonus_exclude_from_amount = topup_bonus_exclude_from_amount|default(30000) %}
 {% set topup_bonus_max_rule_amount = topup_bonus_max_rule_amount|default(29999.99) %}
@@ -173,7 +173,7 @@
 
     .topup-bonus-rule {
         display: grid;
-        grid-template-columns: auto minmax(160px, 1fr) auto minmax(160px, 1fr) auto;
+        grid-template-columns: auto minmax(140px, 1fr) auto minmax(130px, 0.65fr) minmax(120px, 0.45fr) auto;
         gap: 12px;
         align-items: center;
         padding: 12px;
@@ -203,6 +203,21 @@
 
     .topup-bonus-add {
         justify-self: start;
+    }
+
+    .welcome-reward-settings {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) minmax(130px, 180px);
+        gap: 14px;
+        align-items: end;
+        padding: 16px 0;
+        border-top: 1px solid rgba(165, 114, 255, 0.2);
+        border-bottom: 1px solid rgba(165, 114, 255, 0.2);
+    }
+
+    .welcome-reward-toggle {
+        min-height: 48px;
+        align-self: end;
     }
 
     .topup-bonus-message-grid {
@@ -860,7 +875,8 @@
             flex-direction: column;
         }
         .topup-bonus-rule,
-        .topup-bonus-message-grid {
+        .topup-bonus-message-grid,
+        .welcome-reward-settings {
             grid-template-columns: 1fr;
         }
         .topup-bonus-rule-label {
@@ -1038,7 +1054,7 @@
             <div class="topup-bonus-head">
                 <div>
                     <div class="section-title">Бонусы за пополнения</div>
-                    <p class="wheel-subtitle">Автоматически начисляет КБ после пополнения баланса гостя.</p>
+                    <p class="wheel-subtitle">Автоматически начисляет КБ или жетоны после пополнения баланса гостя.</p>
                 </div>
                 <label class="form-check topup-bonus-toggle" for="topup_bonus_enabled">
                     <input
@@ -1059,14 +1075,44 @@
                     <div class="topup-bonus-rule">
                         <span class="topup-bonus-rule-label">Пополнение от</span>
                         <input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_rule_amount }}" step="0.01" value="{{ rule.min_amount }}" required>
-                        <span class="topup-bonus-rule-label">даёт КБ</span>
+                        <span class="topup-bonus-rule-label">даёт</span>
                         <input class="form-input" type="number" name="bonus_amount" min="1" step="1" value="{{ rule.bonus_amount }}" required>
+                        <select class="form-input" name="reward_type" aria-label="Тип награды">
+                            <option value="cm_bonus" {% if rule.reward_type|default('cm_bonus') == 'cm_bonus' %}selected{% endif %}>КБ</option>
+                            <option value="tokens" {% if rule.reward_type|default('cm_bonus') == 'tokens' %}selected{% endif %}>Жетоны</option>
+                        </select>
                         <button class="topup-bonus-remove" type="button" aria-label="Удалить правило">×</button>
                     </div>
                 {% endfor %}
             </div>
 
             <button class="wheel-add-trigger topup-bonus-add" type="button" id="addTopupBonusRule">+ Добавить правило</button>
+
+            <div class="welcome-reward-settings">
+                <label class="form-check welcome-reward-toggle" for="welcomeRewardEnabled">
+                    <input
+                        type="checkbox"
+                        class="form-check-input"
+                        id="welcomeRewardEnabled"
+                        name="welcome_reward_enabled"
+                        value="1"
+                        {% if topup_bonus_settings.welcome_reward_enabled|default(1) %}checked{% endif %}
+                    >
+                    <span class="form-check-box" aria-hidden="true"></span>
+                    <span class="form-check-text">Приветственная награда</span>
+                </label>
+                <div class="form-group">
+                    <label for="welcomeRewardType">Тип</label>
+                    <select class="form-input" id="welcomeRewardType" name="welcome_reward_type">
+                        <option value="tokens" {% if topup_bonus_settings.welcome_reward_type|default('tokens') == 'tokens' %}selected{% endif %}>Жетоны</option>
+                        <option value="cm_bonus" {% if topup_bonus_settings.welcome_reward_type|default('tokens') == 'cm_bonus' %}selected{% endif %}>КБ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="welcomeRewardAmount">Количество</label>
+                    <input class="form-input" id="welcomeRewardAmount" type="number" name="welcome_reward_amount" min="1" step="1" value="{{ topup_bonus_settings.welcome_reward_amount|default(1) }}">
+                </div>
+            </div>
 
             <div class="topup-bonus-message-grid">
                 <div class="form-group">
@@ -1313,8 +1359,9 @@
                 row.innerHTML = [
                     '<span class="topup-bonus-rule-label">Пополнение от</span>',
                     '<input class="form-input" type="number" name="min_amount" min="1" max="{{ topup_bonus_max_rule_amount }}" step="0.01" placeholder="1000" required>',
-                    '<span class="topup-bonus-rule-label">даёт КБ</span>',
+                    '<span class="topup-bonus-rule-label">даёт</span>',
                     '<input class="form-input" type="number" name="bonus_amount" min="1" step="1" placeholder="300" required>',
+                    '<select class="form-input" name="reward_type" aria-label="Тип награды"><option value="cm_bonus">КБ</option><option value="tokens">Жетоны</option></select>',
                     '<button class="topup-bonus-remove" type="button" aria-label="Удалить правило">×</button>'
                 ].join('');
                 rules.appendChild(row);

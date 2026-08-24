@@ -170,6 +170,15 @@ def test_topup_bonus_moscow_timestamps_migration_exports_revision_and_upgrade():
     assert any("topup_reward" in value for value in constants)
 
 
+def test_configurable_reward_types_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0020_configurable_reward_types")
+
+    assert migration.revision == "0020_configurable_reward_types"
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("club_topup_bonus_rules" in value for value in constants)
+    assert any("welcome_reward" in value for value in constants)
+
+
 def test_legacy_redeem_notification_quarantine_migration_exports_revision_and_upgrade():
     migration = importlib.import_module(
         "migrations.versions.0018_quarantine_legacy_redeem_notifications"

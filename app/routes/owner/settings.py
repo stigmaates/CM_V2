@@ -176,16 +176,19 @@ def settings_topup_bonuses_save():
     message_template = request.form.get("message_template", "")
     min_amounts = request.form.getlist("min_amount")
     bonus_amounts = request.form.getlist("bonus_amount")
+    reward_types = request.form.getlist("reward_type")
     rules = []
     try:
         for index, raw_min_amount in enumerate(min_amounts):
             raw_bonus_amount = bonus_amounts[index] if index < len(bonus_amounts) else ""
+            reward_type = reward_types[index] if index < len(reward_types) else "cm_bonus"
             if not raw_min_amount.strip() and not raw_bonus_amount.strip():
                 continue
             rules.append(
                 {
                     "min_amount": raw_min_amount.replace(",", "."),
                     "bonus_amount": int(raw_bonus_amount),
+                    "reward_type": reward_type,
                 }
             )
         save_topup_bonus_settings(
@@ -193,13 +196,21 @@ def settings_topup_bonuses_save():
             is_enabled=is_enabled,
             message_template=message_template,
             rules=rules,
+            welcome_reward_enabled=request.form.get("welcome_reward_enabled") == "1",
+            welcome_reward_type=request.form.get("welcome_reward_type", "tokens"),
+            welcome_reward_amount=int(request.form.get("welcome_reward_amount") or 0),
         )
         record_audit_event(
             action="owner.topup_bonus_settings.update",
             club_id=int(club_id),
             entity_type="club_topup_bonus_settings",
             entity_id=club_id,
-            details={"is_enabled": is_enabled, "rules_count": len(rules)},
+            details={
+                "is_enabled": is_enabled,
+                "rules_count": len(rules),
+                "welcome_reward_enabled": request.form.get("welcome_reward_enabled") == "1",
+                "welcome_reward_type": request.form.get("welcome_reward_type", "tokens"),
+            },
         )
         flash("Бонусы за пополнения сохранены", "success")
     except (TypeError, ValueError) as exc:

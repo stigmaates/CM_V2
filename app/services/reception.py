@@ -83,6 +83,7 @@ def _source_label(source_type: str | None) -> str:
         "mission_reward": "Награда за задание",
         "streak": "Стрик посещений",
         "welcome_token": "Первый вход в Telegram",
+        "first_authorization": "Приветственная награда",
         "redeem_request": "Перевод КБ на игровой баланс",
         "auto_mailing": "Авторассылка",
         "bonus_giveaway": "Раздача КБ",

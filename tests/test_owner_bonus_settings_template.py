@@ -62,7 +62,10 @@ def test_bonus_settings_shows_configurable_topup_rewards():
             topup_bonus_settings={
                 "is_enabled": 1,
                 "message_template": "{first_name}: +{bonus_amount} КБ",
-                "rules": [{"min_amount": 1000, "bonus_amount": 300}],
+                "rules": [{"min_amount": 1000, "bonus_amount": 300, "reward_type": "tokens"}],
+                "welcome_reward_enabled": 1,
+                "welcome_reward_type": "cm_bonus",
+                "welcome_reward_amount": 200,
             },
             topup_bonus_variables=[("first_name", "Имя"), ("bonus_amount", "Начислено КБ")],
             topup_bonus_exclude_from_amount=30000,
@@ -72,6 +75,10 @@ def test_bonus_settings_shows_configurable_topup_rewards():
     assert "Бонусы за пополнения" in html
     assert 'name="min_amount"' in html
     assert 'name="bonus_amount"' in html
+    assert 'name="reward_type"' in html
+    assert 'name="welcome_reward_type"' in html
+    assert 'name="welcome_reward_amount"' in html
+    assert 'value="200"' in html
     assert "Добавить правило" in html
     assert "{first_name}" in html
     assert "{bonus_amount}" in html
