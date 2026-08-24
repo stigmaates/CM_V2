@@ -36,7 +36,7 @@ from app.services.prize_claims import (
     format_prize_claim_message,
     mark_prize_claim_issued_by_telegram,
 )
-from app.services.wheel import award_first_authorization_token
+from app.services.topup_bonuses import award_first_authorization_reward
 
 LOGIN_CONTACT_PROMPT = (
     "Для входа отправьте свой номер телефона кнопкой ниже.\n\n"
@@ -298,12 +298,11 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     guest_name = guest.get("fio") or f"ID {guest['guest_id']}"
 
-    welcome_token_added = False
+    welcome_reward = None
     try:
-        welcome_token_added = award_first_authorization_token(
+        welcome_reward = award_first_authorization_reward(
             guest_id=int(guest["guest_id"]),
             club_id=int(guest["club_id"]),
-            amount=1,
         )
     except Exception:
         logging.exception(
@@ -312,11 +311,12 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
             guest.get("club_id"),
         )
 
-    if welcome_token_added:
+    if welcome_reward:
+        reward_label = "КБ" if welcome_reward["reward_type"] == "cm_bonus" else "жет."
         login_text = (
             f"Готово! Вход подтвержден.\n"
             f"Гость: {guest_name}\n\n"
-            "Круто! Вот твой первый жетон 🪙\n"
+            f"Круто! Твоя приветственная награда: {welcome_reward['amount']} {reward_label}\n"
             "Вернись на страницу авторизации — вход выполнится автоматически. "
             "Открой личный кабинет и испытай удачу!"
         )

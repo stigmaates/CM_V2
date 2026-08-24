@@ -64,14 +64,36 @@ def test_topup_bonus_rule_rejects_excluded_amount_boundary():
         )
 
 
+def test_topup_bonus_rule_rejects_unknown_reward_type():
+    with pytest.raises(ValueError, match="Неизвестный тип награды"):
+        save_topup_bonus_settings(
+            1,
+            is_enabled=True,
+            message_template="Тест",
+            rules=[{"min_amount": 1000, "bonus_amount": 500, "reward_type": "diamonds"}],
+        )
+
+
+def test_render_topup_bonus_message_supports_token_rewards():
+    message = render_topup_bonus_message(
+        "Начислено {reward_amount} {reward_name}, баланс {token_balance}",
+        {"reward_amount": 3, "reward_type": "tokens", "token_balance": 8},
+    )
+
+    assert message == "Начислено 3 жет., баланс 8"
+
+
 def test_resolve_enabled_at_preserves_original_activation_when_settings_are_edited():
     enabled_at = datetime(2026, 8, 19, 10, 30)
 
-    assert _resolve_enabled_at(
-        {"is_enabled": 1, "enabled_at": enabled_at},
-        is_enabled=True,
-        now=datetime(2026, 8, 21, 12, 0),
-    ) == enabled_at
+    assert (
+        _resolve_enabled_at(
+            {"is_enabled": 1, "enabled_at": enabled_at},
+            is_enabled=True,
+            now=datetime(2026, 8, 21, 12, 0),
+        )
+        == enabled_at
+    )
 
 
 def test_resolve_enabled_at_sets_activation_only_when_feature_is_enabled():
