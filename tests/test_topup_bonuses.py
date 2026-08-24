@@ -5,8 +5,10 @@ import pytest
 
 from app.services.topup_bonuses import (
     _resolve_enabled_at,
+    award_first_authorization_reward,
     render_topup_bonus_message,
     save_topup_bonus_settings,
+    save_welcome_reward_settings,
     select_topup_bonus_rule,
 )
 
@@ -101,3 +103,78 @@ def test_resolve_enabled_at_sets_activation_only_when_feature_is_enabled():
 
     assert _resolve_enabled_at(None, is_enabled=True, now=now) == now
     assert _resolve_enabled_at({"is_enabled": 1}, is_enabled=False, now=now) is None
+
+
+def test_welcome_reward_requires_at_least_one_enabled_reward():
+    with pytest.raises(ValueError, match="хотя бы один тип"):
+        save_welcome_reward_settings(
+            1,
+            is_enabled=True,
+            cm_bonus_amount=0,
+            token_amount=0,
+        )
+
+
+class _WelcomeCursor:
+    def __init__(self):
+        self.fetchone_results = [
+            {
+                "welcome_reward_enabled": 1,
+                "welcome_cm_bonus_amount": 150,
+                "welcome_token_amount": 2,
+            },
+            None,
+        ]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, query, params=None):
+        return None
+
+    def fetchone(self):
+        return self.fetchone_results.pop(0)
+
+
+class _WelcomeConnection:
+    def __init__(self):
+        self.cursor_obj = _WelcomeCursor()
+        self.committed = False
+        self.closed = False
+
+    def cursor(self):
+        return self.cursor_obj
+
+    def commit(self):
+        self.committed = True
+
+    def rollback(self):
+        raise AssertionError("welcome reward should not roll back")
+
+    def close(self):
+        self.closed = True
+
+
+def test_first_authorization_can_award_kb_and_tokens_together(monkeypatch):
+    connection = _WelcomeConnection()
+    awarded = []
+
+    monkeypatch.setattr("app.services.topup_bonuses.get_db_connection", lambda: connection)
+    monkeypatch.setattr(
+        "app.services.topup_bonuses.add_cm_bonus_transaction",
+        lambda **kwargs: awarded.append(("cm_bonus", kwargs["amount"])) or True,
+    )
+    monkeypatch.setattr(
+        "app.services.topup_bonuses.add_guest_token_transaction",
+        lambda **kwargs: awarded.append(("tokens", kwargs["amount"])) or True,
+    )
+
+    result = award_first_authorization_reward(guest_id=10, club_id=2)
+
+    assert result == {"cm_bonus_amount": 150, "token_amount": 2}
+    assert awarded == [("cm_bonus", 150), ("tokens", 2)]
+    assert connection.committed is True
+    assert connection.closed is True

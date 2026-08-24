@@ -18,7 +18,9 @@ from app.services.test_guests import ensure_test_guest
 from app.services.topup_bonuses import (
     TOPUP_BONUS_VARIABLES,
     get_topup_bonus_settings,
+    get_welcome_reward_settings,
     save_topup_bonus_settings,
+    save_welcome_reward_settings,
 )
 from app.services.upload_storage import get_club_upload_usage_info
 from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_for_admin
@@ -196,9 +198,6 @@ def settings_topup_bonuses_save():
             is_enabled=is_enabled,
             message_template=message_template,
             rules=rules,
-            welcome_reward_enabled=request.form.get("welcome_reward_enabled") == "1",
-            welcome_reward_type=request.form.get("welcome_reward_type", "tokens"),
-            welcome_reward_amount=int(request.form.get("welcome_reward_amount") or 0),
         )
         record_audit_event(
             action="owner.topup_bonus_settings.update",
@@ -208,8 +207,6 @@ def settings_topup_bonuses_save():
             details={
                 "is_enabled": is_enabled,
                 "rules_count": len(rules),
-                "welcome_reward_enabled": request.form.get("welcome_reward_enabled") == "1",
-                "welcome_reward_type": request.form.get("welcome_reward_type", "tokens"),
             },
         )
         flash("Бонусы за пополнения сохранены", "success")
@@ -219,6 +216,46 @@ def settings_topup_bonuses_save():
         flash(f"Ошибка сохранения бонусов за пополнения: {exc}", "error")
 
     return redirect(url_for("owner.settings", tab="wheel") + "#topup-bonuses")
+
+
+@owner_bp.route("/settings/welcome-reward", methods=["POST"])
+@owner_required
+def settings_welcome_reward_save():
+    club_id = session.get("club_id")
+    if not club_id:
+        flash("Сначала создайте клуб", "error")
+        return redirect(url_for("owner.club_create"))
+
+    is_enabled = request.form.get("is_enabled") == "1"
+    cm_bonus_enabled = request.form.get("cm_bonus_enabled") == "1"
+    token_enabled = request.form.get("token_enabled") == "1"
+    try:
+        cm_bonus_amount = int(request.form.get("cm_bonus_amount") or 0) if cm_bonus_enabled else 0
+        token_amount = int(request.form.get("token_amount") or 0) if token_enabled else 0
+        save_welcome_reward_settings(
+            int(club_id),
+            is_enabled=is_enabled,
+            cm_bonus_amount=cm_bonus_amount,
+            token_amount=token_amount,
+        )
+        record_audit_event(
+            action="owner.welcome_reward_settings.update",
+            club_id=int(club_id),
+            entity_type="club_topup_bonus_settings",
+            entity_id=club_id,
+            details={
+                "is_enabled": is_enabled,
+                "cm_bonus_amount": cm_bonus_amount,
+                "token_amount": token_amount,
+            },
+        )
+        flash("Приветственная награда сохранена", "success")
+    except (TypeError, ValueError) as exc:
+        flash(f"Не удалось сохранить приветственную награду: {exc}", "error")
+    except Exception as exc:
+        flash(f"Ошибка сохранения приветственной награды: {exc}", "error")
+
+    return redirect(url_for("owner.settings", tab="wheel") + "#welcome-reward")
 
 
 @owner_bp.route("/settings/guest-test", methods=["POST"])
@@ -442,6 +479,7 @@ def settings():
                 "cases": get_cases_for_admin(club_id_int),
                 "case_upload_usage": get_club_upload_usage_info(club_id_int),
                 "topup_bonus_settings": get_topup_bonus_settings(club_id_int),
+                "welcome_reward_settings": get_welcome_reward_settings(club_id_int),
                 "topup_bonus_variables": TOPUP_BONUS_VARIABLES,
                 "topup_bonus_exclude_from_amount": TOPUP_BONUS_MAX_AMOUNT,
                 "topup_bonus_max_rule_amount": TOPUP_BONUS_MAX_AMOUNT - 0.01,

@@ -63,9 +63,11 @@ def test_bonus_settings_shows_configurable_topup_rewards():
                 "is_enabled": 1,
                 "message_template": "{first_name}: +{bonus_amount} КБ",
                 "rules": [{"min_amount": 1000, "bonus_amount": 300, "reward_type": "tokens"}],
+            },
+            welcome_reward_settings={
                 "welcome_reward_enabled": 1,
-                "welcome_reward_type": "cm_bonus",
-                "welcome_reward_amount": 200,
+                "welcome_cm_bonus_amount": 200,
+                "welcome_token_amount": 2,
             },
             topup_bonus_variables=[("first_name", "Имя"), ("bonus_amount", "Начислено КБ")],
             topup_bonus_exclude_from_amount=30000,
@@ -76,9 +78,14 @@ def test_bonus_settings_shows_configurable_topup_rewards():
     assert 'name="min_amount"' in html
     assert 'name="bonus_amount"' in html
     assert 'name="reward_type"' in html
-    assert 'name="welcome_reward_type"' in html
-    assert 'name="welcome_reward_amount"' in html
+    assert 'action="/owner/settings/welcome-reward"' in html
+    assert 'name="cm_bonus_amount"' in html
+    assert 'name="token_amount"' in html
     assert 'value="200"' in html
+    assert 'value="2"' in html
+    assert "Приветственная награда" in html
+    assert html.index("Бонусы за пополнения") < html.index('id="welcome-reward"')
+    assert html.count('class="settings-toggle') >= 3
     assert "Добавить правило" in html
     assert "{first_name}" in html
     assert "{bonus_amount}" in html
@@ -109,11 +116,11 @@ def test_bonus_settings_token_summary_uses_shared_token_language():
 
     assert "Активный режим" in html
     assert "Старт жетонов" in html
-    assert "За первое посещение" in html
+    assert "Приветственная награда" in html
     assert "Показывать призы только моего клуба" in html
     assert "Лента призов" in html
     assert "Только клуб" in html
-    assert "+1 жетон" in html
+    assert "+1 жет." in html
     assert "Начислять жетоны за посещения" in html
     assert "Стоимость прокрута колеса" not in html
     assert "Колесо включено" not in html
