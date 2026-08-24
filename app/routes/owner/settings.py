@@ -5,6 +5,11 @@ from app.core import OWNER_ACCESS_ROLES, owner_required
 from app.services.audit import record_audit_event
 from app.services.cases import get_cases_for_admin, get_game_mode
 from app.services.clubs import get_club_info, update_club_info
+from app.services.guest_management import (
+    adjust_guest_balance,
+    get_owner_guest_lookup,
+    set_guest_module_ban,
+)
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.owner_profile import get_owner_profile, update_owner_profile
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
@@ -20,7 +25,7 @@ from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_fo
 
 from . import owner_bp
 
-SETTINGS_TABS = {"club", "missions", "wheel", "profile"}
+SETTINGS_TABS = {"club", "missions", "wheel", "profile", "guests"}
 BONUS_EDITORS = {"wheel", "cases"}
 
 
@@ -69,6 +74,94 @@ def settings_profile_save():
         flash(f"Ошибка обновления профиля: {exc}", "error")
 
     return redirect(url_for("owner.settings", tab="profile"))
+
+
+def _guest_management_redirect(phone: str = ""):
+    return redirect(url_for("owner.settings", tab="guests", phone=(phone or "").strip()))
+
+
+@owner_bp.route("/settings/guests/adjust", methods=["POST"])
+@owner_required
+def settings_guest_balance_adjust():
+    if session.get("role") not in OWNER_ACCESS_ROLES:
+        flash("Управление гостями недоступно в режиме просмотра от администратора", "error")
+        return redirect(url_for("owner.settings", tab="club"))
+
+    phone = request.form.get("phone", "")
+    try:
+        club_id = int(session["club_id"])
+        user_id = int(session["user_id"])
+        guest_id = int(request.form.get("guest_id") or 0)
+        amount = int(request.form.get("amount") or 0)
+        operation = request.form.get("operation", "add")
+        if amount <= 0:
+            raise ValueError("Укажите положительную сумму")
+        if operation not in {"add", "subtract"}:
+            raise ValueError("Неизвестная операция")
+        signed_amount = amount if operation == "add" else -amount
+        result = adjust_guest_balance(
+            club_id=club_id,
+            guest_id=guest_id,
+            balance_type=request.form.get("balance_type", ""),
+            amount=signed_amount,
+            actor_user_id=user_id,
+            reason=request.form.get("reason", ""),
+        )
+        record_audit_event(
+            action="owner.guest.balance_adjust",
+            club_id=club_id,
+            entity_type="guest",
+            entity_id=guest_id,
+            details={
+                "balance_type": result["balance_type"],
+                "amount": result["amount"],
+                "description": result["description"],
+            },
+        )
+        flash("Баланс гостя обновлён", "success")
+    except (KeyError, TypeError, ValueError) as exc:
+        flash(str(exc) or "Некорректные данные", "error")
+    except Exception as exc:
+        flash(f"Не удалось изменить баланс: {exc}", "error")
+    return _guest_management_redirect(phone)
+
+
+@owner_bp.route("/settings/guests/access", methods=["POST"])
+@owner_required
+def settings_guest_access_update():
+    if session.get("role") not in OWNER_ACCESS_ROLES:
+        flash("Управление гостями недоступно в режиме просмотра от администратора", "error")
+        return redirect(url_for("owner.settings", tab="club"))
+
+    phone = request.form.get("phone", "")
+    try:
+        club_id = int(session["club_id"])
+        user_id = int(session["user_id"])
+        guest_id = int(request.form.get("guest_id") or 0)
+        action = request.form.get("action", "")
+        if action not in {"ban", "unban"}:
+            raise ValueError("Неизвестное действие")
+        is_banned = action == "ban"
+        result = set_guest_module_ban(
+            club_id=club_id,
+            guest_id=guest_id,
+            is_banned=is_banned,
+            actor_user_id=user_id,
+            reason=request.form.get("reason", ""),
+        )
+        record_audit_event(
+            action="owner.guest.ban" if is_banned else "owner.guest.unban",
+            club_id=club_id,
+            entity_type="guest",
+            entity_id=guest_id,
+            details={"reason": result["reason"]},
+        )
+        flash("Доступ гостя заблокирован" if is_banned else "Доступ гостя восстановлен", "success")
+    except (KeyError, TypeError, ValueError) as exc:
+        flash(str(exc) or "Некорректные данные", "error")
+    except Exception as exc:
+        flash(f"Не удалось изменить доступ: {exc}", "error")
+    return _guest_management_redirect(phone)
 
 
 @owner_bp.route("/settings/topup-bonuses", methods=["POST"])
@@ -201,8 +294,8 @@ def settings():
     active_tab = request.args.get("tab", "club").strip()
     if active_tab not in SETTINGS_TABS:
         active_tab = "club"
-    if active_tab == "profile" and session.get("role") not in OWNER_ACCESS_ROLES:
-        flash("Профиль недоступен в режиме просмотра от администратора", "error")
+    if active_tab in {"profile", "guests"} and session.get("role") not in OWNER_ACCESS_ROLES:
+        flash("Раздел недоступен в режиме просмотра от администратора", "error")
         return redirect(url_for("owner.settings", tab="club"))
     bonus_editor = request.args.get("editor", "wheel").strip()
     if bonus_editor not in BONUS_EDITORS:
@@ -278,6 +371,16 @@ def settings():
             flash("Профиль владельца не найден", "error")
             return redirect(url_for("owner.settings", tab="club"))
         context["profile_user"] = profile_user
+
+    if active_tab == "guests":
+        phone = request.args.get("phone", "").strip()
+        context["guest_management_phone"] = phone
+        context["guest_lookup"] = None
+        if phone:
+            try:
+                context["guest_lookup"] = get_owner_guest_lookup(club_id=club_id_int, phone=phone)
+            except Exception as exc:
+                flash(f"Не удалось загрузить данные гостя: {exc}", "error")
 
     if active_tab == "club":
         context.update(

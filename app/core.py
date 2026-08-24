@@ -258,6 +258,26 @@ def guest_required(func):
     def wrapper(*args, **kwargs):
         if not session.get("guest_logged_in"):
             return redirect(url_for("guest.login"))
+        if request.endpoint not in {"guest.logout", "guest.stop_test_mode"}:
+            guest_id = session.get("guest_id")
+            club_id = session.get("guest_club_id")
+            if guest_id and club_id:
+                from app.services.guest_management import is_guest_module_banned
+
+                if is_guest_module_banned(club_id=int(club_id), guest_id=int(guest_id)):
+                    if request.path.startswith("/guest/api/") or (
+                        request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+                    ):
+                        return (
+                            jsonify(
+                                {
+                                    "error": "guest_banned",
+                                    "message": "Пожалуйста, обратитесь к администрации клуба",
+                                }
+                            ),
+                            403,
+                        )
+                    return render_template("guest/module_banned.html"), 403
         return func(*args, **kwargs)
 
     return wrapper

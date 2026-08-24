@@ -414,6 +414,27 @@ def _add_token_transaction(
     return True
 
 
+def add_guest_token_transaction(
+    cursor,
+    guest_id: int,
+    club_id: int,
+    amount: int,
+    source_type: str,
+    source_id: str,
+    description: str | None = None,
+) -> bool:
+    """Public ledger helper for atomic token changes inside an existing transaction."""
+    return _add_token_transaction(
+        cursor=cursor,
+        guest_id=guest_id,
+        club_id=club_id,
+        amount=int(amount),
+        source_type=source_type,
+        source_id=source_id,
+        description=description,
+    )
+
+
 def add_guest_tokens(
     guest_id: int,
     club_id: int,
