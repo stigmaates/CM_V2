@@ -10,6 +10,7 @@ from app.services.prize_claims import (
     notify_prize_claim_admin_chat,
     serialize_prize_claim,
 )
+from app.services.upload_storage import copy_local_upload, delete_local_upload
 from app.services.wheel import (
     _add_token_transaction,
     _get_balance_for_update,
@@ -360,9 +361,34 @@ def delete_case(case_id: int, club_id: int):
         conn.close()
 
 
+def is_case_image_url_referenced(image_url: str | None) -> bool:
+    """Return whether any case or case item still points at this image URL."""
+    if not image_url:
+        return False
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            ensure_case_tables(cursor)
+            cursor.execute(
+                """
+                SELECT (
+                    (SELECT COUNT(*) FROM club_cases WHERE image_url = %s) +
+                    (SELECT COUNT(*) FROM club_case_items WHERE image_url = %s)
+                ) AS references_count
+                """,
+                (image_url, image_url),
+            )
+            row = cursor.fetchone() or {}
+            return int(row.get("references_count") or 0) > 0
+    finally:
+        conn.close()
+
+
 def duplicate_case(case_id: int, club_id: int) -> int:
     """Copy a case with all items. The duplicate is disabled by default."""
     conn = get_db_connection()
+    copied_urls = []
     try:
         with conn.cursor() as cursor:
             ensure_case_tables(cursor)
@@ -373,6 +399,37 @@ def duplicate_case(case_id: int, club_id: int) -> int:
             source_case = cursor.fetchone()
             if not source_case:
                 raise ValueError("Кейс не найден")
+
+            cursor.execute(
+                """
+                SELECT id, name, description, image_url, bonus_amount, token_amount,
+                       probability, rarity_label, is_active, sort_order
+                FROM club_case_items
+                WHERE case_id = %s AND club_id = %s
+                ORDER BY sort_order, id
+                """,
+                (case_id, club_id),
+            )
+            source_items = cursor.fetchall()
+
+            copied_cover_url = copy_local_upload(
+                url=source_case.get("image_url"),
+                club_id=club_id,
+                kind="case_cover",
+            )
+            if copied_cover_url and copied_cover_url != source_case.get("image_url"):
+                copied_urls.append(copied_cover_url)
+
+            copied_items = []
+            for source_item in source_items:
+                copied_image_url = copy_local_upload(
+                    url=source_item.get("image_url"),
+                    club_id=club_id,
+                    kind="case_item",
+                )
+                if copied_image_url and copied_image_url != source_item.get("image_url"):
+                    copied_urls.append(copied_image_url)
+                copied_items.append((source_item, copied_image_url))
 
             cursor.execute(
                 """
@@ -398,7 +455,7 @@ def duplicate_case(case_id: int, club_id: int) -> int:
                     club_id,
                     copy_name,
                     source_case.get("description"),
-                    source_case.get("image_url"),
+                    copied_cover_url,
                     source_case.get("badge_label"),
                     int(source_case.get("price_tokens") or 0),
                     new_sort_order,
@@ -406,26 +463,37 @@ def duplicate_case(case_id: int, club_id: int) -> int:
             )
             new_case_id = int(cursor.lastrowid)
 
-            cursor.execute(
-                """
-                INSERT INTO club_case_items (
-                    case_id, club_id, name, description, image_url,
-                    bonus_amount, token_amount, probability, rarity_label,
-                    is_active, sort_order
+            for source_item, copied_image_url in copied_items:
+                cursor.execute(
+                    """
+                    INSERT INTO club_case_items (
+                        case_id, club_id, name, description, image_url,
+                        bonus_amount, token_amount, probability, rarity_label,
+                        is_active, sort_order
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        new_case_id,
+                        club_id,
+                        source_item.get("name"),
+                        source_item.get("description"),
+                        copied_image_url,
+                        int(source_item.get("bonus_amount") or 0),
+                        int(source_item.get("token_amount") or 0),
+                        source_item.get("probability"),
+                        source_item.get("rarity_label") or "Обычный",
+                        int(source_item.get("is_active") or 0),
+                        int(source_item.get("sort_order") or 0),
+                    ),
                 )
-                SELECT
-                    %s, club_id, name, description, image_url,
-                    bonus_amount, token_amount, probability, rarity_label,
-                    is_active, sort_order
-                FROM club_case_items
-                WHERE case_id = %s
-                  AND club_id = %s
-                ORDER BY sort_order, id
-                """,
-                (new_case_id, case_id, club_id),
-            )
         conn.commit()
         return new_case_id
+    except Exception:
+        conn.rollback()
+        for copied_url in copied_urls:
+            delete_local_upload(copied_url)
+        raise
     finally:
         conn.close()
 

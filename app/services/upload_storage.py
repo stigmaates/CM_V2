@@ -146,6 +146,41 @@ def delete_local_upload(url: str | None) -> bool:
     return False
 
 
+def copy_local_upload(*, url: str | None, club_id: int, kind: str) -> str | None:
+    """Copy an uploaded image so duplicated entities do not share one file."""
+    if not url or not is_local_upload_url(url):
+        return url
+
+    source_path = _path_from_local_url(url)
+    if not source_path or not source_path.is_file():
+        raise UploadError("Исходный файл картинки не найден. Загрузи картинку заново и повтори копирование.")
+
+    save_dir = _kind_dir(club_id, kind)
+    source_size = source_path.stat().st_size
+    current_usage = get_club_upload_usage_bytes(club_id)
+    quota = get_quota_bytes()
+    if current_usage + source_size > quota:
+        raise UploadError("Недостаточно места в хранилище клуба для копирования картинок кейса")
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.webp"
+    final_path = save_dir / filename
+    tmp_path = save_dir / f".{filename}.tmp"
+
+    try:
+        tmp_path.write_bytes(source_path.read_bytes())
+        os.replace(tmp_path, final_path)
+    finally:
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except OSError:
+            pass
+
+    public_rel = f"/cases/{int(club_id)}/{UPLOAD_KIND_DIRS[kind]}/{filename}"
+    return _url_prefix() + public_rel
+
+
 def validate_external_image_url(raw_url: str | None) -> str | None:
     value = (raw_url or "").strip()
     if not value:
