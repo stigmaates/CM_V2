@@ -312,11 +312,16 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     if welcome_reward:
-        reward_label = "КБ" if welcome_reward["reward_type"] == "cm_bonus" else "жет."
+        reward_parts = []
+        if welcome_reward.get("cm_bonus_amount"):
+            reward_parts.append(f"{welcome_reward['cm_bonus_amount']} КБ")
+        if welcome_reward.get("token_amount"):
+            reward_parts.append(f"{welcome_reward['token_amount']} жет.")
+        reward_text = " и ".join(reward_parts)
         login_text = (
             f"Готово! Вход подтвержден.\n"
             f"Гость: {guest_name}\n\n"
-            f"Круто! Твоя приветственная награда: {welcome_reward['amount']} {reward_label}\n"
+            f"Круто! Твоя приветственная награда: {reward_text}\n"
             "Вернись на страницу авторизации — вход выполнится автоматически. "
             "Открой личный кабинет и испытай удачу!"
         )
