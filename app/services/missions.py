@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timedelta
 
 from app.core import get_db_connection
+from app.services.timezones import club_local_datetime_to_utc, get_club_local_now
 
 MISSION_METRICS = {
     "visits_count": {
@@ -487,6 +488,7 @@ def get_club_missions(club_id: int):
                        cm.config,
                        cm.is_enabled,
                        cm.sort_order,
+                       c.timezone AS club_timezone,
                        mt.code,
                        mt.name,
                        mt.short_description,
@@ -494,15 +496,15 @@ def get_club_missions(club_id: int):
                        mt.config_schema
                 FROM club_missions cm
                 JOIN mission_templates mt ON mt.id = cm.mission_template_id
+                JOIN clubs c ON c.club_id = cm.club_id
                 WHERE cm.club_id = %s
                   AND cm.is_enabled = 1
-                  AND (cm.start_at IS NULL OR cm.start_at <= NOW())
-                  AND (cm.end_at IS NULL OR cm.end_at >= NOW())
                 ORDER BY cm.sort_order, cm.id
                 """,
                 (club_id,),
             )
-            return _decode_mission_rows(cursor.fetchall())
+            missions = _decode_mission_rows(cursor.fetchall())
+            return [mission for mission in missions if is_mission_active(mission)]
     finally:
         conn.close()
 
@@ -530,6 +532,7 @@ def get_club_missions_all(club_id: int):
                        cm.config,
                        cm.is_enabled,
                        cm.sort_order,
+                       c.timezone AS club_timezone,
                        mt.code,
                        mt.name,
                        mt.short_description,
@@ -537,6 +540,7 @@ def get_club_missions_all(club_id: int):
                        mt.config_schema
                 FROM club_missions cm
                 JOIN mission_templates mt ON mt.id = cm.mission_template_id
+                JOIN clubs c ON c.club_id = cm.club_id
                 WHERE cm.club_id = %s
                 ORDER BY cm.sort_order, cm.id
                 """,
@@ -545,6 +549,13 @@ def get_club_missions_all(club_id: int):
             return _decode_mission_rows(cursor.fetchall())
     finally:
         conn.close()
+
+
+def is_mission_active(mission, now=None) -> bool:
+    local_now = now or get_club_local_now(mission.get("club_timezone"))
+    start_at = mission.get("start_at")
+    end_at = mission.get("end_at")
+    return (start_at is None or start_at <= local_now) and (end_at is None or end_at >= local_now)
 
 
 def _next_club_mission_id(cursor) -> int:
@@ -556,9 +567,13 @@ def _next_club_mission_id(cursor) -> int:
     return int(row.get("next_id") or 1)
 
 
-def build_period_filter(mission, date_field="date_start"):
+def build_period_filter(mission, date_field="date_start", *, timestamps_are_utc: bool = False):
     start_at = mission.get("start_at")
     end_at = mission.get("end_at")
+    if timestamps_are_utc:
+        timezone_name = mission.get("club_timezone")
+        start_at = club_local_datetime_to_utc(start_at, timezone_name)
+        end_at = club_local_datetime_to_utc(end_at, timezone_name)
     conditions = []
     params = []
 
@@ -977,7 +992,11 @@ def _sum_session_hours_in_time_range(cursor, guest_id: int, club_id: int, missio
 
 
 def _count_case_openings(cursor, guest_id: int, club_id: int, mission, case_id: int | None = None) -> int:
-    period_conditions, period_params = build_period_filter(mission, date_field="created_at")
+    period_conditions, period_params = build_period_filter(
+        mission,
+        date_field="created_at",
+        timestamps_are_utc=True,
+    )
     where_parts = ["guest_id = %s", "club_id = %s"] + period_conditions
     params = [guest_id, club_id] + period_params
     if case_id:
@@ -1096,7 +1115,11 @@ def calculate_mission_progress(guest_id: int, club_id: int, mission):
                 return _max_consecutive_day_streak([v["date_start"].date() for v in visits if v.get("date_start")])
 
             if metric == "wheel_spins_count":
-                period_conditions, period_params = build_period_filter(mission, date_field="created_at")
+                period_conditions, period_params = build_period_filter(
+                    mission,
+                    date_field="created_at",
+                    timestamps_are_utc=True,
+                )
                 where_parts = ["guest_id = %s", "club_id = %s"] + period_conditions
                 params = [guest_id, club_id] + period_params
                 sql = f"SELECT COUNT(*) AS cnt FROM guest_wheel_spins WHERE {' AND '.join(where_parts)}"

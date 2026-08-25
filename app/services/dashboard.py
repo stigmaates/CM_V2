@@ -10,6 +10,7 @@ from app.services.missions import (
     _night_overlap_hours,
     get_club_missions,
 )
+from app.services.timezones import club_local_datetime_to_utc
 
 
 def _round_display(value):
@@ -1219,8 +1220,9 @@ def _event_allowed_by_mission_period(event_at, mission) -> bool:
     if not event_at:
         return False
 
-    mission_start = mission.get("start_at")
-    mission_end = mission.get("end_at")
+    timezone_name = mission.get("club_timezone")
+    mission_start = club_local_datetime_to_utc(mission.get("start_at"), timezone_name)
+    mission_end = club_local_datetime_to_utc(mission.get("end_at"), timezone_name)
 
     if mission_start and event_at < mission_start:
         return False

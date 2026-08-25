@@ -179,6 +179,15 @@ def test_configurable_reward_types_migration_exports_revision_and_upgrade():
     assert any("welcome_reward" in value for value in constants)
 
 
+def test_club_timezones_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0022_club_timezones")
+
+    assert migration.revision == "0022_club_timezones"
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("timezone" in value for value in constants)
+    assert any("Europe/Moscow" in value for value in constants)
+
+
 def test_welcome_reward_amounts_migration_exports_revision_and_upgrade():
     migration = importlib.import_module("migrations.versions.0021_welcome_reward_amounts")
 

@@ -13,6 +13,7 @@ from app.services.missions import (
     reward_text_contains_bonus_quantity,
     update_club_mission,
 )
+from app.services.timezones import get_club_timezone_label
 
 
 def api_mission_templates():
@@ -89,9 +90,11 @@ def missions():
         flash("Сначала создайте клуб", "error")
         return redirect(url_for("club_create"))
 
+    club = get_club_info(club_id)
     return render_template(
         "missions.html",
-        club=get_club_info(club_id),
+        club=club,
+        club_timezone_label=get_club_timezone_label((club or {}).get("timezone")),
         templates=get_mission_templates(),
         missions=get_club_missions_all(int(club_id)),
     )
