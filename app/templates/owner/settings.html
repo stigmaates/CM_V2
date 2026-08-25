@@ -671,6 +671,8 @@
             <a href="{{ url_for('owner.settings', tab='wheel') }}" class="settings-tab {% if active_tab == 'wheel' %}active{% endif %}">Бонусная механика</a>
             {% if session.get('role') in ['owner', 'co-owner'] %}
                 <a href="{{ url_for('owner.settings', tab='profile') }}" class="settings-tab {% if active_tab == 'profile' %}active{% endif %}">Профиль</a>
+            {% endif %}
+            {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
                 <a href="{{ url_for('owner.settings', tab='guests') }}" class="settings-tab {% if active_tab == 'guests' %}active{% endif %}">Управление гостями</a>
             {% endif %}
         </div>

@@ -85,10 +85,6 @@ def _guest_management_redirect(phone: str = ""):
 @owner_bp.route("/settings/guests/adjust", methods=["POST"])
 @owner_required
 def settings_guest_balance_adjust():
-    if session.get("role") not in OWNER_ACCESS_ROLES:
-        flash("Управление гостями недоступно в режиме просмотра от администратора", "error")
-        return redirect(url_for("owner.settings", tab="club"))
-
     phone = request.form.get("phone", "")
     try:
         club_id = int(session["club_id"])
@@ -131,10 +127,6 @@ def settings_guest_balance_adjust():
 @owner_bp.route("/settings/guests/access", methods=["POST"])
 @owner_required
 def settings_guest_access_update():
-    if session.get("role") not in OWNER_ACCESS_ROLES:
-        flash("Управление гостями недоступно в режиме просмотра от администратора", "error")
-        return redirect(url_for("owner.settings", tab="club"))
-
     phone = request.form.get("phone", "")
     try:
         club_id = int(session["club_id"])
@@ -342,7 +334,7 @@ def settings():
     active_tab = request.args.get("tab", "club").strip()
     if active_tab not in SETTINGS_TABS:
         active_tab = "club"
-    if active_tab in {"profile", "guests"} and session.get("role") not in OWNER_ACCESS_ROLES:
+    if active_tab == "profile" and session.get("role") not in OWNER_ACCESS_ROLES:
         flash("Раздел недоступен в режиме просмотра от администратора", "error")
         return redirect(url_for("owner.settings", tab="club"))
     bonus_editor = request.args.get("editor", "wheel").strip()
