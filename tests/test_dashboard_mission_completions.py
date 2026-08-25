@@ -92,3 +92,16 @@ def test_owner_mission_completion_calculator_supports_completed_missions_count()
     )
 
     assert completed_at == datetime(2026, 8, 13, 12, 0)
+
+
+def test_utc_event_period_uses_club_local_boundaries():
+    mission = {
+        "club_timezone": "Asia/Yekaterinburg",
+        "start_at": datetime(2026, 8, 25, 12, 0),
+        "end_at": datetime(2026, 8, 25, 18, 0),
+    }
+
+    assert dashboard._event_allowed_by_mission_period(datetime(2026, 8, 25, 6, 59), mission) is False
+    assert dashboard._event_allowed_by_mission_period(datetime(2026, 8, 25, 7, 0), mission) is True
+    assert dashboard._event_allowed_by_mission_period(datetime(2026, 8, 25, 13, 0), mission) is True
+    assert dashboard._event_allowed_by_mission_period(datetime(2026, 8, 25, 13, 1), mission) is False

@@ -15,6 +15,7 @@ from app.services.owner_profile import get_owner_profile, update_owner_profile
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
 from app.services.system_status import get_owner_settings_system_status
 from app.services.test_guests import ensure_test_guest
+from app.services.timezones import CLUB_TIMEZONE_CHOICES, get_club_timezone_label
 from app.services.topup_bonuses import (
     TOPUP_BONUS_VARIABLES,
     get_topup_bonus_settings,
@@ -343,6 +344,8 @@ def settings():
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
+        timezone_name_raw = request.form.get("timezone")
+        timezone_name = timezone_name_raw.strip() if timezone_name_raw is not None else None
         lg_api_key = request.form.get("lg_api_key", "").strip()
         secret = request.form.get("secret", "").strip()
         cm_bonus_admin_chat_id = request.form.get("cm_bonus_admin_chat_id", "").strip()
@@ -370,6 +373,7 @@ def settings():
                 telegram_channel_url,
                 yandex_maps_url,
                 two_gis_url,
+                timezone_name=timezone_name,
             )
             session["club_name"] = name
             record_audit_event(
@@ -379,6 +383,7 @@ def settings():
                 entity_id=club_id,
                 details={
                     "name": name,
+                    "timezone": timezone_name,
                     "has_lg_api_key": bool(lg_api_key),
                     "has_secret": bool(secret),
                     "has_bonus_admin_chat": bool(cm_bonus_admin_chat_id),
@@ -399,10 +404,13 @@ def settings():
             return redirect(url_for("owner.settings", tab="club"))
 
     club_id_int = int(club_id)
+    club = get_club_info(club_id)
     context = {
-        "club": get_club_info(club_id),
+        "club": club,
         "active_tab": active_tab,
         "guest_login_url": url_for("guest.login", club_id=club_id_int, _external=True),
+        "timezone_choices": CLUB_TIMEZONE_CHOICES,
+        "club_timezone_label": get_club_timezone_label((club or {}).get("timezone")),
     }
 
     if active_tab == "profile":

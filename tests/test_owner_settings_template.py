@@ -12,6 +12,7 @@ def test_owner_settings_renders_guest_login_copy_link():
             active_tab="club",
             club=SimpleNamespace(
                 name="WALLZ",
+                timezone="Asia/Yekaterinburg",
                 lg_api_key="key",
                 secret="secret",
                 cm_bonus_admin_chat_id="",
@@ -25,6 +26,10 @@ def test_owner_settings_renders_guest_login_copy_link():
             guest_login_url="https://cyber-bonus.ru/guest/login?club_id=1",
             pc_name_settings=[],
             system_status={"updates": [], "auto_mailings": []},
+            timezone_choices=(
+                ("Europe/Moscow", "Москва — UTC+3"),
+                ("Asia/Yekaterinburg", "Екатеринбург / Уфа — UTC+5"),
+            ),
         )
 
     assert "Ссылка входа гостей" in html
@@ -32,6 +37,9 @@ def test_owner_settings_renders_guest_login_copy_link():
     assert "copyGuestLoginUrlBtn" in html
     assert "Открыть как гость" in html
     assert "/owner/settings/guest-test" in html
+    assert "Часовой пояс клуба" in html
+    assert 'value="Asia/Yekaterinburg" selected' in html
+    assert "Екатеринбург / Уфа — UTC+5" in html
 
 
 def test_owner_settings_renders_profile_tab_and_linked_club():
@@ -105,6 +113,7 @@ def test_admin_owner_impersonation_shows_guest_management_without_profile():
             active_tab="club",
             club=SimpleNamespace(
                 name="VENOM",
+                timezone="Europe/Moscow",
                 lg_api_key="key",
                 secret="secret",
                 cm_bonus_admin_chat_id="",
@@ -118,6 +127,7 @@ def test_admin_owner_impersonation_shows_guest_management_without_profile():
             guest_login_url="https://cyber-bonus.ru/guest/login?club_id=2",
             pc_name_settings=[],
             system_status={"updates": [], "auto_mailings": []},
+            timezone_choices=(("Europe/Moscow", "Москва — UTC+3"),),
         )
 
     assert "Управление гостями" in html

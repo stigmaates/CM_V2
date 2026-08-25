@@ -123,6 +123,40 @@ def test_create_club_mission_uses_next_free_global_id(monkeypatch):
     assert conn.closed is True
 
 
+def test_mission_activity_uses_club_local_time(monkeypatch):
+    seen = []
+
+    def fake_local_now(timezone_name):
+        seen.append(timezone_name)
+        return datetime(2026, 8, 25, 11, 59)
+
+    monkeypatch.setattr(missions, "get_club_local_now", fake_local_now)
+    mission = {
+        "club_timezone": "Asia/Yekaterinburg",
+        "start_at": datetime(2026, 8, 25, 12, 0),
+        "end_at": None,
+    }
+
+    assert missions.is_mission_active(mission) is False
+    assert seen == ["Asia/Yekaterinburg"]
+    assert missions.is_mission_active(mission, now=datetime(2026, 8, 25, 12, 0)) is True
+
+
+def test_utc_event_period_uses_club_timezone():
+    conditions, params = missions.build_period_filter(
+        {
+            "club_timezone": "Asia/Yekaterinburg",
+            "start_at": datetime(2026, 8, 25, 12, 0),
+            "end_at": datetime(2026, 8, 25, 18, 0),
+        },
+        date_field="created_at",
+        timestamps_are_utc=True,
+    )
+
+    assert conditions == ["created_at >= %s", "created_at <= %s"]
+    assert params == [datetime(2026, 8, 25, 7, 0), datetime(2026, 8, 25, 13, 0)]
+
+
 def test_case_openings_mission_counts_all_cases(monkeypatch):
     conn = _CountConnection(4)
     monkeypatch.setattr(missions, "get_db_connection", lambda: conn)

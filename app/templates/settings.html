@@ -15,6 +15,16 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="timezone">Часовой пояс клуба</label>
+                    <select class="form-input" id="timezone" name="timezone" required>
+                        {% for timezone_value, timezone_title in timezone_choices %}
+                            <option value="{{ timezone_value }}" {% if club and club.timezone == timezone_value %}selected{% endif %}>{{ timezone_title }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="muted" style="margin-top:6px;">По этому времени включаются и завершаются задания клуба.</div>
+                </div>
+
+                <div class="form-group">
                     <label for="lg_api_key">Langame API Key</label>
                     <input class="form-input" type="text" id="lg_api_key" name="lg_api_key" value="{{ club.lg_api_key if club else '' }}" required>
                 </div>

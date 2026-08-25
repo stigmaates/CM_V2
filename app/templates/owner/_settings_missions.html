@@ -265,7 +265,10 @@
     <div class="missions-body">
         <div class="card" style="padding: 28px;">
             <div class="missions-card-head">
-                <div class="section-title">Задания клуба</div>
+                <div>
+                    <div class="section-title">Задания клуба</div>
+                    <div class="mission-field-hint">Все даты и интервалы — по времени клуба: {{ club_timezone_label }}.</div>
+                </div>
                 <button class="missions-add-trigger" type="button" id="openMissionAddModal">+ Добавить задание</button>
             </div>
 
@@ -376,7 +379,7 @@
                                     </div>
 
                                     <div class="form-group">
-                                        <label for="start_{{ m.id }}">Дата начала</label>
+                                        <label for="start_{{ m.id }}">Дата начала · время клуба</label>
                                         <input
                                             class="form-input"
                                             type="datetime-local"
@@ -387,7 +390,7 @@
                                     </div>
 
                                     <div class="form-group">
-                                        <label for="end_{{ m.id }}">Дата окончания</label>
+                                        <label for="end_{{ m.id }}">Дата окончания · время клуба</label>
                                         <input
                                             class="form-input"
                                             type="datetime-local"
@@ -509,12 +512,12 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="start_at">Дата начала</label>
+                    <label for="start_at">Дата начала · время клуба</label>
                     <input class="form-input" type="datetime-local" id="start_at" name="start_at">
                 </div>
 
                 <div class="form-group">
-                    <label for="end_at">Дата окончания</label>
+                    <label for="end_at">Дата окончания · время клуба</label>
                     <input class="form-input" type="datetime-local" id="end_at" name="end_at">
                 </div>
             </div>
