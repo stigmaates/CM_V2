@@ -92,3 +92,33 @@ def test_owner_settings_renders_guest_management_and_histories():
     assert "/owner/settings/guests/adjust" in html
     assert "/owner/settings/guests/access" in html
     assert "Заблокировать" in html
+
+
+def test_admin_owner_impersonation_shows_guest_management_without_profile():
+    with app.test_request_context("/owner/settings"):
+        from flask import session
+
+        session["role"] = "admin"
+        session["impersonating_owner"] = True
+        html = render_template(
+            "owner/settings.html",
+            active_tab="club",
+            club=SimpleNamespace(
+                name="VENOM",
+                lg_api_key="key",
+                secret="secret",
+                cm_bonus_admin_chat_id="",
+                instagram_url="",
+                youtube_url="",
+                vk_url="",
+                telegram_channel_url="",
+                yandex_maps_url="",
+                two_gis_url="",
+            ),
+            guest_login_url="https://cyber-bonus.ru/guest/login?club_id=2",
+            pc_name_settings=[],
+            system_status={"updates": [], "auto_mailings": []},
+        )
+
+    assert "Управление гостями" in html
+    assert 'tab=profile' not in html
