@@ -1,7 +1,6 @@
 import os
 import sys
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime, time, timedelta
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
@@ -25,9 +24,12 @@ from app.services.mailing import (
     get_inactive_auto_mailing_recipients,
     render_message_template,
 )
+from app.services.timezones import get_club_local_now
 from app.services.wheel import _calculate_streak_rows
 from scripts.process_mailings import process_one_mailing
-from scripts.sync_utils import table_has_column
+
+AUTO_MAILING_SEND_START = time(10, 0)
+AUTO_MAILING_SEND_END = time(22, 30)
 
 
 def process_inactive_14_bonus(conn, setting: dict) -> int:
@@ -213,16 +215,14 @@ def _ensure_auto_mailing_logs_table(conn) -> None:
             """)
 
 
-def _get_auto_mailing_now() -> datetime:
-    try:
-        return datetime.now(ZoneInfo(AUTO_MAILING_TIMEZONE or "Europe/Moscow"))
-    except Exception:
-        return datetime.now()
+def _get_auto_mailing_now(timezone_name: str | None = None) -> datetime:
+    return get_club_local_now(timezone_name or AUTO_MAILING_TIMEZONE or "Europe/Moscow")
 
 
-def _is_streak_reminder_send_window() -> bool:
-    now = _get_auto_mailing_now()
-    return 9 <= now.hour < 21
+def _is_auto_mailing_send_window(timezone_name: str | None, *, now: datetime | None = None) -> bool:
+    local_now = now or _get_auto_mailing_now(timezone_name)
+    local_time = local_now.time().replace(tzinfo=None)
+    return AUTO_MAILING_SEND_START <= local_time < AUTO_MAILING_SEND_END
 
 
 def _format_streak_reminder_message(template: str, candidate: dict) -> str:
@@ -352,7 +352,7 @@ def _get_streak_expiring_candidates(conn, setting: dict) -> list[dict]:
         )
         rows = cur.fetchall() or []
 
-    today = _get_auto_mailing_now().date()
+    today = _get_auto_mailing_now(setting.get("club_timezone")).date()
     visits_by_guest = {}
     telegram_by_guest = {}
     guest_data_by_guest = {}
@@ -446,9 +446,6 @@ def process_streak_expiring_reminder(conn, setting: dict) -> int:
         )
     conn.commit()
 
-    if not _is_streak_reminder_send_window():
-        return 0
-
     candidates = _get_streak_expiring_candidates(conn, setting)
     if not candidates:
         return 0
@@ -471,7 +468,7 @@ def process_streak_expiring_reminder(conn, setting: dict) -> int:
                 "streak_days": candidate.get("streak_days"),
                 "cycle_end": str(candidate.get("cycle_end")),
                 "next_reward": candidate.get("next_reward"),
-                "send_window": "09:00-21:00",
+                "send_window": "10:00-22:30",
             },
         )
         mailing_id = mailing["mailing_id"]
@@ -525,27 +522,21 @@ def process_auto_mailings() -> dict:
     processed = []
     try:
         with conn.cursor() as cur:
-            if table_has_column(cur, "clubs", "service_enabled"):
-                cur.execute("""
-                    SELECT ams.*
-                    FROM auto_mailing_settings ams
-                    JOIN clubs c ON c.club_id = ams.club_id
-                    WHERE ams.is_enabled = 1
-                      AND COALESCE(c.service_enabled, 1) = 1
-                    ORDER BY ams.club_id, ams.id
-                    """)
-            else:
-                cur.execute("""
-                    SELECT *
-                    FROM auto_mailing_settings
-                    WHERE is_enabled = 1
-                    ORDER BY club_id, id
-                    """)
+            cur.execute("""
+                SELECT ams.*, COALESCE(c.timezone, 'Europe/Moscow') AS club_timezone
+                FROM auto_mailing_settings ams
+                JOIN clubs c ON c.club_id = ams.club_id
+                WHERE ams.is_enabled = 1
+                  AND COALESCE(c.service_enabled, 1) = 1
+                ORDER BY ams.club_id, ams.id
+                """)
             settings = cur.fetchall()
 
         for setting in settings:
             code = setting.get("code")
             club_id = int(setting["club_id"])
+            if not _is_auto_mailing_send_window(setting.get("club_timezone")):
+                continue
             lock = job_lock("process_auto_mailing", club_id=club_id, resource_id=code, ttl_minutes=60)
             acquired_lock = lock.__enter__()
             job_run_id = start_job_run(
