@@ -7,6 +7,7 @@ from app.services.timezones import (
     club_local_datetime_to_utc,
     get_club_local_now,
     get_club_timezone_label,
+    utc_datetime_to_club_local,
     validate_club_timezone,
 )
 
@@ -36,3 +37,9 @@ def test_ufa_noon_converts_to_seven_utc():
     local_value = datetime(2026, 8, 25, 12, 0)
 
     assert club_local_datetime_to_utc(local_value, "Asia/Yekaterinburg") == datetime(2026, 8, 25, 7, 0)
+
+
+def test_utc_time_converts_to_ufa_local_time():
+    utc_value = datetime(2026, 8, 25, 14, 18)
+
+    assert utc_datetime_to_club_local(utc_value, "Asia/Yekaterinburg") == datetime(2026, 8, 25, 19, 18)

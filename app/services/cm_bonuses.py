@@ -9,6 +9,7 @@ import httpx
 from app.config import CM_BONUS_ADMIN_CHAT_ID, CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL
 from app.core import get_db_connection
 from app.services.clubs import ensure_club_bonus_chat_column
+from app.services.timezones import utc_datetime_to_club_local
 
 _cm_bonus_tables_ready = False
 
@@ -343,11 +344,13 @@ def get_cm_bonus_redeem_request_by_id(request_id: int) -> dict[str, Any] | None:
                 """
                 SELECT r.*,
                        g.fio AS guest_name,
-                       g.phone AS guest_phone
+                       g.phone AS guest_phone,
+                       c.timezone AS club_timezone
                 FROM cm_bonus_redeem_requests r
                 LEFT JOIN guests g
                   ON g.guest_id = r.guest_id
                  AND g.club_id = r.club_id
+                LEFT JOIN clubs c ON c.club_id = r.club_id
                 WHERE r.id = %s
                 LIMIT 1
                 """,
@@ -369,7 +372,11 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
     status = request.get("status") or "pending"
     if credited or status == "credited":
         processed_by = request.get("processed_by_username") or "администратор"
-        processed_at = _format_dt(request.get("processed_at"))
+        processed_at = utc_datetime_to_club_local(
+            request.get("processed_at"),
+            request.get("club_timezone"),
+        )
+        processed_at = _format_dt(processed_at)
         return (
             "✅ <b>КБ зачислены в Langame</b>\n\n"
             f"Заявка КБ: <code>{request_id}</code>\n\n"
@@ -380,7 +387,7 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
             f"Сумма: <b>{amount}</b> бонусов\n\n"
             "Статус: <b>зачислено</b>\n"
             f"Зачислил: <b>{_html(processed_by)}</b>\n"
-            f"Дата зачисления: <b>{_html(processed_at)}</b>"
+            f"Дата зачисления (время клуба): <b>{_html(processed_at)}</b>"
         )
 
     return (
@@ -736,11 +743,13 @@ def mark_cm_bonus_redeem_credited_by_telegram(
                 """
                 SELECT r.*,
                        g.fio AS guest_name,
-                       g.phone AS guest_phone
+                       g.phone AS guest_phone,
+                       c.timezone AS club_timezone
                 FROM cm_bonus_redeem_requests r
                 LEFT JOIN guests g
                   ON g.guest_id = r.guest_id
                  AND g.club_id = r.club_id
+                LEFT JOIN clubs c ON c.club_id = r.club_id
                 WHERE r.id = %s
                 LIMIT 1
                 FOR UPDATE
