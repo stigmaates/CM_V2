@@ -54,3 +54,14 @@ def club_local_datetime_to_utc(value: datetime | None, timezone_name: str | None
     except ZoneInfoNotFoundError:
         timezone = ZoneInfo(DEFAULT_CLUB_TIMEZONE)
     return value.replace(tzinfo=timezone).astimezone(UTC).replace(tzinfo=None)
+
+
+def utc_datetime_to_club_local(value: datetime | None, timezone_name: str | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        timezone = ZoneInfo(timezone_name or DEFAULT_CLUB_TIMEZONE)
+    except ZoneInfoNotFoundError:
+        timezone = ZoneInfo(DEFAULT_CLUB_TIMEZONE)
+    utc_value = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+    return utc_value.astimezone(timezone).replace(tzinfo=None)
