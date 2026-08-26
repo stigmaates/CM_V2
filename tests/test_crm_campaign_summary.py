@@ -1,9 +1,11 @@
 from datetime import datetime
 
+import app.services.mailing as mailing_service
 from app.services.mailing import (
     _campaign_effect_summary,
     _deduplicate_interaction_recipients,
     _fetch_campaign_effect_rows,
+    _json_row,
     _summarize_auto_crm_events,
 )
 
@@ -97,6 +99,37 @@ class _Connection:
         return self.cursor_obj
 
 
+class _InteractionCursor(_Cursor):
+    def __init__(self):
+        super().__init__()
+        self.queries = []
+
+    def execute(self, query, params=None):
+        super().execute(query, params)
+        self.queries.append(query)
+
+    def fetchone(self):
+        if "SELECT timezone FROM clubs" in self.query:
+            return {"timezone": "Asia/Yekaterinburg"}
+        return {
+            "interaction_id": 13,
+            "interaction_type": "giveaway",
+            "giveaway_id": 13,
+            "mailing_id": 422,
+            "status": "completed",
+            "recipients_count": 0,
+            "created_at": datetime(2026, 8, 26, 9, 55, 22),
+        }
+
+
+class _InteractionConnection:
+    def __init__(self):
+        self.cursor_obj = _InteractionCursor()
+
+    def cursor(self):
+        return self.cursor_obj
+
+
 def test_campaign_effect_rows_select_next_collapsed_visit_start():
     conn = _Connection()
 
@@ -104,6 +137,38 @@ def test_campaign_effect_rows_select_next_collapsed_visit_start():
 
     assert "NOT EXISTS" in conn.cursor_obj.query
     assert "DATE_ADD(prev.date_stop, INTERVAL 2 HOUR)" in conn.cursor_obj.query
+    assert "ON ns.club_id = m.club_id" in conn.cursor_obj.query
+    assert "AND ns.guest_id = mr.guest_id" in conn.cursor_obj.query
+
+
+def test_campaign_datetimes_are_serialized_in_club_timezone():
+    row = _json_row(
+        {
+            "created_at": datetime(2026, 8, 26, 9, 59, 36),
+            "next_visit_at": datetime(2026, 8, 27, 8, 0),
+            "message_text": "Тест",
+        },
+        timezone_name="Asia/Yekaterinburg",
+    )
+
+    assert row == {
+        "created_at": "2026-08-26 14:59:36",
+        "next_visit_at": "2026-08-27 13:00:00",
+        "message_text": "Тест",
+    }
+
+
+def test_interaction_visit_joins_are_scoped_to_club_and_guest(monkeypatch):
+    monkeypatch.setattr(mailing_service, "ensure_bonus_giveaway_tables", lambda conn: None)
+    conn = _InteractionConnection()
+
+    mailing_service.get_crm_interaction_detail(conn, 3, "giveaway", 13)
+
+    recipients_query = next(query for query in conn.cursor_obj.queries if "LEFT JOIN guest_sessions ps" in query)
+    assert "ON ps.club_id = m.club_id" in recipients_query
+    assert "AND ps.guest_id = mr.guest_id" in recipients_query
+    assert "ON ns.club_id = m.club_id" in recipients_query
+    assert "AND ns.guest_id = mr.guest_id" in recipients_query
 
 
 def test_auto_campaign_summary_uses_unique_events_and_next_collapsed_visit_topups():
