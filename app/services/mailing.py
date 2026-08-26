@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.timezones import DEFAULT_CLUB_TIMEZONE, utc_datetime_to_club_local
 from app.services.wheel import _add_token_transaction, ensure_token_tables
 
 CRM_SEGMENT_OPTIONS = [
@@ -862,6 +863,29 @@ def list_mailings(conn, club_id: int) -> List[Dict[str, Any]]:
         return cur.fetchall()
 
 
+_CLUB_LOCAL_DATETIME_FIELDS = frozenset(
+    {
+        "created_at",
+        "finished_at",
+        "interaction_at",
+        "next_visit_at",
+        "previous_visit_at",
+        "sent_at",
+        "started_at",
+    }
+)
+
+
+def _get_club_timezone_name(conn, club_id: int) -> str:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT timezone FROM clubs WHERE club_id = %s LIMIT 1",
+            (club_id,),
+        )
+        row = cur.fetchone() or {}
+    return row.get("timezone") or DEFAULT_CLUB_TIMEZONE
+
+
 def _json_datetime(value):
     if isinstance(value, datetime):
         return value.strftime("%Y-%m-%d %H:%M:%S")
@@ -872,8 +896,16 @@ def _json_datetime(value):
     return value
 
 
-def _json_row(row: Dict[str, Any]) -> Dict[str, Any]:
-    return {key: _json_datetime(value) for key, value in dict(row or {}).items()}
+def _json_row(row: Dict[str, Any], *, timezone_name: str | None = None) -> Dict[str, Any]:
+    values = dict(row or {})
+    if timezone_name:
+        values = {
+            key: utc_datetime_to_club_local(value, timezone_name)
+            if key in _CLUB_LOCAL_DATETIME_FIELDS and isinstance(value, datetime)
+            else value
+            for key, value in values.items()
+        }
+    return {key: _json_datetime(value) for key, value in values.items()}
 
 
 def _format_minutes(minutes) -> str | None:
@@ -935,6 +967,7 @@ def _deduplicate_interaction_recipients(rows: List[Dict[str, Any]]) -> List[Dict
 
 def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str, Any]]:
     ensure_bonus_giveaway_tables(conn)
+    timezone_name = _get_club_timezone_name(conn, club_id)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -1028,7 +1061,7 @@ def list_crm_interactions(conn, club_id: int, limit: int = 50) -> List[Dict[str,
             """,
             (club_id, club_id, club_id, int(limit)),
         )
-        return [_json_row(row) for row in cur.fetchall()]
+        return [_json_row(row, timezone_name=timezone_name) for row in cur.fetchall()]
 
 
 def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction_id: int) -> Dict[str, Any] | None:
@@ -1162,11 +1195,19 @@ def _get_interaction_base(conn, club_id: int, interaction_type: str, interaction
         return cur.fetchone()
 
 
-def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, interaction_id: int) -> Dict[str, Any] | None:
+def get_crm_interaction_detail(
+    conn,
+    club_id: int,
+    interaction_type: str,
+    interaction_id: int,
+    *,
+    timezone_name: str | None = None,
+) -> Dict[str, Any] | None:
     if interaction_type not in {"mailing", "giveaway", "auto_mailing"}:
         return None
 
     ensure_bonus_giveaway_tables(conn)
+    timezone_name = timezone_name or _get_club_timezone_name(conn, club_id)
     base = _get_interaction_base(conn, club_id, interaction_type, interaction_id)
     if not base:
         return None
@@ -1255,7 +1296,9 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                  AND bgr.guest_id = mr.guest_id
                  AND bgr.giveaway_id = %s
                 LEFT JOIN guest_sessions ps
-                  ON ps.id = (
+                  ON ps.club_id = m.club_id
+                 AND ps.guest_id = mr.guest_id
+                 AND ps.id = (
                     SELECT s.id
                     FROM guest_sessions s
                     WHERE s.club_id = m.club_id
@@ -1265,7 +1308,9 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
                     LIMIT 1
                   )
                 LEFT JOIN guest_sessions ns
-                  ON ns.id = (
+                  ON ns.club_id = m.club_id
+                 AND ns.guest_id = mr.guest_id
+                 AND ns.id = (
                     SELECT s.id
                     FROM guest_sessions s
                     WHERE s.club_id = m.club_id
@@ -1328,7 +1373,7 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
 
     serialized_recipients = []
     for row in recipients:
-        item = _json_row(row)
+        item = _json_row(row, timezone_name=timezone_name)
         item["avg_session_display"] = _format_minutes(row.get("avg_session_minutes"))
         item["previous_visit_duration_display"] = _format_minutes(row.get("previous_visit_minutes"))
         item["next_visit_duration_display"] = _format_minutes(row.get("next_visit_minutes"))
@@ -1336,7 +1381,7 @@ def get_crm_interaction_detail(conn, club_id: int, interaction_type: str, intera
         serialized_recipients.append(item)
 
     return {
-        "interaction": _json_row(base),
+        "interaction": _json_row(base, timezone_name=timezone_name),
         "summary": {
             "recipients_count": int(base.get("recipients_count") or len(recipients)),
             "sent_count": sent_count,
@@ -1517,7 +1562,9 @@ def _fetch_campaign_effect_rows(
              AND bgr.guest_id = mr.guest_id
              AND bgr.giveaway_id = %s
             LEFT JOIN guest_sessions ns
-              ON ns.id = (
+              ON ns.club_id = m.club_id
+             AND ns.guest_id = mr.guest_id
+             AND ns.id = (
                 SELECT s.id
                 FROM guest_sessions s
                 WHERE s.club_id = m.club_id
@@ -1664,6 +1711,7 @@ def _return_delay_funnel(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def list_manual_crm_campaigns(conn, club_id: int, limit: int = 30) -> List[Dict[str, Any]]:
     ensure_bonus_giveaway_tables(conn)
+    timezone_name = _get_club_timezone_name(conn, club_id)
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -1680,7 +1728,7 @@ def list_manual_crm_campaigns(conn, club_id: int, limit: int = 30) -> List[Dict[
     for row in rows:
         mailing_ids = _campaign_mailing_ids(row)
         effect_rows = _fetch_campaign_effect_rows(conn, club_id, mailing_ids, row.get("giveaway_id"))
-        item = _json_row(row)
+        item = _json_row(row, timezone_name=timezone_name)
         item["summary"] = _campaign_effect_summary(row, effect_rows)
         campaigns.append(item)
     return campaigns
@@ -1697,7 +1745,14 @@ def get_manual_crm_campaign_passport(
     if not base:
         return None
 
-    detail = get_crm_interaction_detail(conn, club_id, campaign_type, campaign_id)
+    timezone_name = _get_club_timezone_name(conn, club_id)
+    detail = get_crm_interaction_detail(
+        conn,
+        club_id,
+        campaign_type,
+        campaign_id,
+        timezone_name=timezone_name,
+    )
     if not detail:
         return None
 
@@ -1729,7 +1784,7 @@ def get_manual_crm_campaign_passport(
     funnel_max = max(summary["recipients_count"], delivered_count, visited_count, 1)
 
     return {
-        "campaign": _json_row(base),
+        "campaign": _json_row(base, timezone_name=timezone_name),
         "summary": summary,
         "delivery_funnel": [
             {
