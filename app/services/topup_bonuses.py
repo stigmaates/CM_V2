@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
@@ -31,6 +31,7 @@ TOPUP_BONUS_VARIABLES = (
 )
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+TOPUP_BONUS_DUPLICATE_WINDOW = timedelta(hours=1)
 
 
 def _moscow_now() -> datetime:
@@ -319,6 +320,71 @@ def _load_enabled_club(cursor, club_id: int) -> dict[str, Any] | None:
     return cursor.fetchone()
 
 
+def _claim_topup_bonus_award(
+    cursor,
+    *,
+    club_id: int,
+    topup: dict[str, Any],
+    rule: dict[str, Any],
+    awarded_at: datetime,
+) -> str:
+    """Claim one reward per equal guest topup amount inside the cooldown window."""
+    window_start = topup["topup_at"] - TOPUP_BONUS_DUPLICATE_WINDOW
+    window_end = topup["topup_at"] + TOPUP_BONUS_DUPLICATE_WINDOW
+    cursor.execute(
+        """
+        SELECT a.id
+        FROM guest_topup_bonus_awards a
+        JOIN guest_balance_topups rewarded_topup
+          ON rewarded_topup.club_id = a.club_id
+         AND rewarded_topup.topup_id = a.topup_id
+         AND rewarded_topup.guest_id = a.guest_id
+        WHERE a.club_id = %s
+          AND a.guest_id = %s
+          AND a.status = 'awarded'
+          AND rewarded_topup.amount = %s
+          AND rewarded_topup.topup_at >= %s
+          AND rewarded_topup.topup_at <= %s
+        LIMIT 1
+        """,
+        (
+            club_id,
+            topup["guest_id"],
+            topup["amount"],
+            window_start,
+            window_end,
+        ),
+    )
+    duplicate_award = cursor.fetchone()
+    status = "skipped_duplicate" if duplicate_award else "awarded"
+    delivery_status = "skipped" if duplicate_award else ("pending" if topup.get("telegram_id") else "no_telegram")
+    bonus_amount = 0 if duplicate_award else int(rule["bonus_amount"])
+    cursor.execute(
+        """
+        INSERT IGNORE INTO guest_topup_bonus_awards (
+            club_id, topup_id, guest_id, rule_id, topup_amount,
+            bonus_amount, reward_type, status, delivery_status, telegram_id, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            club_id,
+            topup["topup_id"],
+            topup["guest_id"],
+            rule["id"],
+            topup["amount"],
+            bonus_amount,
+            rule["reward_type"],
+            status,
+            delivery_status,
+            topup.get("telegram_id"),
+            awarded_at,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return "exists"
+    return "duplicate" if duplicate_award else "awarded"
+
+
 def process_topup_bonus_awards(
     club_id: int,
     *,
@@ -375,27 +441,18 @@ def process_topup_bonus_awards(
             try:
                 with conn.cursor() as cursor:
                     awarded_at = _moscow_now()
-                    cursor.execute(
-                        """
-                        INSERT IGNORE INTO guest_topup_bonus_awards (
-                            club_id, topup_id, guest_id, rule_id, topup_amount,
-                            bonus_amount, reward_type, status, delivery_status, telegram_id, created_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'awarded', %s, %s, %s)
-                        """,
-                        (
-                            club_id,
-                            topup["topup_id"],
-                            topup["guest_id"],
-                            rule["id"],
-                            topup["amount"],
-                            rule["bonus_amount"],
-                            rule["reward_type"],
-                            "pending" if topup.get("telegram_id") else "no_telegram",
-                            topup.get("telegram_id"),
-                            awarded_at,
-                        ),
+                    claim_status = _claim_topup_bonus_award(
+                        cursor,
+                        club_id=club_id,
+                        topup=topup,
+                        rule=rule,
+                        awarded_at=awarded_at,
                     )
-                    if cursor.rowcount == 0:
+                    if claim_status == "exists":
+                        continue
+                    if claim_status == "duplicate":
+                        conn.commit()
+                        skipped += 1
                         continue
                     transaction_args = {
                         "cursor": cursor,

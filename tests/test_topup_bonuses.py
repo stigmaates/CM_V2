@@ -4,6 +4,8 @@ from decimal import Decimal
 import pytest
 
 from app.services.topup_bonuses import (
+    TOPUP_BONUS_DUPLICATE_WINDOW,
+    _claim_topup_bonus_award,
     _resolve_enabled_at,
     award_first_authorization_reward,
     render_topup_bonus_message,
@@ -11,6 +13,73 @@ from app.services.topup_bonuses import (
     save_welcome_reward_settings,
     select_topup_bonus_rule,
 )
+
+
+class _TopupClaimCursor:
+    def __init__(self, duplicate_award=None, insert_rowcount=1):
+        self.duplicate_award = duplicate_award
+        self.insert_rowcount = insert_rowcount
+        self.rowcount = 0
+        self.calls = []
+
+    def execute(self, query, params=None):
+        self.calls.append((query, params))
+        if "INSERT IGNORE INTO guest_topup_bonus_awards" in query:
+            self.rowcount = self.insert_rowcount
+
+    def fetchone(self):
+        return self.duplicate_award
+
+
+def _claim_topup(cursor):
+    return _claim_topup_bonus_award(
+        cursor,
+        club_id=2,
+        topup={
+            "topup_id": 699621,
+            "guest_id": 15173,
+            "amount": Decimal("1500.00"),
+            "topup_at": datetime(2026, 8, 27, 10, 32, 25),
+            "telegram_id": 123,
+        },
+        rule={"id": 7, "bonus_amount": 300, "reward_type": "cm_bonus"},
+        awarded_at=datetime(2026, 8, 27, 10, 33, 6),
+    )
+
+
+def test_topup_bonus_duplicate_window_is_one_hour():
+    assert TOPUP_BONUS_DUPLICATE_WINDOW.total_seconds() == 60 * 60
+
+
+def test_topup_bonus_claim_marks_matching_reward_inside_hour_as_skipped():
+    cursor = _TopupClaimCursor(duplicate_award={"id": 62})
+
+    assert _claim_topup(cursor) == "duplicate"
+
+    duplicate_params = cursor.calls[0][1]
+    insert_params = cursor.calls[1][1]
+    assert duplicate_params[3] == datetime(2026, 8, 27, 9, 32, 25)
+    assert duplicate_params[4] == datetime(2026, 8, 27, 11, 32, 25)
+    assert insert_params[5] == 0
+    assert insert_params[7] == "skipped_duplicate"
+    assert insert_params[8] == "skipped"
+
+
+def test_topup_bonus_claim_awards_when_hour_has_no_matching_reward():
+    cursor = _TopupClaimCursor()
+
+    assert _claim_topup(cursor) == "awarded"
+
+    insert_params = cursor.calls[1][1]
+    assert insert_params[5] == 300
+    assert insert_params[7] == "awarded"
+    assert insert_params[8] == "pending"
+
+
+def test_topup_bonus_claim_returns_exists_for_already_processed_topup():
+    cursor = _TopupClaimCursor(insert_rowcount=0)
+
+    assert _claim_topup(cursor) == "exists"
 
 
 def test_select_topup_bonus_rule_uses_highest_matching_threshold():
