@@ -301,7 +301,17 @@ def sync_operations_incremental(club_id=None):
             )
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))
-            raise
+            logging.exception("Ошибка синхронизации операций клуба %s", current_club_id)
+            summary.append(
+                {
+                    "club_id": current_club_id,
+                    "error": str(exc),
+                    "date_from": date_from,
+                    "date_to": date_to,
+                }
+            )
+            if club_id is not None:
+                raise
         finally:
             lock.__exit__(None, None, None)
 

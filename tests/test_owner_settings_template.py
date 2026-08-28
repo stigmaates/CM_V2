@@ -25,7 +25,11 @@ def test_owner_settings_renders_guest_login_copy_link():
             ),
             guest_login_url="https://cyber-bonus.ru/guest/login?club_id=1",
             pc_name_settings=[],
-            system_status={"updates": [], "auto_mailings": []},
+            system_status={
+                "timezone_label": "время клуба: Екатеринбург / Уфа — UTC+5",
+                "updates": [],
+                "auto_mailings": [],
+            },
             timezone_choices=(
                 ("Europe/Moscow", "Москва — UTC+3"),
                 ("Asia/Yekaterinburg", "Екатеринбург / Уфа — UTC+5"),
@@ -40,6 +44,7 @@ def test_owner_settings_renders_guest_login_copy_link():
     assert "Часовой пояс клуба" in html
     assert 'value="Asia/Yekaterinburg" selected' in html
     assert "Екатеринбург / Уфа — UTC+5" in html
+    assert "время клуба: Екатеринбург / Уфа — UTC+5" in html
 
 
 def test_owner_settings_renders_profile_tab_and_linked_club():

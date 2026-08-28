@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
@@ -11,6 +11,7 @@ load_dotenv()
 
 from app.config import AUTO_MAILING_TIMEZONE
 from app.core import get_db_connection
+from app.services.auto_mailing_schedule import is_auto_mailing_send_time
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.first_visit_survey import (
     create_first_visit_survey,
@@ -27,9 +28,6 @@ from app.services.mailing import (
 from app.services.timezones import get_club_local_now
 from app.services.wheel import _calculate_streak_rows
 from scripts.process_mailings import process_one_mailing
-
-AUTO_MAILING_SEND_START = time(10, 0)
-AUTO_MAILING_SEND_END = time(22, 30)
 
 
 def process_inactive_14_bonus(conn, setting: dict) -> int:
@@ -221,8 +219,7 @@ def _get_auto_mailing_now(timezone_name: str | None = None) -> datetime:
 
 def _is_auto_mailing_send_window(timezone_name: str | None, *, now: datetime | None = None) -> bool:
     local_now = now or _get_auto_mailing_now(timezone_name)
-    local_time = local_now.time().replace(tzinfo=None)
-    return AUTO_MAILING_SEND_START <= local_time < AUTO_MAILING_SEND_END
+    return is_auto_mailing_send_time(local_now)
 
 
 def _format_streak_reminder_message(template: str, candidate: dict) -> str:
