@@ -6,8 +6,10 @@ from typing import Any, Dict
 from zoneinfo import ZoneInfo
 
 from app.core import get_db_connection
+from app.services.auto_mailing_schedule import is_auto_mailing_send_time
 from app.services.job_runs import get_latest_job_runs_by_club
 from app.services.mailing import ensure_auto_mailings
+from app.services.timezones import DEFAULT_CLUB_TIMEZONE, get_club_timezone_label
 
 MSK_TZ = ZoneInfo("Europe/Moscow")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -47,7 +49,14 @@ UPDATE_TASKS = [
 ERROR_MARKERS = ("traceback", "error", "exception", "failed", "importerror")
 
 
-def _to_msk(value: Any) -> datetime | None:
+def _timezone(value: str | None) -> ZoneInfo:
+    try:
+        return ZoneInfo(value or DEFAULT_CLUB_TIMEZONE)
+    except Exception:
+        return ZoneInfo(DEFAULT_CLUB_TIMEZONE)
+
+
+def _to_local(value: Any, timezone_name: str | None = None) -> datetime | None:
     if not value:
         return None
     if isinstance(value, datetime):
@@ -55,9 +64,13 @@ def _to_msk(value: Any) -> datetime | None:
     else:
         return None
     if dt.tzinfo is None:
-        # MySQL NOW() on the server is treated as UTC and displayed to owners as Moscow time.
+        # MySQL NOW() on the server is treated as UTC and displayed in the club timezone.
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(MSK_TZ)
+    return dt.astimezone(_timezone(timezone_name))
+
+
+def _to_msk(value: Any) -> datetime | None:
+    return _to_local(value, DEFAULT_CLUB_TIMEZONE)
 
 
 def _format_msk(value: datetime | None) -> str:
@@ -66,10 +79,20 @@ def _format_msk(value: datetime | None) -> str:
     return value.strftime("%d.%m.%Y %H:%M")
 
 
+def _format_local(value: datetime | None) -> str:
+    return _format_msk(value)
+
+
 def _file_mtime_msk(path: Path) -> datetime | None:
     if not path.exists():
         return None
     return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).astimezone(MSK_TZ)
+
+
+def _file_mtime_local(path: Path, timezone_name: str | None = None) -> datetime | None:
+    if not path.exists():
+        return None
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).astimezone(_timezone(timezone_name))
 
 
 def _log_has_recent_error(path: Path, max_bytes: int = 25000) -> bool:
@@ -91,11 +114,13 @@ def _minutes_since(dt: datetime | None) -> float | None:
 def _build_update_status(
     item: Dict[str, Any],
     latest_jobs_by_type: Dict[str, Dict[str, Any]] | None = None,
+    *,
+    timezone_name: str | None = None,
 ) -> Dict[str, Any]:
     job_type = item.get("job_type")
     job_row = (latest_jobs_by_type or {}).get(job_type)
     if job_row:
-        last_run = _to_msk(job_row.get("finished_at") or job_row.get("started_at"))
+        last_run = _to_local(job_row.get("finished_at") or job_row.get("started_at"), timezone_name)
         minutes = _minutes_since(last_run)
         is_ok = (
             (job_row.get("status") or "").lower() == "success"
@@ -107,11 +132,11 @@ def _build_update_status(
             "title": item["title"],
             "status": "работает" if is_ok else "не работает",
             "status_class": "ok" if is_ok else "bad",
-            "last_run": _format_msk(last_run),
+            "last_run": _format_local(last_run),
         }
 
     log_path = LOGS_DIR / item["log_file"]
-    last_run = _file_mtime_msk(log_path)
+    last_run = _file_mtime_local(log_path, timezone_name)
     minutes = _minutes_since(last_run)
     has_error = _log_has_recent_error(log_path)
     is_ok = minutes is not None and minutes <= int(item["ok_after_minutes"]) and not has_error
@@ -120,18 +145,27 @@ def _build_update_status(
         "title": item["title"],
         "status": "работает" if is_ok else "не работает",
         "status_class": "ok" if is_ok else "bad",
-        "last_run": _format_msk(last_run),
+        "last_run": _format_local(last_run),
     }
 
 
-def _build_auto_status(row: Dict[str, Any]) -> Dict[str, Any]:
+def _build_auto_status(
+    row: Dict[str, Any],
+    *,
+    timezone_name: str | None = None,
+    now: datetime | None = None,
+) -> Dict[str, Any]:
     is_enabled = bool(int(row.get("is_enabled") or 0))
-    last_run = _to_msk(row.get("last_run_at"))
+    last_run = _to_local(row.get("last_run_at"), timezone_name)
     minutes = _minutes_since(last_run)
     is_recent = minutes is not None and minutes <= 20
+    local_now = now or datetime.now(_timezone(timezone_name))
 
     if not is_enabled:
         status = "выключена"
+        status_class = "off"
+    elif not is_auto_mailing_send_time(local_now):
+        status = "ночная пауза до 10:00"
         status_class = "off"
     elif is_recent:
         status = "работает"
@@ -145,24 +179,28 @@ def _build_auto_status(row: Dict[str, Any]) -> Dict[str, Any]:
         "title": row.get("title") or row.get("code") or "Авторассылка",
         "status": status,
         "status_class": status_class,
-        "last_run": _format_msk(last_run),
+        "last_run": _format_local(last_run),
     }
 
 
 def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
-    """Compact status block for owner settings. All displayed times are MSK."""
+    """Compact status block for owner settings in the configured club timezone."""
     job_types = [item["job_type"] for item in UPDATE_TASKS]
     try:
         latest_jobs_by_type = get_latest_job_runs_by_club(job_types).get(int(club_id), {})
     except Exception:
         latest_jobs_by_type = {}
-    updates = [_build_update_status(item, latest_jobs_by_type) for item in UPDATE_TASKS]
-
     conn = get_db_connection()
     try:
         ensure_auto_mailings(conn, club_id)
         conn.commit()
         with conn.cursor() as cur:
+            cur.execute(
+                "SELECT timezone FROM clubs WHERE club_id = %s LIMIT 1",
+                (club_id,),
+            )
+            club_row = cur.fetchone() or {}
+            timezone_name = club_row.get("timezone") or DEFAULT_CLUB_TIMEZONE
             cur.execute(
                 """
                 SELECT code, title, is_enabled, last_run_at
@@ -176,8 +214,12 @@ def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
     finally:
         conn.close()
 
+    updates = [
+        _build_update_status(item, latest_jobs_by_type, timezone_name=timezone_name) for item in UPDATE_TASKS
+    ]
+
     return {
-        "timezone_label": "время МСК",
+        "timezone_label": f"время клуба: {get_club_timezone_label(timezone_name)}",
         "updates": updates,
-        "auto_mailings": [_build_auto_status(row) for row in auto_rows],
+        "auto_mailings": [_build_auto_status(row, timezone_name=timezone_name) for row in auto_rows],
     }
