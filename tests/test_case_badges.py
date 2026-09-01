@@ -69,3 +69,4 @@ def test_guest_case_card_renders_badge_text_and_color():
     assert "x2 шанс редкого" in html
     assert 'class="case-tile-badge"' in html
     assert "--case-badge-color: #FFD469" in html
+    assert "const syncedPanelBottomInset = 12" in html

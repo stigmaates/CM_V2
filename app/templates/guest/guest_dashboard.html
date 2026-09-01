@@ -3830,6 +3830,8 @@
             const profileHeight = profilePanel ? Math.ceil(profilePanel.offsetHeight || profilePanel.getBoundingClientRect().height) : 0;
             const leftHeight = leftColumn ? Math.ceil(leftColumn.offsetHeight || leftColumn.getBoundingClientRect().height) : 0;
             const syncCasesToProfile = desktop && profileHeight > 0 && count >= 2 && count <= 3;
+            // Keep the card border visibly inside the fixed-height panel instead of letting it touch the bottom edge.
+            const syncedPanelBottomInset = 12;
 
             layout.classList.toggle('case-count-1', desktop && count === 1);
             layout.classList.toggle('case-count-lte-4', desktop && count > 0 && count <= 4);
@@ -3928,7 +3930,9 @@
                 buttonPadding = '11px 12px';
             } else if (count === 2) {
                 columns = columnsFor(2, 240, 12);
-                imageHeight = syncCasesToProfile ? Math.max(112, Math.min(152, profileHeight - 300)) : 180;
+                imageHeight = syncCasesToProfile
+                    ? Math.max(100, Math.min(152 - syncedPanelBottomInset, profileHeight - 300 - syncedPanelBottomInset))
+                    : 180;
                 maxWidth = '760px';
                 marginInline = 'auto';
                 gap = 12;
@@ -3939,7 +3943,9 @@
                 hideDesc = syncCasesToProfile && profileHeight < 560;
             } else if (count === 3) {
                 columns = columnsFor(3, 185, 12);
-                imageHeight = syncCasesToProfile ? Math.max(115, Math.min(158, profileHeight - 318)) : 155;
+                imageHeight = syncCasesToProfile
+                    ? Math.max(103, Math.min(158 - syncedPanelBottomInset, profileHeight - 318 - syncedPanelBottomInset))
+                    : 155;
                 maxWidth = 'none';
                 marginInline = '0';
                 cardPadding = 12;
