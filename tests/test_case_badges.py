@@ -70,7 +70,7 @@ def test_guest_case_card_renders_badge_text_and_color():
     assert 'class="case-tile-badge"' in html
     assert "--case-badge-color: #FFD469" in html
     assert "const syncedPanelBottomInset = 12" in html
-    assert 'class="cases-subtitle cases-subtitle--footer"' in html
-    assert html.index('<div class="cases-grid') < html.index(
-        '<p class="cases-subtitle cases-subtitle--footer">'
-    )
+    assert 'class="case-tile-desc"' not in html
+    assert 'class="cases-subtitle cases-subtitle--footer"' not in html
+    assert "Открывай кейсы и получай призы" not in html
+    assert "casesGrid.style.flex = syncCasesToProfile ? '1 1 auto'" in html

@@ -860,7 +860,6 @@
                 linear-gradient(180deg, rgba(30, 17, 52, 0.96), rgba(15, 10, 28, 0.98));
         }
         .cases-subtitle { color: var(--text-muted); font-weight: 600; margin: 4px 0 16px; font-size: 14px; line-height: 1.4; }
-        .cases-subtitle--footer { margin: 16px 0 0; }
         .cases-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
@@ -2567,7 +2566,6 @@
                                         {% endif %}
                                     </div>
                                     <div class="case-tile-name">{{ case.name }}</div>
-                                    {% if case.description %}<div class="case-tile-desc">{{ case.description }}</div>{% endif %}
                                     <button class="case-open-btn" data-case-id="{{ case.id }}" onclick="previewCase({{ case.id }})">
                                         {% if case.price_tokens %}Открыть за {{ case.price_tokens }} жет.{% else %}Открыть бесплатно{% endif %}
                                     </button>
@@ -2577,7 +2575,6 @@
                     {% else %}
                         <div class="empty">Владелец клуба пока не добавил кейсы.</div>
                     {% endif %}
-                    <p class="cases-subtitle cases-subtitle--footer">Открывай кейсы и получай призы! Приз начисляется сразу или передаётся администратору на выдачу.</p>
                 </section>
 
                 <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
@@ -4013,25 +4010,29 @@
             casesGrid.style.height = 'auto';
             casesGrid.style.minHeight = '0';
             casesGrid.style.maxHeight = 'none';
+            casesGrid.style.flex = syncCasesToProfile ? '1 1 auto' : '0 0 auto';
             casesGrid.style.overflow = 'visible';
             casesGrid.style.alignContent = 'start';
             casesGrid.style.alignItems = 'stretch';
             casesGrid.style.paddingRight = '0';
-            casesGrid.style.gridAutoRows = 'auto';
+            casesGrid.style.gridAutoRows = syncCasesToProfile ? 'minmax(0, 1fr)' : 'auto';
+            casesGrid.style.marginBottom = syncCasesToProfile ? `${syncedPanelBottomInset}px` : '0';
             casesGrid.style.maxWidth = maxWidth;
             casesGrid.style.marginInline = marginInline;
 
             casesGrid.querySelectorAll('.case-tile').forEach((tile) => {
                 tile.style.display = 'flex';
                 tile.style.flexDirection = 'column';
-                tile.style.height = 'auto';
+                tile.style.height = syncCasesToProfile ? '100%' : 'auto';
                 tile.style.minHeight = '0';
                 tile.style.padding = `${cardPadding}px`;
                 tile.style.gap = count >= 9 ? '6px' : '8px';
             });
 
             casesGrid.querySelectorAll('.case-tile-image').forEach((imageBox) => {
-                imageBox.style.height = `${imageHeight}px`;
+                imageBox.style.height = syncCasesToProfile ? 'auto' : `${imageHeight}px`;
+                imageBox.style.minHeight = `${imageHeight}px`;
+                imageBox.style.flex = syncCasesToProfile ? '1 1 auto' : '0 0 auto';
             });
 
             casesGrid.querySelectorAll('.case-tile-image img').forEach((img) => {
