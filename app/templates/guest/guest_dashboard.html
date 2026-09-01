@@ -2566,6 +2566,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="case-tile-name">{{ case.name }}</div>
+                                    {% if case.description %}<div class="case-tile-desc">{{ case.description }}</div>{% endif %}
                                     <button class="case-open-btn" data-case-id="{{ case.id }}" onclick="previewCase({{ case.id }})">
                                         {% if case.price_tokens %}Открыть за {{ case.price_tokens }} жет.{% else %}Открыть бесплатно{% endif %}
                                     </button>
@@ -4051,6 +4052,7 @@
             casesGrid.querySelectorAll('.case-tile-desc').forEach((desc) => {
                 desc.style.display = hideDesc ? 'none' : '';
                 desc.style.fontSize = `${descSize}px`;
+                desc.style.flex = syncCasesToProfile ? '0 0 auto' : '';
             });
 
             casesGrid.querySelectorAll('.case-open-btn').forEach((button) => {
