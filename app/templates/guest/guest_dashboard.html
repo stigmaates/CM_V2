@@ -860,6 +860,7 @@
                 linear-gradient(180deg, rgba(30, 17, 52, 0.96), rgba(15, 10, 28, 0.98));
         }
         .cases-subtitle { color: var(--text-muted); font-weight: 600; margin: 4px 0 16px; font-size: 14px; line-height: 1.4; }
+        .cases-subtitle--footer { margin: 16px 0 0; }
         .cases-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
@@ -2549,7 +2550,6 @@
                     <div class="wheel-head">
                         <div class="section-title" style="margin:0;">Кейсы</div>
                     </div>
-                    <p class="cases-subtitle">Открывай кейсы и получай призы! Приз начисляется сразу или передаётся администратору на выдачу.</p>
 
                     {% set cases_list = cases|default([]) %}
                     {% set cases_count = cases_list|length %}
@@ -2577,6 +2577,7 @@
                     {% else %}
                         <div class="empty">Владелец клуба пока не добавил кейсы.</div>
                     {% endif %}
+                    <p class="cases-subtitle cases-subtitle--footer">Открывай кейсы и получай призы! Приз начисляется сразу или передаётся администратору на выдачу.</p>
                 </section>
 
                 <section class="panel wheel-history-panel cases-history-panel" {% if game_mode != 'cases' %}style="display:none;"{% endif %}>
