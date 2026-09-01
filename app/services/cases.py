@@ -1,4 +1,5 @@
 import random
+import re
 from datetime import datetime, timedelta
 
 from app.core import get_db_connection
@@ -20,6 +21,22 @@ from app.services.wheel import (
 _game_mode_column_ready = False
 _case_tables_ready = False
 VALUABLE_RARITIES = ("Редкий", "Очень редкий", "Ультра редкий")
+DEFAULT_CASE_BADGE_COLOR = "#8F5BFF"
+CASE_BADGE_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+
+def normalize_case_badge_color(value: str | None) -> str:
+    color = (value or "").strip()
+    if not CASE_BADGE_COLOR_RE.fullmatch(color):
+        return DEFAULT_CASE_BADGE_COLOR
+    return color.upper()
+
+
+def validate_case_badge_color(value: str | None) -> str:
+    color = (value or DEFAULT_CASE_BADGE_COLOR).strip()
+    if not CASE_BADGE_COLOR_RE.fullmatch(color):
+        raise ValueError("Цвет ярлыка должен быть указан в формате #RRGGBB")
+    return color.upper()
 
 
 def ensure_game_mode_column(cursor):
@@ -58,6 +75,7 @@ def ensure_case_tables(cursor):
             description TEXT NULL,
             image_url TEXT NULL,
             badge_label VARCHAR(60) NULL,
+            badge_color VARCHAR(7) NOT NULL DEFAULT '#8F5BFF',
             price_tokens INT NOT NULL DEFAULT 0,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             sort_order INT NOT NULL DEFAULT 0,
@@ -66,6 +84,19 @@ def ensure_case_tables(cursor):
             KEY idx_club_cases_club (club_id, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """)
+    cursor.execute("""
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'club_cases'
+          AND COLUMN_NAME = 'badge_color'
+        """)
+    if not cursor.fetchone():
+        cursor.execute("""
+            ALTER TABLE club_cases
+            ADD COLUMN badge_color VARCHAR(7) NOT NULL DEFAULT '#8F5BFF'
+            AFTER badge_label
+            """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS club_case_items (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -173,7 +204,9 @@ def save_game_mode(club_id: int, mode: str):
 # Cases CRUD
 # ---------------------------------------------------------------------------
 
-CASE_FIELDS = "id, club_id, name, description, image_url, badge_label, price_tokens, is_active, sort_order"
+CASE_FIELDS = (
+    "id, club_id, name, description, image_url, badge_label, badge_color, price_tokens, is_active, sort_order"
+)
 
 
 def get_cases_for_admin(club_id: int):
@@ -285,6 +318,7 @@ def create_case(
     description: str | None,
     image_url: str | None,
     badge_label: str | None,
+    badge_color: str,
     price_tokens: int,
     is_active: int = 1,
     sort_order: int = 0,
@@ -295,10 +329,23 @@ def create_case(
             ensure_case_tables(cursor)
             cursor.execute(
                 """
-                INSERT INTO club_cases (club_id, name, description, image_url, badge_label, price_tokens, is_active, sort_order)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO club_cases (
+                    club_id, name, description, image_url, badge_label, badge_color,
+                    price_tokens, is_active, sort_order
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (club_id, name, description, image_url, badge_label, int(price_tokens or 0), is_active, sort_order),
+                (
+                    club_id,
+                    name,
+                    description,
+                    image_url,
+                    badge_label,
+                    validate_case_badge_color(badge_color),
+                    int(price_tokens or 0),
+                    is_active,
+                    sort_order,
+                ),
             )
             new_id = int(cursor.lastrowid)
         conn.commit()
@@ -314,6 +361,7 @@ def update_case(
     description: str | None,
     image_url: str | None,
     badge_label: str | None,
+    badge_color: str,
     price_tokens: int,
     is_active: int,
     sort_order: int,
@@ -329,7 +377,7 @@ def update_case(
                 """
                 UPDATE club_cases
                 SET name = %s, description = %s, image_url = %s, badge_label = %s,
-                    price_tokens = %s, is_active = %s, sort_order = %s
+                    badge_color = %s, price_tokens = %s, is_active = %s, sort_order = %s
                 WHERE id = %s AND club_id = %s
                 """,
                 (
@@ -337,6 +385,7 @@ def update_case(
                     description,
                     image_url,
                     badge_label,
+                    validate_case_badge_color(badge_color),
                     int(price_tokens or 0),
                     is_active,
                     sort_order,
@@ -446,10 +495,10 @@ def duplicate_case(case_id: int, club_id: int) -> int:
             cursor.execute(
                 """
                 INSERT INTO club_cases (
-                    club_id, name, description, image_url, badge_label,
+                    club_id, name, description, image_url, badge_label, badge_color,
                     price_tokens, is_active, sort_order
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, 0, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)
                 """,
                 (
                     club_id,
@@ -457,6 +506,7 @@ def duplicate_case(case_id: int, club_id: int) -> int:
                     source_case.get("description"),
                     copied_cover_url,
                     source_case.get("badge_label"),
+                    normalize_case_badge_color(source_case.get("badge_color")),
                     int(source_case.get("price_tokens") or 0),
                     new_sort_order,
                 ),
@@ -657,6 +707,7 @@ def serialize_case(case):
         "description": case.get("description"),
         "image_url": case.get("image_url"),
         "badge_label": case.get("badge_label"),
+        "badge_color": normalize_case_badge_color(case.get("badge_color")),
         "price_tokens": int(case.get("price_tokens") or 0),
         "items": [serialize_case_item(i) for i in case.get("items") or []],
     }

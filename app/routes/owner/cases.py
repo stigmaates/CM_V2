@@ -16,6 +16,7 @@ from app.services.cases import (
     serialize_case_item,
     update_case,
     update_case_item,
+    validate_case_badge_color,
 )
 from app.services.upload_storage import (
     UploadError,
@@ -178,6 +179,7 @@ def case_add():
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
     badge_label = request.form.get("badge_label", "").strip()
+    badge_color_raw = request.form.get("badge_color", "").strip()
     price_raw = request.form.get("price_tokens", "").strip()
 
     if not name:
@@ -186,6 +188,7 @@ def case_add():
 
     try:
         price_tokens = _parse_int(price_raw, "Цена в жетонах")
+        badge_color = validate_case_badge_color(badge_color_raw)
         image_url = _get_uploaded_image_url(club_id=club_id, kind="case_cover")
     except (ValueError, UploadError) as e:
         flash(str(e), "error")
@@ -199,6 +202,7 @@ def case_add():
             description=description or None,
             image_url=image_url,
             badge_label=badge_label or None,
+            badge_color=badge_color,
             price_tokens=price_tokens,
             is_active=0,
             sort_order=sort_order,
@@ -235,6 +239,7 @@ def case_update(case_id):
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
     badge_label = request.form.get("badge_label", "").strip()
+    badge_color_raw = request.form.get("badge_color", "").strip()
     price_raw = request.form.get("price_tokens", "").strip()
     is_active = 1 if request.form.get("is_active") == "1" else 0
 
@@ -246,6 +251,7 @@ def case_update(case_id):
 
     try:
         price_tokens = _parse_int(price_raw, "Цена в жетонах")
+        badge_color = validate_case_badge_color(badge_color_raw)
         image_url = _get_uploaded_image_url(
             club_id=club_id,
             kind="case_cover",
@@ -263,6 +269,7 @@ def case_update(case_id):
             description=description or None,
             image_url=image_url,
             badge_label=badge_label or None,
+            badge_color=badge_color,
             price_tokens=price_tokens,
             is_active=is_active,
             sort_order=int(case.get("sort_order") or 0),

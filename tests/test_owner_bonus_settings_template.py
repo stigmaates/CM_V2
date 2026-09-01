@@ -132,6 +132,7 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
             "id": 42,
             "name": "Золотой кейс",
             "badge_label": "Редкий",
+            "badge_color": "#FFD469",
             "description": "Премиальные призы",
             "image_url": "/static/uploads/cases/gold.webp",
             "price_tokens": 3,
@@ -171,6 +172,11 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert 'data-open-case-config="caseConfigModal42"' in html
     assert 'id="caseConfigModal42"' in html
     assert "Настроить кейс: Золотой кейс" in html
+    assert 'name="badge_label"' in html
+    assert 'name="badge_color"' in html
+    assert 'type="color"' in html
+    assert 'value="#FFD469"' in html
+    assert "--case-badge-color: #FFD469" in html
     assert "document.body.style.overflow = 'hidden'" in html
     assert "modal.addEventListener('wheel', stopModalBackgroundScroll" in html
     assert "data-case-item-form data-no-loading" in html

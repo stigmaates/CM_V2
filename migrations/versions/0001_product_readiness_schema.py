@@ -335,6 +335,7 @@ def upgrade(cursor) -> None:
             description TEXT NULL,
             image_url TEXT NULL,
             badge_label VARCHAR(60) NULL,
+            badge_color VARCHAR(7) NOT NULL DEFAULT '#8F5BFF',
             price_tokens INT NOT NULL DEFAULT 0,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             sort_order INT NOT NULL DEFAULT 0,
