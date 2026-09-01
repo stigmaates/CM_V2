@@ -72,6 +72,25 @@
             linear-gradient(135deg, rgba(143, 91, 255, .22), rgba(20, 12, 36, .72));
         overflow: hidden;
     }
+    .case-showcase-badge {
+        position: absolute;
+        z-index: 2;
+        top: 12px;
+        left: 12px;
+        max-width: calc(100% - 24px);
+        padding: 5px 11px;
+        overflow: hidden;
+        border: 1px solid var(--case-badge-color, #8F5BFF);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--case-badge-color, #8F5BFF) 22%, rgba(20, 12, 36, .92));
+        box-shadow: 0 6px 18px color-mix(in srgb, var(--case-badge-color, #8F5BFF) 24%, transparent);
+        color: color-mix(in srgb, var(--case-badge-color, #8F5BFF) 58%, white);
+        font-size: 11px;
+        font-weight: 900;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
     .case-showcase-cover img {
         width: 100%;
         height: 100%;
@@ -157,6 +176,26 @@
     .case-showcase-actions .case-prob-total {
         flex: 0 0 auto;
         margin-left: auto;
+    }
+    .case-badge-color-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 46px;
+    }
+    .case-badge-color-input {
+        width: 64px;
+        min-width: 64px;
+        height: 44px;
+        padding: 4px;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 12px;
+        background: rgba(255,255,255,.06);
+        cursor: pointer;
+    }
+    .case-badge-color-control .muted {
+        margin: 0;
+        line-height: 1.35;
     }
     .case-config-modal .modal-panel--prize {
         width: min(980px, calc(100vw - 28px));
@@ -288,6 +327,9 @@
                 {% set case_prob_ok = (prob_sum - 100)|abs < 0.06 %}
                 <article class="case-showcase-card">
                     <div class="case-showcase-cover">
+                        {% if case.badge_label %}
+                            <span class="case-showcase-badge" style="--case-badge-color: {{ case.badge_color or '#8F5BFF' }};">{{ case.badge_label }}</span>
+                        {% endif %}
                         {% if case.image_url %}
                             <img src="{{ case.image_url }}" alt="{{ case.name }}">
                         {% else %}
@@ -335,8 +377,15 @@
                                     <input class="form-input" type="text" id="case_name_{{ case.id }}" name="name" value="{{ case.name }}" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="case_badge_{{ case.id }}">Метка (Обычный/Редкий…)</label>
-                                    <input class="form-input" type="text" id="case_badge_{{ case.id }}" name="badge_label" value="{{ case.badge_label or '' }}">
+                                    <label for="case_badge_{{ case.id }}">Текст ярлыка</label>
+                                    <input class="form-input" type="text" id="case_badge_{{ case.id }}" name="badge_label" value="{{ case.badge_label or '' }}" maxlength="60" placeholder="Например: x2 шанс редкого">
+                                </div>
+                                <div class="form-group">
+                                    <label for="case_badge_color_{{ case.id }}">Цвет ярлыка</label>
+                                    <div class="case-badge-color-control">
+                                        <input class="case-badge-color-input" type="color" id="case_badge_color_{{ case.id }}" name="badge_color" value="{{ case.badge_color or '#8F5BFF' }}">
+                                        <span class="muted">Цвет текста, рамки и подсветки</span>
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="case_price_{{ case.id }}">Цена, жетонов</label>
@@ -569,8 +618,15 @@
                     <input class="form-input" type="text" id="add_case_name" name="name" required>
                 </div>
                 <div class="form-group">
-                    <label for="add_case_badge">Метка (Обычный/Редкий…)</label>
-                    <input class="form-input" type="text" id="add_case_badge" name="badge_label" placeholder="Обычный">
+                    <label for="add_case_badge">Текст ярлыка</label>
+                    <input class="form-input" type="text" id="add_case_badge" name="badge_label" maxlength="60" placeholder="Например: x2 шанс редкого">
+                </div>
+                <div class="form-group">
+                    <label for="add_case_badge_color">Цвет ярлыка</label>
+                    <div class="case-badge-color-control">
+                        <input class="case-badge-color-input" type="color" id="add_case_badge_color" name="badge_color" value="#8F5BFF">
+                        <span class="muted">Цвет текста, рамки и подсветки</span>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="add_case_price">Цена, жетонов</label>

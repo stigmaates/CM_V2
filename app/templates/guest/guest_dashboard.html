@@ -899,6 +899,10 @@
             background: rgba(165, 114, 255, 0.18);
             border: 1px solid rgba(165, 114, 255, 0.32);
             color: #e6d9ff;
+            background: color-mix(in srgb, var(--case-badge-color, #8F5BFF) 20%, transparent);
+            border-color: color-mix(in srgb, var(--case-badge-color, #8F5BFF) 72%, transparent);
+            box-shadow: 0 5px 16px color-mix(in srgb, var(--case-badge-color, #8F5BFF) 18%, transparent);
+            color: color-mix(in srgb, var(--case-badge-color, #8F5BFF) 60%, white);
         }
         .case-tile-image {
             display: flex;
@@ -2554,7 +2558,7 @@
                         <div class="cases-grid cases-grid--{{ cases_density }}" id="casesGrid" data-count="{{ cases_count }}" data-density="{{ cases_density }}">
                             {% for case in cases_list %}
                                 <div class="case-tile" data-case-id="{{ case.id }}">
-                                    {% if case.badge_label %}<div class="case-tile-badge">{{ case.badge_label }}</div>{% endif %}
+                                    {% if case.badge_label %}<div class="case-tile-badge" style="--case-badge-color: {{ case.badge_color or '#8F5BFF' }};">{{ case.badge_label }}</div>{% endif %}
                                     <div class="case-tile-image">
                                         {% if case.image_url %}
                                             <img src="{{ case.image_url }}" alt="{{ case.name }}">
