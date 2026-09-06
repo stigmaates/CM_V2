@@ -76,9 +76,9 @@ def test_bot_phone_lookup_is_scoped_to_token_club(monkeypatch):
     assert params == (2,)
 
 
-def test_bot_login_prompt_explains_matching_phone_requirement():
+def test_bot_login_prompt_explains_phone_mismatch_flow():
     assert "Для входа отправьте свой номер телефона кнопкой ниже." in guest_bot.LOGIN_CONTACT_PROMPT
-    assert "телефон аккаунта должен совпадать с телефоном, зарегистрированным в клубе" in (
+    assert "бот поможет отправить заявку администратору" in (
         guest_bot.LOGIN_CONTACT_PROMPT
     )
 
