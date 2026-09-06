@@ -300,7 +300,7 @@ def test_confirm_token_is_scoped_unexpired_and_single_use(monkeypatch):
 def test_yes_submits_for_admin_review_without_authenticating(monkeypatch, delivery_fails):
     live_token(monkeypatch)
     update, context = update_and_context("confirm")
-    context.user_data["phone_link"]["guest"] = {"guest_id": 7, "phone": "9270086145"}
+    context.user_data["phone_link"]["guest"] = {"guest_id": 7, "phone": "9270086145", "fio": "Тестовый Гость Отчество"}
     update.callback_query.data = "lg_link:abc:yes"
     conn = Connection([{"cm_bonus_admin_chat_id": "-200"}])
     monkeypatch.setattr(flow, "get_db_connection", lambda: conn)
@@ -324,7 +324,9 @@ def test_yes_submits_for_admin_review_without_authenticating(monkeypatch, delive
     notification = admin_bot.send_message.call_args.kwargs
     assert notification["chat_id"] == "-200"
     assert "79990000000" not in notification["text"]
-    assert "9270086145" not in notification["text"]
+    assert "Номер LG: 9270086145" in notification["text"]
+    assert "Гость: Тестовый Гость Отчество" in notification["text"]
+    assert "ID аккаунта" not in notification["text"]
 
 
 def test_unmatched_own_contact_offers_both_choices(monkeypatch):
