@@ -14,6 +14,7 @@ from app.services.prize_claims import (
     format_prize_claim_message,
     mark_prize_claim_issued_by_telegram,
 )
+from bot.telegram_link_flow import review_callback
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -184,6 +185,7 @@ def main():
         )
 
     app = builder.build()
+    app.add_handler(CallbackQueryHandler(review_callback, pattern=r"^lg_review:\d+:(yes|no)$"))
     app.add_handler(CallbackQueryHandler(prize_claim_issued_callback, pattern=r"^prize_claim_issued:\d+$"))
     app.add_handler(CallbackQueryHandler(cm_bonus_credited_callback, pattern=r"^cm_bonus_credited:\d+$"))
     app.add_error_handler(error_handler)

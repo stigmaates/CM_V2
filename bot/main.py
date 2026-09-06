@@ -36,11 +36,13 @@ from app.services.prize_claims import (
     format_prize_claim_message,
     mark_prize_claim_issued_by_telegram,
 )
+from app.services.telegram_links import bind_verified_contact, find_linked_guest
 from app.services.topup_bonuses import award_first_authorization_reward
+from bot.telegram_link_flow import handle_lg_phone, offer_phone_choices, phone_choice_callback
 
 LOGIN_CONTACT_PROMPT = (
     "Для входа отправьте свой номер телефона кнопкой ниже.\n\n"
-    "*телефон аккаунта должен совпадать с телефоном, зарегистрированным в клубе"
+    "Если номер Telegram отличается от номера в клубе, бот поможет отправить заявку администратору."
 )
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -133,22 +135,8 @@ def find_guest_by_phone(phone: str, club_id: int):
         conn.close()
 
 
-def bind_telegram_to_guest(guest_id: int, club_id: int, telegram_id: int):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE guests
-                SET telegram_id = %s
-                WHERE club_id = %s
-                  AND guest_id = %s
-            """,
-                (telegram_id, club_id, guest_id),
-            )
-        conn.commit()
-    finally:
-        conn.close()
+def bind_telegram_to_guest(guest_id: int, club_id: int, telegram_id: int, expected_phone=None):
+    bind_verified_contact(guest_id, club_id, telegram_id, expected_phone=expected_phone)
 
 
 def get_login_token_row(token: str):
@@ -183,9 +171,12 @@ def confirm_login_token(token: str, guest_id: int, club_id: int, telegram_id: in
                     telegram_id = %s,
                     is_confirmed = 1
                 WHERE token = %s
+                  AND club_id = %s AND is_confirmed = 0 AND expires_at > UTC_TIMESTAMP()
             """,
-                (guest_id, club_id, telegram_id, token),
+                (guest_id, club_id, telegram_id, token, club_id),
             )
+            if cursor.rowcount != 1:
+                raise ValueError("Ссылка уже использована или устарела. Откройте новую ссылку входа.")
         conn.commit()
     finally:
         conn.close()
@@ -195,6 +186,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
         return
+    if not update.effective_chat or update.effective_chat.type != "private":
+        await message.reply_text("Для входа откройте личный чат с ботом.")
+        return
+    context.user_data.pop("phone_link", None)
+    context.user_data.pop("guest_login_token", None)
 
     args = context.args
 
@@ -217,6 +213,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["guest_login_token"] = token
 
+        if token_row.get("is_confirmed") or not token_row.get("club_id"):
+            await message.reply_text("Откройте новую ссылку входа на сайте клуба.")
+            return
+        try:
+            guest = find_linked_guest(int(token_row["club_id"]), update.effective_user.id)
+            if guest:
+                await complete_guest_login(message, context, guest, update.effective_user.id, token)
+                return
+        except ValueError as exc:
+            await message.reply_text(str(exc))
+            return
+
         keyboard = [[KeyboardButton("Отправить номер телефона", request_contact=True)]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
@@ -234,6 +242,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message or not message.contact:
+        return
+    if not update.effective_chat or update.effective_chat.type != "private":
         return
 
     contact = message.contact
@@ -256,6 +266,10 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text("Токен входа не найден.", reply_markup=ReplyKeyboardRemove())
         return
 
+    if token_row.get("is_confirmed"):
+        await message.reply_text("Ссылка уже использована. Откройте новую ссылку входа на сайте.")
+        return
+
     expires_at = token_row.get("expires_at")
     if expires_at and expires_at < datetime.utcnow():
         await message.reply_text(
@@ -263,7 +277,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if contact.user_id and contact.user_id != user.id:
+    if contact.user_id != user.id:
         await message.reply_text(
             "Пожалуйста, отправьте именно свой номер телефона.", reply_markup=ReplyKeyboardRemove()
         )
@@ -286,15 +300,21 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not guest:
-        await message.reply_text(
-            "Не можем найти Ваш номер! Если вы еще не зарегистрированы в клубе, пройдите регистрацию и возвращайтесь.",
-            reply_markup=ReplyKeyboardRemove(),
-        )
+        await offer_phone_choices(message, context, normalize_phone(contact.phone_number))
         return
 
-    bind_telegram_to_guest(guest_id=guest["guest_id"], club_id=guest["club_id"], telegram_id=user.id)
+    try:
+        bind_telegram_to_guest(guest_id=guest["guest_id"], club_id=guest["club_id"], telegram_id=user.id,
+                               expected_phone=guest["phone"])
+        await complete_guest_login(message, context, guest, user.id, token)
+    except ValueError as exc:
+        await message.reply_text(str(exc), reply_markup=ReplyKeyboardRemove())
 
-    confirm_login_token(token=token, guest_id=guest["guest_id"], club_id=guest["club_id"], telegram_id=user.id)
+
+async def complete_guest_login(message, context, guest, telegram_id, token):
+    confirm_login_token(token=token, guest_id=guest["guest_id"], club_id=guest["club_id"], telegram_id=telegram_id)
+    context.user_data.pop("phone_link", None)
+    context.user_data.pop("guest_login_token", None)
 
     guest_name = guest.get("fio") or f"ID {guest['guest_id']}"
 
@@ -606,10 +626,9 @@ async def route_done_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (message.text or "").strip() if message else ""
 
     logging.info(
-        "TEXT UPDATE RECEIVED: chat_id=%s user_id=%s text=%s",
+        "TEXT UPDATE RECEIVED: chat_id=%s user_id=%s",
         update.effective_chat.id if update.effective_chat else None,
         update.effective_user.id if update.effective_user else None,
-        text,
     )
 
     if re.match(r"^/done(?:@\w+)?\s+\d+\s*$", text, flags=re.IGNORECASE):
@@ -618,6 +637,8 @@ async def route_done_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await handle_lg_phone(update, context):
+        return
     if await handle_first_visit_survey_feedback(update, context):
         return
 
@@ -688,6 +709,7 @@ def main():
     )
 
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+    app.add_handler(CallbackQueryHandler(phone_choice_callback, pattern=r"^lg_link:[0-9a-f]{16}:(different|help|yes|no)$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_error_handler(error_handler)
 
