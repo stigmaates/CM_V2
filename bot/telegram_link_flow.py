@@ -112,7 +112,8 @@ async def phone_choice_callback(update, context):
                     chat_id=chat_id,
                     text=(
                         f"Привязка Telegram · заявка №{request_id}\nКлуб: {club_id}\n"
-                        f"ID аккаунта гостя в LG: {guest['guest_id']}\n\n"
+                        f"Гость: {guest.get('fio') or 'ФИО не указано'}\n"
+                        f"Номер LG: {guest['phone']}\n\n"
                         "Перед подтверждением найдите аккаунт в кабинете и проверьте личность гостя "
                         "в клубе. Попросите его показать эту заявку в своём Telegram. "
                         "Подтверждение предоставит доступ к кабинету и бонусам."
