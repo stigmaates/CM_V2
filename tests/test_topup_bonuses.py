@@ -1,4 +1,5 @@
-from datetime import datetime
+import sqlite3
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -58,8 +59,7 @@ def test_topup_bonus_claim_marks_matching_reward_inside_hour_as_skipped():
 
     duplicate_params = cursor.calls[0][1]
     insert_params = cursor.calls[1][1]
-    assert duplicate_params[3] == datetime(2026, 8, 27, 9, 32, 25)
-    assert duplicate_params[4] == datetime(2026, 8, 27, 11, 32, 25)
+    assert duplicate_params == (2, 15173, datetime(2026, 8, 27, 9, 32, 25), datetime(2026, 8, 27, 11, 32, 25))
     assert insert_params[5] == 0
     assert insert_params[7] == "skipped_duplicate"
     assert insert_params[8] == "skipped"
@@ -80,6 +80,87 @@ def test_topup_bonus_claim_returns_exists_for_already_processed_topup():
     cursor = _TopupClaimCursor(insert_rowcount=0)
 
     assert _claim_topup(cursor) == "exists"
+
+
+@pytest.mark.parametrize(
+    "amount,seconds,club_id,guest_id,expected",
+    [
+        (1000, 4, 2, 23210, "duplicate"),
+        (2000, 4, 2, 23210, "duplicate"),
+        (3000, 4, 2, 23210, "duplicate"),
+        (1000, -4, 2, 23210, "duplicate"),
+        (1000, 3600, 2, 23210, "duplicate"),
+        (1000, 3601, 2, 23210, "awarded"),
+        (1000, 4, 3, 23210, "awarded"),
+        (1000, 4, 2, 23211, "awarded"),
+    ],
+)
+def test_topup_cooldown_executes_sql_independently_of_amount(amount, seconds, club_id, guest_id, expected):
+    # Execute the production query against real tables; only adapt driver syntax.
+    # This covers sequential processing, not MySQL locking/concurrent workers.
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+
+    class Cursor:
+        def __init__(self):
+            self.raw = conn.cursor()
+
+        def execute(self, query, params):
+            values = [
+                value.isoformat(" ")
+                if isinstance(value, datetime)
+                else str(value)
+                if isinstance(value, Decimal)
+                else value
+                for value in params
+            ]
+            self.raw.execute(query.replace("%s", "?").replace("INSERT IGNORE", "INSERT OR IGNORE"), values)
+
+        def fetchone(self):
+            return self.raw.fetchone()
+
+        @property
+        def rowcount(self):
+            return self.raw.rowcount
+
+    try:
+        conn.executescript("""
+            CREATE TABLE guest_balance_topups (
+                club_id INTEGER, topup_id INTEGER, guest_id INTEGER,
+                amount NUMERIC, topup_at TEXT
+            );
+            CREATE TABLE guest_topup_bonus_awards (
+                id INTEGER PRIMARY KEY, club_id INTEGER, topup_id INTEGER, guest_id INTEGER,
+                rule_id INTEGER, topup_amount NUMERIC, bonus_amount INTEGER,
+                reward_type TEXT, status TEXT, delivery_status TEXT, telegram_id INTEGER,
+                created_at TEXT, UNIQUE(club_id, topup_id)
+            );
+        """)
+        cursor = Cursor()
+        first_at = datetime(2026, 9, 6, 15, 34, 32)
+        for topup_id, club, guest, value, when, outcome in [
+            (701980, 2, 23210, 2000, first_at, "awarded"),
+            (701981, club_id, guest_id, amount, first_at + timedelta(seconds=seconds), expected),
+        ]:
+            cursor.execute(
+                "INSERT INTO guest_balance_topups VALUES (%s, %s, %s, %s, %s)",
+                (club, topup_id, guest, value, when),
+            )
+            assert (
+                _claim_topup_bonus_award(
+                    cursor,
+                    club_id=club,
+                    topup={"topup_id": topup_id, "guest_id": guest, "amount": Decimal(value), "topup_at": when},
+                    rule={"id": 7, "bonus_amount": 300, "reward_type": "cm_bonus"},
+                    awarded_at=datetime(2026, 9, 6, 15, 36, 6),
+                )
+                == outcome
+            )
+        row = conn.execute("SELECT * FROM guest_topup_bonus_awards WHERE topup_id = 701981").fetchone()
+        assert row["bonus_amount"] == (0 if expected == "duplicate" else 300)
+        assert row["status"] == ("skipped_duplicate" if expected == "duplicate" else "awarded")
+    finally:
+        conn.close()
 
 
 def test_select_topup_bonus_rule_uses_highest_matching_threshold():

@@ -328,7 +328,7 @@ def _claim_topup_bonus_award(
     rule: dict[str, Any],
     awarded_at: datetime,
 ) -> str:
-    """Claim one reward per equal guest topup amount inside the cooldown window."""
+    """Claim one reward per guest and club within one hour of LG topup time, regardless of amount."""
     window_start = topup["topup_at"] - TOPUP_BONUS_DUPLICATE_WINDOW
     window_end = topup["topup_at"] + TOPUP_BONUS_DUPLICATE_WINDOW
     cursor.execute(
@@ -342,7 +342,6 @@ def _claim_topup_bonus_award(
         WHERE a.club_id = %s
           AND a.guest_id = %s
           AND a.status = 'awarded'
-          AND rewarded_topup.amount = %s
           AND rewarded_topup.topup_at >= %s
           AND rewarded_topup.topup_at <= %s
         LIMIT 1
@@ -350,7 +349,6 @@ def _claim_topup_bonus_award(
         (
             club_id,
             topup["guest_id"],
-            topup["amount"],
             window_start,
             window_end,
         ),
