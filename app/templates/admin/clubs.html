@@ -20,6 +20,7 @@
                     <th><button type="button" class="clubs-sort-btn" data-column="3" data-type="number">Гостей <span class="clubs-sort-indicator">↕</span></button></th>
                     <th><button type="button" class="clubs-sort-btn" data-column="4" data-type="number">С Telegram <span class="clubs-sort-indicator">↕</span></button></th>
                     <th><button type="button" class="clubs-sort-btn" data-column="5" data-type="text">Обслуживание <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="6" data-type="text" title="Дата запуска первой успешной initial-загрузки гостей, в часовом поясе клуба">Начало сотрудничества <span class="clubs-sort-indicator">↕</span></button></th>
                 </tr>
             </thead>
             <tbody>
@@ -35,9 +36,10 @@
                                 {{ 'Включено' if club.service_enabled else 'Выключено' }}
                             </span>
                         </td>
+                        <td data-sort-value="{{ club.cooperation_started_sort or '' }}" title="{{ 'Первая успешная initial-загрузка гостей' if club.cooperation_started_date else 'Нет данных об успешной initial-загрузке гостей' }}">{{ club.cooperation_started_date or '—' }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="6" class="empty-cell">Клубов пока нет</td></tr>
+                    <tr><td colspan="7" class="empty-cell">Клубов пока нет</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -142,7 +144,7 @@ function formatValue(value) {
 
 function getClubSortValue(row, column, type) {
     const cell = row.cells[column];
-    const rawValue = (cell ? cell.textContent : '').trim();
+    const rawValue = (cell ? (cell.dataset.sortValue ?? cell.textContent) : '').trim();
     if (type === 'number') {
         const numericValue = Number(rawValue.replace(/\s+/g, '').replace(',', '.'));
         return Number.isFinite(numericValue) ? numericValue : 0;
