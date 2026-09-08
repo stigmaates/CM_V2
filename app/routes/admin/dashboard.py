@@ -12,6 +12,7 @@ from app.services.operational_alerts import get_operational_alerts, summarize_al
 from app.services.service_control import get_restart_controls, restart_allowed_service
 from app.services.support_health import build_admin_readiness, get_admin_system_health
 from app.services.test_guests import ensure_test_guest
+from app.services.timezones import utc_datetime_to_club_local
 
 SYNC_JOB_TYPES = [
     "sync_guests_incremental",
@@ -165,6 +166,8 @@ def table_has_column(table_name: str, column_name: str) -> bool:
 
 def get_clubs_for_admin():
     service_enabled_expr = "c.service_enabled" if table_has_column("clubs", "service_enabled") else "1"
+    cooperation_expr = "c.cooperation_started_at" if table_has_column("clubs", "cooperation_started_at") else "NULL"
+    timezone_expr = "c.timezone" if table_has_column("clubs", "timezone") else "NULL"
     with get_db_connection() as db:
         with db.cursor() as cur:
             cur.execute(f"""
@@ -173,6 +176,8 @@ def get_clubs_for_admin():
                     {service_enabled_expr} AS service_enabled,
                     c.name,
                     c.owner_id,
+                    {cooperation_expr} AS cooperation_started_at,
+                    {timezone_expr} AS timezone,
                     u.name AS owner_name,
                     u.login AS owner_login,
                     COALESCE(guest_stats.guests_count, 0) AS guests_count,
@@ -189,7 +194,12 @@ def get_clubs_for_admin():
                 ) guest_stats ON guest_stats.club_id = c.club_id
                 ORDER BY c.club_id DESC
                 """)
-            return cur.fetchall()
+            clubs = cur.fetchall()
+    for club in clubs:
+        local_start = utc_datetime_to_club_local(club.get("cooperation_started_at"), club.get("timezone"))
+        club["cooperation_started_date"] = local_start.strftime("%d.%m.%Y") if local_start else None
+        club["cooperation_started_sort"] = local_start.strftime("%Y-%m-%d") if local_start else ""
+    return clubs
 
 
 def get_admin_metrics():

@@ -45,6 +45,7 @@ def test_guests_initial_reports_page_progress(monkeypatch):
         ],
     )
     monkeypatch.setattr(sync_guests, "save_guests", lambda club_id, guests: None)
+    monkeypatch.setattr(sync_guests, "record_cooperation_start", lambda club_id, started_at: None)
 
     result = sync_guests.sync_guests(1, progress=progress_messages.append)
 

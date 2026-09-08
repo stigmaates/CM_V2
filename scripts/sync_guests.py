@@ -1,6 +1,6 @@
 import argparse
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Callable
 
 import httpx
@@ -208,7 +208,26 @@ def save_guests(club_id: int, guests: list):
         conn.close()
 
 
+def record_cooperation_start(club_id: int, started_at: datetime) -> None:
+    """Keep the earliest successful initial run, including overlapping runs."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE clubs
+                SET cooperation_started_at = LEAST(COALESCE(cooperation_started_at, %s), %s)
+                WHERE club_id = %s
+                """,
+                (started_at, started_at, club_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def sync_guests(club_id: int, progress: Callable[[str], None] | None = None):
+    started_at = datetime.now(UTC).replace(tzinfo=None)
     logging.info(f"Синхронизация гостей для клуба {club_id}")
 
     club = get_club_data(club_id)
@@ -234,6 +253,7 @@ def sync_guests(club_id: int, progress: Callable[[str], None] | None = None):
         progress(f"Гости: получено из API {len(guests)}. Сохраняем в базу")
 
     save_guests(club_id, guests)
+    record_cooperation_start(club_id, started_at)
 
     logging.info(f"Синхронизация гостей клуба {club_id} завершена")
     if progress:
