@@ -9,6 +9,7 @@ import httpx
 from app.config import CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL
 from app.core import get_db_connection
 from app.services.cm_bonuses import get_cm_bonus_admin_chat_id_for_club
+from app.services.timezones import utc_datetime_to_club_local
 
 _prize_claim_tables_ready = False
 
@@ -98,7 +99,11 @@ def format_prize_claim_message(claim: dict[str, Any], issued: bool = False) -> s
     status = claim.get("status") or "pending"
     if issued or status == "issued":
         issued_by = claim.get("issued_by_username") or "администратор"
-        issued_at = _format_dt(claim.get("issued_at"))
+        issued_at = utc_datetime_to_club_local(
+            claim.get("issued_at"),
+            claim.get("club_timezone"),
+        )
+        issued_at = _format_dt(issued_at)
         return (
             "✅ <b>Приз выдан</b>\n\n"
             f"ID заявки: <code>{claim_id}</code>\n\n"
@@ -110,7 +115,7 @@ def format_prize_claim_message(claim: dict[str, Any], issued: bool = False) -> s
             f"{description_line}"
             "Статус: <b>выдан</b>\n"
             f"Выдал: <b>{_html(issued_by)}</b>\n"
-            f"Дата выдачи: <b>{_html(issued_at)}</b>"
+            f"Дата выдачи (время клуба): <b>{_html(issued_at)}</b>"
         )
 
     return (
@@ -211,11 +216,13 @@ def get_prize_claim_by_id(claim_id: int) -> dict[str, Any] | None:
                 """
                 SELECT c.*,
                        g.fio AS guest_name,
-                       g.phone AS guest_phone
+                       g.phone AS guest_phone,
+                       club.timezone AS club_timezone
                 FROM guest_prize_claims c
                 LEFT JOIN guests g
                   ON g.guest_id = c.guest_id
                  AND g.club_id = c.club_id
+                LEFT JOIN clubs club ON club.club_id = c.club_id
                 WHERE c.id = %s
                 LIMIT 1
                 """,
@@ -367,11 +374,13 @@ def mark_prize_claim_issued_by_telegram(
                 """
                 SELECT c.*,
                        g.fio AS guest_name,
-                       g.phone AS guest_phone
+                       g.phone AS guest_phone,
+                       club.timezone AS club_timezone
                 FROM guest_prize_claims c
                 LEFT JOIN guests g
                   ON g.guest_id = c.guest_id
                  AND g.club_id = c.club_id
+                LEFT JOIN clubs club ON club.club_id = c.club_id
                 WHERE c.id = %s
                 LIMIT 1
                 FOR UPDATE
