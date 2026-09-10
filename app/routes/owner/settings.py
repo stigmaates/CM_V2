@@ -1,4 +1,6 @@
-from flask import flash, redirect, render_template, request, session, url_for
+from uuid import uuid4
+
+from flask import current_app, flash, redirect, render_template, request, session, url_for
 
 from app.config import TOPUP_BONUS_MAX_AMOUNT
 from app.core import OWNER_ACCESS_ROLES, owner_required
@@ -10,6 +12,7 @@ from app.services.guest_management import (
     get_owner_guest_lookup,
     set_guest_module_ban,
 )
+from app.services.managed_drops import cancel_managed_drop, create_managed_drop, get_managed_drop_page
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.owner_profile import get_owner_profile, update_owner_profile
 from app.services.pc_heatmap import get_pc_name_settings, save_pc_name_settings
@@ -28,8 +31,56 @@ from app.services.wheel import get_wheel_prizes_for_admin, get_wheel_settings_fo
 
 from . import owner_bp
 
-SETTINGS_TABS = {"club", "missions", "wheel", "profile", "guests"}
+SETTINGS_TABS = {"club", "missions", "wheel", "profile", "guests", "managed-drops"}
 BONUS_EDITORS = {"wheel", "cases"}
+
+
+@owner_bp.route("/settings/managed-drops", methods=["POST"])
+@owner_required
+def settings_managed_drop_create():
+    phone = request.form.get("phone", "").strip()
+    try:
+        drop_id = create_managed_drop(
+            club_id=int(session["club_id"]),
+            guest_id=int(request.form.get("guest_id") or 0),
+            phone=phone,
+            target=request.form.get("target", ""),
+            prize_id=int(request.form.get("prize_id") or 0),
+            actor_user_id=int(session["user_id"]),
+            actor_name=session.get("name") or session.get("login"),
+            request_key=request.form.get("request_key"),
+        )
+        record_audit_event(
+            action="owner.managed_drop.create",
+            club_id=int(session["club_id"]),
+            entity_type="managed_drop",
+            entity_id=drop_id,
+        )
+        flash("Назначение сохранено. Приз выпадет при следующем открытии выбранного кейса или колеса", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    except Exception:
+        current_app.logger.exception("Failed to create managed drop")
+        flash("Не удалось сохранить назначение. Попробуйте ещё раз", "error")
+    return redirect(url_for("owner.settings", tab="managed-drops", phone=phone))
+
+
+@owner_bp.route("/settings/managed-drops/<int:drop_id>/cancel", methods=["POST"])
+@owner_required
+def settings_managed_drop_cancel(drop_id):
+    changed = cancel_managed_drop(int(session["club_id"]), drop_id, int(session["user_id"]))
+    if changed:
+        record_audit_event(
+            action="owner.managed_drop.cancel",
+            club_id=int(session["club_id"]),
+            entity_type="managed_drop",
+            entity_id=drop_id,
+        )
+    flash(
+        "Назначение отменено" if changed else "Назначение уже выполнено, отменено или не найдено",
+        "success" if changed else "error",
+    )
+    return redirect(url_for("owner.settings", tab="managed-drops", phone=request.form.get("phone", "")))
 
 
 @owner_bp.route("/settings/profile", methods=["POST"])
@@ -419,6 +470,18 @@ def settings():
             flash("Профиль владельца не найден", "error")
             return redirect(url_for("owner.settings", tab="club"))
         context["profile_user"] = profile_user
+
+    if active_tab == "managed-drops":
+        phone = request.args.get("phone", "").strip()
+        context["drop_phone"] = phone
+        context["drop_request_key"] = str(uuid4())
+        context["drop_page"] = get_managed_drop_page(
+            club_id_int,
+            phone,
+            show_all=request.args.get("history") == "all",
+            page=request.args.get("page", 1, type=int),
+            timezone_name=(club or {}).get("timezone"),
+        )
 
     if active_tab == "guests":
         phone = request.args.get("phone", "").strip()
