@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -5,7 +6,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import pymysql
@@ -14,6 +15,7 @@ from pymysql.cursors import DictCursor
 from app.config import BALANCE_TOPUP_MAX_AMOUNT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 from app.services.crm_pulse import record_crm_status_changes
 from app.services.crm_segments import calculate_crm_segment
+from app.services.timezones import utc_datetime_to_club_local
 
 
 def get_connection():
@@ -345,6 +347,68 @@ def fetch_spins_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
     return result
 
 
+def fetch_cases_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT o.club_id, o.guest_id, o.case_id, c.name AS case_name,
+                   COUNT(*) AS openings_count, MAX(o.created_at) AS last_opening_at
+            FROM guest_case_openings o
+            LEFT JOIN club_cases c ON c.id = o.case_id AND c.club_id = o.club_id
+            GROUP BY o.club_id, o.guest_id, o.case_id, c.name
+            ORDER BY o.club_id, o.guest_id, o.case_id
+            """)
+        rows = cur.fetchall()
+    result = {}
+    for row in rows:
+        key = (int(row["club_id"]), int(row["guest_id"]))
+        agg = result.setdefault(
+            key, {"case_openings_count": 0, "last_case_opening_date": None, "case_openings_by_case": []}
+        )
+        count = int(row["openings_count"])
+        last = row["last_opening_at"]
+        agg["case_openings_count"] += count
+        if last and (agg["last_case_opening_date"] is None or last > agg["last_case_opening_date"]):
+            agg["last_case_opening_date"] = last
+        agg["case_openings_by_case"].append(
+            {
+                "case_id": int(row["case_id"]),
+                "name": row["case_name"] or f"Кейс #{row['case_id']} (удалён)",
+                "openings_count": count,
+                "last_opening_at": last.replace(tzinfo=UTC).isoformat() if last else None,
+            }
+        )
+    return result
+
+
+def fetch_missions_agg(conn, now_utc: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT h.club_id, h.guest_id, COUNT(*) AS completed_count,
+                   MIN(h.completed_at) AS first_completed_at,
+                   MAX(h.completed_at) AS last_completed_at, c.timezone AS club_timezone
+            FROM guest_mission_completions h
+            LEFT JOIN clubs c ON c.club_id = h.club_id
+            WHERE h.completed_at <= %s
+            GROUP BY h.club_id, h.guest_id, c.timezone
+            """,
+            (now_utc,),
+        )
+        rows = cur.fetchall()
+    result = {}
+    for row in rows:
+        first = utc_datetime_to_club_local(row["first_completed_at"], row["club_timezone"])
+        local_now = utc_datetime_to_club_local(now_utc, row["club_timezone"])
+        months = max((local_now.year - first.year) * 12 + local_now.month - first.month + 1, 1)
+        count = int(row["completed_count"])
+        result[(int(row["club_id"]), int(row["guest_id"]))] = {
+            "missions_completed_count": count,
+            "avg_missions_per_month": round(count / months, 2),
+            "last_mission_activity_date": row["last_completed_at"],
+        }
+    return result
+
+
 def build_records(conn) -> List[Dict[str, Any]]:
     now = datetime.now()
 
@@ -352,6 +416,8 @@ def build_records(conn) -> List[Dict[str, Any]]:
     sessions = fetch_sessions_agg(conn, now)
     topups = fetch_topups_agg(conn, now)
     spins = fetch_spins_agg(conn)
+    cases = fetch_cases_agg(conn)
+    missions = fetch_missions_agg(conn, datetime.now(UTC).replace(tzinfo=None))
 
     records: List[Dict[str, Any]] = []
 
@@ -366,6 +432,8 @@ def build_records(conn) -> List[Dict[str, Any]]:
         sess = sessions.get(key, {})
         ops = topups.get(key, {})
         spn = spins.get(key, {})
+        case = cases.get(key, {})
+        mission = missions.get(key, {})
 
         birth_date = g.get("birth_date")
         age = calc_age(birth_date, now)
@@ -408,9 +476,13 @@ def build_records(conn) -> List[Dict[str, Any]]:
             "avg_check_all": ops.get("avg_check_all"),
             "avg_check_30d": ops.get("avg_check_30d"),
             "last_payment_date": ops.get("last_payment_date"),
-            "missions_completed_count": 0,
+            "missions_completed_count": mission.get("missions_completed_count", 0),
+            "avg_missions_per_month": mission.get("avg_missions_per_month", 0),
             "missions_in_progress_count": 0,
-            "last_mission_activity_date": None,
+            "last_mission_activity_date": mission.get("last_mission_activity_date"),
+            "case_openings_count": case.get("case_openings_count", 0),
+            "last_case_opening_date": case.get("last_case_opening_date"),
+            "case_openings_by_case": json.dumps(case.get("case_openings_by_case", []), ensure_ascii=False),
             "spins_count": spn.get("spins_count", 0),
             "last_spin_date": spn.get("last_spin_date"),
             "lifetime_days": sess.get("lifetime_days"),
@@ -456,6 +528,10 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             avg_check_30d,
             last_payment_date,
             missions_completed_count,
+            avg_missions_per_month,
+            case_openings_count,
+            last_case_opening_date,
+            case_openings_by_case,
             missions_in_progress_count,
             last_mission_activity_date,
             spins_count,
@@ -493,6 +569,10 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             %(avg_check_30d)s,
             %(last_payment_date)s,
             %(missions_completed_count)s,
+            %(avg_missions_per_month)s,
+            %(case_openings_count)s,
+            %(last_case_opening_date)s,
+            %(case_openings_by_case)s,
             %(missions_in_progress_count)s,
             %(last_mission_activity_date)s,
             %(spins_count)s,
@@ -529,6 +609,10 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             avg_check_30d = VALUES(avg_check_30d),
             last_payment_date = VALUES(last_payment_date),
             missions_completed_count = VALUES(missions_completed_count),
+            avg_missions_per_month = VALUES(avg_missions_per_month),
+            case_openings_count = VALUES(case_openings_count),
+            last_case_opening_date = VALUES(last_case_opening_date),
+            case_openings_by_case = VALUES(case_openings_by_case),
             missions_in_progress_count = VALUES(missions_in_progress_count),
             last_mission_activity_date = VALUES(last_mission_activity_date),
             spins_count = VALUES(spins_count),

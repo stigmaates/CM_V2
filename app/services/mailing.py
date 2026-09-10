@@ -119,6 +119,11 @@ FILTER_FIELDS = {
         "column": "up.missions_in_progress_count",
         "label": "Миссий в процессе",
     },
+    "avg_missions_per_month": {
+        "type": "number",
+        "column": "up.avg_missions_per_month",
+        "label": "Среднее выполненных заданий в месяц",
+    },
     "last_mission_activity_date": {
         "type": "date",
         "column": "up.last_mission_activity_date",
