@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, award_cm_bonuses_for_wheel_prize, ensure_cm_bonus_tables
+from app.services.mission_history import record_mission_completion
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import (
     create_prize_claim,
@@ -667,6 +668,8 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
             for mission in missions:
                 if not mission.get("is_completed"):
                     continue
+
+                record_mission_completion(cursor, club_id, guest_id, mission["id"])
 
                 token_reward = int(mission.get("token_reward") or 0)
                 cm_bonus_reward = int(mission.get("cm_bonus_reward") or 0)

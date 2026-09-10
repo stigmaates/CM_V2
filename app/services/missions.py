@@ -561,7 +561,11 @@ def is_mission_active(mission, now=None) -> bool:
 def _next_club_mission_id(cursor) -> int:
     cursor.execute("""
         SELECT COALESCE(MAX(id), 0) + 1 AS next_id
-        FROM club_missions
+        FROM (
+            SELECT id FROM club_missions
+            UNION ALL
+            SELECT CAST(mission_id AS UNSIGNED) AS id FROM guest_mission_completions
+        ) mission_ids
         """)
     row = cursor.fetchone() or {}
     return int(row.get("next_id") or 1)
