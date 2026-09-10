@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, award_cm_bonuses_for_wheel_prize, ensure_cm_bonus_tables
+from app.services.managed_drops import consume_managed_drop, reserve_managed_drop
 from app.services.mission_history import record_mission_completion
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import (
@@ -831,18 +832,47 @@ def choose_wheel_prize(prizes):
 def save_guest_wheel_spin(
     guest_id: int,
     club_id: int,
-    prize_id: int,
+    prize_id: int | None = None,
     spent_tokens: int = 2,
     *,
     test_mode: bool = False,
+    return_prize: bool = False,
 ):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             ensure_token_tables(cursor)
+            ensure_cm_bonus_tables(cursor)
+            ensure_prize_claim_tables(cursor)
+            ensure_wheel_prize_bonus_columns(cursor)
             balance = _get_balance_for_update(cursor, guest_id, club_id)
             if balance < int(spent_tokens):
                 raise ValueError("no_tokens")
+
+            cursor.execute(
+                """SELECT id, name, description, image_url, icon_emoji, bonus_amount, token_amount, probability
+                   FROM club_wheel_prizes WHERE club_id = %s AND is_active = 1 ORDER BY sort_order, id""",
+                (club_id,),
+            )
+            prizes = cursor.fetchall()
+            drop_id, prize = reserve_managed_drop(
+                cursor,
+                club_id=club_id,
+                guest_id=guest_id,
+                kind="wheel",
+                target_id=0,
+                prizes=prizes,
+                test_mode=test_mode,
+            )
+            if prize is None:
+                prize = (
+                    next((p for p in prizes if p["id"] == prize_id), None)
+                    if prize_id is not None
+                    else choose_wheel_prize(prizes)
+                )
+            if not prize:
+                raise ValueError("invalid_prizes_config")
+            prize_id = prize["id"]
 
             cursor.execute(
                 """
@@ -868,17 +898,6 @@ def save_guest_wheel_spin(
                 description="Прокрут колеса фортуны",
             )
 
-            ensure_wheel_prize_bonus_columns(cursor)
-            cursor.execute(
-                """
-                SELECT id, name, description, image_url, icon_emoji, bonus_amount, token_amount
-                FROM club_wheel_prizes
-                WHERE id = %s AND club_id = %s
-                LIMIT 1
-                """,
-                (prize_id, club_id),
-            )
-            prize = cursor.fetchone()
             bonus_awarded = award_cm_bonuses_for_wheel_prize(
                 cursor=cursor,
                 guest_id=guest_id,
@@ -908,14 +927,18 @@ def save_guest_wheel_spin(
                     prize=prize,
                     test_mode=test_mode,
                 )
+            consume_managed_drop(cursor, drop_id, spin_id)
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
     if claim_id:
         notify_prize_claim_admin_chat(claim_id)
 
-    return spin_id
+    return (spin_id, prize) if return_prize else spin_id
 
 
 def serialize_wheel_prize(prize):

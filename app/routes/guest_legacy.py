@@ -12,7 +12,6 @@ from app.services.guest_auth import (
 )
 from app.services.missions import get_guest_missions_with_progress
 from app.services.wheel import (
-    choose_wheel_prize,
     get_guest_profile_stats,
     get_guest_tokens,
     get_wheel_prizes,
@@ -163,16 +162,16 @@ def api_wheel_spin():
     if not prizes:
         return {"error": "no_prizes"}, 400
 
-    prize = choose_wheel_prize(prizes)
-    if not prize:
-        return {"error": "invalid_prizes_config"}, 400
-
-    spin_id = save_guest_wheel_spin(
-        guest_id=guest_id,
-        club_id=club_id,
-        prize_id=prize["id"],
-        spent_tokens=spin_cost,
-    )
+    try:
+        spin_id, prize = save_guest_wheel_spin(
+            guest_id=guest_id,
+            club_id=club_id,
+            spent_tokens=spin_cost,
+            test_mode=bool(session.get("guest_test_mode")),
+            return_prize=True,
+        )
+    except ValueError as exc:
+        return {"error": str(exc)}, 400
 
     tokens_after = get_guest_tokens(guest_id, club_id)
 

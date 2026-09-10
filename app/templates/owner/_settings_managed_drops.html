@@ -1,0 +1,116 @@
+<style>
+    .managed-drop-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+    .managed-drop-form .form-input { width: 100%; }
+    .managed-drop-form__footer { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .managed-drop-hint { color: var(--text-muted, #b5a5cb); line-height: 1.55; font-size: 14px; }
+    .managed-drop-row { padding: 20px 0; border-top: 1px solid rgba(160, 120, 220, .2); display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 18px; align-items: start; overflow-wrap: anywhere; }
+    .managed-drop-row strong, .managed-drop-row span { display: block; }
+    .managed-drop-status { color: #bc9cff; font-weight: 700; }
+    .managed-drop-status--consumed { color: #7fe0b3; }
+    .managed-drop-status--cancelled, .managed-drop-status--invalid { color: #c4b8d4; }
+    .managed-drop-history-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+    @media (max-width: 850px) { .managed-drop-form, .managed-drop-row { grid-template-columns: 1fr; } }
+</style>
+<div class="settings-guests">
+    <div class="card settings-guests-card">
+        <div class="section-title">Управляемое выпадение</div>
+        <p class="managed-drop-hint">Выберите приз для следующего открытия конкретного гостя. Назначение действует один раз, затем возвращаются обычные вероятности. Стоимость открытия не меняется.</p>
+        <form class="settings-guests-search" method="GET" action="{{ url_for('owner.settings') }}">
+            <input type="hidden" name="tab" value="managed-drops">
+            <div class="form-group">
+                <label for="drop-phone">Номер телефона в системе клуба</label>
+                <input class="form-input" type="tel" id="drop-phone" name="phone" value="{{ drop_phone }}" placeholder="+7 900 000-00-00" required autocomplete="off">
+            </div>
+            <button class="btn" type="submit">Найти гостя</button>
+        </form>
+        {% if drop_phone and not drop_page.guests %}
+            <p class="managed-drop-hint">В текущем клубе гость с таким номером не найден.</p>
+        {% elif drop_page.guests %}
+            {% if drop_page.targets %}
+                <form method="POST" action="{{ url_for('owner.settings_managed_drop_create') }}" class="managed-drop-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="phone" value="{{ drop_phone }}">
+                    <input type="hidden" name="request_key" value="{{ drop_request_key }}">
+                    <div class="form-group">
+                        <label for="drop-guest">Гость</label>
+                        <select id="drop-guest" class="form-input" name="guest_id" required>
+                            {% for guest in drop_page.guests %}
+                                <option value="{{ guest.guest_id }}">{{ guest.fio or 'Без имени' }} · {{ guest.phone }}{% if drop_page.guests|length > 1 %} · ID {{ guest.guest_id }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="drop-target">Кейс или колесо фортуны</label>
+                        <select id="drop-target" class="form-input" name="target" required>
+                            {% for target in drop_page.targets %}<option value="{{ target.key }}">{{ target.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="drop-prize">Приз при следующем открытии</label>
+                        <select id="drop-prize" class="form-input" name="prize_id" required>
+                            {% for prize in drop_page.targets[0].prizes %}<option value="{{ prize.id }}">{{ prize.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="managed-drop-form__footer">
+                        <button class="btn" type="submit">Назначить выпадение</button>
+                        <span class="managed-drop-hint">Один раз · Только выбранный кейс или колесо · Можно отменить</span>
+                    </div>
+                </form>
+                <script>
+                    (() => {
+                        const targets = {{ drop_page.targets | tojson }};
+                        const targetInput = document.getElementById('drop-target');
+                        const prizeInput = document.getElementById('drop-prize');
+                        targetInput.addEventListener('change', () => {
+                            const selected = targets.find(target => target.key === targetInput.value);
+                            prizeInput.replaceChildren(...(selected?.prizes || []).map(prize => new Option(prize.name, prize.id)));
+                        });
+                    })();
+                </script>
+            {% else %}
+                <p class="managed-drop-hint">Сначала добавьте активный кейс с призами или включите колесо фортуны в бонусной механике.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+    <div class="card settings-guests-card">
+        <div class="managed-drop-history-head">
+            <div>
+                <div class="section-title">История назначений · {{ drop_page.total }}</div>
+                <div class="managed-drop-hint">{% if drop_page.show_all %}Все назначения клуба{% else %}Последние 5 назначений клуба{% endif %} · {{ club_timezone_label }}</div>
+            </div>
+            {% if drop_page.show_all %}
+                <a class="btn" href="{{ url_for('owner.settings', tab='managed-drops', phone=drop_phone) }}">Свернуть</a>
+            {% elif drop_page.total > 5 %}
+                <a class="btn" href="{{ url_for('owner.settings', tab='managed-drops', phone=drop_phone, history='all') }}">Показать всю историю</a>
+            {% endif %}
+        </div>
+        {% for row in drop_page.history %}
+            <article class="managed-drop-row">
+                <div><strong>{{ row.guest_name or 'Без имени' }}</strong><span class="managed-drop-hint">{{ row.guest_phone or 'Номер не указан' }}</span></div>
+                <div><strong>{{ row.prize_name }}</strong><span class="managed-drop-hint">{{ row.target_name }}</span></div>
+                <div>
+                    <span class="managed-drop-status managed-drop-status--{{ row.status }}">{{ row.status_label }}</span>
+                    <span class="managed-drop-hint">Назначено {{ row.created_at_label }} · {{ row.actor_name or ('Пользователь #' ~ row.actor_user_id) }}</span>
+                    {% if row.finished_at %}<span class="managed-drop-hint">{{ row.finished_at_label }}{% if row.opening_id %} · Открытие №{{ row.opening_id }}{% endif %}</span>{% endif %}
+                    {% if row.reason %}<span class="managed-drop-hint">{{ row.reason }}</span>{% endif %}
+                </div>
+                <div>
+                    {% if row.status == 'pending' %}
+                        <form method="POST" action="{{ url_for('owner.settings_managed_drop_cancel', drop_id=row.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="phone" value="{{ drop_phone }}">
+                            <button class="btn" type="submit">Отменить</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </article>
+        {% else %}<p class="managed-drop-hint">Пока нет назначений. Найдите гостя по телефону, чтобы создать первое.</p>{% endfor %}
+        {% if drop_page.show_all and drop_page.pages > 1 %}
+            <div class="managed-drop-history-head">
+                {% if drop_page.page > 1 %}<a class="btn" href="{{ url_for('owner.settings', tab='managed-drops', phone=drop_phone, history='all', page=drop_page.page - 1) }}">Назад</a>{% endif %}
+                <span class="managed-drop-hint">Страница {{ drop_page.page }} из {{ drop_page.pages }}</span>
+                {% if drop_page.page < drop_page.pages %}<a class="btn" href="{{ url_for('owner.settings', tab='managed-drops', phone=drop_phone, history='all', page=drop_page.page + 1) }}">Далее</a>{% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.managed_drops import consume_managed_drop, reserve_managed_drop
 from app.services.prize_claims import (
     create_prize_claim,
     ensure_prize_claim_tables,
@@ -204,9 +205,7 @@ def save_game_mode(club_id: int, mode: str):
 # Cases CRUD
 # ---------------------------------------------------------------------------
 
-CASE_FIELDS = (
-    "id, club_id, name, description, image_url, badge_label, badge_color, price_tokens, is_active, sort_order"
-)
+CASE_FIELDS = "id, club_id, name, description, image_url, badge_label, badge_color, price_tokens, is_active, sort_order"
 
 
 def get_cases_for_admin(club_id: int):
@@ -870,21 +869,30 @@ def open_case(guest_id: int, club_id: int, case_id: int, *, test_mode: bool = Fa
                 SELECT id, case_id, club_id, name, description, image_url,
                        bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
                 FROM club_case_items
-                WHERE case_id = %s AND is_active = 1
+                WHERE case_id = %s AND club_id = %s AND is_active = 1
                 """,
-                (case_id,),
+                (case_id, club_id),
             )
             items = cursor.fetchall()
             if not items:
                 raise ValueError("no_items")
 
             price = int(case.get("price_tokens") or 0)
-            if price > 0:
-                balance = _get_balance_for_update(cursor, guest_id, club_id)
-                if balance < price:
-                    raise ValueError("no_tokens")
+            # Serialize openings for this guest, including free cases.
+            balance = _get_balance_for_update(cursor, guest_id, club_id)
+            if balance < price:
+                raise ValueError("no_tokens")
 
-            item = choose_case_item(items)
+            drop_id, item = reserve_managed_drop(
+                cursor,
+                club_id=club_id,
+                guest_id=guest_id,
+                kind="case",
+                target_id=case_id,
+                prizes=items,
+                test_mode=test_mode,
+            )
+            item = item or choose_case_item(items)
             if not item:
                 raise ValueError("invalid_items_config")
 
@@ -949,7 +957,11 @@ def open_case(guest_id: int, club_id: int, case_id: int, *, test_mode: bool = Fa
                     test_mode=test_mode,
                 )
 
+            consume_managed_drop(cursor, drop_id, opening_id)
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

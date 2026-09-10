@@ -674,6 +674,7 @@
             {% endif %}
             {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
                 <a href="{{ url_for('owner.settings', tab='guests') }}" class="settings-tab {% if active_tab == 'guests' %}active{% endif %}">Управление гостями</a>
+                <a href="{{ url_for('owner.settings', tab='managed-drops') }}" class="settings-tab {% if active_tab == 'managed-drops' %}active{% endif %}">Управляемое выпадение</a>
             {% endif %}
         </div>
 
@@ -908,6 +909,8 @@
                     </div>
                 </div>
             </div>
+        {% elif active_tab == 'managed-drops' %}
+            {% include 'owner/_settings_managed_drops.html' %}
         {% elif active_tab == 'guests' %}
             <div class="settings-guests">
                 <div class="card settings-guests-card">
