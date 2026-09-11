@@ -110,27 +110,76 @@
     catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;ringAnimation?.cancel();setLoading(false);error(e.message);}}
   }
   function choose(key){filters.audience_type=filters.audience_type===key?'':key;page=1;load();}
+  function syncRange(key){
+    const percent=key==='deviation',factor=percent?100:1;
+    const low=Math.round(filters[key+'_min']*factor),high=Math.round(filters[key+'_max']*factor);
+    const track=document.querySelector(`[data-slider="${key}"]`),limit=percent?Math.max(100,high):100;
+    track.style.setProperty('--range-low',`${low/limit*100}%`);
+    track.style.setProperty('--range-high',`${high/limit*100}%`);
+    for(const [bound,value] of [['min',low],['max',high]]){
+      document.querySelectorAll(`[data-key="${key}_${bound}"]`).forEach(input=>{
+        if(input.type==='range'){
+          input.max=limit;
+          input.setAttribute('aria-valuemin',bound==='min'?0:low);
+          input.setAttribute('aria-valuemax',bound==='min'?high:limit);
+          input.setAttribute('aria-valuenow',value);
+        }
+        input.value=value;
+      });
+    }
+  }
   document.querySelectorAll('[data-key]').forEach(input=>input.addEventListener('input',()=>{
-    const key=input.dataset.key,percent=key.startsWith('deviation_'),value=Number(input.value);filters[key]=percent?value/100:value;
-    document.querySelectorAll(`[data-key="${key}"]`).forEach(other=>{if(other!==input)other.value=value;});
+    if(input.value==='')return;
+    const key=input.dataset.key,group=key.replace(/_(min|max)$/,''),percent=group==='deviation';
+    const factor=percent?100:1,limit=percent?10000:100;
+    let value=Math.max(0,Math.min(limit,Math.round(Number(input.value))));
+    if(!Number.isFinite(value))return;
+    value=key.endsWith('_min')?Math.min(value,Math.round(filters[group+'_max']*factor)):Math.max(value,Math.round(filters[group+'_min']*factor));
+    filters[key]=value/factor;syncRange(group);
     page=1;deviationPage=1;controller?.abort();setLoading(true,!percent);clearTimeout(timer);
     if(rangeDrag?.input===input){rangeDrag.changed=true;return;}
     timer=setTimeout(()=>load({animate:!percent}),250);
   }));
-  document.querySelectorAll('input[type=range][data-key]').forEach(input=>input.addEventListener('pointerdown',()=>{
-    rangeDrag={input,changed:false};
-  }));
-  function finishRangeDrag(){
-    const drag=rangeDrag;rangeDrag=null;
-    if(!drag?.changed)return;
+  document.querySelectorAll('input[type=number][data-key]').forEach(input=>input.addEventListener('blur',()=>syncRange(input.dataset.key.replace(/_(min|max)$/, ''))));
+  function trackValue(track,clientX){
+    const rect=track.getBoundingClientRect(),limit=Number(track.querySelector('input').max);
+    return Math.round(Math.max(0,Math.min(1,(clientX-rect.left-10)/(rect.width-20)))*limit);
+  }
+  function moveRange(event){
+    const drag=rangeDrag;if(!drag||drag.pointerId!==event.pointerId)return;
+    const value=trackValue(drag.track,event.clientX);
+    if(Number(drag.input.value)===value)return;
+    if(drag.overlap){
+      const [low,high]=drag.track.querySelectorAll('input');
+      drag.input=value<Number(low.value)?low:high;drag.overlap=false;drag.input.focus({preventScroll:true});
+    }
+    drag.input.value=value;drag.input.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+  document.querySelectorAll('.gp-dual-range').forEach(track=>{
+    track.addEventListener('pointerdown',event=>{
+      if(event.button!==0)return;
+      event.preventDefault();
+      const [low,high]=track.querySelectorAll('input'),value=trackValue(track,event.clientX);
+      const input=Math.abs(value-Number(low.value))<Math.abs(value-Number(high.value))?low:high;
+      rangeDrag={input,track,pointerId:event.pointerId,changed:false,overlap:low.value===high.value};
+      input.focus({preventScroll:true});track.setPointerCapture(event.pointerId);moveRange(event);
+    });
+    track.addEventListener('pointermove',moveRange);
+  });
+  function finishRangeDrag(event){
+    const drag=rangeDrag;
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    rangeDrag=null;
+    if(!drag.changed)return;
     clearTimeout(timer);timer=setTimeout(()=>load({animate:!drag.input.dataset.key.startsWith('deviation_')}),150);
   }
   document.addEventListener('pointerup',finishRangeDrag);
   document.addEventListener('pointercancel',finishRangeDrag);
+  ['health','value','engagement','deviation'].forEach(syncRange);
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));
   $('gpSegment').addEventListener('change',e=>{filters.segment=e.target.value;page=1;load();});
-  $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;document.querySelectorAll(`[data-key="${k}_min"]`).forEach(e=>e.value=0);document.querySelectorAll(`[data-key="${k}_max"]`).forEach(e=>e.value=100);}filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
+  $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;document.querySelectorAll(`[data-key="${k}_min"]`).forEach(e=>e.value=0);document.querySelectorAll(`[data-key="${k}_max"]`).forEach(e=>e.value=100);}['health','value','engagement'].forEach(syncRange);filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
   $('gpAllTypes').addEventListener('click',()=>{filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
   $('gpRefresh').addEventListener('click',()=>load());
   async function handoff(mode){
@@ -165,5 +214,26 @@
   $('guestPulse').addEventListener('click',e=>{const b=e.target.closest('[data-guest]');if(b)openGuest(b.dataset.guest);});
   $('gpClose').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>detailController?.abort());
   dialog.addEventListener('click',e=>{if(e.target===dialog){const rect=dialog.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)dialog.close();}});
+  const help=$('gpHelpDialog');let helpMotion=null,helpClosing=false;
+  $('gpHelpOpen').addEventListener('click',()=>{
+    helpMotion?.cancel();helpClosing=false;help.showModal();
+    help.scrollTop=0;$('gpHelpOpen').setAttribute('aria-expanded','true');
+    if(!reducedMotion.matches)helpMotion=help.animate([{transform:'translateX(100%)'},{transform:'translateX(0)'}],{duration:240,easing:'ease-out'});
+  });
+  function closeHelp(){
+    if(helpClosing||!help.open)return;
+    helpClosing=true;helpMotion?.cancel();
+    const finish=()=>{help.close();helpClosing=false;$('gpHelpOpen').setAttribute('aria-expanded','false');};
+    if(reducedMotion.matches){finish();return;}
+    helpMotion=help.animate([{transform:'translateX(0)'},{transform:'translateX(100%)'}],{duration:180,easing:'ease-in'});
+    helpMotion.onfinish=finish;
+  }
+  $('gpHelpClose').addEventListener('click',closeHelp);
+  help.addEventListener('cancel',event=>{event.preventDefault();closeHelp();});
+  help.addEventListener('click',event=>{
+    if(event.target!==help)return;
+    const rect=help.getBoundingClientRect();
+    if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeHelp();
+  });
   load();
 })();
