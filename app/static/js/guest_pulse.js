@@ -11,23 +11,23 @@
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
-  let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false;
+  let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null;
   const chartSectors=new Map(), circumference=2*Math.PI*91;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-  function animateRing(repeat=false){
+  function animateRing(){
     ringAnimation?.cancel();
     const reveal=$('gpRingReveal');
     reveal.style.strokeDasharray=String(circumference);
     // Animate the SVG reveal in the browser, independently of fetch and DOM rendering.
     ringAnimation=reveal.animate(
       [{strokeDashoffset:String(circumference)},{strokeDashoffset:'0'}],
-      {duration:reducedMotion.matches?260:1000,easing:'cubic-bezier(.25,.46,.45,.94)',iterations:repeat?Infinity:1}
+      {duration:reducedMotion.matches?260:1000,easing:'cubic-bezier(.25,.46,.45,.94)',iterations:1}
     );
   }
   function setLoading(value,animate=true){
     loading=value;
     $('gpChart').setAttribute('aria-busy',String(value));
-    if(value&&animate&&!ringPending){ringPending=true;animateRing(!reducedMotion.matches);}
+    if(value&&animate)ringPending=true;
     if(!value)ringPending=false;
     updateButtons();
   }
@@ -113,8 +113,20 @@
   document.querySelectorAll('[data-key]').forEach(input=>input.addEventListener('input',()=>{
     const key=input.dataset.key,percent=key.startsWith('deviation_'),value=Number(input.value);filters[key]=percent?value/100:value;
     document.querySelectorAll(`[data-key="${key}"]`).forEach(other=>{if(other!==input)other.value=value;});
-    page=1;deviationPage=1;controller?.abort();setLoading(true,!percent);clearTimeout(timer);timer=setTimeout(()=>load({animate:!percent}),250);
+    page=1;deviationPage=1;controller?.abort();setLoading(true,!percent);clearTimeout(timer);
+    if(rangeDrag?.input===input){rangeDrag.changed=true;return;}
+    timer=setTimeout(()=>load({animate:!percent}),250);
   }));
+  document.querySelectorAll('input[type=range][data-key]').forEach(input=>input.addEventListener('pointerdown',()=>{
+    rangeDrag={input,changed:false};
+  }));
+  function finishRangeDrag(){
+    const drag=rangeDrag;rangeDrag=null;
+    if(!drag?.changed)return;
+    clearTimeout(timer);timer=setTimeout(()=>load({animate:!drag.input.dataset.key.startsWith('deviation_')}),150);
+  }
+  document.addEventListener('pointerup',finishRangeDrag);
+  document.addEventListener('pointercancel',finishRangeDrag);
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));
   $('gpSegment').addEventListener('change',e=>{filters.segment=e.target.value;page=1;load();});
