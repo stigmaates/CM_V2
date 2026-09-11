@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from flask import abort, jsonify, render_template, request, session, url_for
 
+from app.config import GUEST_PULSE_CONFIG
 from app.core import get_db_connection, owner_required
 from app.services.guest_pulse import dumps, get_current, loads, rows
 from app.services.guest_pulse_filters import parse_filters, score_match, select
@@ -42,7 +43,9 @@ def summary(row):
 @owner_required
 def guest_pulse():
     current_club()
-    return render_template("owner/guest_pulse.html", audiences=AUDIENCES, segments=SEGMENTS)
+    return render_template(
+        "owner/guest_pulse.html", audiences=AUDIENCES, segments=SEGMENTS, pulse_config=GUEST_PULSE_CONFIG
+    )
 
 
 @owner_bp.get("/api/guest-pulse")
