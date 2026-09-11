@@ -132,3 +132,24 @@ def test_incompatible_schema_refused_before_copy(monkeypatch):
     monkeypatch.setattr(mirror, 'columns', columns)
     with pytest.raises(ValueError, match='Incompatible stage column'):
         mirror.make_plan(source, stage)
+
+
+def test_systemd_inventory_skips_templates_but_includes_loaded_instances(monkeypatch):
+    from types import SimpleNamespace
+    def run(*args, **kwargs):
+        if args[1] == 'list-unit-files':
+            return SimpleNamespace(stdout='getty@.service static\nclubmodule-stage.service enabled\n')
+        return SimpleNamespace(stdout='getty@tty1.service loaded active running Getty\nclubmodule-stage-worker@1.service loaded active running Worker\n')
+    monkeypatch.setattr(setup, 'run', run)
+    assert setup.unit_names('service') == ['clubmodule-stage-worker@1.service', 'clubmodule-stage.service', 'getty@tty1.service']
+
+
+def test_systemctl_failure_reports_operation_without_captured_secrets(monkeypatch):
+    import subprocess
+    def failing(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args, output='SECRET', stderr='SECRET')
+    monkeypatch.setattr(setup.subprocess, 'run', failing)
+    with pytest.raises(ValueError, match='systemctl show failed') as error:
+        setup.run('systemctl', 'show', 'sample.service', capture_output=True)
+    assert 'sample.service' in str(error.value)
+    assert 'SECRET' not in str(error.value)

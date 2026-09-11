@@ -18,7 +18,15 @@ WEB_SERVICE = "clubmodule-stage.service"
 
 
 def run(*args, **kwargs):
-    return subprocess.run(args, check=True, text=True, **kwargs)
+    try:
+        return subprocess.run(args, check=True, text=True, **kwargs)
+    except subprocess.CalledProcessError as exc:
+        if args and args[0] == "systemctl":
+            # Do not print captured properties: ExecStart may contain secrets.
+            units = [arg for arg in args[2:] if arg.endswith((".service", ".timer"))]
+            raise ValueError(f"systemctl {args[1]} failed (exit {exc.returncode}); units: "
+                             + (", ".join(units) or "inventory")) from None
+        raise
 
 
 def contains_root(text, root):
@@ -59,10 +67,21 @@ def parse_properties(text):
             for block in text.strip().split("\n\n") if block.strip()]
 
 
+def unit_names(kind):
+    listing = run("systemctl", "list-unit-files", f"--type={kind}", "--no-legend", "--no-pager", capture_output=True)
+    # Templates such as getty@.service cannot be inspected as instantiated units.
+    # Include loaded instances as well; many have no separate unit file.
+    loaded = run("systemctl", "list-units", f"--type={kind}", "--all", "--plain", "--no-legend", "--no-pager", capture_output=True)
+    return sorted({line.split()[0] for line in (listing.stdout + "\n" + loaded.stdout).splitlines()
+                   if line.strip() and line.split()[0].endswith(f".{kind}")
+                   and not line.split()[0].endswith(f"@.{kind}")})
+
+
 def service_plan():
     # Inspect actual configured units; never infer a production service from its name.
-    listing = run("systemctl", "list-unit-files", "--type=service", "--no-legend", "--no-pager", capture_output=True)
-    names = [line.split()[0] for line in listing.stdout.splitlines() if line.strip() and line.split()[0].endswith(".service")]
+    names = unit_names("service")
+    if not names:
+        raise ValueError("No service units found during systemd inspection")
     details = run("systemctl", "show", *names, "--property=Id,WorkingDirectory,EnvironmentFiles,ExecStart", capture_output=True)
     services = []
     for item in parse_properties(details.stdout):
@@ -76,12 +95,8 @@ def service_plan():
             raise ValueError("Stage web unit does not reference the expected stage checkout")
     if WEB_SERVICE not in services:
         raise ValueError("Verified stage web service was not found")
-    listing = run("systemctl", "list-unit-files", "--type=timer", "--no-legend", "--no-pager", capture_output=True)
     timers = []
-    for line in listing.stdout.splitlines():
-        if not line.strip() or not line.split()[0].endswith(".timer"):
-            continue
-        name = line.split()[0]
+    for name in unit_names("timer"):
         data = run("systemctl", "show", name, "--property=Triggers", "--value", capture_output=True)
         if set(data.stdout.split()) & set(services):
             timers.append(name)
