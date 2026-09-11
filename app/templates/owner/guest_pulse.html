@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}Пульс гостя — Кибер Бонус{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260911-range-help-1') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260911-telegram-cards-1') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
   <header class="gp-heading"><div><span class="gp-eyebrow">ГОСТИ И ОТНОШЕНИЯ</span><h1>Пульс гостя</h1><p>Найдите нужную аудиторию или изменения в привычках гостей.</p><button type="button" class="gp-help-trigger" id="gpHelpOpen" aria-haspopup="dialog" aria-controls="gpHelpDialog" aria-expanded="false"><span aria-hidden="true">?</span> Подробнее о HVE-системе</button></div><div class="gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
@@ -15,7 +15,7 @@
         <p class="gp-hint">При полном диапазоне учитываются и гости с недостаточными данными. Гости без визитов не показаны.</p>
       </div>
       <div class="gp-chart-block"><div class="gp-donut"><svg viewBox="0 0 240 240" id="gpChart" aria-label="Распределение аудитории по типам"><defs><mask id="gpRingMask" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><circle id="gpRingReveal" cx="120" cy="120" r="91" fill="none" stroke="white" stroke-width="40" transform="rotate(-90 120 120)"/></mask></defs><circle cx="120" cy="120" r="91" fill="none" stroke="var(--bg-soft)" stroke-width="27"/><g id="gpChartSectors" mask="url(#gpRingMask)"></g></svg><div class="gp-donut-center"><strong id="gpWithTelegram">—</strong><span>С Telegram</span><div class="gp-without-telegram"><b id="gpWithoutTelegram">—</b><span>Без Telegram</span></div></div></div><p id="gpChartTip" aria-live="polite">Выберите сектор или тип аудитории</p><span class="gp-selection-count" id="gpSelectionCount">Выбрано гостей: —</span><button type="button" class="gp-primary" id="gpMail" disabled>Отправить рассылку <span aria-hidden="true">↗</span></button></div>
-      <div class="gp-audiences"><div class="gp-list-caption"><span>Тип аудитории</span><span>По фильтрам / всего</span></div><div id="gpAudienceList"></div><label class="gp-segment-label">Быстрый сегмент<select id="gpSegment"><option value="">Все гости</option>{% for key,label in segments.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label></div>
+      <div class="gp-audiences"><div class="gp-list-caption"><span>Тип аудитории</span><span>По текущим фильтрам</span></div><div id="gpAudienceList"></div><label class="gp-segment-label">Быстрый сегмент<select id="gpSegment"><option value="">Все гости</option>{% for key,label in segments.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label></div>
     <section class="gp-guests" id="gpGuestsPanel" hidden><button type="button" class="gp-quiet" id="gpAllTypes">← Типы аудитории</button><div class="gp-section-head"><div><h3 id="gpGuestsTitle">Гости аудитории</h3><p id="gpGuestsCount"></p></div></div><div id="gpGuests"></div><div class="gp-pagination" id="gpGuestPages"></div><button type="button" class="gp-primary" id="gpInteract">Взаимодействовать ↗</button></section>
     </div>
   </section>
@@ -28,4 +28,4 @@
 <dialog class="gp-dialog" id="gpGuestDialog" aria-labelledby="gpGuestName" data-lenis-prevent><header><h2 id="gpGuestName">Карточка гостя</h2><button type="button" id="gpClose" aria-label="Закрыть карточку">×</button></header><div id="gpGuestDetail"></div><footer><button type="button" id="gpGuestInteract" class="gp-primary">Взаимодействовать ↗</button></footer></dialog>
 {% include 'owner/_guest_pulse_help.html' %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260911-range-help-1') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260911-telegram-cards-1') }}" defer></script>{% endblock %}
