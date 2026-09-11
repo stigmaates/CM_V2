@@ -131,6 +131,11 @@ def send_telegram_message(
     chat_id: str | None = None,
     http_post: HttpPost | None = None,
 ) -> tuple[bool, str | None]:
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return False, "Исходящие сообщения отключены на тестовом стенде"
+
     token = (token if token is not None else TECH_ALERT_BOT_TOKEN).strip()
     chat_id = (chat_id if chat_id is not None else TECH_ALERT_CHAT_ID).strip()
     if not token:

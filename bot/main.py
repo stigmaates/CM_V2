@@ -657,6 +657,10 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     builder = ApplicationBuilder().token(BOT_TOKEN)
 
     if TG_PROXY_URL:

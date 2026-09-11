@@ -269,6 +269,11 @@ def _notify_claim_admin_chat(claim: dict[str, Any]) -> tuple[bool, int | None, s
     # Prize messages are sent by the admin bot.
     # The same admin bot must also run as a separate polling service
     # and handle inline button callbacks.
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return False, None, "Исходящие сообщения отключены на тестовом стенде", None
+
     token = (CM_BONUS_BOT_TOKEN or "").strip()
     club_id = int(claim.get("club_id") or 0)
     chat_id = get_cm_bonus_admin_chat_id_for_club(club_id)

@@ -1,0 +1,14 @@
+[Unit]
+Description=Stage business data mirror from production, without outbound messages
+After=network-online.target mysql.service
+Wants=network-online.target
+ConditionPathExists=/root/cm_stage/CM_V2/.stage-no-outbound
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/cm_stage/CM_V2
+EnvironmentFile=/root/cm_stage/CM_V2/.env
+Environment=DISABLE_OUTBOUND_MESSAGES=1
+ExecStart=/root/cm_stage/CM_V2/venv/bin/python scripts/mirror_production_to_stage.py --apply
+TimeoutStartSec=3600
+UMask=0077

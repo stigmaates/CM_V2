@@ -17,6 +17,11 @@ from scripts.sync_utils import table_has_column
 
 
 def main() -> None:
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:

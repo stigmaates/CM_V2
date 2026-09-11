@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep stage business data and Guest Pulse current with production
+
+[Timer]
+OnActiveSec=5min
+OnUnitInactiveSec=5min
+AccuracySec=10s
+Unit=clubmodule-stage-data-mirror.service
+
+[Install]
+WantedBy=timers.target

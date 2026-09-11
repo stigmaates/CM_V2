@@ -14,3 +14,8 @@ __MACOSX/
 *.log
 .env.backup
 backups/
+
+.stage-no-outbound
+.stage-mirror-state.json
+
+.stage-mirror-state.tmp

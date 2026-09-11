@@ -155,6 +155,10 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     token = (CM_BONUS_BOT_TOKEN or "").strip()
     if not token:
         raise RuntimeError("CM_BONUS_BOT_TOKEN is empty. Admin bot cannot start.")

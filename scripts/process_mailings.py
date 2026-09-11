@@ -23,6 +23,10 @@ TG_PROXY_URL = os.getenv("TG_PROXY_URL")
 
 
 def tg_request(method: str, payload: dict | None = None, files=None):
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
 
     client_kwargs = {
@@ -105,6 +109,11 @@ def send_single_message(telegram_id: int, text: str, parse_mode: str, attachment
 
 
 def process_one_mailing(conn, mailing_id: int):
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return
+
     job_run_id = None
     lock = job_lock("process_mailing", resource_id=mailing_id, ttl_minutes=120)
     acquired_lock = lock.__enter__()
@@ -248,6 +257,11 @@ def process_one_mailing(conn, mailing_id: int):
 def main():
     # This script already runs every minute in production and stage, so it also
     # keeps failed admin notifications moving without requiring another cron.
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return
+
     try:
         from app.services.cm_bonuses import retry_failed_cm_bonus_redeem_notifications
 

@@ -406,6 +406,11 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
 def _notify_admin_chat(
     guest: dict[str, Any], amount: int, redeem_request_id: int
 ) -> tuple[bool, int | None, str | None, str | None]:
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return False, None, "Исходящие сообщения отключены на тестовом стенде", None
+
     token = (CM_BONUS_BOT_TOKEN or "").strip()
     chat_id = get_cm_bonus_admin_chat_id_for_club(int(guest.get("club_id") or 0))
     if not token:

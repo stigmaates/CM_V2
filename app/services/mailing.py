@@ -767,6 +767,10 @@ def create_mailing(
     parse_mode: str,
     attachments: List[Dict[str, str]],
 ) -> Dict[str, Any]:
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     recipients = get_recipient_rows(conn, club_id, rules)
     recipients_count = len(recipients)
 
@@ -2261,6 +2265,10 @@ def create_mailing_for_recipients(
     parse_mode: str = "HTML",
     filters_json: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     recipients_count = len(recipients)
 
     with conn.cursor() as cur:
@@ -2451,6 +2459,10 @@ def create_bonus_giveaway(
     Фильтры используются ровно те же, что и в сегментах/ручной рассылке.
     Возвращает id раздачи, id рассылки и количество получателей.
     """
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     bonus_amount = int(bonus_amount or 0)
     token_amount = int(token_amount or 0)
     if bonus_amount < 0:

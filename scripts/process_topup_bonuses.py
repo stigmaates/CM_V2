@@ -56,6 +56,11 @@ def _enabled_club_ids(club_id: int | None = None) -> list[int]:
 
 
 def process_topup_bonuses(club_id: int | None = None) -> list[dict]:
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return []
+
     summary = []
     for current_club_id in _enabled_club_ids(club_id):
         with job_lock("process_topup_bonuses", club_id=current_club_id, ttl_minutes=10) as lock:
