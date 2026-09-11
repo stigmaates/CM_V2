@@ -11,12 +11,24 @@
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
-  let loading=false, selectedGuestConnected=false, chartFrame=null, chartSignature=null;
+  let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false;
   const chartSectors=new Map(), circumference=2*Math.PI*91;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-  function setLoading(value){
+  function animateRing(repeat=false){
+    ringAnimation?.cancel();
+    const reveal=$('gpRingReveal');
+    reveal.style.strokeDasharray=String(circumference);
+    // Animate the SVG reveal in the browser, independently of fetch and DOM rendering.
+    ringAnimation=reveal.animate(
+      [{strokeDashoffset:String(circumference)},{strokeDashoffset:'0'}],
+      {duration:reducedMotion.matches?260:1000,easing:'cubic-bezier(.25,.46,.45,.94)',iterations:repeat?Infinity:1}
+    );
+  }
+  function setLoading(value,animate=true){
     loading=value;
     $('gpChart').setAttribute('aria-busy',String(value));
+    if(value&&animate&&!ringPending){ringPending=true;animateRing(!reducedMotion.matches);}
+    if(!value)ringPending=false;
     updateButtons();
   }
   function updateButtons(){
@@ -27,7 +39,7 @@
   }
   function renderChart(data,refill=false){
     let offset=0;
-    const transitions=data.audiences.map(a=>{
+    data.audiences.forEach(a=>{
       let state=chartSectors.get(a.key);
       if(!state){
         const el=document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -38,7 +50,7 @@
         el.addEventListener('mouseenter',showTip);el.addEventListener('focus',showTip);
         el.addEventListener('click',()=>choose(a.key));
         el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(a.key);}});
-        $('gpChart').append(el);
+        $('gpChartSectors').append(el);
       }
       const length=data.total?circumference*a.count/data.total:0;
       state.tip=`${a.label}: ${num(a.count)} · с Telegram ${num(a.telegram_count)} · без Telegram ${num(a.without_telegram_count)}`;
@@ -47,35 +59,12 @@
       state.el.setAttribute('aria-hidden',String(!a.count));
       state.el.style.pointerEvents=a.count?'':'none';
       state.el.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.25':'1';
-      const transition={state,length,offset,fromOpacity:Number(state.el.style.strokeOpacity||1)};
-      offset+=length;return transition;
+      state.length=length;state.offset=offset;
+      state.el.setAttribute('stroke-dasharray',`${length} ${Math.max(0,circumference-length)}`);
+      state.el.setAttribute('stroke-dashoffset',-offset);
+      offset+=length;
     });
-    const signature=JSON.stringify(data.audiences.map(a=>[a.key,a.count]));
-    if(signature===chartSignature&&!refill)return;
-    chartSignature=signature;cancelAnimationFrame(chartFrame);
-    const started=performance.now();
-    const fadeDuration=reducedMotion.matches?0:(transitions.some(t=>t.state.length>0)?100:0);
-    const fillDuration=reducedMotion.matches?0:760;
-    function frame(now){
-      const elapsed=Math.max(0,now-started);
-      if(elapsed<fadeDuration){
-        transitions.forEach(t=>{t.state.el.style.strokeOpacity=t.fromOpacity*(1-elapsed/fadeDuration);});
-      }else{
-        const progress=fillDuration?Math.min((elapsed-fadeDuration)/fillDuration,1):1;
-        // A single leading edge reveals adjacent sectors clockwise from twelve o'clock.
-        const sweep=circumference*(1-Math.pow(1-progress,3));
-        transitions.forEach(t=>{
-          t.state.length=Math.max(0,Math.min(t.length,sweep-t.offset));
-          t.state.offset=t.offset;
-          t.state.el.style.strokeOpacity='1';
-          t.state.el.setAttribute('stroke-dasharray',`${t.state.length} ${Math.max(0,circumference-t.state.length)}`);
-          t.state.el.setAttribute('stroke-dashoffset',-t.state.offset);
-        });
-      }
-      if(elapsed<fadeDuration+fillDuration)chartFrame=requestAnimationFrame(frame);
-    }
-    if(reducedMotion.matches)frame(started);
-    else chartFrame=requestAnimationFrame(frame);
+    if(refill)animateRing();
   }
 
   function error(message){$('gpError').textContent=message;$('gpError').hidden=!message;}
@@ -98,7 +87,6 @@
   function render(data,refill=false){
     responseData=data;
     $('gpUpdated').textContent=data.calculated_at?`${data.stale?'Данные устарели · ':''}${date(data.calculated_at)} · время клуба`:'Ожидается первый расчёт';
-    $('gpTotal').textContent=num(data.selected_count);
     $('gpWithTelegram').textContent=num(data.selected_telegram_count);
     $('gpWithoutTelegram').textContent=num(data.selected_without_telegram_count);
     $('gpSelectionCount').textContent=`Для рассылки: ${num(data.selected_telegram_count)} · только с Telegram`;
@@ -110,29 +98,29 @@
     $('gpGuestsTitle').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || $('gpSegment').selectedOptions[0].textContent;
     $('gpGuestsCount').textContent=`${num(data.selected_count)} гостей · с Telegram ${num(data.selected_telegram_count)} · без Telegram ${num(data.selected_without_telegram_count)}`;
     $('gpGuests').innerHTML=data.guests.length?`<table class="gp-table"><thead><tr><th>Гость</th><th>H</th><th>V</th><th>E</th></tr></thead><tbody>${data.guests.map(r=>`<tr><td>${person(r)}</td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет гостей с такими показателями. Попробуйте расширить диапазоны.</div>';
-    pagination($('gpGuestPages'),page,data.selected_count,p=>{page=p;load();});
+    pagination($('gpGuestPages'),page,data.selected_count,p=>{page=p;load({animate:false});});
     $('gpDeviationCount').textContent=`${num(data.deviation_count)} гостей с отклонениями · с Telegram ${num(data.deviation_telegram_count)} · без Telegram ${num(data.deviation_count-data.deviation_telegram_count)}`;
     $('gpDeviations').innerHTML=data.deviations.length?data.deviations.map(r=>`<article class="gp-deviation-row">${person(r)}<div class="gp-triple"><span>H <b>${num(r.health.score)}</b></span><span>V <b>${num(r.value.score)}</b></span><span>E <b>${num(r.engagement.score)}</b></span></div><div class="gp-deviation-change">${r.deviations.map(change).join('')}</div></article>`).join(''):'<div class="gp-empty">Нет подходящих отклонений или пока недостаточно истории оценок.</div>';
-    pagination($('gpDeviationPages'),deviationPage,data.deviation_count,p=>{deviationPage=p;load();});
+    pagination($('gpDeviationPages'),deviationPage,data.deviation_count,p=>{deviationPage=p;load({animate:false});});
   }
-  async function load({refill=false}={}){
+  async function load({animate=true}={}){
     clearTimeout(timer);controller?.abort();controller=new AbortController();const own=controller;
-    error('');setLoading(true);
-    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams({...filters,page,deviation_page:deviationPage}),{signal:own.signal});if(own===controller){render(data,refill);setLoading(false);}}
-    catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;setLoading(false);error(e.message);}}
+    error('');setLoading(true,animate);
+    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams({...filters,page,deviation_page:deviationPage}),{signal:own.signal});if(own===controller){render(data,animate||ringPending);setLoading(false);}}
+    catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;ringAnimation?.cancel();setLoading(false);error(e.message);}}
   }
   function choose(key){filters.audience_type=filters.audience_type===key?'':key;page=1;load();}
   document.querySelectorAll('[data-key]').forEach(input=>input.addEventListener('input',()=>{
     const key=input.dataset.key,percent=key.startsWith('deviation_'),value=Number(input.value);filters[key]=percent?value/100:value;
     document.querySelectorAll(`[data-key="${key}"]`).forEach(other=>{if(other!==input)other.value=value;});
-    page=1;deviationPage=1;controller?.abort();setLoading(true);clearTimeout(timer);timer=setTimeout(load,250);
+    page=1;deviationPage=1;controller?.abort();setLoading(true,!percent);clearTimeout(timer);timer=setTimeout(()=>load({animate:!percent}),250);
   }));
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
-  document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load();}));
+  document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));
   $('gpSegment').addEventListener('change',e=>{filters.segment=e.target.value;page=1;load();});
   $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;document.querySelectorAll(`[data-key="${k}_min"]`).forEach(e=>e.value=0);document.querySelectorAll(`[data-key="${k}_max"]`).forEach(e=>e.value=100);}filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
   $('gpAllTypes').addEventListener('click',()=>{filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
-  $('gpRefresh').addEventListener('click',()=>load({refill:true}));
+  $('gpRefresh').addEventListener('click',()=>load());
   async function handoff(mode){
     if(mode==='guest'?!selectedGuestConnected:loading||!responseData)return;
     const buttons=[$('gpMail'),$('gpInteract'),$('gpDeviationInteract'),$('gpGuestInteract')];buttons.forEach(b=>b.disabled=true);
