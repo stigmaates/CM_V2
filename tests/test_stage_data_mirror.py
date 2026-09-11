@@ -6,6 +6,11 @@ from scripts import mirror_production_to_stage as mirror
 from scripts import setup_stage_mirror as setup
 
 
+@pytest.fixture(autouse=True)
+def source_test_keys(monkeypatch):
+    monkeypatch.setattr(mirror, 'primary_key', lambda conn, table: ['id'])
+
+
 class Cursor:
     def __init__(self, connection, kind=None):
         self.connection = connection
@@ -153,3 +158,46 @@ def test_systemctl_failure_reports_operation_without_captured_secrets(monkeypatc
         setup.run('systemctl', 'show', 'sample.service', capture_output=True)
     assert 'sample.service' in str(error.value)
     assert 'SECRET' not in str(error.value)
+
+
+@pytest.mark.parametrize('keys', [['id'], []])
+def test_bounded_pages_copy_every_row_once(monkeypatch, keys):
+    monkeypatch.setattr(mirror, 'primary_key', lambda conn, table: keys)
+    source, stage = Connection(1), Connection(99)
+    source.db.executemany('INSERT INTO guests VALUES (?)', [(2,), (5,), (8,), (9,)])
+    source.db.commit()
+    assert mirror.replace_tables(source, stage, {'guests': ['id']}, batch_size=2) == {'guests': 5}
+    assert stage.values('guests') == [(1,), (2,), (5,), (8,), (9,)]
+    selects = [sql for sql in source.statements if sql.startswith('SELECT')]
+    assert len(selects) == 3
+    assert all('LIMIT %s' in sql for sql in selects)
+
+
+def test_composite_key_pages_do_not_skip_equal_first_key(monkeypatch):
+    monkeypatch.setattr(mirror, 'primary_key', lambda conn, table: ['club', 'guest'])
+    source = Connection(1)
+    source.db.execute('CREATE TABLE events (club INTEGER, guest INTEGER)')
+    expected = [(1, 1), (1, 3), (1, 9), (2, 1), (2, 2)]
+    source.db.executemany('INSERT INTO events VALUES (?, ?)', expected)
+    source.db.commit()
+    batches = list(mirror.source_batches(source, 'events', ['club', 'guest'], 2))
+    assert [row for batch in batches for row in batch] == expected
+
+
+def test_cleanup_connection_error_does_not_hide_original_copy_error(monkeypatch):
+    source, stage = Connection(42), Connection(7, fail=True)
+    original = stage.rollback
+    calls = 0
+    def rollback():
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise mirror.pymysql.InterfaceError(0, '')
+        original()
+    monkeypatch.setattr(stage, 'rollback', rollback)
+    with pytest.raises(RuntimeError, match='injected insert failure'):
+        mirror.replace_tables(source, stage, {'guests': ['id']})
+
+
+def test_safe_error_keeps_mysql_code_but_omits_private_values():
+    assert mirror.safe_error(mirror.pymysql.OperationalError(2013, 'private row')) == 'OperationalError (code 2013)'

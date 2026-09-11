@@ -10,12 +10,13 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pymysql
 from dotenv import dotenv_values
-from pymysql.cursors import DictCursor, SSCursor
+from pymysql.cursors import DictCursor
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGE_ROOT = Path("/root/cm_stage/CM_V2")
@@ -107,6 +108,51 @@ def make_plan(source, stage):
     return plan
 
 
+def primary_key(conn, table):
+    return [row["COLUMN_NAME"] for row in query(conn, """
+        SELECT COLUMN_NAME FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s AND INDEX_NAME='PRIMARY'
+        ORDER BY SEQ_IN_INDEX
+    """, (table,))]
+
+
+def source_batches(source, table, names, batch_size):
+    """Fully consume a bounded SELECT before writing stage, without an open stream."""
+    keys = primary_key(source, table)
+    if not set(keys).issubset(names):
+        keys = []
+    projection = ",".join(quote(name) for name in names)
+    order = ",".join(quote(name) for name in (keys or names))
+    positions = [names.index(key) for key in keys]
+    last, offset = None, 0
+    while True:
+        where, params = "", []
+        if keys and last is not None:
+            where = f" WHERE ({order}) > ({','.join(['%s'] * len(keys))})"
+            params.extend(last)
+        sql = f"SELECT {projection} FROM {quote(table)}{where} ORDER BY {order} LIMIT %s"
+        params.append(batch_size)
+        if not keys:
+            sql += " OFFSET %s"
+            params.append(offset)
+        with source.cursor() as cursor:
+            cursor.execute(sql, params)
+            batch = cursor.fetchall()
+        if not batch:
+            return
+        yield batch
+        if keys:
+            last = tuple(batch[-1][index] for index in positions)
+        offset += len(batch)
+        if len(batch) < batch_size:
+            return
+
+
+def safe_error(exc):
+    code = exc.args[0] if exc.args and isinstance(exc.args[0], int) else None
+    return type(exc).__name__ + (f" (code {code})" if code is not None else "")
+
+
 def replace_tables(source, stage, plan, *, reset_pulse=False, batch_size=500):
     """No DDL/TRUNCATE: a failure rolls back every replaced stage table together."""
     source.rollback()
@@ -116,37 +162,43 @@ def replace_tables(source, stage, plan, *, reset_pulse=False, batch_size=500):
         cursor.execute("SET TRANSACTION READ ONLY")
         cursor.execute("START TRANSACTION WITH CONSISTENT SNAPSHOT")
     copied = {}
+    table = "transaction setup"
     try:
         with stage.cursor() as cursor:
             cursor.execute("SET FOREIGN_KEY_CHECKS=0")
         stage.begin()
         for table, names in plan.items():
+            print(f"Copying {table}...", flush=True)
             projection = ",".join(quote(name) for name in names)
             insert = f"INSERT INTO {quote(table)} ({projection}) VALUES ({','.join(['%s'] * len(names))})"
             with stage.cursor() as destination:
                 destination.execute(f"DELETE FROM {quote(table)}")
                 count = 0
-                with source.cursor(SSCursor) as origin:
-                    origin.execute(f"SELECT {projection} FROM {quote(table)}")
-                    while batch := origin.fetchmany(batch_size):
-                        destination.executemany(insert, batch)
-                        count += len(batch)
+                for batch in source_batches(source, table, names, batch_size):
+                    destination.executemany(insert, batch)
+                    count += len(batch)
             actual = query(stage, f"SELECT COUNT(*) AS cnt FROM {quote(table)}")[0]["cnt"]
             if actual != count:
                 raise ValueError(f"Stage row count mismatch: {table}")
             copied[table] = count
+            print(f"Copied {table}: {count} rows (not committed yet)", flush=True)
         if reset_pulse:
             with stage.cursor() as cursor:
                 for table in PULSE_TABLES:
                     cursor.execute(f"DELETE FROM {quote(table)}")
         stage.commit()
-    except BaseException:
-        stage.rollback()
+    except BaseException as exc:
+        print(f"Copy failed at {table}: {safe_error(exc)}", file=sys.stderr, flush=True)
+        # Cleanup on a lost connection must not replace the original exception.
+        with suppress(pymysql.Error):
+            stage.rollback()
         raise
     finally:
-        source.rollback()
-        with stage.cursor() as cursor:
-            cursor.execute("SET FOREIGN_KEY_CHECKS=1")
+        with suppress(pymysql.Error):
+            source.rollback()
+        with suppress(pymysql.Error):
+            with stage.cursor() as cursor:
+                cursor.execute("SET FOREIGN_KEY_CHECKS=1")
     return copied
 
 
@@ -205,7 +257,8 @@ def main():
         return 0
     finally:
         if acquired:
-            query(stage, "SELECT RELEASE_LOCK(CONCAT('stage-mirror:',MD5(DATABASE())))")
+            with suppress(pymysql.Error):
+                query(stage, "SELECT RELEASE_LOCK(CONCAT('stage-mirror:',MD5(DATABASE())))")
         if stage is not None:
             stage.close()
         source.close()
@@ -216,7 +269,7 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except Exception as exc:
         # Driver errors can embed statements/credentials. Never dump them to the journal.
-        print(f"Stage mirror failed: {type(exc).__name__}. Previous transaction was rolled back if uncommitted.", file=sys.stderr)
+        print(f"Stage mirror failed: {safe_error(exc)}. Previous transaction was rolled back if uncommitted.", file=sys.stderr)
         if isinstance(exc, ValueError):
             print(str(exc), file=sys.stderr)
         raise SystemExit(1)
