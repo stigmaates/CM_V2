@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}Пульс гостя — Кибер Бонус{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260911-ring-3') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260911-ring-4') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
   <header class="gp-heading"><div><span class="gp-eyebrow">ГОСТИ И ОТНОШЕНИЯ</span><h1>Пульс гостя</h1><p>Найдите нужную аудиторию или изменения в привычках гостей.</p></div><div class="gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
@@ -27,4 +27,4 @@
 </main>
 <dialog class="gp-dialog" id="gpGuestDialog" aria-labelledby="gpGuestName" data-lenis-prevent><header><h2 id="gpGuestName">Карточка гостя</h2><button type="button" id="gpClose" aria-label="Закрыть карточку">×</button></header><div id="gpGuestDetail"></div><footer><button type="button" id="gpGuestInteract" class="gp-primary">Взаимодействовать ↗</button></footer></dialog>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260911-ring-3') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260911-ring-4') }}" defer></script>{% endblock %}
