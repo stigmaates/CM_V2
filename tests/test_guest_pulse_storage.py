@@ -513,3 +513,31 @@ def test_send_rechecks_telegram_and_cannot_expand_frozen_audience(
     )
     assert response.status_code == 200
     assert sorted(r["guest_id"] for r in calls[0]["recipients"]) == [gid for gid in mixed_pulse_audience if gid != 44]
+
+
+def test_audience_sorts_connected_before_pagination(pulse_client, database, mixed_pulse_audience):
+    _, sql = database
+    # Put a disconnected guest ahead of connected guests by health/name.
+    row = json.loads(sql('SELECT detail_json FROM guest_pulse_current WHERE club_id=2 AND guest_id=56')[0]['detail_json'])
+    row['health']['score'] = 0
+    row['name'] = 'AAA'
+    sql('UPDATE guest_pulse_current SET detail_json=%s WHERE club_id=2 AND guest_id=56', (json.dumps(row),))
+    first = pulse_client.get('/owner/api/guest-pulse?audience_type=loyal').get_json()['guests']
+    second = pulse_client.get('/owner/api/guest-pulse?audience_type=loyal&page=2').get_json()['guests']
+    assert all(row['has_telegram'] for row in first)
+    assert all(row['has_telegram'] for row in second[:-1])
+    assert second[-1]['guest_id'] == 56 and not second[-1]['has_telegram']
+
+
+def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, database, monkeypatch):
+    monkeypatch.setenv('DISABLE_OUTBOUND_MESSAGES', '1')
+    response = pulse_client.get('/owner/guest-pulse')
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'id="crmPulseModal"' in html
+    assert 'window.CRM_OUTBOUND_DISABLED = true' in html
+    assert 'id="crmAnalysisRulesContainer"' not in html
+    selection = pulse_client.post('/owner/api/guest-pulse/selection', json={}, headers={'X-CSRFToken': 'pulse-test-csrf'}).get_json()
+    assert selection['group']['guest_ids'] == [42]
+    assert all(guest['has_telegram'] for guest in selection['group']['guests'])
+    assert selection['group']['selection_id']

@@ -9,6 +9,8 @@ from app.core import get_db_connection, owner_required
 from app.services.guest_pulse import dumps, get_current, loads, rows
 from app.services.guest_pulse_filters import parse_filters, score_match, select
 from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS
+from app.services.mailing import get_message_variables
+from app.services.outbound_policy import outbound_blocked
 from app.services.timezones import utc_datetime_to_club_local
 
 from . import owner_bp
@@ -44,7 +46,8 @@ def summary(row):
 def guest_pulse():
     current_club()
     return render_template(
-        "owner/guest_pulse.html", audiences=AUDIENCES, segments=SEGMENTS, pulse_config=GUEST_PULSE_CONFIG
+        "owner/guest_pulse.html", audiences=AUDIENCES, segments=SEGMENTS, pulse_config=GUEST_PULSE_CONFIG,
+        message_variables=get_message_variables(), outbound_disabled=outbound_blocked()
     )
 
 
@@ -79,7 +82,7 @@ def guest_pulse_data():
     selected = select(current, f)
     deviating = select(current, f, "deviations")
     deviating.sort(key=lambda r: max(d["deviation_ratio"] for d in r["deviations"]), reverse=True)
-    selected.sort(key=lambda r: (r["health"]["score"] is None, r["health"]["score"] or 0, r["name"]))
+    selected.sort(key=lambda r: (not r["has_telegram"], r["health"]["score"] is None, r["health"]["score"] or 0, r["name"], r["guest_id"]))
     at = utc_datetime_to_club_local(state.get("calculated_at"), state.get("timezone"))
     return jsonify(
         ok=True,
@@ -190,9 +193,10 @@ def guest_pulse_selection():
                 (key, cid, int(session["user_id"]), dumps(payload), now, now + timedelta(hours=2)),
             )
         conn.commit()
+        group = selection_group(conn, key)
     finally:
         conn.close()
-    return jsonify(ok=True, count=len(selected), url=url_for("owner.crm_analytics", pulse_selection=key))
+    return jsonify(ok=True, count=len(selected), group=group, url=url_for("owner.crm_analytics", pulse_selection=key))
 
 
 def load_selection(conn, key, *, lock=False):

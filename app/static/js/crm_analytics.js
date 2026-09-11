@@ -676,7 +676,8 @@ function crmOpenPulseInteraction(key) {
     crmPulseExpiringBonus.checked = false;
     crmPulseExpiration.hidden = true;
     if (crmPulseDismiss) crmPulseDismiss.disabled = false;
-    crmPulseStatus.textContent = "";
+    crmPulseStatus.textContent = window.CRM_OUTBOUND_DISABLED ? "Тестовый стенд: отправки и начисление наград отключены." : "";
+    crmPulseSubmit.disabled = Boolean(window.CRM_OUTBOUND_DISABLED);
     crmRenderPulseRecipients(group);
     crmFillPulseVariables();
     crmOpenPulseModal();
@@ -694,7 +695,7 @@ function crmInsertPulseVariable() {
 }
 
 async function crmSubmitPulseInteraction() {
-    if (!crmActivePulseGroup || !crmPulseSubmit) return;
+    if (!crmActivePulseGroup || !crmPulseSubmit || window.CRM_OUTBOUND_DISABLED) return;
     crmPulseSubmit.disabled = true;
     crmPulseStatus.textContent = "Отправляем...";
     try {
@@ -923,3 +924,10 @@ document.addEventListener("keydown", (event) => {
 
 const guestPulseSelectionKey = new URLSearchParams(window.location.search).get("pulse_selection");
 if (guestPulseSelectionKey) crmOpenPulseInteraction(guestPulseSelectionKey);
+
+window.crmOpenGuestPulseInteraction = function(group) {
+    const index = crmPulseGroups.findIndex(item => item.key === group.key);
+    if (index >= 0) crmPulseGroups[index] = group;
+    else crmPulseGroups.push(group);
+    crmOpenPulseInteraction(group.key);
+};

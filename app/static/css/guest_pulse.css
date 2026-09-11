@@ -29,3 +29,4 @@
 .gp-help-groups{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:12px}.gp-help-groups li{padding:12px 14px;border-left:3px solid var(--audience-color);border-radius:0 10px 10px 0;background:#2b1a3d}.gp-help-groups h4{display:flex;align-items:center;gap:8px}
 .gp-help-steps{margin:0;padding-left:20px;color:#c1afcf}.gp-help-steps li+li{margin-top:10px}.gp-help-note{padding:16px;border:1px solid #63487c;border-radius:12px;background:#30203d}
 @media(max-width:600px){.gp-help-dialog{border-radius:0}.gp-help-dialog>header{padding:18px}.gp-help-body{padding:18px}.gp-help-score{padding:12px;gap:9px}.gp button.gp-help-trigger{font-size:11px;line-height:1.4}}
+#crmPulseModal .crm-pulse-expiration[hidden],#crmPulseModal .crm-pulse-dismiss[hidden]{display:none}#crmPulseModal .crm-pulse-submit:disabled{opacity:.45;cursor:not-allowed}
