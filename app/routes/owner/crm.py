@@ -307,6 +307,9 @@ def api_crm_pulse_interact():
                 return jsonify(ok=True, started=True, mailing_id=pulse_selection["mailing_id"])
             guest_ids = pulse_selection["selection"]["guest_ids"]
         recipients = get_recipient_rows_for_guest_ids(conn, int(club_id), guest_ids)
+        if pulse_selection:
+            selected_ids = set(guest_ids)
+            recipients = [r for r in recipients if r["guest_id"] in selected_ids and r.get("telegram_id")]
         if not recipients:
             return jsonify({"ok": False, "error": "У выбранных гостей нет привязанного Telegram"}), 400
 

@@ -328,10 +328,10 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False):
 
 def get_current(conn, club_id):
     return [
-        loads(r["detail_json"])
+        {**loads(r["detail_json"]), "has_telegram": bool(r["telegram_id"])}
         for r in rows(
             conn,
-            """SELECT p.detail_json FROM guest_pulse_current p
+            """SELECT p.detail_json,g.telegram_id FROM guest_pulse_current p
         JOIN guests g ON g.club_id=p.club_id AND g.guest_id=p.guest_id WHERE p.club_id=%s ORDER BY p.guest_id""",
             (club_id,),
         )
