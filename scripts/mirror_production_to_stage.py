@@ -210,16 +210,47 @@ def stage_environment():
     return env
 
 
+def run_rebuild(script, arguments, env):
+    print(f"Starting {script}; rebuilding can take several minutes...", flush=True)
+    command = [sys.executable, str(ROOT / "scripts" / script), *arguments]
+    with subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True) as process:
+        while True:
+            try:
+                stdout, _ = process.communicate(timeout=30)
+                break
+            except subprocess.TimeoutExpired:
+                print(f"{script}: still running; please wait.", flush=True)
+        if process.returncode:
+            raise ValueError(f"{script} failed (exit {process.returncode}); data copy is already committed")
+        # These three fixed scripts report aggregate counts only on successful runs.
+        if stdout.strip():
+            print(stdout.strip(), flush=True)
+        print(f"Finished {script}", flush=True)
+
+
+def copy_or_resume(source, stage, plan, *, rebuild_only=False, reset_pulse=False):
+    if rebuild_only:
+        print("Resuming rebuild on existing stage data; no business tables or HVE history are deleted.", flush=True)
+        return {table: query(stage, f"SELECT COUNT(*) AS cnt FROM {quote(table)}")[0]["cnt"] for table in plan}
+    copied = replace_tables(source, stage, plan, reset_pulse=reset_pulse)
+    print(f"Business data committed atomically; tables={len(copied)}, rows={sum(copied.values())}", flush=True)
+    return copied
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Read-only schema/target check")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--rebuild-only", action="store_true", help="Resume after a confirmed committed copy; skip copying and history deletion")
     parser.add_argument("--reset-pulse-history", action="store_true", help="Initial copy only: reconstruct HVE from production events")
     args = parser.parse_args()
     if ROOT.resolve() != STAGE_ROOT.resolve():
         raise ValueError("Run only from the verified /root/cm_stage/CM_V2 checkout")
     if args.apply == args.check:
         raise ValueError("Choose exactly one of --check or --apply")
+    if args.rebuild_only and not args.apply:
+        raise ValueError("--rebuild-only requires --apply")
     source_settings, stage_settings = target(PROD_ROOT / ".env"), target(ROOT / ".env")
     validate_targets(source_settings, stage_settings)
     if args.apply and not (ROOT / ".stage-no-outbound").is_file():
@@ -238,15 +269,14 @@ def main():
         if not acquired:
             print("Stage mirror already running; skipped.")
             return 0
-        copied = replace_tables(source, stage, plan, reset_pulse=args.reset_pulse_history)
-        print(f"Business data committed atomically; tables={len(copied)}, rows={sum(copied.values())}", flush=True)
+        copied = copy_or_resume(source, stage, plan, rebuild_only=args.rebuild_only, reset_pulse=args.reset_pulse_history)
         env = stage_environment()
         for script, arguments in (
             ("rebuild_user_portrait.py", []),
             ("rebuild_guest_pulse.py", ["--backfill"] if args.reset_pulse_history else ["--force"]),
             ("check_guest_pulse.py", []),
         ):
-            subprocess.run([sys.executable, str(ROOT / "scripts" / script), *arguments], cwd=ROOT, env=env, check=True, capture_output=True, text=True)
+            run_rebuild(script, arguments, env)
         state = {"completed_at_utc": datetime.now(UTC).isoformat(), "tables": copied, "outbound_messages": "blocked"}
         path = ROOT / ".stage-mirror-state.json"
         temporary = path.with_suffix(".tmp")

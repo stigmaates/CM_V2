@@ -123,7 +123,10 @@ def assert_stage_idle():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Install after read-only checks and stage backup")
+    parser.add_argument("--resume-after-copy", action="store_true", help="Use only after Business data committed atomically; finish rebuild and installation")
     args = parser.parse_args()
+    if args.resume_after_copy and (not args.apply or not (ROOT / ".stage-no-outbound").is_file()):
+        raise ValueError("Resume requires --apply and the existing stage outbound stop file")
     if ROOT.resolve() != STAGE_ROOT.resolve() or os.geteuid() != 0:
         raise ValueError("Run with stage venv as root in /root/cm_stage/CM_V2")
     os.umask(0o077)
@@ -164,7 +167,8 @@ def main():
     env.update(ENV_FILE=str(ROOT / ".env"), BACKUP_DIR=str(backup_dir), PYTHON_BIN=sys.executable)
     run("bash", str(ROOT / "scripts/backup_mysql.sh"), env=env)
     # Web remains stopped on failure; a partial data transaction never gets published.
-    run(sys.executable, str(ROOT / "scripts/mirror_production_to_stage.py"), "--apply", "--reset-pulse-history")
+    resume = ["--rebuild-only"] if args.resume_after_copy else []
+    run(sys.executable, str(ROOT / "scripts/mirror_production_to_stage.py"), "--apply", "--reset-pulse-history", *resume)
     for name in (MIRROR_SERVICE, MIRROR_TIMER):
         path = Path("/etc/systemd/system") / name
         if path.exists():

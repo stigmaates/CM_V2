@@ -201,3 +201,35 @@ def test_cleanup_connection_error_does_not_hide_original_copy_error(monkeypatch)
 
 def test_safe_error_keeps_mysql_code_but_omits_private_values():
     assert mirror.safe_error(mirror.pymysql.OperationalError(2013, 'private row')) == 'OperationalError (code 2013)'
+
+
+def test_resume_never_copies_or_clears_history(monkeypatch):
+    source, stage = Connection(42), Connection(7)
+    def forbidden(*args, **kwargs):
+        pytest.fail('Resume must not replace or delete data')
+    monkeypatch.setattr(mirror, 'replace_tables', forbidden)
+    assert mirror.copy_or_resume(source, stage, {'guests': ['id']}, rebuild_only=True, reset_pulse=True) == {'guests': 1}
+    assert stage.values('guests') == stage.values('guest_score_history') == [(7,)]
+    assert all(sql.startswith('SELECT') for sql in stage.statements)
+
+
+def test_rebuild_reports_heartbeat_and_completion(monkeypatch, capsys):
+    class Process:
+        returncode = 0
+        calls = 0
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def communicate(self, timeout):
+            self.calls += 1
+            assert timeout == 30
+            if self.calls == 1:
+                raise mirror.subprocess.TimeoutExpired('rebuild', timeout)
+            return 'OK: rows processed: 3', ''
+    monkeypatch.setattr(mirror.subprocess, 'Popen', lambda *args, **kwargs: Process())
+    mirror.run_rebuild('rebuild_user_portrait.py', [], {})
+    output = capsys.readouterr().out
+    assert 'still running' in output
+    assert 'Finished rebuild_user_portrait.py' in output
+    assert 'rows processed: 3' in output
