@@ -67,7 +67,7 @@
     if(refill)animateRing();
   }
 
-  function error(message){$('gpError').textContent=message;$('gpError').hidden=!message;}
+  function error(message){$('gpError').textContent=message;$('gpError').hidden=!message;if(message)$('gpError').scrollIntoView({block:'center',behavior:'smooth'});}
   async function api(url,options={}) {
     const response=await fetch(url,{headers:{Accept:'application/json','Content-Type':'application/json'},...options});
     if(!response.ok) {const data=await response.json().catch(()=>({}));throw new Error(data.error||'Не удалось загрузить данные. Обновите страницу.');}
@@ -185,7 +185,7 @@
   async function handoff(mode){
     if(mode==='guest'?!selectedGuestConnected:loading||!responseData)return;
     const buttons=[$('gpMail'),$('gpInteract'),$('gpDeviationInteract'),$('gpGuestInteract')];buttons.forEach(b=>b.disabled=true);
-    try{const result=await api('/owner/api/guest-pulse/selection',{method:'POST',body:JSON.stringify({filters,mode,guest_id:selectedGuest})});window.location.assign(result.url);}
+    try{const result=await api('/owner/api/guest-pulse/selection',{method:'POST',body:JSON.stringify({filters,mode,guest_id:selectedGuest})});$('gpGuestDialog').close();window.crmOpenGuestPulseInteraction(result.group);updateButtons();}
     catch(e){error(e.message);$('gpGuestDialog').close();updateButtons();}
   }
   $('gpMail').addEventListener('click',()=>handoff('audience'));$('gpInteract').addEventListener('click',()=>handoff('audience'));$('gpDeviationInteract').addEventListener('click',()=>handoff('deviations'));$('gpGuestInteract').addEventListener('click',()=>handoff('guest'));
