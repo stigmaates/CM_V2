@@ -11,14 +11,12 @@
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
-  let loading=false, selectedGuestConnected=false, chartFrame=null;
+  let loading=false, selectedGuestConnected=false, chartFrame=null, chartSignature=null;
   const chartSectors=new Map(), circumference=2*Math.PI*91;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   function setLoading(value){
     loading=value;
-    document.querySelector('.gp-chart-block').classList.toggle('is-updating',value);
     $('gpChart').setAttribute('aria-busy',String(value));
-    $('gpChartStatus').textContent=value?'Обновляем выборку…':'';
     updateButtons();
   }
   function updateButtons(){
@@ -27,8 +25,7 @@
     $('gpDeviationInteract').disabled=loading||!responseData?.deviation_telegram_count;
     $('gpGuestInteract').disabled=!selectedGuestConnected;
   }
-  function renderChart(data){
-    cancelAnimationFrame(chartFrame);
+  function renderChart(data,refill=false){
     let offset=0;
     const transitions=data.audiences.map(a=>{
       let state=chartSectors.get(a.key);
@@ -50,22 +47,37 @@
       state.el.setAttribute('aria-hidden',String(!a.count));
       state.el.style.pointerEvents=a.count?'':'none';
       state.el.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.25':'1';
-      const transition={state,fromLength:state.length,fromOffset:state.offset,length,offset};
+      const transition={state,length,offset,fromOpacity:Number(state.el.style.strokeOpacity||1)};
       offset+=length;return transition;
     });
-    const started=performance.now(),duration=reducedMotion.matches?0:520;
+    const signature=JSON.stringify(data.audiences.map(a=>[a.key,a.count]));
+    if(signature===chartSignature&&!refill)return;
+    chartSignature=signature;cancelAnimationFrame(chartFrame);
+    const started=performance.now();
+    const fadeDuration=reducedMotion.matches?0:(transitions.some(t=>t.state.length>0)?100:0);
+    const fillDuration=reducedMotion.matches?0:760;
     function frame(now){
-      const progress=duration?Math.min((now-started)/duration,1):1,ease=1-Math.pow(1-progress,3);
-      transitions.forEach(t=>{
-        t.state.length=t.fromLength+(t.length-t.fromLength)*ease;
-        t.state.offset=t.fromOffset+(t.offset-t.fromOffset)*ease;
-        t.state.el.setAttribute('stroke-dasharray',`${t.state.length} ${Math.max(0,circumference-t.state.length)}`);
-        t.state.el.setAttribute('stroke-dashoffset',-t.state.offset);
-      });
-      if(progress<1)chartFrame=requestAnimationFrame(frame);
+      const elapsed=Math.max(0,now-started);
+      if(elapsed<fadeDuration){
+        transitions.forEach(t=>{t.state.el.style.strokeOpacity=t.fromOpacity*(1-elapsed/fadeDuration);});
+      }else{
+        const progress=fillDuration?Math.min((elapsed-fadeDuration)/fillDuration,1):1;
+        // A single leading edge reveals adjacent sectors clockwise from twelve o'clock.
+        const sweep=circumference*(1-Math.pow(1-progress,3));
+        transitions.forEach(t=>{
+          t.state.length=Math.max(0,Math.min(t.length,sweep-t.offset));
+          t.state.offset=t.offset;
+          t.state.el.style.strokeOpacity='1';
+          t.state.el.setAttribute('stroke-dasharray',`${t.state.length} ${Math.max(0,circumference-t.state.length)}`);
+          t.state.el.setAttribute('stroke-dashoffset',-t.state.offset);
+        });
+      }
+      if(elapsed<fadeDuration+fillDuration)chartFrame=requestAnimationFrame(frame);
     }
-    chartFrame=requestAnimationFrame(frame);
+    if(reducedMotion.matches)frame(started);
+    else chartFrame=requestAnimationFrame(frame);
   }
+
   function error(message){$('gpError').textContent=message;$('gpError').hidden=!message;}
   async function api(url,options={}) {
     const response=await fetch(url,{headers:{Accept:'application/json','Content-Type':'application/json'},...options});
@@ -83,7 +95,7 @@
   }
   const person = (r) => `<button class="gp-person" type="button" data-guest="${r.guest_id}">${esc(r.name)}<span>${esc(r.lifecycle_label)} · ${r.has_telegram?'С Telegram':'Без Telegram'}</span></button>`;
   const change = (d) => `<div class="${d.deviation_direction==='UP'?'gp-up':'gp-down'}">${esc(d.metric)}: ${num(d.baseline_30d)} → ${num(d.score)} <b>${d.deviation_direction==='UP'?'↑':'↓'}${num(d.deviation_ratio*100)}%</b>${d.baseline_estimated?' <small>≈ норма восстановлена</small>':''}</div>`;
-  function render(data){
+  function render(data,refill=false){
     responseData=data;
     $('gpUpdated').textContent=data.calculated_at?`${data.stale?'Данные устарели · ':''}${date(data.calculated_at)} · время клуба`:'Ожидается первый расчёт';
     $('gpTotal').textContent=num(data.selected_count);
@@ -92,7 +104,7 @@
     $('gpSelectionCount').textContent=`Для рассылки: ${num(data.selected_telegram_count)} · только с Telegram`;
     $('gpChartTip').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || 'Выберите сектор или панель аудитории';
     $('gpAudienceList').innerHTML=data.audiences.map(a=>`<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-body"><span class="gp-label"><i class="gp-dot" style="background:${a.color}"></i>${esc(a.label)}</span><span class="gp-audience-telegram"><span>С Telegram <b>${num(a.telegram_count)}</b></span><span>Без Telegram <b>${num(a.without_telegram_count)}</b></span></span></span><span class="gp-audience-end"><strong>${num(a.count)} <small>/ ${num(a.total)}</small></strong><span class="gp-audience-open">Открыть <span aria-hidden="true">→</span></span></span></button>`).join('');
-    renderChart(data);
+    renderChart(data,refill);
     $('gpGuestsPanel').hidden=!filters.audience_type&&!filters.segment;
     document.querySelector('.gp-audiences').hidden=!$('gpGuestsPanel').hidden;
     $('gpGuestsTitle').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || $('gpSegment').selectedOptions[0].textContent;
@@ -103,11 +115,11 @@
     $('gpDeviations').innerHTML=data.deviations.length?data.deviations.map(r=>`<article class="gp-deviation-row">${person(r)}<div class="gp-triple"><span>H <b>${num(r.health.score)}</b></span><span>V <b>${num(r.value.score)}</b></span><span>E <b>${num(r.engagement.score)}</b></span></div><div class="gp-deviation-change">${r.deviations.map(change).join('')}</div></article>`).join(''):'<div class="gp-empty">Нет подходящих отклонений или пока недостаточно истории оценок.</div>';
     pagination($('gpDeviationPages'),deviationPage,data.deviation_count,p=>{deviationPage=p;load();});
   }
-  async function load(){
+  async function load({refill=false}={}){
     clearTimeout(timer);controller?.abort();controller=new AbortController();const own=controller;
     error('');setLoading(true);
-    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams({...filters,page,deviation_page:deviationPage}),{signal:own.signal});if(own===controller){render(data);setLoading(false);}}
-    catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;setLoading(false);error(e.message);$('gpChartStatus').textContent='Не удалось обновить выборку';}}
+    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams({...filters,page,deviation_page:deviationPage}),{signal:own.signal});if(own===controller){render(data,refill);setLoading(false);}}
+    catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;setLoading(false);error(e.message);}}
   }
   function choose(key){filters.audience_type=filters.audience_type===key?'':key;page=1;load();}
   document.querySelectorAll('[data-key]').forEach(input=>input.addEventListener('input',()=>{
@@ -120,7 +132,7 @@
   $('gpSegment').addEventListener('change',e=>{filters.segment=e.target.value;page=1;load();});
   $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;document.querySelectorAll(`[data-key="${k}_min"]`).forEach(e=>e.value=0);document.querySelectorAll(`[data-key="${k}_max"]`).forEach(e=>e.value=100);}filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
   $('gpAllTypes').addEventListener('click',()=>{filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
-  $('gpRefresh').addEventListener('click',load);
+  $('gpRefresh').addEventListener('click',()=>load({refill:true}));
   async function handoff(mode){
     if(mode==='guest'?!selectedGuestConnected:loading||!responseData)return;
     const buttons=[$('gpMail'),$('gpInteract'),$('gpDeviationInteract'),$('gpGuestInteract')];buttons.forEach(b=>b.disabled=true);
