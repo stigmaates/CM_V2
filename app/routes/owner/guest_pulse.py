@@ -26,6 +26,7 @@ def summary(row):
         k: row[k]
         for k in (
             "guest_id",
+            "has_telegram",
             "name",
             "lifecycle_status",
             "lifecycle_label",
@@ -69,7 +70,9 @@ def guest_pulse_data():
     finally:
         conn.close()
     total = Counter(r["audience_type"] for r in current)
-    filtered = Counter(r["audience_type"] for r in current if score_match(r, f))
+    filtered_rows = [r for r in current if score_match(r, f)]
+    filtered = Counter(r["audience_type"] for r in filtered_rows)
+    connected = Counter(r["audience_type"] for r in filtered_rows if r["has_telegram"])
     selected = select(current, f)
     deviating = select(current, f, "deviations")
     deviating.sort(key=lambda r: max(d["deviation_ratio"] for d in r["deviations"]), reverse=True)
@@ -80,7 +83,20 @@ def guest_pulse_data():
         filters=f,
         total=sum(filtered.values()),
         selected_count=len(selected),
-        audiences=[dict(key=k, label=label, color=c, count=filtered[k], total=total[k]) for k, label, c in AUDIENCES],
+        selected_telegram_count=sum(r["has_telegram"] for r in selected),
+        selected_without_telegram_count=sum(not r["has_telegram"] for r in selected),
+        audiences=[
+            dict(
+                key=k,
+                label=label,
+                color=c,
+                count=filtered[k],
+                total=total[k],
+                telegram_count=connected[k],
+                without_telegram_count=filtered[k] - connected[k],
+            )
+            for k, label, c in AUDIENCES
+        ],
         guests=[summary(r) for r in selected[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]],
         page=page,
         page_size=PAGE_SIZE,
@@ -89,6 +105,7 @@ def guest_pulse_data():
             for r in deviating[(deviation_page - 1) * PAGE_SIZE : deviation_page * PAGE_SIZE]
         ],
         deviation_count=len(deviating),
+        deviation_telegram_count=sum(r["has_telegram"] for r in deviating),
         deviation_page=deviation_page,
         calculated_at=at.isoformat() if at else None,
         timezone=state.get("timezone"),
@@ -105,13 +122,14 @@ def guest_pulse_guest(guest_id):
     try:
         result = rows(
             conn,
-            """SELECT p.detail_json FROM guest_pulse_current p
+            """SELECT p.detail_json,g.telegram_id FROM guest_pulse_current p
             JOIN guests g ON g.club_id=p.club_id AND g.guest_id=p.guest_id WHERE p.club_id=%s AND p.guest_id=%s""",
             (cid, guest_id),
         )
         if not result:
             abort(404)
         row = loads(result[0]["detail_json"])
+        row["has_telegram"] = bool(result[0]["telegram_id"])
         history = rows(
             conn,
             """SELECT snapshot_date,health_score,value_score,engagement_score,reconstructed
@@ -155,8 +173,9 @@ def guest_pulse_selection():
     try:
         current = get_current(conn, cid)
         selected = [r for r in current if r["guest_id"] == gid] if mode == "guest" else select(current, f, mode)
+        selected = [r for r in selected if r["has_telegram"]]
         if not selected:
-            return jsonify(ok=False, error="В выборке нет гостей"), 400
+            return jsonify(ok=False, error="В выбранной аудитории нет гостей с Telegram"), 400
         key = uuid4().hex
         now = datetime.now(UTC).replace(tzinfo=None)
         payload = {"filters": f, "mode": mode, "guest_ids": [r["guest_id"] for r in selected]}
@@ -179,7 +198,8 @@ def load_selection(conn, key, *, lock=False):
     result = rows(
         conn,
         """SELECT * FROM guest_pulse_selections WHERE id=%s AND club_id=%s AND user_id=%s
-        AND expires_at>%s""" + (" FOR UPDATE" if lock else ""),
+        AND expires_at>%s"""
+        + (" FOR UPDATE" if lock else ""),
         (key, current_club(), int(session["user_id"]), datetime.now(UTC).replace(tzinfo=None)),
     )
     if not result:
@@ -203,12 +223,13 @@ def selection_group(conn, key):
         if ids
         else []
     )
+    guests = [r for r in guests if r["telegram_id"]]
     return {
         "key": key,
         "source": "guest_pulse",
         "selection_id": key,
         "old_label": "Пульс гостя",
-        "new_label": "Выбранная аудитория",
+        "new_label": "Выбранная аудитория · с Telegram",
         "total_count": len(guests),
         "guest_ids": [r["guest_id"] for r in guests],
         "guests": [

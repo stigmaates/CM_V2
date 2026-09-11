@@ -419,3 +419,97 @@ def test_selection_preview_keeps_frozen_guests_even_if_visit_data_changes(pulse_
         assert group["guests"][0]["has_telegram"]
     finally:
         conn.close()
+
+
+@pytest.fixture
+def mixed_pulse_audience(pulse_client, database):
+    """More than one page, a disconnected guest, and a connected outsider."""
+    _, sql = database
+    base = json.loads(
+        sql("SELECT detail_json FROM guest_pulse_current WHERE club_id=2 AND guest_id=42")[0]["detail_json"]
+    )
+    base["audience_type"] = "loyal"
+    sql("UPDATE guest_pulse_current SET detail_json=%s WHERE club_id=2 AND guest_id=42", (json.dumps(base),))
+    for gid in range(44, 58):
+        row = json.loads(json.dumps(base))
+        row.update(guest_id=gid, name=f"Гость {gid}", audience_type="risk" if gid == 57 else "loyal")
+        sql("INSERT INTO guests VALUES (2,%s,%s,NULL,%s)", (gid, row["name"], None if gid == 56 else gid + 1000))
+        sql(
+            """INSERT INTO guest_pulse_current
+            (club_id,guest_id,health_score,value_score,engagement_score,lifecycle_status,audience_type,calculated_at,detail_json)
+            SELECT club_id,%s,health_score,value_score,engagement_score,lifecycle_status,audience_type,calculated_at,%s
+            FROM guest_pulse_current WHERE club_id=2 AND guest_id=42""",
+            (gid, json.dumps(row)),
+        )
+    return [42, *range(44, 56)]
+
+
+def test_telegram_counts_and_selection_cover_full_filtered_audience(pulse_client, database, mixed_pulse_audience):
+    _, sql = database
+    data = pulse_client.get("/owner/api/guest-pulse?audience_type=loyal").get_json()
+    assert data["selected_count"] == 14 and len(data["guests"]) == 10
+    assert data["selected_telegram_count"] == 13 and data["selected_without_telegram_count"] == 1
+    assert all(a["telegram_count"] + a["without_telegram_count"] == a["count"] for a in data["audiences"])
+    loyal = next(a for a in data["audiences"] if a["key"] == "loyal")
+    assert loyal["telegram_count"] == 13 and loyal["without_telegram_count"] == 1
+    headers = {"X-CSRFToken": "pulse-test-csrf"}
+    response = pulse_client.post(
+        "/owner/api/guest-pulse/selection",
+        headers=headers,
+        json={"filters": {"audience_type": "loyal"}, "guest_ids": [57]},
+    )
+    assert response.status_code == 200 and response.get_json()["count"] == 13
+    saved = json.loads(sql("SELECT selection_json FROM guest_pulse_selections")[0]["selection_json"])
+    assert sorted(saved["guest_ids"]) == mixed_pulse_audience
+
+
+@pytest.mark.parametrize("mode", ["audience", "guest", "deviations"])
+def test_telegram_disconnect_is_live_without_score_refresh(pulse_client, database, mode):
+    _, sql = database
+    # Cached Engagement still says connected, but current Telegram has been removed.
+    sql("UPDATE guests SET telegram_id=NULL WHERE club_id=2 AND guest_id=42")
+    data = pulse_client.get("/owner/api/guest-pulse").get_json()
+    assert data["selected_telegram_count"] == 0 and data["selected_without_telegram_count"] == 1
+    assert not data["guests"][0]["has_telegram"]
+    assert not pulse_client.get("/owner/api/guest-pulse/guests/42").get_json()["guest"]["has_telegram"]
+    response = pulse_client.post(
+        "/owner/api/guest-pulse/selection",
+        headers={"X-CSRFToken": "pulse-test-csrf"},
+        json={"mode": mode, "guest_id": 42},
+    )
+    assert response.status_code == 400 and "Telegram" in response.get_json()["error"]
+    assert not sql("SELECT id FROM guest_pulse_selections")
+
+
+def test_send_rechecks_telegram_and_cannot_expand_frozen_audience(
+    pulse_client, database, mixed_pulse_audience, monkeypatch
+):
+    from app.routes.owner import crm
+    from app.services.guest_pulse import rows
+
+    connect, sql = database
+    monkeypatch.setattr(crm, "get_db_connection", connect)
+    headers = {"X-CSRFToken": "pulse-test-csrf"}
+    pulse_client.post("/owner/api/guest-pulse/selection", json={"filters": {"audience_type": "loyal"}}, headers=headers)
+    key = sql("SELECT id FROM guest_pulse_selections")[0]["id"]
+    sql("UPDATE guests SET telegram_id=NULL WHERE club_id=2 AND guest_id=44")
+
+    def recipients(conn, cid, ids):
+        return rows(conn, "SELECT guest_id,telegram_id FROM guests WHERE club_id=%s", (cid,))
+
+    calls = []
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return {"mailing_id": 456, "recipients_count": len(kwargs["recipients"])}
+
+    monkeypatch.setattr(crm, "get_recipient_rows_for_guest_ids", recipients)
+    monkeypatch.setattr(crm, "create_mailing_for_recipients", create)
+    monkeypatch.setattr(crm, "_start_crm_mailing_worker", lambda mid: None)
+    response = pulse_client.post(
+        "/owner/api/crm-pulse/interact",
+        headers=headers,
+        json={"pulse_selection": key, "guest_ids": [57], "message_text": "Тест без отправки"},
+    )
+    assert response.status_code == 200
+    assert sorted(r["guest_id"] for r in calls[0]["recipients"]) == [gid for gid in mixed_pulse_audience if gid != 44]
