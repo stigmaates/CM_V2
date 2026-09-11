@@ -47,7 +47,8 @@ def main():
             )
         triggers = rows(
             conn,
-            "SELECT COUNT(*) AS cnt FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'guest_pulse_%'",
+            "SELECT COUNT(*) AS cnt FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE %s",
+            ("guest_pulse_%",),
         )[0]["cnt"]
         print(f"Guest Pulse source triggers: {triggers}/30")
         if issues or triggers != 30:
