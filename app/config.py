@@ -66,3 +66,15 @@ if IS_PRODUCTION:
 
 if not SECRET_KEY:
     SECRET_KEY = "development-only-change-me"
+
+# Guest Pulse v1: one rule source for workers, API filters and audience labels.
+GUEST_PULSE_CONFIG = {
+    "history_days": int(os.getenv("GUEST_PULSE_HISTORY_DAYS", "90")),
+    "churn_days": int(os.getenv("GUEST_PULSE_CHURN_DAYS", "60")),
+    "healthy_min": float(os.getenv("GUEST_PULSE_HEALTHY_MIN", "80")),
+    "stable_min": float(os.getenv("GUEST_PULSE_STABLE_MIN", "60")),
+    "at_risk_min": float(os.getenv("GUEST_PULSE_AT_RISK_MIN", "40")),
+    "high_risk_min": float(os.getenv("GUEST_PULSE_HIGH_RISK_MIN", "20")),
+    "high_value_min": float(os.getenv("GUEST_PULSE_HIGH_VALUE_MIN", "75")),
+    "health_drop_alert_14d": float(os.getenv("GUEST_PULSE_HEALTH_DROP_ALERT_14D", "-15")),
+}

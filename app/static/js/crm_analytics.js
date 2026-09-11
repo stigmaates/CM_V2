@@ -627,7 +627,7 @@ function crmRenderPulseRecipients(group) {
     crmPulseRecipientSummary.innerHTML = `
         <article><span>Всего</span><strong>${group.total_count || guests.length}</strong></article>
         <article><span>С Telegram</span><strong>${group.telegram_count || telegramGuests.length}</strong></article>
-        <article><span>После авторассылки</span><strong>${group.recent_auto_count || 0}</strong></article>
+        ${group.source === "guest_pulse" ? '<article><span>Источник</span><strong>Пульс гостя</strong></article>' : `<article><span>После авторассылки</span><strong>${group.recent_auto_count || 0}</strong></article>`}
     `;
     crmPulseRecipientList.innerHTML = guests.map((guest) => {
         const warning = guest.recent_auto_mailing_title
@@ -668,7 +668,8 @@ function crmOpenPulseInteraction(key) {
     if (!group) return;
     crmActivePulseGroup = group;
     crmPulseTitle.textContent = `${group.old_label} → ${group.new_label}`;
-    crmPulseSubtitle.textContent = "Пульс базы";
+    crmPulseSubtitle.textContent = group.source === "guest_pulse" ? "Пульс гостя · выбранная аудитория" : "Пульс базы";
+    if (crmPulseDismiss) crmPulseDismiss.hidden = group.source === "guest_pulse";
     crmPulseMessage.value = "";
     crmPulseBonusAmount.value = "0";
     crmPulseTokenAmount.value = "0";
@@ -703,6 +704,7 @@ async function crmSubmitPulseInteraction() {
             body: JSON.stringify({
                 guest_ids: crmActivePulseGroup.guest_ids || [],
                 transition: crmPulseTransitionPayload(crmActivePulseGroup),
+                pulse_selection: crmActivePulseGroup.selection_id || null,
                 message_text: crmPulseMessage.value,
                 bonus_amount: crmPulseBonusAmount.value,
                 token_amount: crmPulseTokenAmount.value,
@@ -918,3 +920,6 @@ document.addEventListener("keydown", (event) => {
         crmClosePulseModal();
     }
 });
+
+const guestPulseSelectionKey = new URLSearchParams(window.location.search).get("pulse_selection");
+if (guestPulseSelectionKey) crmOpenPulseInteraction(guestPulseSelectionKey);

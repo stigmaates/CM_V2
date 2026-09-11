@@ -1,0 +1,30 @@
+{% extends 'owner/base.html' %}
+{% block title %}Пульс гостя — Кибер Бонус{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css') }}">{% endblock %}
+{% block content %}
+<main class="gp" id="guestPulse">
+  <header class="gp-heading"><div><span class="gp-eyebrow">ГОСТИ И ОТНОШЕНИЯ</span><h1>Пульс гостя</h1><p>Найдите нужную аудиторию или изменения в привычках гостей.</p></div><div class="gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
+  <div id="gpError" role="alert" hidden></div>
+  <section class="gp-card" aria-labelledby="gpAudienceTitle">
+    <div class="gp-section-head"><div><h2 id="gpAudienceTitle">Типы аудитории</h2><p>Три независимых показателя. Одна выбранная аудитория.</p></div><button type="button" class="gp-quiet" id="gpReset">Сбросить фильтры</button></div>
+    <div class="gp-audience-layout">
+      <div class="gp-filters">
+        {% for key,name,meaning in [('health','Health','Нужно ли вмешиваться'),('value','Value','Насколько гость ценен клубу'),('engagement','Engagement','Вовлечённость в Кибер Бонус')] %}
+        <fieldset class="gp-range" data-range="{{ key }}"><legend>{{ name }}</legend><p>{{ meaning }}</p><div class="gp-range-values"><label>От <input type="number" min="0" max="100" value="0" data-key="{{ key }}_min" aria-label="{{ name }} от"></label><span>—</span><label>До <input type="number" min="0" max="100" value="100" data-key="{{ key }}_max" aria-label="{{ name }} до"></label></div><input type="range" min="0" max="100" value="0" data-key="{{ key }}_min" aria-label="Нижняя граница {{ name }}"><input type="range" min="0" max="100" value="100" data-key="{{ key }}_max" aria-label="Верхняя граница {{ name }}"></fieldset>
+        {% endfor %}
+        <p class="gp-hint">При полном диапазоне учитываются и гости с недостаточными данными. Гости без визитов не показаны.</p>
+      </div>
+      <div class="gp-chart-block"><div class="gp-donut"><svg viewBox="0 0 240 240" id="gpChart" aria-label="Распределение аудитории по типам"><circle cx="120" cy="120" r="91" fill="none" stroke="var(--bg-soft)" stroke-width="27"/></svg><div class="gp-donut-center"><strong id="gpTotal">—</strong><span>гостей в выборке</span></div></div><p id="gpChartTip" aria-live="polite">Выберите сектор или тип аудитории</p><span class="gp-selection-count" id="gpSelectionCount">Выбрано гостей: —</span><button type="button" class="gp-primary" id="gpMail" disabled>Отправить рассылку <span aria-hidden="true">↗</span></button></div>
+      <div class="gp-audiences"><div class="gp-list-caption"><span>Тип аудитории</span><span>Выбрано / всего</span></div><div id="gpAudienceList"></div><label class="gp-segment-label">Быстрый сегмент<select id="gpSegment"><option value="">Все гости</option>{% for key,label in segments.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label></div>
+    <section class="gp-guests" id="gpGuestsPanel" hidden><button type="button" class="gp-quiet" id="gpAllTypes">← Типы аудитории</button><div class="gp-section-head"><div><h3 id="gpGuestsTitle">Гости аудитории</h3><p id="gpGuestsCount"></p></div></div><div id="gpGuests"></div><div class="gp-pagination" id="gpGuestPages"></div><button type="button" class="gp-primary" id="gpInteract">Взаимодействовать ↗</button></section>
+    </div>
+  </section>
+  <section class="gp-card" aria-labelledby="gpDeviationTitle"><div class="gp-section-head"><div><h2 id="gpDeviationTitle">Отклонения от нормы</h2><p>Изменения относительно личной медианы за предыдущие 30 дней.</p></div><button type="button" id="gpDeviationInteract" disabled>Взаимодействовать ↗</button></div>
+    <div class="gp-deviation-controls"><fieldset class="gp-metrics"><legend class="gp-sr-only">Показатель отклонения</legend>{% for key,label in [('all','Все'),('health','Health'),('value','Value'),('engagement','Engagement')] %}<label><input type="radio" name="gpMetric" value="{{ key }}" {% if key=='all' %}checked{% endif %}><span>{{ label }}</span></label>{% endfor %}</fieldset><fieldset class="gp-range gp-deviation-range" data-range="deviation"><legend>Отклонение от нормы, %</legend><div class="gp-range-values"><label>От <input type="number" value="15" min="0" max="10000" data-key="deviation_min" aria-label="Отклонение от, процентов"></label><span>—</span><label>До <input type="number" value="50" min="0" max="10000" data-key="deviation_max" aria-label="Отклонение до, процентов"></label></div><input type="range" min="0" max="100" value="15" data-key="deviation_min" aria-label="Нижняя граница отклонения"><input type="range" min="0" max="100" value="50" data-key="deviation_max" aria-label="Верхняя граница отклонения"></fieldset></div>
+    <p class="gp-hint">Нужны минимум 7 ежедневных оценок. Фильтры типов аудитории на этот блок не влияют. История за прошлые дни восстановлена по событиям. Engagement в ней приблизительный.</p>
+    <div class="gp-list-caption"><span id="gpDeviationCount">Загрузка…</span><span>Норма → сейчас</span></div><div id="gpDeviations"></div><div class="gp-pagination" id="gpDeviationPages"></div>
+  </section>
+</main>
+<dialog class="gp-dialog" id="gpGuestDialog" aria-labelledby="gpGuestName" data-lenis-prevent><header><h2 id="gpGuestName">Карточка гостя</h2><button type="button" id="gpClose" aria-label="Закрыть карточку">×</button></header><div id="gpGuestDetail"></div><footer><button type="button" id="gpGuestInteract" class="gp-primary">Взаимодействовать ↗</button></footer></dialog>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/guest_pulse.js') }}" defer></script>{% endblock %}

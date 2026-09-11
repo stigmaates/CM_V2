@@ -16,6 +16,7 @@ from app.config import BALANCE_TOPUP_MAX_AMOUNT, DB_HOST, DB_NAME, DB_PASSWORD, 
 from app.services.crm_pulse import record_crm_status_changes
 from app.services.crm_segments import calculate_crm_segment
 from app.services.timezones import utc_datetime_to_club_local
+from app.services.visits import collapse_sessions_to_visits
 
 
 def get_connection():
@@ -99,26 +100,6 @@ def fetch_guests(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
         cur.execute(sql)
         rows = cur.fetchall()
     return {(int(row["club_id"]), int(row["guest_id"])): row for row in rows}
-
-
-def collapse_sessions_to_visits(rows: List[Dict[str, Any]], gap_hours: int = 2) -> List[Dict[str, datetime]]:
-    visits: List[Dict[str, datetime]] = []
-    max_gap = timedelta(hours=gap_hours)
-
-    for row in sorted(rows, key=lambda item: item["date_start"]):
-        date_start = row.get("date_start")
-        date_stop = row.get("date_stop")
-        if not date_start or not date_stop:
-            continue
-
-        if not visits or date_start - visits[-1]["date_stop"] > max_gap:
-            visits.append({"date_start": date_start, "date_stop": date_stop})
-            continue
-
-        if date_stop > visits[-1]["date_stop"]:
-            visits[-1]["date_stop"] = date_stop
-
-    return visits
 
 
 def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
