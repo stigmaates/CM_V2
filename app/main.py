@@ -20,6 +20,7 @@ from app.routes.owner import (  # noqa: F401
     prize_claims,
     settings,
     sync,
+    team,
     wheel,
 )
 from app.routes.reception import main as reception_main  # noqa: F401

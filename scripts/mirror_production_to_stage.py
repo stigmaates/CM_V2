@@ -23,7 +23,8 @@ STAGE_ROOT = Path("/root/cm_stage/CM_V2")
 PROD_ROOT = Path("/root/cm_v2/CM_V2")
 PRESERVE = {
     "schema_migrations", "guest_score_history", "guest_lifecycle_events",
-    "background_job_locks", "background_job_runs",
+    "background_job_locks", "background_job_runs", "module_registrations",
+    "team_admins", "team_shifts", "team_sync_state",
 }
 PULSE_TABLES = (
     "guest_pulse_selections", "guest_lifecycle_events", "guest_score_history",
@@ -277,6 +278,11 @@ def main():
             ("check_guest_pulse.py", []),
         ):
             run_rebuild(script, arguments, env)
+        if query(stage, "SELECT COUNT(*) AS cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='team_sync_state'")[0]['cnt']:
+            try:
+                run_rebuild("sync_team.py", [], env)
+            except ValueError:
+                print("Team sync failed; previous staff/shift data retained. See Team status.", flush=True)
         state = {"completed_at_utc": datetime.now(UTC).isoformat(), "tables": copied, "outbound_messages": "blocked"}
         path = ROOT / ".stage-mirror-state.json"
         temporary = path.with_suffix(".tmp")
