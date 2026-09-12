@@ -47,6 +47,7 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
             "club_registrations": 0,
             "module_registrations": 0,
             "module_estimated": 0,
+            "shift_count": 0,
             "cohort": 0,
             "visit1": 0,
             "visit2": 0,
@@ -54,6 +55,13 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
         }
         for key, value in people.items()
     }
+    period_start = datetime.combine(registration_range[0], time.min)
+    period_end = datetime.combine(registration_range[1] + timedelta(days=1), time.min)
+    for shift in shifts:
+        if shift["started_at"] < period_end and (
+            shift["stopped_at"] is None or shift["stopped_at"] >= period_start
+        ):
+            result[shift["admin_id"]]["shift_count"] += 1
     grouped = defaultdict(list)
     for session in sessions:
         if session.get("date_stop") and session["date_stop"] <= now:
