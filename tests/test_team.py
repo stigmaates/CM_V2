@@ -35,6 +35,19 @@ def test_shift_edges_gaps_and_overlaps():
     assert shift_owner(None, shifts) is None
 
 
+def test_shift_count_uses_selected_registration_period():
+    shifts = [
+        shift(1, D - timedelta(days=2), D - timedelta(days=1)),
+        shift(1, D, D + timedelta(hours=12)),
+        shift(1, datetime(2026, 1, 31, 22), datetime(2026, 2, 1, 10)),
+        shift(1, datetime(2026, 2, 2), datetime(2026, 2, 2, 10)),
+    ]
+
+    result = report([], shifts=shifts)
+
+    assert result["admins"][0]["shift_count"] == 2
+
+
 def test_funnel_counts_visits_outside_registration_period_and_merges_extensions():
     sessions = [
         dict(guest_id=1, date_start=D, date_stop=D + timedelta(hours=1)),
