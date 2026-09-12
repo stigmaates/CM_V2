@@ -90,12 +90,16 @@
 
     <div class="team-modal" id="teamAdminSettingsModal" hidden>
         <button class="team-modal__backdrop" type="button" data-admin-settings-close aria-label="Закрыть окно"></button>
-        <section class="team-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="teamAdminSettingsTitle">
+        <section class="team-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="teamAdminSettingsTitle" data-lenis-prevent>
             <header>
                 <div><span class="team-eyebrow">СОСТАВ КОМАНДЫ</span><h2 id="teamAdminSettingsTitle">Настроить администраторов</h2><p>Включите сотрудников, которые сейчас работают в клубе.</p></div>
                 <button class="team-modal__close" type="button" data-admin-settings-close aria-label="Закрыть">×</button>
             </header>
-            <div class="team-admin-settings-list" id="teamAdminSettingsList"></div>
+            <div class="team-admin-settings-tools">
+                <span>Отображать в отчёте</span>
+                <button id="teamAdminSettingsToggleAll" type="button">Снять выбор</button>
+            </div>
+            <div class="team-admin-settings-list" id="teamAdminSettingsList" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch></div>
             <p class="team-modal__status" id="teamAdminSettingsStatus" role="status"></p>
             <footer>
                 <button type="button" data-admin-settings-close>Отмена</button>

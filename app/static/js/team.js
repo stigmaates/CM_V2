@@ -182,6 +182,13 @@
         select.value = [...select.options].some((option) => option.value === selected) ? selected : "working";
     }
 
+    function updateToggleAllButton() {
+        const inputs = [...$("teamAdminSettingsList").querySelectorAll("[data-admin-id]")];
+        const allSelected = inputs.length > 0 && inputs.every((input) => input.checked);
+        $("teamAdminSettingsToggleAll").textContent = allSelected ? "Снять выбор" : "Выбрать всех";
+        $("teamAdminSettingsToggleAll").disabled = inputs.length === 0;
+    }
+
     function openAdminSettings() {
         if (!report) return;
         const admins = report.admins
@@ -198,6 +205,7 @@
                 </label>
             </div>
         `).join("") : '<p class="team-empty">Список администраторов ещё не загружен</p>';
+        updateToggleAllButton();
         $("teamAdminSettingsStatus").textContent = "";
         $("teamAdminSettingsModal").hidden = false;
         document.body.classList.add("team-modal-open");
@@ -313,6 +321,15 @@
     $("teamRefresh").addEventListener("click", load);
     $("teamAdminSettingsOpen").addEventListener("click", openAdminSettings);
     $("teamAdminSettingsSave").addEventListener("click", saveAdminSettings);
+    $("teamAdminSettingsToggleAll").addEventListener("click", () => {
+        const inputs = [...$("teamAdminSettingsList").querySelectorAll("[data-admin-id]")];
+        const selectAll = !inputs.every((input) => input.checked);
+        inputs.forEach((input) => { input.checked = selectAll; });
+        updateToggleAllButton();
+    });
+    $("teamAdminSettingsList").addEventListener("change", (event) => {
+        if (event.target.matches("[data-admin-id]")) updateToggleAllButton();
+    });
     document.querySelectorAll("[data-admin-settings-close]").forEach((button) => {
         button.addEventListener("click", closeAdminSettings);
     });
