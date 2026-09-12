@@ -96,7 +96,7 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
             row["module_registrations"] += 1
             row["module_estimated"] += bool(registration["is_estimated"])
     for row in result.values():
-        row["conversion12"] = round(row["visit2"] / row["visit1"] * 100, 1) if row["visit1"] else None
+        row["conversion12"] = round(row["visit2"] / row["cohort"] * 100, 1) if row["cohort"] else None
         row["conversion23"] = round(row["visit3"] / row["visit2"] * 100, 1) if row["visit2"] else None
     ordered = sorted(result.values(), key=lambda r: (r["admin_id"] is None, -r["club_registrations"], r["name"]))
     return {"admins": ordered, "unknown_club_dates": unknown_club_dates, "unknown_module_dates": unknown_module_dates}

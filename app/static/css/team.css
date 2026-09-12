@@ -100,7 +100,6 @@
 .team-admin-filter,
 .team-refresh,
 .team-range,
-.team-jump,
 .team-sort select {
     border: 1px solid var(--team-border);
     background: linear-gradient(135deg, rgba(71, 35, 114, 0.58), rgba(31, 17, 54, 0.86));
@@ -324,19 +323,11 @@
 .team-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 16px;
     margin-bottom: 16px;
 }
 
-.team-jump {
-    display: flex;
-    min-width: min(560px, 45%);
-    padding: 3px;
-    border-radius: 12px;
-}
-
-.team-jump button,
 .team-presets button,
 .team-range > button {
     border: 0;
@@ -346,14 +337,6 @@
     font-weight: 800;
 }
 
-.team-jump button {
-    flex: 1;
-    min-height: 42px;
-    padding: 0 16px;
-    border-radius: 9px;
-}
-
-.team-jump button.is-active,
 .team-presets button.is-active {
     color: #fff;
     background: linear-gradient(135deg, rgba(171, 82, 255, 0.6), rgba(91, 42, 151, 0.64));
@@ -681,7 +664,6 @@
     .team-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .team-report-grid { grid-template-columns: 1fr; }
     .team-toolbar { align-items: stretch; flex-direction: column; }
-    .team-jump { min-width: 0; width: 100%; }
     .team-range { align-self: flex-end; }
 }
 
@@ -708,6 +690,5 @@
     .team-kpis { grid-template-columns: 1fr; }
     .team-hero__actions > * { width: 100%; }
     .team-refresh { justify-content: center; }
-    .team-jump { flex-direction: column; }
     .team-dates input { width: 105px; }
 }
