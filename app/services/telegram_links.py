@@ -5,6 +5,16 @@ from app.core import get_db_connection
 HELP_MESSAGE = "Обратитесь к администратору для помощи с этой проблемой"
 
 
+def record_module_registration(cur, club_id, guest_id):
+    """Record the first successful Telegram link in the caller's transaction."""
+    cur.execute(
+        """INSERT IGNORE INTO module_registrations
+        (club_id, guest_id, registered_at, source, is_estimated, observed_at)
+        VALUES (%s, %s, UTC_TIMESTAMP(), 'telegram_link', 0, UTC_TIMESTAMP())""",
+        (club_id, guest_id),
+    )
+
+
 def find_linked_guest(club_id, telegram_id):
     conn = get_db_connection()
     try:
@@ -58,6 +68,8 @@ def bind_verified_contact(guest_id, club_id, telegram_id, expected_phone=None):
                 "UPDATE guests SET telegram_id = %s WHERE club_id = %s AND guest_id = %s",
                 (telegram_id, club_id, guest_id),
             )
+            if not guest.get("telegram_id"):
+                record_module_registration(cur, club_id, guest_id)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -152,6 +164,8 @@ def review_link_request(request_id, chat_id, reviewer_id, approve):
                     "UPDATE guests SET telegram_id = %s WHERE club_id = %s AND guest_id = %s",
                     (row["telegram_id"], row["club_id"], row["guest_id"]),
                 )
+                if not guest.get("telegram_id"):
+                    record_module_registration(cur, row["club_id"], row["guest_id"])
             cur.execute(
                 "UPDATE guest_telegram_link_requests SET status = %s, reviewed_by = %s, "
                 "reviewed_at = UTC_TIMESTAMP() WHERE id = %s",

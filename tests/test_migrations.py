@@ -217,6 +217,19 @@ def test_guest_module_bans_migration_exports_revision_and_upgrade():
     assert any("guest_module_bans" in value for value in constants)
 
 
+def test_module_registration_capture_migration_exports_table():
+    migration = importlib.import_module(
+        "migrations.versions.0030_module_registration_capture"
+    )
+
+    assert migration.revision == "0030_module_registration_capture"
+    assert callable(migration.upgrade)
+    constants = [
+        value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)
+    ]
+    assert any("module_registrations" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False
