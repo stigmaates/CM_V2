@@ -683,34 +683,31 @@
 }
 
 .team-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-}
-
-.team-modal__backdrop {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: rgba(7, 3, 14, 0.78);
-    backdrop-filter: blur(9px);
-}
-
-.team-modal__dialog {
-    position: relative;
-    z-index: 1;
-    width: min(620px, 100%);
-    max-height: min(760px, calc(100vh - 48px));
+    --team-border-soft: rgba(158, 105, 255, 0.16);
+    --team-border: rgba(158, 105, 255, 0.3);
+    --team-accent-bright: #c97cff;
+    width: min(620px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 0;
     overflow: hidden;
     border: 1px solid rgba(177, 105, 255, 0.42);
     border-radius: 20px;
-    background: linear-gradient(145deg, #2a1747, #160d27);
+    background: transparent;
+    color: var(--text-main);
     box-shadow: 0 28px 100px rgba(0, 0, 0, 0.55), 0 0 40px rgba(141, 60, 234, 0.14);
+}
+
+.team-modal::backdrop {
+    background: rgba(7, 3, 14, 0.9);
+}
+
+.team-modal__dialog {
+    width: 100%;
+    max-height: calc(100dvh - 34px);
+    overflow: hidden;
+    background: linear-gradient(145deg, #2a1747, #160d27);
 }
 
 .team-modal__dialog > header {
@@ -745,7 +742,7 @@
 }
 
 .team-admin-settings-list {
-    max-height: min(500px, calc(100vh - 280px));
+    max-height: min(500px, calc(100dvh - 280px));
     overflow-y: auto;
     padding: 10px 24px;
     overscroll-behavior: contain;

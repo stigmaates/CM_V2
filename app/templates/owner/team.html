@@ -88,9 +88,8 @@
         <p>С 12 сентября 2026 года первая успешная привязка Telegram фиксируется на production с точным временем. Более ранние даты восстановлены приблизительно и отмечены знаком ≈. Повторный вход и перепривязка не создают новую регистрацию.</p>
     </details>
 
-    <div class="team-modal" id="teamAdminSettingsModal" hidden>
-        <button class="team-modal__backdrop" type="button" data-admin-settings-close aria-label="Закрыть окно"></button>
-        <section class="team-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="teamAdminSettingsTitle" data-lenis-prevent>
+    <dialog class="team-modal" id="teamAdminSettingsModal" aria-labelledby="teamAdminSettingsTitle" data-lenis-prevent>
+        <section class="team-modal__dialog">
             <header>
                 <div><span class="team-eyebrow">СОСТАВ КОМАНДЫ</span><h2 id="teamAdminSettingsTitle">Настроить администраторов</h2><p>Включите сотрудников, которые сейчас работают в клубе.</p></div>
                 <button class="team-modal__close" type="button" data-admin-settings-close aria-label="Закрыть">×</button>
@@ -106,7 +105,7 @@
                 <button class="team-modal__save" id="teamAdminSettingsSave" type="button">Сохранить состав</button>
             </footer>
         </section>
-    </div>
+    </dialog>
 </main>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='3') }}" defer></script>{% endblock %}

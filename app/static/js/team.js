@@ -207,13 +207,13 @@
         `).join("") : '<p class="team-empty">Список администраторов ещё не загружен</p>';
         updateToggleAllButton();
         $("teamAdminSettingsStatus").textContent = "";
-        $("teamAdminSettingsModal").hidden = false;
+        $("teamAdminSettingsModal").showModal();
         document.body.classList.add("team-modal-open");
         ($("teamAdminSettingsList").querySelector("input") || $("teamAdminSettingsSave")).focus();
     }
 
     function closeAdminSettings() {
-        $("teamAdminSettingsModal").hidden = true;
+        if ($("teamAdminSettingsModal").open) $("teamAdminSettingsModal").close();
         document.body.classList.remove("team-modal-open");
         $("teamAdminSettingsOpen").focus();
     }
@@ -333,8 +333,12 @@
     document.querySelectorAll("[data-admin-settings-close]").forEach((button) => {
         button.addEventListener("click", closeAdminSettings);
     });
-    document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && !$("teamAdminSettingsModal").hidden) closeAdminSettings();
+    $("teamAdminSettingsModal").addEventListener("cancel", (event) => {
+        event.preventDefault();
+        closeAdminSettings();
+    });
+    $("teamAdminSettingsModal").addEventListener("click", (event) => {
+        if (event.target === $("teamAdminSettingsModal")) closeAdminSettings();
     });
     $("sharedFrom").addEventListener("change", setActivePreset);
     $("sharedTo").addEventListener("change", setActivePreset);
