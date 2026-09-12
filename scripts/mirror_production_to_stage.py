@@ -239,6 +239,81 @@ def copy_or_resume(source, stage, plan, *, rebuild_only=False, reset_pulse=False
     return copied
 
 
+def merge_exact_module_registrations(source, stage, *, batch_size=500):
+    """Import authoritative production registrations without deleting stage estimates."""
+    for connection in (source, stage):
+        present = query(
+            connection,
+            """SELECT COUNT(*) AS cnt FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='module_registrations'""",
+        )[0]["cnt"]
+        if not present:
+            return 0
+
+    source.rollback()
+    stage.rollback()
+    with source.cursor() as cursor:
+        cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        cursor.execute("SET TRANSACTION READ ONLY")
+        cursor.execute("START TRANSACTION WITH CONSISTENT SNAPSHOT")
+
+    imported = 0
+    last = None
+    try:
+        stage.begin()
+        while True:
+            where = ""
+            params = []
+            if last is not None:
+                where = " AND (club_id,guest_id)>(%s,%s)"
+                params.extend(last)
+            params.append(batch_size)
+            batch = query(
+                source,
+                """SELECT club_id,guest_id,registered_at,source,is_estimated,observed_at
+                FROM module_registrations WHERE is_estimated=0"""
+                + where
+                + " ORDER BY club_id,guest_id LIMIT %s",
+                tuple(params),
+            )
+            if not batch:
+                break
+            values = [
+                (
+                    row["club_id"],
+                    row["guest_id"],
+                    row["registered_at"],
+                    row["source"],
+                    0,
+                    row["observed_at"],
+                )
+                for row in batch
+            ]
+            with stage.cursor() as cursor:
+                cursor.executemany(
+                    """INSERT INTO module_registrations
+                    (club_id,guest_id,registered_at,source,is_estimated,observed_at)
+                    VALUES(%s,%s,%s,%s,%s,%s)
+                    ON DUPLICATE KEY UPDATE registered_at=VALUES(registered_at),
+                    source=VALUES(source),is_estimated=0,observed_at=VALUES(observed_at)""",
+                    values,
+                )
+            imported += len(values)
+            last = (batch[-1]["club_id"], batch[-1]["guest_id"])
+            if len(batch) < batch_size:
+                break
+        stage.commit()
+    except BaseException:
+        with suppress(pymysql.Error):
+            stage.rollback()
+        raise
+    finally:
+        with suppress(pymysql.Error):
+            source.rollback()
+    print(f"Exact module registrations imported from production: {imported}", flush=True)
+    return imported
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Read-only schema/target check")
@@ -271,6 +346,7 @@ def main():
             print("Stage mirror already running; skipped.")
             return 0
         copied = copy_or_resume(source, stage, plan, rebuild_only=args.rebuild_only, reset_pulse=args.reset_pulse_history)
+        merge_exact_module_registrations(source, stage)
         env = stage_environment()
         for script, arguments in (
             ("rebuild_user_portrait.py", []),

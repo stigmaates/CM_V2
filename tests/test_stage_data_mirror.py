@@ -233,3 +233,86 @@ def test_rebuild_reports_heartbeat_and_completion(monkeypatch, capsys):
     assert 'still running' in output
     assert 'Finished rebuild_user_portrait.py' in output
     assert 'rows processed: 3' in output
+
+
+class RegistrationMergeCursor:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def execute(self, sql, args=()):
+        self.connection.statements.append((sql, args))
+
+    def executemany(self, sql, values):
+        self.connection.statements.append((sql, values))
+        for club_id, guest_id, registered_at, source, estimated, observed_at in values:
+            self.connection.registrations[(club_id, guest_id)] = {
+                'registered_at': registered_at,
+                'source': source,
+                'is_estimated': estimated,
+                'observed_at': observed_at,
+            }
+
+
+class RegistrationMergeConnection:
+    def __init__(self, registrations=None):
+        self.registrations = registrations or {}
+        self.statements = []
+        self.commits = 0
+        self.rollbacks = 0
+
+    def cursor(self, kind=None):
+        return RegistrationMergeCursor(self)
+
+    def begin(self):
+        pass
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
+
+
+def test_exact_production_registrations_replace_estimates_without_deleting_history(monkeypatch):
+    from datetime import datetime
+
+    exact = [
+        dict(club_id=1, guest_id=7, registered_at=datetime(2026, 9, 12, 10),
+             source='telegram_link', is_estimated=0, observed_at=datetime(2026, 9, 12, 10)),
+        dict(club_id=2, guest_id=8, registered_at=datetime(2026, 9, 12, 11),
+             source='telegram_link', is_estimated=0, observed_at=datetime(2026, 9, 12, 11)),
+    ]
+    source = RegistrationMergeConnection()
+    stage = RegistrationMergeConnection({
+        (1, 7): {'registered_at': None, 'source': 'unknown', 'is_estimated': 1},
+        (3, 9): {'registered_at': datetime(2025, 1, 1), 'source': 'reconstructed', 'is_estimated': 1},
+    })
+
+    def fake_query(connection, sql, args=()):
+        if 'information_schema.TABLES' in sql:
+            return [{'cnt': 1}]
+        if connection is source and 'FROM module_registrations' in sql:
+            if len(args) == 1:
+                return exact
+            return []
+        raise AssertionError(sql)
+
+    monkeypatch.setattr(mirror, 'query', fake_query)
+    assert mirror.merge_exact_module_registrations(source, stage, batch_size=2) == 2
+    assert stage.registrations[(1, 7)]['is_estimated'] == 0
+    assert stage.registrations[(1, 7)]['registered_at'] == datetime(2026, 9, 12, 10)
+    assert stage.registrations[(3, 9)]['is_estimated'] == 1
+    assert stage.commits == 1
+
+
+def test_registration_merge_is_optional_until_production_migration(monkeypatch):
+    source, stage = RegistrationMergeConnection(), RegistrationMergeConnection()
+    monkeypatch.setattr(mirror, 'query', lambda connection, sql, args=(): [{'cnt': int(connection is stage)}])
+    assert mirror.merge_exact_module_registrations(source, stage) == 0
+    assert stage.commits == 0
