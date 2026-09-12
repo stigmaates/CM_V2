@@ -64,6 +64,21 @@ def test_funnel_counts_visits_outside_registration_period_and_merges_extensions(
     assert row["conversion12"] == row["conversion23"] == 100
 
 
+def test_first_return_conversion_uses_all_registered_guests_as_base():
+    sessions = [
+        dict(guest_id=1, date_start=D, date_stop=D + timedelta(hours=1)),
+        dict(guest_id=1, date_start=D + timedelta(days=2), date_stop=D + timedelta(days=2, hours=1)),
+    ]
+    result = report(
+        [dict(guest_id=1, date_insert=D), dict(guest_id=2, date_insert=D)],
+        sessions=sessions,
+    )
+
+    row = result["admins"][0]
+    assert (row["cohort"], row["visit1"], row["visit2"]) == (2, 1, 1)
+    assert row["conversion12"] == 50
+
+
 def test_module_attribution_uses_module_date_not_club_registration_date():
     shifts = [shift(1, D, D + timedelta(days=1)), shift(2, D + timedelta(days=1))]
     result = report(

@@ -78,7 +78,7 @@
         admins.forEach((admin) => {
             Object.keys(total).forEach((key) => { total[key] += admin[key] || 0; });
         });
-        total.conversion12 = total.visit1 ? Math.round((total.visit2 / total.visit1) * 1000) / 10 : null;
+        total.conversion12 = total.cohort ? Math.round((total.visit2 / total.cohort) * 1000) / 10 : null;
         total.conversion23 = total.visit2 ? Math.round((total.visit3 / total.visit2) * 1000) / 10 : null;
         return total;
     }
@@ -107,7 +107,7 @@
         $("kpiConversion23").textContent = percent(total.conversion23);
     }
 
-    function renderRegistrations(admins, total) {
+    function renderRegistrations(admins, overall) {
         const sort = $("teamRegistrationSort").value;
         const key = { club: "club_registrations", module: "module_registrations", shifts: "shift_count" }[sort];
         const ordered = [...admins].sort((a, b) => (
@@ -120,8 +120,8 @@
             return;
         }
         $("teamRegistrations").innerHTML = ordered.map((admin, index) => {
-            const share = total.club_registrations
-                ? Math.round((admin.club_registrations / total.club_registrations) * 1000) / 10
+            const share = overall.club_registrations
+                ? Math.round((admin.club_registrations / overall.club_registrations) * 1000) / 10
                 : 0;
             const estimated = admin.module_estimated
                 ? `<small>≈ ${num(admin.module_estimated)} восстановлено</small>`
@@ -144,14 +144,13 @@
             return Number(a.admin_id === null) - Number(b.admin_id === null) || first || a.name.localeCompare(b.name, "ru");
         });
         if (!ordered.length) {
-            $("teamFunnel").innerHTML = '<tr><td class="team-empty" colspan="8">Нет данных по выбранному администратору</td></tr>';
+            $("teamFunnel").innerHTML = '<tr><td class="team-empty" colspan="7">Нет данных по выбранному администратору</td></tr>';
             return;
         }
         $("teamFunnel").innerHTML = ordered.map((admin, index) => `<tr class="${admin.admin_id === null ? "team-unknown" : ""}">
             <td>${rank(index)}</td>
             <td>${identity(admin)}</td>
             <td><span class="team-number">${num(admin.cohort)}</span></td>
-            <td><span class="team-number">${num(admin.visit1)}</span></td>
             <td><span class="team-number">${num(admin.visit2)}</span></td>
             <td><span class="team-number">${num(admin.visit3)}</span></td>
             <td>${conversion(admin.conversion12)}</td>
@@ -162,10 +161,11 @@
     function renderView() {
         const admins = filteredAdmins();
         const total = totals(admins);
+        const overall = totals(report.admins);
         const selectedOption = $("teamAdminFilter").selectedOptions[0];
         $("teamAdminFilterLabel").textContent = selectedOption?.textContent || "Все администраторы";
         renderKpis(admins, total);
-        renderRegistrations(admins, total);
+        renderRegistrations(admins, overall);
         renderFunnel(admins);
     }
 
@@ -261,11 +261,5 @@
         $("sharedTo").value = today;
         load();
     }));
-    document.querySelectorAll("[data-scroll-to]").forEach((button) => button.addEventListener("click", () => {
-        document.querySelectorAll("[data-scroll-to]").forEach((item) => item.classList.remove("is-active"));
-        button.classList.add("is-active");
-        document.getElementById(button.dataset.scrollTo).scrollIntoView({ behavior: "smooth", block: "start" });
-    }));
-
     load();
 })();
