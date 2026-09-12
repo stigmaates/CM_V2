@@ -12,11 +12,14 @@
         <div class="team-hero__actions">
             <label class="team-admin-filter">
                 <span class="team-control-icon" aria-hidden="true">А</span>
-                <span><strong>Администраторы</strong><small id="teamAdminFilterLabel">Все администраторы</small></span>
+                <span><strong>Администраторы</strong><small id="teamAdminFilterLabel">Работающие администраторы</small></span>
                 <select id="teamAdminFilter" aria-label="Фильтр по администратору">
-                    <option value="all">Все администраторы</option>
+                    <option value="working">Работающие администраторы</option>
                 </select>
             </label>
+            <button class="team-settings-button" id="teamAdminSettingsOpen" type="button">
+                <span aria-hidden="true">⚙</span> Настроить администраторов
+            </button>
             <div class="team-updated" aria-live="polite">
                 <span class="team-clock" aria-hidden="true"></span>
                 <span><strong id="teamUpdated">Данные загружаются</strong><small id="teamTimezone">—</small></span>
@@ -33,7 +36,7 @@
     <section class="team-kpis" aria-label="Основные показатели">
         <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">＋</span><div><span>Регистрации в Langame</span><strong id="kpiClub">—</strong><small>новых аккаунтов за период</small></div></article>
         <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">КБ</span><div><span>Подключения к Кибер Бонус</span><strong id="kpiModule">—</strong><small id="kpiModuleNote">первые привязки Telegram</small></div></article>
-        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">♛</span><div><span>Активных администраторов</span><strong id="kpiAdmins">—</strong><small id="kpiAdminsNote">со сменами за период</small></div></article>
+        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">♛</span><div><span>В текущем составе</span><strong id="kpiAdmins">—</strong><small id="kpiAdminsNote">работают в клубе</small></div></article>
         <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">◷</span><div><span>Смен за период</span><strong id="kpiShifts">—</strong><small>по данным Langame</small></div></article>
         <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">1→2</span><div><span>Конверсия 1 → 2</span><strong id="kpiConversion12">—</strong><small>вернулись / зарегистрировались</small></div></article>
         <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">2→3</span><div><span>Конверсия 2 → 3</span><strong id="kpiConversion23">—</strong><small>третий визит / второй</small></div></article>
@@ -84,6 +87,22 @@
         <p>Диапазон выбирает дату регистрации гостя. Второй и третий визиты могут произойти позже и учитываются по текущую дату. Сессии с перерывом до двух часов считаются одним визитом.</p>
         <p>С 12 сентября 2026 года первая успешная привязка Telegram фиксируется на production с точным временем. Более ранние даты восстановлены приблизительно и отмечены знаком ≈. Повторный вход и перепривязка не создают новую регистрацию.</p>
     </details>
+
+    <div class="team-modal" id="teamAdminSettingsModal" hidden>
+        <button class="team-modal__backdrop" type="button" data-admin-settings-close aria-label="Закрыть окно"></button>
+        <section class="team-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="teamAdminSettingsTitle">
+            <header>
+                <div><span class="team-eyebrow">СОСТАВ КОМАНДЫ</span><h2 id="teamAdminSettingsTitle">Настроить администраторов</h2><p>Включите сотрудников, которые сейчас работают в клубе.</p></div>
+                <button class="team-modal__close" type="button" data-admin-settings-close aria-label="Закрыть">×</button>
+            </header>
+            <div class="team-admin-settings-list" id="teamAdminSettingsList"></div>
+            <p class="team-modal__status" id="teamAdminSettingsStatus" role="status"></p>
+            <footer>
+                <button type="button" data-admin-settings-close>Отмена</button>
+                <button class="team-modal__save" id="teamAdminSettingsSave" type="button">Сохранить состав</button>
+            </footer>
+        </section>
+    </div>
 </main>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='2') }}" defer></script>{% endblock %}

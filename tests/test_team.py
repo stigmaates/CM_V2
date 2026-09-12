@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 import httpx
 import pytest
 
-from app.services.team import build_report, date_range, shift_owner
+from app.services.team import build_report, date_range, save_admin_settings, shift_owner
 from scripts.sync_team import fetch_team
 
 D = datetime(2026, 1, 1, 10)
@@ -175,13 +175,64 @@ def test_team_endpoint_owner_club_scope(monkeypatch):
         return {"admins": []}
 
     monkeypatch.setattr(team, "load_report", load)
+    saved = []
+    monkeypatch.setattr(team, "save_admin_settings", lambda conn, cid, settings: saved.append((cid, settings)))
     client = app.test_client()
     assert client.get("/owner/api/team").status_code == 302
     with client.session_transaction() as sess:
-        sess.update(user_id=1, role="owner", club_id=7, club_name="Test")
+        sess.update(user_id=1, role="owner", club_id=7, club_name="Test", _csrf_token="token")
     assert client.get("/owner/team").status_code == 200
     assert client.get("/owner/api/team?club_id=99").status_code == 200
+    response = client.post(
+        "/owner/api/team/admins?club_id=99",
+        json={"admins": [{"admin_id": 3, "is_working": False}]},
+        headers={"X-CSRFToken": "token"},
+    )
+    assert response.status_code == 200
     assert calls == [7]
+    assert saved == [(7, [{"admin_id": 3, "is_working": False}])]
+
+
+def test_admin_settings_validate_club_membership_before_writing(monkeypatch):
+    from app.services import team
+
+    class Cursor:
+        def __init__(self):
+            self.executed = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def execute(self, sql, args):
+            self.executed.append((sql, args))
+
+    class Connection:
+        def __init__(self):
+            self.cursor_obj = Cursor()
+            self.committed = False
+
+        def cursor(self):
+            return self.cursor_obj
+
+        def commit(self):
+            self.committed = True
+
+        def rollback(self):
+            pass
+
+    conn = Connection()
+    monkeypatch.setattr(team, "rows", lambda conn, sql, args=(): [{"admin_id": 4}])
+
+    with pytest.raises(ValueError, match="не найден"):
+        save_admin_settings(conn, 7, [{"admin_id": 5, "is_working": True}])
+    assert conn.cursor_obj.executed == []
+
+    save_admin_settings(conn, 7, [{"admin_id": "4", "is_working": False}])
+    assert conn.committed
+    assert conn.cursor_obj.executed[0][1] == (7, 4, 0)
 
 
 def test_club_local_dates_and_cohort_sql_boundaries(monkeypatch):
@@ -222,4 +273,10 @@ def test_club_local_dates_and_cohort_sql_boundaries(monkeypatch):
 def test_team_tables_survive_business_mirror():
     from scripts.mirror_production_to_stage import PRESERVE
 
-    assert {"module_registrations", "team_admins", "team_shifts", "team_sync_state"} <= PRESERVE
+    assert {
+        "module_registrations",
+        "team_admins",
+        "team_shifts",
+        "team_sync_state",
+        "team_admin_settings",
+    } <= PRESERVE
