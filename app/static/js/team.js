@@ -38,6 +38,10 @@
         return admin.admin_id === null ? "unknown" : String(admin.admin_id);
     }
 
+    function isWorking(admin) {
+        return admin.admin_id !== null && admin.is_working !== false;
+    }
+
     function initials(name) {
         return String(name || "?")
             .split(/\s+/)
@@ -59,8 +63,8 @@
     function filteredAdmins() {
         if (!report) return [];
         const selected = $("teamAdminFilter").value;
-        return selected === "all"
-            ? report.admins
+        return selected === "working"
+            ? report.admins.filter(isWorking)
             : report.admins.filter((admin) => adminKey(admin) === selected);
     }
 
@@ -94,14 +98,13 @@
 
     function renderKpis(admins, total) {
         const known = admins.filter((admin) => admin.admin_id !== null);
-        const active = known.filter((admin) => (admin.shift_count || 0) > 0).length;
         $("kpiClub").textContent = num(total.club_registrations);
         $("kpiModule").textContent = num(total.module_registrations);
         $("kpiModuleNote").textContent = total.module_estimated
             ? `≈ ${num(total.module_estimated)} с восстановленной датой`
             : "точные регистрации за период";
-        $("kpiAdmins").textContent = num(active);
-        $("kpiAdminsNote").textContent = `из ${num(known.length)} в текущем фильтре`;
+        $("kpiAdmins").textContent = num(known.length);
+        $("kpiAdminsNote").textContent = known.length === 1 ? "работает в клубе" : "работают в клубе";
         $("kpiShifts").textContent = num(total.shift_count);
         $("kpiConversion12").textContent = percent(total.conversion12);
         $("kpiConversion23").textContent = percent(total.conversion23);
@@ -161,7 +164,7 @@
     function renderView() {
         const admins = filteredAdmins();
         const total = totals(admins);
-        const overall = totals(report.admins);
+        const overall = totals(report.admins.filter(isWorking));
         const selectedOption = $("teamAdminFilter").selectedOptions[0];
         $("teamAdminFilterLabel").textContent = selectedOption?.textContent || "Все администраторы";
         renderKpis(admins, total);
@@ -172,10 +175,69 @@
     function populateAdminFilter(admins) {
         const select = $("teamAdminFilter");
         const selected = select.value;
-        select.innerHTML = '<option value="all">Все администраторы</option>' + admins.map((admin) => (
+        const working = admins.filter(isWorking);
+        select.innerHTML = '<option value="working">Работающие администраторы</option>' + working.map((admin) => (
             `<option value="${escape(adminKey(admin))}">${escape(admin.name)}</option>`
         )).join("");
-        if ([...select.options].some((option) => option.value === selected)) select.value = selected;
+        select.value = [...select.options].some((option) => option.value === selected) ? selected : "working";
+    }
+
+    function openAdminSettings() {
+        if (!report) return;
+        const admins = report.admins
+            .filter((admin) => admin.admin_id !== null)
+            .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+        $("teamAdminSettingsList").innerHTML = admins.length ? admins.map((admin) => `
+            <div class="team-admin-setting">
+                <span class="team-avatar">${escape(initials(admin.name))}</span>
+                <span><strong>${escape(admin.name)}</strong><small>ID ${escape(admin.admin_id)}</small></span>
+                <label class="team-switch">
+                    <span>Работает</span>
+                    <input type="checkbox" data-admin-id="${escape(admin.admin_id)}"${isWorking(admin) ? " checked" : ""}>
+                    <span class="team-switch__track" aria-hidden="true"></span>
+                </label>
+            </div>
+        `).join("") : '<p class="team-empty">Список администраторов ещё не загружен</p>';
+        $("teamAdminSettingsStatus").textContent = "";
+        $("teamAdminSettingsModal").hidden = false;
+        document.body.classList.add("team-modal-open");
+        ($("teamAdminSettingsList").querySelector("input") || $("teamAdminSettingsSave")).focus();
+    }
+
+    function closeAdminSettings() {
+        $("teamAdminSettingsModal").hidden = true;
+        document.body.classList.remove("team-modal-open");
+        $("teamAdminSettingsOpen").focus();
+    }
+
+    async function saveAdminSettings() {
+        const inputs = [...$("teamAdminSettingsList").querySelectorAll("[data-admin-id]")];
+        const admins = inputs.map((input) => ({
+            admin_id: input.dataset.adminId,
+            is_working: input.checked,
+        }));
+        $("teamAdminSettingsSave").disabled = true;
+        $("teamAdminSettingsStatus").textContent = "Сохраняем…";
+        try {
+            const response = await fetch("/owner/api/team/admins", {
+                method: "POST",
+                headers: { Accept: "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({ admins }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.error || "Не удалось сохранить состав");
+            const saved = new Map(admins.map((admin) => [String(admin.admin_id), admin.is_working]));
+            report.admins.forEach((admin) => {
+                if (saved.has(String(admin.admin_id))) admin.is_working = saved.get(String(admin.admin_id));
+            });
+            populateAdminFilter(report.admins);
+            renderView();
+            closeAdminSettings();
+        } catch (error) {
+            $("teamAdminSettingsStatus").textContent = error.message || "Не удалось сохранить состав";
+        } finally {
+            $("teamAdminSettingsSave").disabled = false;
+        }
     }
 
     function setActivePreset() {
@@ -249,6 +311,14 @@
     $("teamRegistrationSort").addEventListener("change", renderView);
     $("teamFunnelSort").addEventListener("change", renderView);
     $("teamRefresh").addEventListener("click", load);
+    $("teamAdminSettingsOpen").addEventListener("click", openAdminSettings);
+    $("teamAdminSettingsSave").addEventListener("click", saveAdminSettings);
+    document.querySelectorAll("[data-admin-settings-close]").forEach((button) => {
+        button.addEventListener("click", closeAdminSettings);
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !$("teamAdminSettingsModal").hidden) closeAdminSettings();
+    });
     $("sharedFrom").addEventListener("change", setActivePreset);
     $("sharedTo").addEventListener("change", setActivePreset);
     document.querySelector("[data-apply]").addEventListener("click", load);

@@ -230,6 +230,16 @@ def test_module_registration_capture_migration_exports_table():
     assert any("module_registrations" in value for value in constants)
 
 
+def test_team_admin_settings_migration_exports_table():
+    migration = importlib.import_module("migrations.versions.0031_team_admin_settings")
+
+    assert migration.revision == "0031_team_admin_settings"
+    constants = [
+        value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)
+    ]
+    assert any("team_admin_settings" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

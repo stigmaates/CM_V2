@@ -37,10 +37,17 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
                 "admin_id": shift["admin_id"],
                 "name": f"Администратор #{shift['admin_id']}",
                 "admin_status": "",
+                "is_working": False,
                 "work_schedule": "",
             },
         )
-    people[None] = {"admin_id": None, "name": "Не определён", "admin_status": "", "work_schedule": ""}
+    people[None] = {
+        "admin_id": None,
+        "name": "Не определён",
+        "admin_status": "",
+        "is_working": False,
+        "work_schedule": "",
+    }
     result = {
         key: {
             **value,
@@ -108,7 +115,16 @@ def load_report(conn, club_id, args):
     now = get_club_local_now(tz)
     registration_range = date_range(args.get("registration_from"), args.get("registration_to"), now.date())
     cohort_range = date_range(args.get("cohort_from"), args.get("cohort_to"), now.date())
-    admins = rows(conn, "SELECT * FROM team_admins WHERE club_id=%s", (club_id,))
+    admins = rows(
+        conn,
+        """SELECT a.*,COALESCE(s.is_working,1) AS is_working
+        FROM team_admins a LEFT JOIN team_admin_settings s
+        ON s.club_id=a.club_id AND s.admin_id=a.admin_id
+        WHERE a.club_id=%s""",
+        (club_id,),
+    )
+    for admin in admins:
+        admin["is_working"] = bool(admin.get("is_working", True))
     shifts = rows(conn, "SELECT * FROM team_shifts WHERE club_id=%s", (club_id,))
     # Match the existing Guest Pulse convention for raw Langame timestamps: UTC -> club time.
     guests = rows(conn, "SELECT guest_id,date_insert FROM guests WHERE club_id=%s", (club_id,))
@@ -146,3 +162,38 @@ def load_report(conn, club_id, args):
         stale=not updated or datetime.now(UTC).replace(tzinfo=None) - updated > timedelta(hours=1),
     )
     return report
+
+
+def save_admin_settings(conn, club_id, settings):
+    if not isinstance(settings, list) or len(settings) > 1000:
+        raise ValueError("Некорректный список администраторов")
+    normalized = {}
+    for item in settings:
+        if not isinstance(item, dict) or not isinstance(item.get("is_working"), bool):
+            raise ValueError("Некорректная настройка администратора")
+        try:
+            admin_id = int(item.get("admin_id"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Некорректный идентификатор администратора") from exc
+        normalized[admin_id] = item["is_working"]
+
+    available = {
+        row["admin_id"]
+        for row in rows(conn, "SELECT admin_id FROM team_admins WHERE club_id=%s", (club_id,))
+    }
+    if not set(normalized).issubset(available):
+        raise ValueError("Администратор не найден в этом клубе")
+
+    try:
+        with conn.cursor() as cursor:
+            for admin_id, is_working in normalized.items():
+                cursor.execute(
+                    """INSERT INTO team_admin_settings
+                    (club_id,admin_id,is_working) VALUES(%s,%s,%s)
+                    ON DUPLICATE KEY UPDATE is_working=VALUES(is_working)""",
+                    (club_id, admin_id, int(is_working)),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
