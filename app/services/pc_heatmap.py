@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.core import get_db_connection
+from app.services.stage_mirror import stage_mirror_enabled
 
 _pc_names_table_ready = False
 
@@ -81,8 +82,11 @@ def get_pc_name_settings(club_id: int) -> list[dict[str, Any]]:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            ensure_pc_names_table(cursor)
-            _sync_recent_session_uuids(cursor, club_id)
+            # The mirror supplies names and UUIDs. GET requests must not write
+            # or acquire DDL locks while its atomic replacement is running.
+            if not stage_mirror_enabled():
+                ensure_pc_names_table(cursor)
+                _sync_recent_session_uuids(cursor, club_id)
             cursor.execute(
                 """
                 SELECT uuid, display_name, sort_order
@@ -156,8 +160,11 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            ensure_pc_names_table(cursor)
-            _sync_recent_session_uuids(cursor, club_id)
+            # The mirror supplies names and UUIDs. GET requests must not write
+            # or acquire DDL locks while its atomic replacement is running.
+            if not stage_mirror_enabled():
+                ensure_pc_names_table(cursor)
+                _sync_recent_session_uuids(cursor, club_id)
             cursor.execute(
                 """
                 SELECT

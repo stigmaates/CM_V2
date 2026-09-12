@@ -9,6 +9,7 @@ from app.core import get_db_connection
 from app.services.auto_mailing_schedule import is_auto_mailing_send_time
 from app.services.job_runs import get_latest_job_runs_by_club
 from app.services.mailing import ensure_auto_mailings
+from app.services.stage_mirror import stage_mirror_enabled
 from app.services.timezones import DEFAULT_CLUB_TIMEZONE, get_club_timezone_label
 
 MSK_TZ = ZoneInfo("Europe/Moscow")
@@ -192,8 +193,11 @@ def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
         latest_jobs_by_type = {}
     conn = get_db_connection()
     try:
-        ensure_auto_mailings(conn, club_id)
-        conn.commit()
+        # Mirrored production settings already exist; viewing their status
+        # must not compete with the copy transaction for write locks.
+        if not stage_mirror_enabled():
+            ensure_auto_mailings(conn, club_id)
+            conn.commit()
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT timezone FROM clubs WHERE club_id = %s LIMIT 1",
