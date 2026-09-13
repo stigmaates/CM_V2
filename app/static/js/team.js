@@ -11,6 +11,10 @@
     let report = null;
     let today = null;
     let controller = null;
+    const tableSort = {
+        registrations: { key: "club_registrations", direction: "desc" },
+        funnel: { key: "conversion12", direction: "desc" },
+    };
 
     function escape(value) {
         return String(value ?? "").replace(
@@ -34,12 +38,8 @@
         return `Данные обновлены: ${day}.${month}.${year} ${rawTime.slice(0, 5)}`;
     }
 
-    function adminKey(admin) {
-        return admin.admin_id === null ? "unknown" : String(admin.admin_id);
-    }
-
     function isWorking(admin) {
-        return admin.admin_id !== null && admin.is_working !== false;
+        return admin.admin_id !== null && admin.has_recent_shift && admin.is_working !== false;
     }
 
     function initials(name) {
@@ -60,12 +60,8 @@
         return `<span class="team-person"><span class="team-avatar">${escape(initials(admin.name))}</span><span><strong>${escape(admin.name)}</strong><small>${meta}</small></span></span>`;
     }
 
-    function filteredAdmins() {
-        if (!report) return [];
-        const selected = $("teamAdminFilter").value;
-        return selected === "working"
-            ? report.admins.filter(isWorking)
-            : report.admins.filter((admin) => adminKey(admin) === selected);
+    function visibleAdmins() {
+        return report ? report.admins.filter(isWorking) : [];
     }
 
     function totals(admins) {
@@ -96,36 +92,63 @@
         return `<span class="team-conversion${strong}">${percent(value)}</span>`;
     }
 
-    function renderKpis(admins, total) {
-        const known = admins.filter((admin) => admin.admin_id !== null);
+    function renderKpis(total) {
         $("kpiClub").textContent = num(total.club_registrations);
         $("kpiModule").textContent = num(total.module_registrations);
         $("kpiModuleNote").textContent = total.module_estimated
             ? `≈ ${num(total.module_estimated)} с восстановленной датой`
-            : "точные регистрации за период";
-        $("kpiAdmins").textContent = num(known.length);
-        $("kpiAdminsNote").textContent = known.length === 1 ? "работает в клубе" : "работают в клубе";
-        $("kpiShifts").textContent = num(total.shift_count);
+            : "впервые подключились к Кибер Бонус";
         $("kpiConversion12").textContent = percent(total.conversion12);
         $("kpiConversion23").textContent = percent(total.conversion23);
     }
 
+    function sortAdmins(admins, table, derived = {}) {
+        const { key, direction } = tableSort[table];
+        return [...admins].sort((a, b) => {
+            if ((a.admin_id === null) !== (b.admin_id === null)) return a.admin_id === null ? 1 : -1;
+            const aValue = key === "share" ? derived[a.admin_id] : a[key];
+            const bValue = key === "share" ? derived[b.admin_id] : b[key];
+            const aMissing = aValue === null || aValue === undefined;
+            const bMissing = bValue === null || bValue === undefined;
+            if (aMissing !== bMissing) return aMissing ? 1 : -1;
+            let comparison;
+            if (key === "name") {
+                comparison = String(aValue || "").localeCompare(String(bValue || ""), "ru");
+            } else {
+                comparison = Number(aValue) - Number(bValue);
+            }
+            if (comparison && direction === "desc") comparison *= -1;
+            return comparison || a.name.localeCompare(b.name, "ru");
+        });
+    }
+
+    function updateSortHeaders(table) {
+        document.querySelectorAll(`[data-sort-table="${table}"]`).forEach((button) => {
+            const active = button.dataset.sortKey === tableSort[table].key;
+            button.classList.toggle("is-active", active);
+            button.dataset.direction = active ? tableSort[table].direction : "";
+            button.closest("th").setAttribute(
+                "aria-sort",
+                active ? (tableSort[table].direction === "asc" ? "ascending" : "descending") : "none",
+            );
+        });
+    }
+
     function renderRegistrations(admins, overall) {
-        const sort = $("teamRegistrationSort").value;
-        const key = { club: "club_registrations", module: "module_registrations", shifts: "shift_count" }[sort];
-        const ordered = [...admins].sort((a, b) => (
-            Number(a.admin_id === null) - Number(b.admin_id === null)
-            || (b[key] || 0) - (a[key] || 0)
-            || a.name.localeCompare(b.name, "ru")
-        ));
+        const shares = Object.fromEntries(admins.map((admin) => [
+            admin.admin_id,
+            overall.club_registrations
+                ? Math.round((admin.club_registrations / overall.club_registrations) * 1000) / 10
+                : 0,
+        ]));
+        const ordered = sortAdmins(admins, "registrations", shares);
+        updateSortHeaders("registrations");
         if (!ordered.length) {
-            $("teamRegistrations").innerHTML = '<tr><td class="team-empty" colspan="6">Нет данных по выбранному администратору</td></tr>';
+            $("teamRegistrations").innerHTML = '<tr><td class="team-empty" colspan="6">Нет данных по выбранному составу</td></tr>';
             return;
         }
         $("teamRegistrations").innerHTML = ordered.map((admin, index) => {
-            const share = overall.club_registrations
-                ? Math.round((admin.club_registrations / overall.club_registrations) * 1000) / 10
-                : 0;
+            const share = shares[admin.admin_id];
             const estimated = admin.module_estimated
                 ? `<small>≈ ${num(admin.module_estimated)} восстановлено</small>`
                 : "";
@@ -141,13 +164,10 @@
     }
 
     function renderFunnel(admins) {
-        const sort = $("teamFunnelSort").value;
-        const ordered = [...admins].sort((a, b) => {
-            const first = sort === "cohort" ? (b.cohort || 0) - (a.cohort || 0) : (b.conversion12 ?? -1) - (a.conversion12 ?? -1);
-            return Number(a.admin_id === null) - Number(b.admin_id === null) || first || a.name.localeCompare(b.name, "ru");
-        });
+        const ordered = sortAdmins(admins, "funnel");
+        updateSortHeaders("funnel");
         if (!ordered.length) {
-            $("teamFunnel").innerHTML = '<tr><td class="team-empty" colspan="7">Нет данных по выбранному администратору</td></tr>';
+            $("teamFunnel").innerHTML = '<tr><td class="team-empty" colspan="7">Нет данных по выбранному составу</td></tr>';
             return;
         }
         $("teamFunnel").innerHTML = ordered.map((admin, index) => `<tr class="${admin.admin_id === null ? "team-unknown" : ""}">
@@ -162,30 +182,24 @@
     }
 
     function renderView() {
-        const admins = filteredAdmins();
+        const admins = visibleAdmins();
         const total = totals(admins);
-        const overall = totals(report.admins.filter(isWorking));
-        const selectedOption = $("teamAdminFilter").selectedOptions[0];
-        $("teamAdminFilterLabel").textContent = selectedOption?.textContent || "Все администраторы";
-        renderKpis(admins, total);
-        renderRegistrations(admins, overall);
+        renderKpis(total);
+        renderRegistrations(admins, total);
         renderFunnel(admins);
     }
 
-    function populateAdminFilter(admins) {
-        const select = $("teamAdminFilter");
-        const selected = select.value;
-        const working = admins.filter(isWorking);
-        select.innerHTML = '<option value="working">Работающие администраторы</option>' + working.map((admin) => (
-            `<option value="${escape(adminKey(admin))}">${escape(admin.name)}</option>`
-        )).join("");
-        select.value = [...select.options].some((option) => option.value === selected) ? selected : "working";
+    function updateToggleAllButton() {
+        const inputs = [...$("teamAdminSettingsList").querySelectorAll("[data-admin-id]")];
+        const allSelected = inputs.length > 0 && inputs.every((input) => input.checked);
+        $("teamAdminSettingsToggleAll").textContent = allSelected ? "Снять выбор" : "Выбрать всех";
+        $("teamAdminSettingsToggleAll").disabled = inputs.length === 0;
     }
 
     function openAdminSettings() {
         if (!report) return;
         const admins = report.admins
-            .filter((admin) => admin.admin_id !== null)
+            .filter((admin) => admin.admin_id !== null && admin.has_recent_shift)
             .sort((a, b) => a.name.localeCompare(b.name, "ru"));
         $("teamAdminSettingsList").innerHTML = admins.length ? admins.map((admin) => `
             <div class="team-admin-setting">
@@ -198,14 +212,15 @@
                 </label>
             </div>
         `).join("") : '<p class="team-empty">Список администраторов ещё не загружен</p>';
+        updateToggleAllButton();
         $("teamAdminSettingsStatus").textContent = "";
-        $("teamAdminSettingsModal").hidden = false;
+        $("teamAdminSettingsModal").showModal();
         document.body.classList.add("team-modal-open");
         ($("teamAdminSettingsList").querySelector("input") || $("teamAdminSettingsSave")).focus();
     }
 
     function closeAdminSettings() {
-        $("teamAdminSettingsModal").hidden = true;
+        if ($("teamAdminSettingsModal").open) $("teamAdminSettingsModal").close();
         document.body.classList.remove("team-modal-open");
         $("teamAdminSettingsOpen").focus();
     }
@@ -230,7 +245,6 @@
             report.admins.forEach((admin) => {
                 if (saved.has(String(admin.admin_id))) admin.is_working = saved.get(String(admin.admin_id));
             });
-            populateAdminFilter(report.admins);
             renderView();
             closeAdminSettings();
         } catch (error) {
@@ -264,7 +278,6 @@
         $("teamStatus").textContent = data.error
             ? stateText[data.error] || "Ошибка обновления смен. Показаны сохранённые данные."
             : data.stale ? "Данные смен требуют обновления." : "";
-        populateAdminFilter(data.admins);
         setActivePreset();
         renderView();
         $("teamCoverage").textContent = `≈ — дата регистрации в модуле восстановлена приблизительно. Без известной даты: в клубе ${num(data.unknown_club_dates)}, в модуле ${num(data.unknown_module_dates)}.`;
@@ -307,17 +320,38 @@
         }
     }
 
-    $("teamAdminFilter").addEventListener("change", renderView);
-    $("teamRegistrationSort").addEventListener("change", renderView);
-    $("teamFunnelSort").addEventListener("change", renderView);
+    document.querySelectorAll("[data-sort-table][data-sort-key]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const sorting = tableSort[button.dataset.sortTable];
+            if (sorting.key === button.dataset.sortKey) sorting.direction = sorting.direction === "desc" ? "asc" : "desc";
+            else {
+                sorting.key = button.dataset.sortKey;
+                sorting.direction = button.dataset.sortKey === "name" ? "asc" : "desc";
+            }
+            renderView();
+        });
+    });
     $("teamRefresh").addEventListener("click", load);
     $("teamAdminSettingsOpen").addEventListener("click", openAdminSettings);
     $("teamAdminSettingsSave").addEventListener("click", saveAdminSettings);
+    $("teamAdminSettingsToggleAll").addEventListener("click", () => {
+        const inputs = [...$("teamAdminSettingsList").querySelectorAll("[data-admin-id]")];
+        const selectAll = !inputs.every((input) => input.checked);
+        inputs.forEach((input) => { input.checked = selectAll; });
+        updateToggleAllButton();
+    });
+    $("teamAdminSettingsList").addEventListener("change", (event) => {
+        if (event.target.matches("[data-admin-id]")) updateToggleAllButton();
+    });
     document.querySelectorAll("[data-admin-settings-close]").forEach((button) => {
         button.addEventListener("click", closeAdminSettings);
     });
-    document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && !$("teamAdminSettingsModal").hidden) closeAdminSettings();
+    $("teamAdminSettingsModal").addEventListener("cancel", (event) => {
+        event.preventDefault();
+        closeAdminSettings();
+    });
+    $("teamAdminSettingsModal").addEventListener("click", (event) => {
+        if (event.target === $("teamAdminSettingsModal")) closeAdminSettings();
     });
     $("sharedFrom").addEventListener("change", setActivePreset);
     $("sharedTo").addEventListener("change", setActivePreset);

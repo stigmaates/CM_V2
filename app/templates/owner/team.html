@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}Команда — Кибер Бонус{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='2') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='6') }}">{% endblock %}
 {% block content %}
 <main class="team" data-team-page>
     <header class="team-hero">
@@ -10,13 +10,6 @@
             <p>Регистрации и возвращаемость гостей по сменам администраторов</p>
         </div>
         <div class="team-hero__actions">
-            <label class="team-admin-filter">
-                <span class="team-control-icon" aria-hidden="true">А</span>
-                <span><strong>Администраторы</strong><small id="teamAdminFilterLabel">Работающие администраторы</small></span>
-                <select id="teamAdminFilter" aria-label="Фильтр по администратору">
-                    <option value="working">Работающие администраторы</option>
-                </select>
-            </label>
             <button class="team-settings-button" id="teamAdminSettingsOpen" type="button">
                 <span aria-hidden="true">⚙</span> Настроить администраторов
             </button>
@@ -34,12 +27,22 @@
     <p id="teamStatus" class="team-status" role="status">Загружаем данные…</p>
 
     <section class="team-kpis" aria-label="Основные показатели">
-        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">＋</span><div><span>Регистрации в Langame</span><strong id="kpiClub">—</strong><small>новых аккаунтов за период</small></div></article>
-        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">КБ</span><div><span>Подключения к Кибер Бонус</span><strong id="kpiModule">—</strong><small id="kpiModuleNote">первые привязки Telegram</small></div></article>
-        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">♛</span><div><span>В текущем составе</span><strong id="kpiAdmins">—</strong><small id="kpiAdminsNote">работают в клубе</small></div></article>
-        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">◷</span><div><span>Смен за период</span><strong id="kpiShifts">—</strong><small>по данным Langame</small></div></article>
-        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">1→2</span><div><span>Конверсия 1 → 2</span><strong id="kpiConversion12">—</strong><small>вернулись / зарегистрировались</small></div></article>
-        <article class="team-kpi"><span class="team-kpi__icon" aria-hidden="true">2→3</span><div><span>Конверсия 2 → 3</span><strong id="kpiConversion23">—</strong><small>третий визит / второй</small></div></article>
+        <article class="team-kpi">
+            <h2>Новых гостей</h2>
+            <div class="team-kpi__body"><span class="team-kpi__icon" aria-hidden="true">＋</span><div><strong id="kpiClub">—</strong><small>зарегистрировались в системе клуба</small></div></div>
+        </article>
+        <article class="team-kpi">
+            <h2>Новых гостей в Кибер Бонус</h2>
+            <div class="team-kpi__body"><span class="team-kpi__icon" aria-hidden="true">КБ</span><div><strong id="kpiModule">—</strong><small id="kpiModuleNote">впервые подключились к Кибер Бонус</small></div></div>
+        </article>
+        <article class="team-kpi">
+            <h2>Конверсия 1 → 2</h2>
+            <div class="team-kpi__body"><span class="team-kpi__icon" aria-hidden="true">1→2</span><div><strong id="kpiConversion12">—</strong><small>вернулись второй раз / новые гости</small></div></div>
+        </article>
+        <article class="team-kpi">
+            <h2>Конверсия 2 → 3</h2>
+            <div class="team-kpi__body"><span class="team-kpi__icon" aria-hidden="true">2→3</span><div><strong id="kpiConversion23">—</strong><small>вернулись третий раз / вернулись второй раз</small></div></div>
+        </article>
     </section>
 
     <section class="team-toolbar" aria-label="Период отчёта">
@@ -61,10 +64,16 @@
         <section class="team-card" id="teamRegistrationCard">
             <header class="team-card__header">
                 <div class="team-card__title"><span class="team-card__icon" aria-hidden="true">А</span><span><h2>Администраторы</h2><p>Регистрации гостей по каждому администратору</p></span></div>
-                <label class="team-sort">Сортировка<select id="teamRegistrationSort"><option value="club">По регистрациям в клубе</option><option value="module">По регистрациям в модуле</option><option value="shifts">По количеству смен</option></select></label>
             </header>
             <div class="team-table-wrap">
-                <table><thead><tr><th>#</th><th>Администратор</th><th>Регистрации Langame</th><th>Подключения КБ</th><th>Смены</th><th>Доля новых гостей</th></tr></thead><tbody id="teamRegistrations"></tbody></table>
+                <table><thead><tr>
+                    <th scope="col">#</th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="name">Администратор</button></th>
+                    <th scope="col" aria-sort="descending"><button class="team-sort-button is-active" type="button" data-sort-table="registrations" data-sort-key="club_registrations">Регистрации Langame</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_registrations">Подключения КБ</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="shift_count">Смены</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="share">Доля новых гостей</button></th>
+                </tr></thead><tbody id="teamRegistrations"></tbody></table>
             </div>
             <p class="team-note" id="teamCoverage"></p>
         </section>
@@ -72,10 +81,17 @@
         <section class="team-card" id="teamFunnelCard">
             <header class="team-card__header">
                 <div class="team-card__title"><span class="team-card__icon" aria-hidden="true">↻</span><span><h2>Возвращаемость новых гостей</h2><p>Воронка по администраторам, визиты учитываются по текущую дату</p></span></div>
-                <label class="team-sort">Сортировка<select id="teamFunnelSort"><option value="return">По возвращаемости</option><option value="cohort">По регистрациям</option></select></label>
             </header>
             <div class="team-table-wrap">
-                <table><thead><tr><th>#</th><th>Администратор</th><th>Новые гости</th><th>Вернулись 2-й раз</th><th>Вернулись 3-й раз</th><th>1 → 2</th><th>2 → 3</th></tr></thead><tbody id="teamFunnel"></tbody></table>
+                <table><thead><tr>
+                    <th scope="col">#</th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="funnel" data-sort-key="name">Администратор</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="funnel" data-sort-key="cohort">Новые гости</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="funnel" data-sort-key="visit2">Вернулись 2-й раз</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="funnel" data-sort-key="visit3">Вернулись 3-й раз</button></th>
+                    <th scope="col" aria-sort="descending"><button class="team-sort-button is-active" type="button" data-sort-table="funnel" data-sort-key="conversion12">1 → 2</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="funnel" data-sort-key="conversion23">2 → 3</button></th>
+                </tr></thead><tbody id="teamFunnel"></tbody></table>
             </div>
             <p class="team-note">1 → 2: вернувшиеся второй раз / все новые гости. 2 → 3: вернувшиеся третий раз / вернувшиеся второй раз. Недавние гости могли ещё не успеть вернуться.</p>
         </section>
@@ -88,21 +104,24 @@
         <p>С 12 сентября 2026 года первая успешная привязка Telegram фиксируется на production с точным временем. Более ранние даты восстановлены приблизительно и отмечены знаком ≈. Повторный вход и перепривязка не создают новую регистрацию.</p>
     </details>
 
-    <div class="team-modal" id="teamAdminSettingsModal" hidden>
-        <button class="team-modal__backdrop" type="button" data-admin-settings-close aria-label="Закрыть окно"></button>
-        <section class="team-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="teamAdminSettingsTitle">
+    <dialog class="team-modal" id="teamAdminSettingsModal" aria-labelledby="teamAdminSettingsTitle" data-lenis-prevent>
+        <section class="team-modal__dialog">
             <header>
-                <div><span class="team-eyebrow">СОСТАВ КОМАНДЫ</span><h2 id="teamAdminSettingsTitle">Настроить администраторов</h2><p>Включите сотрудников, которые сейчас работают в клубе.</p></div>
+                <div><span class="team-eyebrow">СОСТАВ КОМАНДЫ</span><h2 id="teamAdminSettingsTitle">Настроить администраторов</h2><p>Показаны сотрудники, у которых была смена за последние 50 дней.</p></div>
                 <button class="team-modal__close" type="button" data-admin-settings-close aria-label="Закрыть">×</button>
             </header>
-            <div class="team-admin-settings-list" id="teamAdminSettingsList"></div>
+            <div class="team-admin-settings-tools">
+                <span>Отображать в отчёте</span>
+                <button id="teamAdminSettingsToggleAll" type="button">Снять выбор</button>
+            </div>
+            <div class="team-admin-settings-list" id="teamAdminSettingsList" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch></div>
             <p class="team-modal__status" id="teamAdminSettingsStatus" role="status"></p>
             <footer>
                 <button type="button" data-admin-settings-close>Отмена</button>
                 <button class="team-modal__save" id="teamAdminSettingsSave" type="button">Сохранить состав</button>
             </footer>
         </section>
-    </div>
+    </dialog>
 </main>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='2') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='6') }}" defer></script>{% endblock %}

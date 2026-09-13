@@ -59,12 +59,18 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
             "visit1": 0,
             "visit2": 0,
             "visit3": 0,
+            "has_recent_shift": False,
         }
         for key, value in people.items()
     }
+    recent_shift_cutoff = now - timedelta(days=50)
     period_start = datetime.combine(registration_range[0], time.min)
     period_end = datetime.combine(registration_range[1] + timedelta(days=1), time.min)
     for shift in shifts:
+        if shift["started_at"] <= now and (
+            shift["stopped_at"] is None or shift["stopped_at"] >= recent_shift_cutoff
+        ):
+            result[shift["admin_id"]]["has_recent_shift"] = True
         if shift["started_at"] < period_end and (
             shift["stopped_at"] is None or shift["stopped_at"] >= period_start
         ):
