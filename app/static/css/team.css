@@ -637,7 +637,7 @@
 .team td {
     padding: 15px 8px;
     border-bottom: 1px solid rgba(158, 105, 255, 0.12);
-    text-align: right;
+    text-align: center;
 }
 
 .team th {
@@ -651,7 +651,7 @@
 .team-sort-button {
     display: inline-flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 5px;
     width: 100%;
     padding: 5px 0;
@@ -699,19 +699,19 @@
 }
 
 .team-registration-table th:nth-child(1) { width: 6%; }
-.team-registration-table th:nth-child(2) { width: 25%; }
+.team-registration-table th:nth-child(2) { width: 27%; }
 .team-registration-table th:nth-child(3) { width: 18%; }
-.team-registration-table th:nth-child(4) { width: 17%; }
-.team-registration-table th:nth-child(5) { width: 10%; }
-.team-registration-table th:nth-child(6) { width: 24%; }
+.team-registration-table th:nth-child(4) { width: 16%; }
+.team-registration-table th:nth-child(5) { width: 11%; }
+.team-registration-table th:nth-child(6) { width: 22%; }
 
-.team-funnel-table th:nth-child(1) { width: 5%; }
-.team-funnel-table th:nth-child(2) { width: 25%; }
+.team-funnel-table th:nth-child(1) { width: 6%; }
+.team-funnel-table th:nth-child(2) { width: 27%; }
 .team-funnel-table th:nth-child(3) { width: 14%; }
-.team-funnel-table th:nth-child(4) { width: 15%; }
-.team-funnel-table th:nth-child(5) { width: 15%; }
+.team-funnel-table th:nth-child(4) { width: 14%; }
+.team-funnel-table th:nth-child(5) { width: 14%; }
 .team-funnel-table th:nth-child(6),
-.team-funnel-table th:nth-child(7) { width: 13%; }
+.team-funnel-table th:nth-child(7) { width: 12.5%; }
 
 .team tbody tr:last-child td {
     border-bottom: 0;
