@@ -470,7 +470,10 @@
         load();
     });
     document.addEventListener("click", (event) => {
-        if (!event.target.closest(".team-period")) closeCalendar();
+        const clickedInsidePeriod = event.composedPath().some(
+            (element) => element instanceof Element && element.classList.contains("team-period"),
+        );
+        if (!clickedInsidePeriod) closeCalendar();
     });
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && !$("teamCalendarPopover").hidden) closeCalendar();
