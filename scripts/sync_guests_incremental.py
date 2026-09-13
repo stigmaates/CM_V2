@@ -77,20 +77,20 @@ def get_clubs(club_id=None):
         conn.close()
 
 
-def get_existing_guest_ids(club_id):
+def get_existing_guest_birth_dates(club_id):
     for attempt in range(1, DB_RETRY_ATTEMPTS + 1):
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT guest_id
+                    SELECT guest_id, birth_date
                     FROM guests
                     WHERE club_id = %s
                     """,
                     (club_id,),
                 )
-                return {row["guest_id"] for row in cursor.fetchall()}
+                return {row["guest_id"]: row.get("birth_date") for row in cursor.fetchall()}
         except pymysql.err.OperationalError as exc:
             if attempt >= DB_RETRY_ATTEMPTS:
                 raise
@@ -161,9 +161,13 @@ def fetch_guests(secret, api_key):
 def parse_date(value):
     if not value:
         return None
+
+    if isinstance(value, datetime):
+        return value.date()
+
     try:
-        return datetime.strptime(value, "%Y-%m-%d").date()
-    except Exception:
+        return datetime.fromisoformat(str(value).strip().replace("Z", "+00:00")).date()
+    except (TypeError, ValueError):
         return None
 
 
@@ -176,14 +180,22 @@ def parse_datetime(value):
         return None
 
 
-def filter_new_guests(guests, existing_ids):
+def filter_changed_guests(guests, existing_birth_dates):
     result = []
     threshold = datetime.now() - timedelta(days=1)
 
     for g in guests:
         guest_id = g.get("guest_id")
 
-        if guest_id not in existing_ids:
+        if guest_id not in existing_birth_dates:
+            result.append(g)
+            continue
+
+        remote_birth_date = parse_date(g.get("birthday"))
+        local_birth_date = existing_birth_dates.get(guest_id)
+        if isinstance(local_birth_date, datetime):
+            local_birth_date = local_birth_date.date()
+        if remote_birth_date != local_birth_date:
             result.append(g)
             continue
 
@@ -299,9 +311,9 @@ def sync_guests_incremental(club_id=None):
         logging.info("Клуб %s | Langame guests sync", current_club_id)
 
         try:
-            existing_ids = get_existing_guest_ids(current_club_id)
+            existing_birth_dates = get_existing_guest_birth_dates(current_club_id)
             guests = fetch_guests(secret, api_key)
-            filtered = filter_new_guests(guests, existing_ids)
+            filtered = filter_changed_guests(guests, existing_birth_dates)
             saved = save_guests(current_club_id, filtered)
 
             finish_job_run(

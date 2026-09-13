@@ -136,9 +136,13 @@ def fetch_guests(secret: str, api_key: str, progress: Callable[[str], None] | No
 def parse_date(value):
     if not value:
         return None
+
+    if isinstance(value, datetime):
+        return value.date()
+
     try:
-        return datetime.strptime(value, "%Y-%m-%d").date()
-    except Exception:
+        return datetime.fromisoformat(str(value).strip().replace("Z", "+00:00")).date()
+    except (TypeError, ValueError):
         return None
 
 
