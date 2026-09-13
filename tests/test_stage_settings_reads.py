@@ -56,6 +56,8 @@ def test_stage_pc_settings_and_heatmap_read_without_write_locks(monkeypatch):
         else:
             assert result['pcs'][0]['name'] == 'VIP 1'
             assert result['total_hours'] == 3
+            assert result['pcs'][0]['utilization_percent'] == 1.8
+            assert result['utilization_percent'] == 1.8
 
 
 def test_non_mirror_keeps_existing_pc_discovery(monkeypatch):

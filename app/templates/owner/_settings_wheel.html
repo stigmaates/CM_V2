@@ -1044,22 +1044,7 @@
             </section>
 
             <section class="card wheel-section">
-                <div class="section-title">2. Редактор</div>
-                <p class="wheel-subtitle">
-                    Переключает только редактор на этой странице, не меняя режим для гостей.
-                </p>
-                <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
-                    <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
-                        Колесо
-                    </a>
-                    <a href="{{ url_for('owner.settings', tab='wheel', editor='cases') }}" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}">
-                        Кейсы
-                    </a>
-                </div>
-            </section>
-
-            <section class="card wheel-section">
-                <div class="section-title">3. Настройки жетонов</div>
+                <div class="section-title">2. Настройки жетонов</div>
                 <p class="wheel-subtitle">
                     Жетоны используются и в колесе, и в кейсах. Цена открытия кейса настраивается в редакторе кейсов.
                 </p>
@@ -1317,6 +1302,21 @@
                 <button class="btn" type="submit">Сохранить награду</button>
             </div>
         </form>
+    </section>
+
+    <section class="card wheel-section bonus-editor-section">
+        <div class="section-title">Редактор механики</div>
+        <p class="wheel-subtitle">
+            Выбери настройки колеса или кейсов. Этот переключатель не меняет механику, которую видят гости.
+        </p>
+        <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
+            <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
+                Колесо
+            </a>
+            <a href="{{ url_for('owner.settings', tab='wheel', editor='cases') }}" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}">
+                Кейсы
+            </a>
+        </div>
     </section>
 
     {% if active_bonus_editor == 'wheel' %}

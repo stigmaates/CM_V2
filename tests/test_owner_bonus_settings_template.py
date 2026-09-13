@@ -85,6 +85,8 @@ def test_bonus_settings_shows_configurable_topup_rewards():
     assert 'value="2"' in html
     assert "Приветственная награда" in html
     assert html.index("Бонусы за пополнения") < html.index('id="welcome-reward"')
+    assert html.index('id="welcome-reward"') < html.index("Редактор механики")
+    assert html.index("Редактор механики") < html.index("Призы колеса")
     assert html.count('class="settings-toggle') >= 3
     assert "Добавить правило" in html
     assert "{first_name}" in html
@@ -124,6 +126,7 @@ def test_bonus_settings_token_summary_uses_shared_token_language():
     assert "Начислять жетоны за посещения" in html
     assert "Стоимость прокрута колеса" not in html
     assert "Колесо включено" not in html
+    assert html.index("Приветственная награда") < html.index("Редактор механики")
 
 
 def test_case_settings_use_guest_style_cards_with_config_modals():

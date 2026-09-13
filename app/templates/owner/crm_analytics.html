@@ -3,7 +3,7 @@
 {% block title %}WALLZ — CRM-Аналитика{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260913-utilization-1') }}">
 {% endblock %}
 
 {% block content %}
@@ -255,7 +255,7 @@
         <div class="heatmap-head">
             <div>
                 <div class="section-title">Тепловая карта посещений</div>
-                <div class="muted crm-hero-text">Показывает, в какие дни недели и часы чаще всего начинаются игровые сессии.</div>
+                <div class="muted crm-hero-text">Показывает среднюю долю занятых компьютеров по дням недели и часам.</div>
             </div>
 
             <div class="period-switcher heatmap-switcher">
@@ -270,16 +270,16 @@
 
         <div class="heatmap-summary">
             <div class="heatmap-summary-item">
-                <span>Сессий за период</span>
-                <strong>{{ heatmap.total_visits }}</strong>
+                <span>Средняя загрузка</span>
+                <strong>{{ heatmap.utilization_display }}%</strong>
             </div>
             <div class="heatmap-summary-item">
                 <span>Пиковое окно</span>
                 <strong>{{ heatmap.peak.day }}, {{ heatmap.peak.hour }}</strong>
             </div>
             <div class="heatmap-summary-item">
-                <span>Сессий в пике</span>
-                <strong>{{ heatmap.peak.value }}</strong>
+                <span>Загрузка в пике</span>
+                <strong>{{ heatmap.peak.value }}%</strong>
             </div>
         </div>
 
@@ -299,8 +299,8 @@
                             <th class="heatmap-day-col">{{ row.day.label }}</th>
                             {% for cell in row.cells %}
                                 <td class="heatmap-cell heatmap-level-{{ cell.level }}"
-                                    title="{{ row.day.full }}, {{ '%02d'|format(cell.hour) }}:00 — {{ cell.value }} сессий">
-                                    {% if cell.value > 0 %}{{ cell.value }}{% endif %}
+                                    title="{{ row.day.full }}, {{ '%02d'|format(cell.hour) }}:00 — загрузка {{ cell.value }}%">
+                                    {% if cell.value > 0 %}{{ cell.value }}%{% endif %}
                                 </td>
                             {% endfor %}
                         </tr>
@@ -323,7 +323,7 @@
         <div class="heatmap-head">
             <div>
                 <div class="section-title">Тепловая карта по ПК</div>
-                <div class="muted crm-hero-text">Показывает, сколько часов провели за каждым ПК за выбранный период. Порядок и названия ПК задаются в настройках клуба.</div>
+                <div class="muted crm-hero-text">Показывает часы и долю занятого времени каждого ПК за выбранный период. 100% означает, что ПК был занят весь период.</div>
             </div>
             <a class="period-option pc-settings-link" href="{{ url_for('owner.settings', tab='club') }}#pc-names">Настроить ПК</a>
         </div>
@@ -334,22 +334,24 @@
                 <strong>{{ pc_heatmap.total_hours_display }}</strong>
             </div>
             <div class="heatmap-summary-item">
-                <span>Сессий по ПК</span>
-                <strong>{{ pc_heatmap.total_sessions }}</strong>
+                <span>Средняя загрузка</span>
+                <strong>{{ pc_heatmap.utilization_display }}%</strong>
             </div>
             <div class="heatmap-summary-item">
                 <span>Самый загруженный ПК</span>
-                <strong>{{ pc_heatmap.peak.name }} · {{ pc_heatmap.peak.hours_display }} ч</strong>
+                <strong>{{ pc_heatmap.peak.name }} · {{ pc_heatmap.peak.utilization_display }}%</strong>
             </div>
         </div>
 
         {% if pc_heatmap.pcs %}
             <div class="pc-heatmap-grid">
                 {% for pc in pc_heatmap.pcs %}
-                    <div class="pc-heatmap-cell heatmap-level-{{ pc.level }}" title="{{ pc.name }} — {{ pc.hours_display }} ч, {{ pc.sessions_count }} сессий. UUID: {{ pc.uuid }}">
+                    <div class="pc-heatmap-cell heatmap-level-{{ pc.level }}" title="{{ pc.name }} — {{ pc.hours_display }} ч, загрузка {{ pc.utilization_display }}%. UUID: {{ pc.uuid }}">
                         <div class="pc-heatmap-cell__name">{{ pc.name }}</div>
-                        <div class="pc-heatmap-cell__hours">{{ pc.hours_display }} ч</div>
-                        <div class="pc-heatmap-cell__sessions">{{ pc.sessions_count }} сесс.</div>
+                        <div class="pc-heatmap-cell__metrics">
+                            <div class="pc-heatmap-cell__hours">{{ pc.hours_display }} ч</div>
+                            <div class="pc-heatmap-cell__utilization">{{ pc.utilization_display }}%</div>
+                        </div>
                     </div>
                 {% endfor %}
             </div>
@@ -358,13 +360,13 @@
         {% endif %}
 
         <div class="heatmap-legend">
-            <span>Меньше часов</span>
+            <span>Ниже загрузка</span>
             <i class="heatmap-level-1"></i>
             <i class="heatmap-level-2"></i>
             <i class="heatmap-level-3"></i>
             <i class="heatmap-level-4"></i>
             <i class="heatmap-level-5"></i>
-            <span>Больше часов</span>
+            <span>Выше загрузка</span>
         </div>
     </section>
 

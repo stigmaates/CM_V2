@@ -5,11 +5,19 @@ from app.main import app
 
 def _base_template_context():
     return {
-        "heatmap": {"total_visits": 0, "peak": {"day": "—", "hour": "—", "value": 0}, "hours": [], "grid": []},
+        "heatmap": {
+            "total_visits": 0,
+            "utilization_percent": 0,
+            "utilization_display": "0",
+            "peak": {"day": "—", "hour": "—", "value": 0},
+            "hours": [],
+            "grid": [],
+        },
         "pc_heatmap": {
             "total_hours_display": "0",
             "total_sessions": 0,
-            "peak": {"name": "—", "hours_display": "0"},
+            "utilization_display": "0",
+            "peak": {"name": "—", "hours_display": "0", "utilization_display": "0"},
             "pcs": [],
         },
         "filter_fields": [],
@@ -81,6 +89,8 @@ def test_crm_analytics_renders_cohort_analysis_block():
     assert "crm-cohort-delete" in html
     assert "crm_analytics.js" in html
     assert "1</span><small>/2" in html
+    assert "Средняя загрузка" in html
+    assert "Сессий в пике" not in html
 
 
 def test_crm_analytics_renders_manual_campaign_passports():

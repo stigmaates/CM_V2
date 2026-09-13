@@ -88,8 +88,10 @@ def crm_analytics():
     telegram_only = False
 
     audience = get_dashboard_audience_stats(int(club_id), telegram_only=telegram_only)
-    heatmap = get_visit_heatmap_stats(int(club_id), selected_period)
     pc_heatmap = get_pc_hours_heatmap_stats(int(club_id), selected_period)
+    heatmap = get_visit_heatmap_stats(
+        int(club_id), selected_period, pc_count=len(pc_heatmap.get("pcs") or [])
+    )
     conn = get_db_connection()
     try:
         cohorts = list_segments(conn, int(club_id))
