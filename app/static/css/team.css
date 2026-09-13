@@ -99,7 +99,7 @@
 
 .team-settings-button,
 .team-refresh,
-.team-range {
+.team-period__main {
     border: 1px solid var(--team-border);
     background: linear-gradient(135deg, rgba(71, 35, 114, 0.58), rgba(31, 17, 54, 0.86));
     box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
@@ -320,12 +320,11 @@
     margin-bottom: 16px;
 }
 
-.team-presets button,
-.team-range > button {
+.team-presets button {
     border: 0;
     color: #cbbadc;
     background: transparent;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 800;
 }
 
@@ -335,58 +334,239 @@
     box-shadow: 0 0 18px rgba(151, 68, 255, 0.18);
 }
 
-.team-range {
+.team-period {
+    position: relative;
+}
+
+.team-period__main {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 48px;
-    padding: 3px;
-    border-radius: 12px;
+    gap: 14px;
+    min-height: 54px;
+    padding: 4px;
+    border-radius: 14px;
 }
 
 .team-presets {
     display: flex;
     align-self: stretch;
+    gap: 3px;
 }
 
 .team-presets button {
-    min-width: 68px;
-    padding: 0 12px;
-    border-radius: 9px;
+    min-width: 92px;
+    padding: 0 18px;
+    border-radius: 10px;
+    transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
 }
 
-.team-dates {
+.team-presets .team-calendar-trigger {
+    min-width: 48px;
+    padding: 0;
+}
+
+.team-calendar-trigger.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(171, 82, 255, 0.6), rgba(91, 42, 151, 0.64));
+    box-shadow: 0 0 18px rgba(151, 68, 255, 0.18);
+}
+
+.team-calendar-icon {
+    position: relative;
+    display: inline-block;
+    width: 17px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-radius: 4px;
+}
+
+.team-calendar-icon::before {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 3px;
+    border-top: 2px solid currentColor;
+}
+
+.team-calendar-icon::after {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: 3px;
+    width: 7px;
+    height: 5px;
+    border-left: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+}
+
+.team-period__summary {
+    min-width: 190px;
+    padding-right: 14px;
+    color: #d9cce7;
+    font-size: 12px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.team-calendar-popover {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(660px, calc(100vw - 40px));
+    overflow: hidden;
+    border: 1px solid rgba(171, 101, 255, 0.48);
+    border-radius: 18px;
+    background: linear-gradient(145deg, #2a1747, #160d27);
+    box-shadow: 0 26px 70px rgba(3, 1, 9, 0.62), 0 0 32px rgba(139, 57, 226, 0.16);
+}
+
+.team-calendar-popover > header,
+.team-calendar-popover > footer {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding-left: 6px;
-    color: #89789c;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 17px 20px;
 }
 
-.team-dates label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
+.team-calendar-popover > header {
+    border-bottom: 1px solid var(--team-border-soft);
 }
 
-.team-dates label > span {
-    color: #a997bb;
+.team-calendar-popover > header strong,
+.team-calendar-popover > header small {
+    display: block;
+}
+
+.team-calendar-popover > header strong {
+    font-size: 15px;
+}
+
+.team-calendar-popover > header small {
+    margin-top: 3px;
     font-size: 10px;
 }
 
-.team-dates input {
-    width: 112px;
+.team-calendar-nav {
+    display: flex;
+    gap: 7px;
+}
+
+.team-calendar-nav button {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--team-border);
+    border-radius: 9px;
+    background: rgba(116, 61, 169, 0.2);
+    color: #dfcef0;
+    font-size: 22px;
+}
+
+.team-calendar-nav button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.team-calendars {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    padding: 20px;
+}
+
+.team-calendar-month h3 {
+    margin: 0 0 14px;
+    color: #f1e8fa;
+    font-size: 14px;
+    text-align: center;
+}
+
+.team-calendar-weekdays,
+.team-calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.team-calendar-weekdays {
+    margin-bottom: 6px;
+    color: #8f7da3;
+    font-size: 9px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.team-calendar-day {
+    min-width: 0;
+    height: 32px;
+    padding: 0;
     border: 0;
+    border-radius: 8px;
     background: transparent;
-    color-scheme: dark;
-    font-size: 10px;
+    color: #d9cae7;
+    font-size: 11px;
+    font-weight: 700;
 }
 
-.team-range > button {
-    align-self: stretch;
-    padding: 0 14px;
-    border-radius: 9px;
-    background: rgba(151, 73, 242, 0.24);
+.team-calendar-day:not(.is-empty):not(:disabled):hover {
+    background: rgba(169, 91, 244, 0.22);
+}
+
+.team-calendar-day.is-range {
+    border-radius: 3px;
+    background: rgba(160, 77, 239, 0.18);
+}
+
+.team-calendar-day.is-start,
+.team-calendar-day.is-end {
+    background: linear-gradient(145deg, #b15dff, #7432d3);
+    color: #fff;
+    box-shadow: 0 5px 14px rgba(128, 47, 214, 0.34);
+}
+
+.team-calendar-day.is-today:not(.is-start):not(.is-end) {
+    border: 1px solid #a868e8;
+}
+
+.team-calendar-day:disabled {
+    opacity: 0.22;
+    cursor: default;
+}
+
+.team-calendar-popover > footer {
+    border-top: 1px solid var(--team-border-soft);
+}
+
+.team-calendar-selection {
+    display: flex;
+    gap: 22px;
+    color: #9f8caf;
+    font-size: 11px;
+}
+
+.team-calendar-selection strong {
+    margin-left: 5px;
+    color: #eee4f7;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-calendar-apply {
+    min-height: 40px;
+    padding: 0 18px;
+    border: 1px solid rgba(189, 110, 255, 0.52);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #9d4bea, #7131c4);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.team-calendar-apply:disabled {
+    opacity: 0.42;
+    cursor: default;
 }
 
 .team-report-grid {
@@ -592,27 +772,24 @@
     font-variant-numeric: tabular-nums;
 }
 
-.team-share {
-    display: inline-grid;
-    grid-template-columns: 42px 60px;
-    align-items: center;
-    gap: 8px;
-    color: #d6c5e7;
-    font-weight: 800;
-}
-
-.team-share__bar {
-    height: 7px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: rgba(164, 111, 224, 0.16);
-}
-
-.team-share__bar i {
+.team-module-conversion {
     display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #c466ff, #8a45ea);
+    font-variant-numeric: tabular-nums;
+}
+
+.team-module-conversion strong,
+.team-module-conversion small {
+    display: block;
+}
+
+.team-module-conversion strong {
+    color: #dfcdf0;
+    font-size: 14px;
+}
+
+.team-module-conversion small {
+    margin-top: 3px;
+    font-size: 9px;
 }
 
 .team-conversion {
@@ -865,7 +1042,7 @@ body.team-modal-open {
     .team-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .team-report-grid { grid-template-columns: 1fr; }
     .team-toolbar { align-items: stretch; flex-direction: column; }
-    .team-range { align-self: flex-end; }
+    .team-period { align-self: flex-end; }
 }
 
 @media (max-width: 980px) {
@@ -882,9 +1059,12 @@ body.team-modal-open {
     .team-kpi__body { grid-template-columns: 46px minmax(0, 1fr); gap: 13px; margin-top: 10px; }
     .team-kpi__icon { width: 46px; height: 46px; border-radius: 13px; }
     .team-kpi strong { font-size: 32px; }
-    .team-range { width: 100%; flex-wrap: wrap; padding: 8px; }
-    .team-presets { min-height: 38px; }
-    .team-dates { order: 3; width: 100%; justify-content: space-between; padding: 4px 2px 0; }
+    .team-period { width: 100%; }
+    .team-period__main { width: 100%; flex-wrap: wrap; padding: 7px; }
+    .team-presets { min-height: 42px; }
+    .team-period__summary { flex: 1 1 100%; padding: 4px 8px; }
+    .team-calendars { grid-template-columns: 1fr; max-height: 55vh; overflow-y: auto; }
+    .team-calendar-popover { right: auto; left: 0; }
     .team-card__header { align-items: flex-start; flex-direction: column; }
 }
 
@@ -892,5 +1072,6 @@ body.team-modal-open {
     .team-kpis { grid-template-columns: 1fr; }
     .team-hero__actions > * { width: 100%; }
     .team-refresh { justify-content: center; }
-    .team-dates input { width: 105px; }
+    .team-presets { width: 100%; }
+    .team-presets button:not(.team-calendar-trigger) { flex: 1; }
 }
