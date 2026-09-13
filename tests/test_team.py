@@ -48,6 +48,30 @@ def test_shift_count_uses_selected_registration_period():
     assert result["admins"][0]["shift_count"] == 2
 
 
+def test_recent_admin_candidates_use_last_50_days_and_exclude_future_shifts():
+    now = datetime(2026, 4, 1)
+    admins = [dict(admin_id=admin_id, name=f"Админ {admin_id}") for admin_id in (1, 2, 3)]
+    shifts = [
+        shift(1, datetime(2026, 1, 1), datetime(2026, 1, 2)),
+        shift(2, datetime(2026, 3, 1), datetime(2026, 3, 2)),
+        shift(3, datetime(2026, 4, 2), datetime(2026, 4, 3)),
+    ]
+
+    result = build_report(
+        admins,
+        shifts,
+        [],
+        [],
+        [],
+        (date(2026, 1, 1), date(2026, 4, 1)),
+        (date(2026, 1, 1), date(2026, 4, 1)),
+        now,
+    )
+
+    recent = {row["admin_id"]: row["has_recent_shift"] for row in result["admins"]}
+    assert recent == {1: False, 2: True, 3: False, None: False}
+
+
 def test_funnel_counts_visits_outside_registration_period_and_merges_extensions():
     sessions = [
         dict(guest_id=1, date_start=D, date_stop=D + timedelta(hours=1)),
