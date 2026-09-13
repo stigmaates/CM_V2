@@ -139,10 +139,14 @@ def save_pc_name_settings(club_id: int, items: list[dict[str, Any]]) -> None:
         conn.close()
 
 
-def _level_for_value(value: float, max_value: float) -> int:
-    if max_value <= 0 or value <= 0:
+def _level_for_percent(value: float) -> int:
+    if value <= 0:
         return 0
-    return max(1, min(5, round((value / max_value) * 5)))
+    return min(5, max(1, int((min(value, 100) - 0.001) // 20) + 1))
+
+
+def _percent_display(value: float) -> str:
+    return str(round(value, 1)).replace(".0", "").replace(".", ",")
 
 
 def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str, Any]:
@@ -168,12 +172,12 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
                         GREATEST(
                             0,
                             TIMESTAMPDIFF(
-                                MINUTE,
+                                SECOND,
                                 GREATEST(gs.date_start, %s),
                                 LEAST(COALESCE(gs.date_stop, NOW()), %s)
                             )
                         )
-                    ), 0) / 60 AS total_hours,
+                    ), 0) / 3600 AS total_hours,
                     COUNT(gs.id) AS sessions_count
                 FROM club_pc_names cpn
                 LEFT JOIN guest_sessions gs
@@ -193,6 +197,7 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
     finally:
         conn.close()
 
+    available_hours_per_pc = period_days * 24
     max_hours = max((float(row.get("total_hours") or 0) for row in rows), default=0)
     total_hours = sum(float(row.get("total_hours") or 0) for row in rows)
     total_sessions = sum(int(row.get("sessions_count") or 0) for row in rows)
@@ -200,6 +205,9 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
     pcs = []
     for idx, row in enumerate(rows, start=1):
         raw_hours = float(row.get("total_hours") or 0)
+        utilization_percent = (
+            min(100, round((raw_hours / available_hours_per_pc) * 100, 1)) if available_hours_per_pc else 0
+        )
         display_name = (row.get("display_name") or "").strip()
         label = display_name or f"ПК {idx}"
         pcs.append(
@@ -210,11 +218,18 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
                 "hours": round(raw_hours, 1),
                 "hours_display": str(round(raw_hours, 1)).replace(".0", "").replace(".", ","),
                 "sessions_count": int(row.get("sessions_count") or 0),
-                "level": _level_for_value(raw_hours, max_hours),
+                "utilization_percent": utilization_percent,
+                "utilization_display": _percent_display(utilization_percent),
+                "level": _level_for_percent(utilization_percent),
             }
         )
 
     peak_pc = max(pcs, key=lambda item: item["hours"], default=None)
+
+    overall_capacity_hours = available_hours_per_pc * len(pcs)
+    utilization_percent = (
+        min(100, round((total_hours / overall_capacity_hours) * 100, 1)) if overall_capacity_hours else 0
+    )
 
     return {
         "period_days": period_days,
@@ -223,6 +238,15 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
         "total_hours": round(total_hours, 1),
         "total_hours_display": str(round(total_hours, 1)).replace(".0", "").replace(".", ","),
         "total_sessions": total_sessions,
-        "peak": peak_pc or {"name": "—", "hours_display": "0", "sessions_count": 0},
+        "utilization_percent": utilization_percent,
+        "utilization_display": _percent_display(utilization_percent),
+        "peak": peak_pc
+        or {
+            "name": "—",
+            "hours_display": "0",
+            "sessions_count": 0,
+            "utilization_percent": 0,
+            "utilization_display": "0",
+        },
         "debug": {"current_start": str(current_start), "current_end": str(current_end)},
     }

@@ -1697,12 +1697,83 @@ def get_dashboard_audience_stats(club_id: int, telegram_only: bool = False) -> d
         conn.close()
 
 
-def get_visit_heatmap_stats(club_id: int, period_days: int = 30) -> dict:
-    """Возвращает heatmap посещений: дни недели x часы.
+def _heatmap_level_for_percent(value: float) -> int:
+    if value <= 0:
+        return 0
+    return min(5, max(1, int((min(value, 100) - 0.001) // 20) + 1))
 
-    Считаем количество сессий по date_start за выбранный период.
-    Уровень 0-5 нужен только для CSS-интенсивности ячейки.
-    """
+
+def _iter_hour_slices(start: datetime, end: datetime):
+    current = start
+    while current < end:
+        next_hour = current.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        slice_end = min(end, next_hour)
+        yield current, slice_end
+        current = slice_end
+
+
+def _calculate_hourly_utilization(
+    rows, current_start: datetime, current_end: datetime, pc_count: int | None
+):
+    intervals_by_pc = defaultdict(list)
+    valid_sessions = 0
+
+    for row in rows:
+        uuid = str(row.get("uuid") or "").strip()
+        session_start = row.get("date_start")
+        session_end = row.get("date_stop") or current_end
+        if not uuid or not isinstance(session_start, datetime) or not isinstance(session_end, datetime):
+            continue
+
+        session_start = max(session_start, current_start)
+        session_end = min(session_end, current_end)
+        if session_end <= session_start:
+            continue
+
+        intervals_by_pc[uuid].append((session_start, session_end))
+        valid_sessions += 1
+
+    effective_pc_count = max(int(pc_count or 0), len(intervals_by_pc))
+    occupied_seconds = defaultdict(float)
+
+    for intervals in intervals_by_pc.values():
+        merged = []
+        for start, end in sorted(intervals):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+
+        for start, end in merged:
+            for slice_start, slice_end in _iter_hour_slices(start, end):
+                occupied_seconds[(slice_start.weekday(), slice_start.hour)] += (
+                    slice_end - slice_start
+                ).total_seconds()
+
+    capacity_seconds = defaultdict(float)
+    if effective_pc_count > 0:
+        for slice_start, slice_end in _iter_hour_slices(current_start, current_end):
+            capacity_seconds[(slice_start.weekday(), slice_start.hour)] += (
+                (slice_end - slice_start).total_seconds() * effective_pc_count
+            )
+
+    percentages = {}
+    for weekday_idx in range(7):
+        for hour_idx in range(24):
+            key = (weekday_idx, hour_idx)
+            capacity = capacity_seconds[key]
+            percentages[key] = min(100, round((occupied_seconds[key] / capacity) * 100)) if capacity else 0
+
+    total_capacity = sum(capacity_seconds.values())
+    total_occupied = sum(occupied_seconds.values())
+    overall_percent = min(100, round((total_occupied / total_capacity) * 100, 1)) if total_capacity else 0
+    return percentages, overall_percent, valid_sessions, effective_pc_count
+
+
+def get_visit_heatmap_stats(
+    club_id: int, period_days: int = 30, pc_count: int | None = None
+) -> dict:
+    """Возвращает загрузку клуба по дням недели и часам в процентах."""
     if period_days not in (7, 30, 90):
         period_days = 30
 
@@ -1720,47 +1791,28 @@ def get_visit_heatmap_stats(club_id: int, period_days: int = 30) -> dict:
         {"index": 6, "label": "Вс", "full": "Воскресенье"},
     ]
     hours = list(range(24))
-    values = {(day["index"], hour): 0 for day in days for hour in hours}
-
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT WEEKDAY(date_start) AS weekday_idx,
-                       HOUR(date_start) AS hour_idx,
-                       COUNT(*) AS visits_count
+                SELECT uuid, date_start, date_stop
                 FROM guest_sessions
                 WHERE club_id = %s
-                  AND date_start >= %s
                   AND date_start < %s
-                GROUP BY WEEKDAY(date_start), HOUR(date_start)
-                ORDER BY WEEKDAY(date_start), HOUR(date_start)
+                  AND COALESCE(date_stop, %s) > %s
+                  AND uuid IS NOT NULL
+                  AND TRIM(uuid) <> ''
                 """,
-                (club_id, current_start, current_end),
+                (club_id, current_end, current_end, current_start),
             )
             rows = cursor.fetchall()
     finally:
         conn.close()
 
-    max_value = 0
-    total_visits = 0
-
-    for row in rows:
-        weekday_idx = row.get("weekday_idx")
-        hour_idx = row.get("hour_idx")
-        visits_count = int(row.get("visits_count") or 0)
-
-        if weekday_idx is None or hour_idx is None:
-            continue
-
-        weekday_idx = int(weekday_idx)
-        hour_idx = int(hour_idx)
-
-        if 0 <= weekday_idx <= 6 and 0 <= hour_idx <= 23:
-            values[(weekday_idx, hour_idx)] = visits_count
-            total_visits += visits_count
-            max_value = max(max_value, visits_count)
+    values, overall_percent, total_sessions, effective_pc_count = _calculate_hourly_utilization(
+        rows, current_start, current_end, pc_count
+    )
 
     grid = []
     peak = {"day": "—", "hour": "—", "value": 0}
@@ -1769,10 +1821,7 @@ def get_visit_heatmap_stats(club_id: int, period_days: int = 30) -> dict:
         row_cells = []
         for hour in hours:
             value = values[(day["index"], hour)]
-            if max_value <= 0 or value <= 0:
-                level = 0
-            else:
-                level = max(1, min(5, round((value / max_value) * 5)))
+            level = _heatmap_level_for_percent(value)
 
             if value > peak["value"]:
                 peak = {"day": day["full"], "hour": f"{hour:02d}:00", "value": value}
@@ -1786,8 +1835,11 @@ def get_visit_heatmap_stats(club_id: int, period_days: int = 30) -> dict:
         "hours": hours,
         "days": days,
         "grid": grid,
-        "max_value": max_value,
-        "total_visits": total_visits,
+        "max_value": peak["value"],
+        "total_visits": total_sessions,
+        "utilization_percent": overall_percent,
+        "utilization_display": str(overall_percent).replace(".0", "").replace(".", ","),
+        "pc_count": effective_pc_count,
         "peak": peak,
         "debug": {
             "current_start": str(current_start),

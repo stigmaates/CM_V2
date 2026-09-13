@@ -3253,6 +3253,10 @@ body.modal-open { overflow: hidden; }
 .cb-feedback-card {
     min-height: 164px;
     padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
     border: 1px solid rgba(143, 91, 255, 0.24);
     border-radius: 20px;
     background: rgba(18, 10, 33, 0.58);
@@ -4268,13 +4272,21 @@ body.modal-open { overflow: hidden; }
     font-weight: 900;
     font-size: 24px;
     line-height: 1;
+}
+
+.pc-heatmap-cell__metrics {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
     margin-top: 14px;
 }
 
-.pc-heatmap-cell__sessions {
-    color: rgba(244, 236, 255, 0.72);
-    font-size: 13px;
-    margin-top: 8px;
+.pc-heatmap-cell__utilization {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 1;
 }
 
 .empty-state {
