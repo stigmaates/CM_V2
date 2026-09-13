@@ -52,6 +52,7 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
         key: {
             **value,
             "club_registrations": 0,
+            "club_to_module": 0,
             "module_registrations": 0,
             "module_estimated": 0,
             "shift_count": 0,
@@ -79,6 +80,7 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
     for session in sessions:
         if session.get("date_stop") and session["date_stop"] <= now:
             grouped[session["guest_id"]].append(session)
+    module_guest_ids = {registration["guest_id"] for registration in registrations}
     unknown_club_dates = 0
     for guest in guests:
         at = guest.get("date_insert")
@@ -90,6 +92,7 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
         row = result[owner]
         if in_range(at, registration_range):
             row["club_registrations"] += 1
+            row["club_to_module"] += guest["guest_id"] in module_guest_ids
         if in_range(at, cohort_range):
             row["cohort"] += 1
             # All completed visits after registration, not just visits inside the date filter.
@@ -109,6 +112,11 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
             row["module_registrations"] += 1
             row["module_estimated"] += bool(registration["is_estimated"])
     for row in result.values():
+        row["module_conversion"] = (
+            round(row["club_to_module"] / row["club_registrations"] * 100, 1)
+            if row["club_registrations"]
+            else None
+        )
         row["conversion12"] = round(row["visit2"] / row["cohort"] * 100, 1) if row["cohort"] else None
         row["conversion23"] = round(row["visit3"] / row["visit2"] * 100, 1) if row["visit2"] else None
     ordered = sorted(result.values(), key=lambda r: (r["admin_id"] is None, -r["club_registrations"], r["name"]))

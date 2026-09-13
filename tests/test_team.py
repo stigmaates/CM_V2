@@ -112,6 +112,7 @@ def test_module_attribution_uses_module_date_not_club_registration_date():
     )
     byid = {r["admin_id"]: r for r in result["admins"]}
     assert byid[1]["club_registrations"] == 1 and byid[1]["module_registrations"] == 0
+    assert byid[1]["club_to_module"] == 1 and byid[1]["module_conversion"] == 100
     assert byid[2]["module_registrations"] == byid[2]["module_estimated"] == 1
 
 

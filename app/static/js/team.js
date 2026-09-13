@@ -11,6 +11,9 @@
     let report = null;
     let today = null;
     let controller = null;
+    let calendarView = null;
+    let calendarFrom = null;
+    let calendarTo = null;
     const tableSort = {
         registrations: { key: "club_registrations", direction: "desc" },
         funnel: { key: "conversion12", direction: "desc" },
@@ -67,6 +70,7 @@
     function totals(admins) {
         const total = {
             club_registrations: 0,
+            club_to_module: 0,
             module_registrations: 0,
             module_estimated: 0,
             shift_count: 0,
@@ -102,12 +106,12 @@
         $("kpiConversion23").textContent = percent(total.conversion23);
     }
 
-    function sortAdmins(admins, table, derived = {}) {
+    function sortAdmins(admins, table) {
         const { key, direction } = tableSort[table];
         return [...admins].sort((a, b) => {
             if ((a.admin_id === null) !== (b.admin_id === null)) return a.admin_id === null ? 1 : -1;
-            const aValue = key === "share" ? derived[a.admin_id] : a[key];
-            const bValue = key === "share" ? derived[b.admin_id] : b[key];
+            const aValue = a[key];
+            const bValue = b[key];
             const aMissing = aValue === null || aValue === undefined;
             const bMissing = bValue === null || bValue === undefined;
             if (aMissing !== bMissing) return aMissing ? 1 : -1;
@@ -134,21 +138,14 @@
         });
     }
 
-    function renderRegistrations(admins, overall) {
-        const shares = Object.fromEntries(admins.map((admin) => [
-            admin.admin_id,
-            overall.club_registrations
-                ? Math.round((admin.club_registrations / overall.club_registrations) * 1000) / 10
-                : 0,
-        ]));
-        const ordered = sortAdmins(admins, "registrations", shares);
+    function renderRegistrations(admins) {
+        const ordered = sortAdmins(admins, "registrations");
         updateSortHeaders("registrations");
         if (!ordered.length) {
             $("teamRegistrations").innerHTML = '<tr><td class="team-empty" colspan="6">Нет данных по выбранному составу</td></tr>';
             return;
         }
         $("teamRegistrations").innerHTML = ordered.map((admin, index) => {
-            const share = shares[admin.admin_id];
             const estimated = admin.module_estimated
                 ? `<small>≈ ${num(admin.module_estimated)} восстановлено</small>`
                 : "";
@@ -158,7 +155,7 @@
                 <td><span class="team-number">${num(admin.club_registrations)}</span></td>
                 <td><span class="team-number">${num(admin.module_registrations)}${estimated}</span></td>
                 <td><span class="team-number">${num(admin.shift_count)}</span></td>
-                <td><span class="team-share"><span>${percent(share)}</span><span class="team-share__bar"><i style="width:${Math.min(100, share)}%"></i></span></span></td>
+                <td><span class="team-module-conversion"><strong>${percent(admin.module_conversion)}</strong><small>${num(admin.club_to_module)} из ${num(admin.club_registrations)}</small></span></td>
             </tr>`;
         }).join("");
     }
@@ -185,7 +182,7 @@
         const admins = visibleAdmins();
         const total = totals(admins);
         renderKpis(total);
-        renderRegistrations(admins, total);
+        renderRegistrations(admins);
         renderFunnel(admins);
     }
 
@@ -254,16 +251,110 @@
         }
     }
 
+    function parseDate(value) {
+        return value ? new Date(`${value}T12:00:00Z`) : null;
+    }
+
+    function isoDate(value) {
+        return value.toISOString().slice(0, 10);
+    }
+
+    function monthStart(value) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1, 12));
+    }
+
+    function addMonths(value, amount) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + amount, 1, 12));
+    }
+
+    function formatDate(value) {
+        if (!value) return "—";
+        const [year, month, day] = value.split("-");
+        return `${day}.${month}.${year}`;
+    }
+
+    function presetStart(preset) {
+        const date = parseDate(today);
+        if (preset === "month") date.setUTCDate(1);
+        else date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+        return isoDate(date);
+    }
+
     function setActivePreset() {
-        document.querySelectorAll("[data-preset]").forEach((button) => button.classList.remove("is-active"));
-        if (!today || !$("sharedFrom").value) return;
-        const selected = $("sharedFrom").value;
-        const date = new Date(`${today}T12:00:00Z`);
-        const month = new Date(date); month.setUTCDate(1);
-        const week = new Date(date); week.setUTCDate(week.getUTCDate() - ((week.getUTCDay() + 6) % 7));
-        const preset = selected === month.toISOString().slice(0, 10) ? "month"
-            : selected === week.toISOString().slice(0, 10) ? "week" : null;
-        if (preset) document.querySelector(`[data-preset="${preset}"]`).classList.add("is-active");
+        if (!today || !$("sharedFrom").value || !$("sharedTo").value) return;
+        const from = $("sharedFrom").value;
+        const preset = $("sharedTo").value === today
+            ? (["week", "month"].find((name) => from === presetStart(name)) || null)
+            : null;
+        document.querySelectorAll("[data-preset]").forEach((button) => {
+            const active = button.dataset.preset === preset;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-pressed", String(active));
+        });
+        $("teamCalendarTrigger").classList.toggle("is-active", !preset);
+        $("teamPeriodSummary").textContent = `${formatDate(from)} — ${formatDate($("sharedTo").value)}`;
+    }
+
+    function monthMarkup(firstDay) {
+        const monthNames = [
+            "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+            "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+        ];
+        const year = firstDay.getUTCFullYear();
+        const month = firstDay.getUTCMonth();
+        const offset = (firstDay.getUTCDay() + 6) % 7;
+        const dayCount = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+        const cells = Array.from({ length: offset }, () => '<span class="team-calendar-day is-empty"></span>');
+        for (let day = 1; day <= dayCount; day += 1) {
+            const value = isoDate(new Date(Date.UTC(year, month, day, 12)));
+            const classes = ["team-calendar-day"];
+            if (value === today) classes.push("is-today");
+            if (value === calendarFrom) classes.push("is-start");
+            if (value === calendarTo) classes.push("is-end");
+            if (calendarFrom && calendarTo && value > calendarFrom && value < calendarTo) classes.push("is-range");
+            cells.push(`<button class="${classes.join(" ")}" type="button" data-calendar-date="${value}"${value > today ? " disabled" : ""}>${day}</button>`);
+        }
+        return `<section class="team-calendar-month">
+            <h3>${monthNames[month]} ${year}</h3>
+            <div class="team-calendar-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+            <div class="team-calendar-days">${cells.join("")}</div>
+        </section>`;
+    }
+
+    function renderCalendars() {
+        $("teamCalendars").innerHTML = monthMarkup(calendarView) + monthMarkup(addMonths(calendarView, 1));
+        $("teamCalendarFrom").textContent = formatDate(calendarFrom);
+        $("teamCalendarTo").textContent = formatDate(calendarTo);
+        $("teamCalendarApply").disabled = !(calendarFrom && calendarTo);
+        const currentMonth = monthStart(parseDate(today));
+        $("teamCalendarNext").disabled = addMonths(calendarView, 1) >= currentMonth;
+    }
+
+    function openCalendar() {
+        calendarFrom = $("sharedFrom").value || null;
+        calendarTo = $("sharedTo").value || null;
+        const anchor = monthStart(parseDate(calendarTo || today));
+        calendarView = addMonths(anchor, -1);
+        renderCalendars();
+        $("teamCalendarPopover").hidden = false;
+        $("teamCalendarTrigger").setAttribute("aria-expanded", "true");
+    }
+
+    function closeCalendar() {
+        $("teamCalendarPopover").hidden = true;
+        $("teamCalendarTrigger").setAttribute("aria-expanded", "false");
+    }
+
+    function selectCalendarDate(value) {
+        if (!calendarFrom || calendarTo) {
+            calendarFrom = value;
+            calendarTo = null;
+        } else if (value < calendarFrom) {
+            calendarFrom = value;
+        } else {
+            calendarTo = value;
+        }
+        renderCalendars();
     }
 
     function render(data) {
@@ -271,8 +362,6 @@
         today = data.today;
         $("sharedFrom").value = data.registration_range[0];
         $("sharedTo").value = data.registration_range[1];
-        $("sharedFrom").max = today;
-        $("sharedTo").max = today;
         $("teamUpdated").textContent = formattedTimestamp(data.updated_at);
         $("teamTimezone").textContent = data.timezone;
         $("teamStatus").textContent = data.error
@@ -280,7 +369,7 @@
             : data.stale ? "Данные смен требуют обновления." : "";
         setActivePreset();
         renderView();
-        $("teamCoverage").textContent = `≈ — дата регистрации в модуле восстановлена приблизительно. Без известной даты: в клубе ${num(data.unknown_club_dates)}, в модуле ${num(data.unknown_module_dates)}.`;
+        $("teamCoverage").textContent = `Конверсия Langame → КБ показывает, сколько новых гостей из выбранного периода уже подключились к Кибер Бонус; подключение может произойти позже. ≈ — дата подключения восстановлена приблизительно. Без известной даты: в клубе ${num(data.unknown_club_dates)}, в модуле ${num(data.unknown_module_dates)}.`;
     }
 
     async function load() {
@@ -353,17 +442,43 @@
     $("teamAdminSettingsModal").addEventListener("click", (event) => {
         if (event.target === $("teamAdminSettingsModal")) closeAdminSettings();
     });
-    $("sharedFrom").addEventListener("change", setActivePreset);
-    $("sharedTo").addEventListener("change", setActivePreset);
-    document.querySelector("[data-apply]").addEventListener("click", load);
     document.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => {
         if (!today) return;
-        const date = new Date(`${today}T12:00:00Z`);
-        if (button.dataset.preset === "month") date.setUTCDate(1);
-        else date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
-        $("sharedFrom").value = date.toISOString().slice(0, 10);
+        $("sharedFrom").value = presetStart(button.dataset.preset);
         $("sharedTo").value = today;
+        closeCalendar();
+        setActivePreset();
         load();
     }));
+    $("teamCalendarTrigger").addEventListener("click", () => {
+        if ($("teamCalendarPopover").hidden) openCalendar();
+        else closeCalendar();
+    });
+    $("teamCalendarPrev").addEventListener("click", () => {
+        calendarView = addMonths(calendarView, -1);
+        renderCalendars();
+    });
+    $("teamCalendarNext").addEventListener("click", () => {
+        calendarView = addMonths(calendarView, 1);
+        renderCalendars();
+    });
+    $("teamCalendars").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-calendar-date]");
+        if (button && !button.disabled) selectCalendarDate(button.dataset.calendarDate);
+    });
+    $("teamCalendarApply").addEventListener("click", () => {
+        if (!calendarFrom || !calendarTo) return;
+        $("sharedFrom").value = calendarFrom;
+        $("sharedTo").value = calendarTo;
+        closeCalendar();
+        setActivePreset();
+        load();
+    });
+    document.addEventListener("click", (event) => {
+        if (!event.target.closest(".team-period")) closeCalendar();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !$("teamCalendarPopover").hidden) closeCalendar();
+    });
     load();
 })();

@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}Команда — Кибер Бонус{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='6') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='7') }}">{% endblock %}
 {% block content %}
 <main class="team" data-team-page>
     <header class="team-hero">
@@ -46,17 +46,36 @@
     </section>
 
     <section class="team-toolbar" aria-label="Период отчёта">
-        <div class="team-range" data-range="shared">
-            <div class="team-presets" aria-label="Быстрый выбор периода">
-                <button type="button" data-preset="week">Неделя</button>
-                <button type="button" data-preset="month">Месяц</button>
+        <div class="team-period" data-range="shared">
+            <div class="team-period__main">
+                <div class="team-presets" aria-label="Период отчёта">
+                    <button type="button" data-preset="week" aria-pressed="false">Неделя</button>
+                    <button type="button" data-preset="month" aria-pressed="false">Месяц</button>
+                    <button class="team-calendar-trigger" id="teamCalendarTrigger" type="button" aria-label="Выбрать даты" aria-expanded="false" aria-controls="teamCalendarPopover">
+                        <span class="team-calendar-icon" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <span class="team-period__summary" id="teamPeriodSummary">—</span>
             </div>
-            <div class="team-dates">
-                <label><span>С</span><input type="date" id="sharedFrom"></label>
-                <span aria-hidden="true">—</span>
-                <label><span>По</span><input type="date" id="sharedTo"></label>
+            <input type="hidden" id="sharedFrom">
+            <input type="hidden" id="sharedTo">
+            <div class="team-calendar-popover" id="teamCalendarPopover" hidden>
+                <header>
+                    <div><strong>Выберите период</strong><small>Сначала начальную, затем конечную дату</small></div>
+                    <div class="team-calendar-nav">
+                        <button id="teamCalendarPrev" type="button" aria-label="Предыдущий месяц">‹</button>
+                        <button id="teamCalendarNext" type="button" aria-label="Следующий месяц">›</button>
+                    </div>
+                </header>
+                <div class="team-calendars" id="teamCalendars"></div>
+                <footer>
+                    <div class="team-calendar-selection">
+                        <span>С <strong id="teamCalendarFrom">—</strong></span>
+                        <span>По <strong id="teamCalendarTo">—</strong></span>
+                    </div>
+                    <button class="team-calendar-apply" id="teamCalendarApply" type="button">Применить</button>
+                </footer>
             </div>
-            <button type="button" data-apply>Применить</button>
         </div>
     </section>
 
@@ -72,7 +91,7 @@
                     <th scope="col" aria-sort="descending"><button class="team-sort-button is-active" type="button" data-sort-table="registrations" data-sort-key="club_registrations">Регистрации Langame</button></th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_registrations">Подключения КБ</button></th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="shift_count">Смены</button></th>
-                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="share">Доля новых гостей</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_conversion">Конверсия Langame → КБ</button></th>
                 </tr></thead><tbody id="teamRegistrations"></tbody></table>
             </div>
             <p class="team-note" id="teamCoverage"></p>
@@ -124,4 +143,4 @@
     </dialog>
 </main>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='6') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='7') }}" defer></script>{% endblock %}
