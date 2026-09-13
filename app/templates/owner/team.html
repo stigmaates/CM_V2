@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}Команда — Кибер Бонус{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='7') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='8') }}">{% endblock %}
 {% block content %}
 <main class="team" data-team-page>
     <header class="team-hero">
@@ -85,7 +85,7 @@
                 <div class="team-card__title"><span class="team-card__icon" aria-hidden="true">А</span><span><h2>Администраторы</h2><p>Регистрации гостей по каждому администратору</p></span></div>
             </header>
             <div class="team-table-wrap">
-                <table><thead><tr>
+                <table class="team-registration-table"><thead><tr>
                     <th scope="col">#</th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="name">Администратор</button></th>
                     <th scope="col" aria-sort="descending"><button class="team-sort-button is-active" type="button" data-sort-table="registrations" data-sort-key="club_registrations">Регистрации Langame</button></th>
@@ -102,7 +102,7 @@
                 <div class="team-card__title"><span class="team-card__icon" aria-hidden="true">↻</span><span><h2>Возвращаемость новых гостей</h2><p>Воронка по администраторам, визиты учитываются по текущую дату</p></span></div>
             </header>
             <div class="team-table-wrap">
-                <table><thead><tr>
+                <table class="team-funnel-table"><thead><tr>
                     <th scope="col">#</th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="funnel" data-sort-key="name">Администратор</button></th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="funnel" data-sort-key="cohort">Новые гости</button></th>
@@ -120,7 +120,6 @@
         <summary>Как считаем и кому засчитываем</summary>
         <p>Регистрация относится к единственной смене, открытой в её момент. Если смены нет или они пересекаются — «Не определён». Это результат смены, а не доказанное личное приглашение сотрудника.</p>
         <p>Диапазон выбирает дату регистрации гостя. Второй и третий визиты могут произойти позже и учитываются по текущую дату. Сессии с перерывом до двух часов считаются одним визитом.</p>
-        <p>С 12 сентября 2026 года первая успешная привязка Telegram фиксируется на production с точным временем. Более ранние даты восстановлены приблизительно и отмечены знаком ≈. Повторный вход и перепривязка не создают новую регистрацию.</p>
     </details>
 
     <dialog class="team-modal" id="teamAdminSettingsModal" aria-labelledby="teamAdminSettingsTitle" data-lenis-prevent>
@@ -143,4 +142,4 @@
     </dialog>
 </main>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='7') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='8') }}" defer></script>{% endblock %}
