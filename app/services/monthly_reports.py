@@ -186,13 +186,13 @@ def _campaigns(
     topups_by_guest: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in topups:
         topups_by_guest[int(row["guest_id"])].append(row)
-    grouped: dict[tuple[str, int], dict[int, dict[str, Any]]] = defaultdict(dict)
-    meta: dict[tuple[str, int], dict[str, Any]] = {}
+    grouped: dict[tuple[str, str | int], dict[int, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+    meta: dict[tuple[str, str | int], dict[str, Any]] = {}
     for row in recipients:
         filters = _json(row.get("filters_json"))
         automation = filters.get("auto_mailing")
         campaign_type = "auto" if automation else "manual"
-        key = (campaign_type, int(row["mailing_id"]))
+        key = (campaign_type, str(automation) if automation else int(row["mailing_id"]))
         meta[key] = {
             "type": campaign_type,
             "code": automation,
@@ -205,14 +205,16 @@ def _campaigns(
         if guest_id is None or interaction_at is None:
             continue
         guest_id = int(guest_id)
-        current = grouped[key].get(guest_id)
-        if current is None or interaction_at < current["interaction_at"]:
-            grouped[key][guest_id] = {**row, "guest_id": guest_id}
+        grouped[key][guest_id].append({**row, "guest_id": guest_id})
 
     output = []
     window = timedelta(days=MONTHLY_REPORT_ATTRIBUTION_DAYS)
     for key, guests in grouped.items():
-        sent_rows = [row for row in guests.values() if row.get("status") == "sent"]
+        sent_rows = [
+            min((row for row in rows if row.get("status") == "sent"), key=lambda row: row["interaction_at"])
+            for rows in guests.values()
+            if any(row.get("status") == "sent" for row in rows)
+        ]
         returned = 0
         topup_amount = 0.0
         return_details = []

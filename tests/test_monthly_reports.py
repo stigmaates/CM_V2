@@ -56,6 +56,14 @@ def test_report_uses_visits_cohorts_and_seven_day_crm_attribution():
                 "filters_json": '{"auto_mailing":"lost_60d"}',
                 "scenario_title": "Возврат потерянных",
             },
+            {
+                "mailing_id": 8,
+                "guest_id": 1,
+                "status": "sent",
+                "interaction_at": datetime(2026, 8, 5),
+                "filters_json": '{"auto_mailing":"lost_60d"}',
+                "scenario_title": "Возврат потерянных",
+            },
         ],
     }
     report = build_report_from_sources(
@@ -79,6 +87,9 @@ def test_report_uses_visits_cohorts_and_seven_day_crm_attribution():
     assert report["retention"]["all_guests"][1]["count"] == 1
     assert report["retention"]["all_guests"][0]["step_percent"] == 100.0
     assert report["retention"]["all_guests"][1]["step_percent"] == 33.3
+    assert len(report["crm"]["automatic"]) == 1
+    assert report["crm"]["automatic"][0]["sent"] == 2
+    assert report["crm"]["automatic"][0]["title"] == "Возврат потерянных"
     assert report["crm"]["automatic"][0]["returned"] == 1
     assert report["crm"]["automatic"][0]["conversion_percent"] == 50.0
     assert report["engaged_revenue"]["amount"] == 800
