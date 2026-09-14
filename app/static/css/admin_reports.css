@@ -25,5 +25,6 @@
 .report-data-note { display: flex; gap: 12px; margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: rgba(255,191,71,.08); color: #e9d5b0; font-size: 13px; }
 .report-actions { display: flex; justify-content: flex-end; gap: 14px; }
 .report-actions a { color: #c99fff; text-decoration: none; font-weight: 800; }
+.report-action-note { color: var(--admin-muted); font-size: 12px; white-space: nowrap; }
 @media (max-width: 1300px) { .report-builder { grid-template-columns: 1fr; } .report-kpis { grid-template-columns: repeat(3,1fr); } }
 @media (max-width: 860px) { .report-form { grid-template-columns: 1fr 1fr; } .report-kpis, .report-preview-grid { grid-template-columns: 1fr; } .report-preview-head { align-items: flex-start; flex-direction: column; } }

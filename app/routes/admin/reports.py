@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import json
-import os
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 from flask import abort, flash, redirect, render_template, request, send_file, session, url_for
 
-from app.config import MONTHLY_REPORT_ROOT
 from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
 from app.services.monthly_report_view import build_monthly_report_view
-from app.services.monthly_reports import REPORT_VERSION, calculate_monthly_report, json_dumps, previous_month
+from app.services.monthly_reports import REPORT_VERSION, month_bounds, previous_month
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _clubs(conn):
@@ -23,7 +25,8 @@ def _clubs(conn):
 def _saved_reports(conn):
     with conn.cursor() as cursor:
         cursor.execute("""
-            SELECT mr.id,mr.club_id,mr.report_year,mr.report_month,mr.status,mr.generated_at,mr.version,c.name AS club_name
+            SELECT mr.id,mr.club_id,mr.report_year,mr.report_month,mr.status,mr.generated_at,
+                   mr.version,mr.error_message,c.name AS club_name
             FROM monthly_reports mr
             JOIN clubs c ON c.club_id=mr.club_id
             ORDER BY mr.generated_at DESC,mr.id DESC
@@ -38,7 +41,7 @@ def _load_report(conn, report_id):
     with conn.cursor() as cursor:
         cursor.execute("SELECT * FROM monthly_reports WHERE id=%s LIMIT 1", (report_id,))
         row = cursor.fetchone()
-    if not row:
+    if not row or row["status"] != "ready":
         return None
     row["data"] = json.loads(row["report_data_json"])
     row["view"] = build_monthly_report_view(row["data"])
@@ -62,6 +65,7 @@ def reports():
         active_page="reports",
         clubs=clubs,
         reports=saved,
+        has_pending_reports=any(row["status"] in {"queued", "running"} for row in saved),
         selected=selected,
         default_year=default_year,
         default_month=default_month,
@@ -86,8 +90,6 @@ def reports():
 @admin_bp.route("/reports/generate", methods=["POST"])
 @admin_required
 def generate_report():
-    from app.services.monthly_report_pdf import render_monthly_report_pdf
-
     club_id = request.form.get("club_id", type=int)
     year = request.form.get("year", type=int)
     month = request.form.get("month", type=int)
@@ -95,26 +97,25 @@ def generate_report():
         flash("Выберите клуб, месяц и год", "error")
         return redirect(url_for("admin.reports"))
 
+    try:
+        month_bounds(year, month)
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("admin.reports"))
+
     conn = get_db_connection()
     try:
-        data = calculate_monthly_report(conn, club_id, year, month)
-        view = build_monthly_report_view(data)
-        report_dir = Path(MONTHLY_REPORT_ROOT) / str(club_id) / str(year)
-        report_dir.mkdir(parents=True, exist_ok=True)
-        pdf_path = report_dir / f"{month:02d}-{REPORT_VERSION}.pdf"
-        temporary_path = report_dir / f".{month:02d}-{REPORT_VERSION}.tmp.pdf"
-        render_monthly_report_pdf(view, temporary_path)
-        os.replace(temporary_path, pdf_path)
         with conn.cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO monthly_reports
-                    (club_id,report_year,report_month,status,generated_at,generated_by,report_data_json,pdf_path,version)
-                VALUES (%s,%s,%s,'ready',UTC_TIMESTAMP(),%s,%s,%s,%s)
-                ON DUPLICATE KEY UPDATE status=VALUES(status),generated_at=VALUES(generated_at),
-                    generated_by=VALUES(generated_by),report_data_json=VALUES(report_data_json),pdf_path=VALUES(pdf_path)
+                    (club_id,report_year,report_month,status,generated_at,generated_by,
+                     report_data_json,pdf_path,version,error_message)
+                VALUES (%s,%s,%s,'queued',UTC_TIMESTAMP(),%s,'{}','',%s,NULL)
+                ON DUPLICATE KEY UPDATE status='queued',generated_at=UTC_TIMESTAMP(),
+                    generated_by=VALUES(generated_by),error_message=NULL
                 """,
-                (club_id, year, month, session.get("user_id"), json_dumps(data), str(pdf_path), REPORT_VERSION),
+                (club_id, year, month, session.get("user_id"), REPORT_VERSION),
             )
             cursor.execute(
                 "SELECT id FROM monthly_reports WHERE club_id=%s AND report_year=%s AND report_month=%s AND version=%s",
@@ -122,18 +123,39 @@ def generate_report():
             )
             report_id = cursor.fetchone()["id"]
         conn.commit()
-    except (ValueError, OSError) as exc:
-        conn.rollback()
-        flash(str(exc), "error")
-        return redirect(url_for("admin.reports"))
     except Exception:
         conn.rollback()
         raise
     finally:
         conn.close()
 
-    flash("Отчёт сформирован и сохранён", "success")
-    return redirect(url_for("admin.reports", report_id=report_id))
+    try:
+        subprocess.Popen(
+            [
+                sys.executable,
+                str(PROJECT_ROOT / "scripts" / "generate_monthly_report.py"),
+                "--report-id",
+                str(report_id),
+            ],
+            cwd=PROJECT_ROOT,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE monthly_reports SET status='failed',error_message=%s WHERE id=%s",
+                    (f"Не удалось запустить сборку: {exc}"[:2000], report_id),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        flash("Не удалось запустить формирование отчёта", "error")
+        return redirect(url_for("admin.reports"))
+
+    flash("Отчёт поставлен в очередь. Страница обновится автоматически.", "success")
+    return redirect(url_for("admin.reports"))
 
 
 @admin_bp.route("/reports/<int:report_id>/download")

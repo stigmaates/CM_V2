@@ -508,6 +508,27 @@ def _rows(conn, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         return list(cursor.fetchall())
 
 
+def _latest_score_rows(conn, club_id: int, cutoff: date) -> list[dict[str, Any]]:
+    return _rows(
+        conn,
+        """
+        SELECT h.guest_id,h.snapshot_date,h.health_score,
+               h.lifecycle_status,h.detail_json,h.reconstructed
+        FROM guest_score_history h
+        JOIN (
+            SELECT guest_id,MAX(snapshot_date) AS snapshot_date
+            FROM guest_score_history
+            WHERE club_id=%s AND snapshot_date<=%s
+            GROUP BY guest_id
+        ) latest
+          ON latest.guest_id=h.guest_id
+         AND latest.snapshot_date=h.snapshot_date
+        WHERE h.club_id=%s
+        """,
+        (club_id, cutoff, club_id),
+    )
+
+
 def _localize(rows: list[dict[str, Any]], fields: tuple[str, ...], timezone_name: str) -> None:
     for row in rows:
         for field in fields:
@@ -543,11 +564,8 @@ def calculate_monthly_report(conn, club_id: int, year: int, month: int) -> dict[
             "SELECT guest_id,to_status,changed_at,reconstructed FROM guest_lifecycle_events WHERE club_id=%s",
             (club_id,),
         ),
-        "score_history": _rows(
-            conn,
-            "SELECT guest_id,snapshot_date,health_score,lifecycle_status,detail_json,reconstructed FROM guest_score_history WHERE club_id=%s AND snapshot_date<=%s ORDER BY snapshot_date",
-            (club_id, end.date()),
-        ),
+        "score_history": _latest_score_rows(conn, club_id, (start - timedelta(days=1)).date())
+        + _latest_score_rows(conn, club_id, (end - timedelta(days=1)).date()),
         "case_openings": _rows(
             conn,
             "SELECT guest_id,created_at FROM guest_case_openings WHERE club_id=%s AND created_at>=%s AND created_at<%s",
