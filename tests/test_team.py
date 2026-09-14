@@ -272,7 +272,7 @@ def test_admin_settings_validate_club_membership_before_writing(monkeypatch):
     assert conn.cursor_obj.executed[0][1] == (7, 4, 0)
 
 
-def test_club_local_dates_and_cohort_sql_boundaries(monkeypatch):
+def test_club_local_dates_select_exact_cohort_guest_ids(monkeypatch):
     from app.services import team
 
     calls = []
@@ -289,6 +289,14 @@ def test_club_local_dates_and_cohort_sql_boundaries(monkeypatch):
             return [dict(guest_id=1, date_insert=datetime(2025, 12, 31, 20))]
         if "FROM module_registrations" in sql:
             return [dict(guest_id=1, registered_at=datetime(2025, 12, 31, 21), is_estimated=0)]
+        if "FROM guest_sessions" in sql:
+            return [
+                dict(
+                    guest_id=1,
+                    date_start=datetime(2026, 1, 1, 2),
+                    date_stop=datetime(2026, 1, 1, 3),
+                )
+            ]
         return []
 
     monkeypatch.setattr(team, "rows", query)
@@ -303,8 +311,9 @@ def test_club_local_dates_and_cohort_sql_boundaries(monkeypatch):
         },
     )
     assert result["admins"][0]["club_registrations"] == result["admins"][0]["module_registrations"] == 1
-    params = next(args for sql, args in calls if "FROM guest_sessions s" in sql)
-    assert params[:3] == (7, datetime(2025, 12, 31, 19), datetime(2026, 1, 1, 19))
+    assert result["admins"][0]["visit1"] == 1
+    params = next(args for sql, args in calls if "FROM guest_sessions" in sql)
+    assert params[:2] == (7, 1)
 
 
 def test_team_tables_survive_business_mirror():
