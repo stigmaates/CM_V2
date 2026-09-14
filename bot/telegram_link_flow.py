@@ -82,7 +82,10 @@ async def phone_choice_callback(update, context):
         if action == "different" and state["step"] == "choice":
             state["step"] = "phone"
             await query.answer()
-            await query.edit_message_text("Введите номер телефона, указанный в LG, например 89270086145.")
+            await query.edit_message_text(
+                "Введите номер телефона, указанный в Langame, вместе с кодом страны.\n"
+                "Например: +7 (912)-123-45-67."
+            )
             return
         if action != "yes" or state["step"] != "confirm":
             raise ValueError("Эта кнопка уже использована.")
@@ -157,8 +160,11 @@ async def handle_lg_phone(update, context):
             context.user_data.pop("phone_link", None)
             raise ValueError("Слишком много попыток поиска. " + HELP_MESSAGE)
         phone = normalize_phone(update.message.text)
-        if not phone or len(phone) != 11 or not phone.startswith("7"):
-            raise ValueError("Введите номер в формате 89270086145.")
+        if not phone:
+            raise ValueError(
+                "Введите номер из Langame вместе с кодом страны. "
+                "Например: +7 (912)-123-45-67."
+            )
         guest, count = find_guest_by_phone(phone, club_id)
         if count != 1 or not guest:
             raise ValueError("Не удалось однозначно найти аккаунт. " + HELP_MESSAGE)
@@ -167,7 +173,7 @@ async def handle_lg_phone(update, context):
         state["guest"] = guest
         state["step"] = "confirm"
         await update.message.reply_text(
-            f"{phone}\n\n{guest.get('fio') or 'Гость'} — это ваш аккаунт?",
+            f"+{phone}\n\n{guest.get('fio') or 'Гость'} — это ваш аккаунт?",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [

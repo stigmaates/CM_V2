@@ -268,6 +268,34 @@ def test_typed_phone_only_shows_confirmation_in_current_club(monkeypatch):
     assert "это ваш аккаунт" in update.message.reply_text.call_args.args[0]
 
 
+def test_phone_normalization_accepts_international_formats():
+    assert guest_bot.normalize_phone("+374 (91) 123-456") == "37491123456"
+    assert guest_bot.normalize_phone("+1 (415) 555-2671") == "14155552671"
+    assert guest_bot.normalize_phone("+7 (912) 123-45-67") == "79121234567"
+    assert guest_bot.normalize_phone("8 (912) 123-45-67") == "79121234567"
+    assert guest_bot.normalize_phone("00374 91 123456") == "37491123456"
+    assert guest_bot.normalize_phone("12345") is None
+    assert guest_bot.normalize_phone("+1234567890123456") is None
+
+
+def test_typed_armenian_phone_is_looked_up_in_current_club(monkeypatch):
+    live_token(monkeypatch)
+    update, context = update_and_context("phone")
+    update.message.text = "+374 (91) 123-456"
+    monkeypatch.setattr(flow, "is_rate_limited", lambda *args, **kwargs: False)
+    seen = []
+
+    def find(phone, club):
+        seen.append((phone, club))
+        return {"guest_id": 7, "phone": "+37491123456", "fio": "Тестовый Гость"}, 1
+
+    monkeypatch.setattr(guest_bot, "find_guest_by_phone", find)
+    asyncio.run(flow.handle_lg_phone(update, context))
+
+    assert seen == [("37491123456", 2)]
+    assert update.message.reply_text.call_args.args[0].startswith("+37491123456")
+
+
 def test_stale_buttons_cannot_submit(monkeypatch):
     live_token(monkeypatch)
     update, context = update_and_context()
