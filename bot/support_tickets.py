@@ -15,6 +15,7 @@ from app.services.support_tickets import (
     format_club_status,
     format_technical_ticket,
     get_club_for_ticket_chat,
+    record_club_status_message,
     record_technical_delivery,
     transition_support_ticket,
 )
@@ -65,6 +66,52 @@ def keyboard_for_ticket(ticket: dict) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(rows)
 
 
+def _message_link(message) -> str | None:
+    try:
+        link = message.link
+    except Exception:
+        return None
+    return str(link).strip() or None
+
+
+def _record_club_message(ticket_id: int, message_id: int | None) -> None:
+    if message_id is None:
+        return
+    try:
+        record_club_status_message(ticket_id, message_id)
+    except Exception:
+        logging.exception("Failed to record club status message for support ticket #%s", ticket_id)
+
+
+async def _send_new_club_status(context, ticket: dict, text: str):
+    try:
+        sent = await context.bot.send_message(
+            chat_id=ticket["source_chat_id"],
+            text=text,
+            reply_to_message_id=ticket.get("source_message_id"),
+        )
+    except Exception:
+        logging.exception("Failed to reply to source message for support ticket #%s", ticket["id"])
+        sent = await context.bot.send_message(chat_id=ticket["source_chat_id"], text=text)
+    _record_club_message(int(ticket["id"]), getattr(sent, "message_id", None))
+
+
+async def _update_club_status(context, ticket: dict, action: str) -> None:
+    text = format_club_status(ticket, action)
+    message_id = ticket.get("club_status_message_id")
+    if message_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=ticket["source_chat_id"],
+                message_id=message_id,
+                text=text,
+            )
+            return
+        except Exception:
+            logging.exception("Failed to edit club status message for support ticket #%s", ticket["id"])
+    await _send_new_club_status(context, ticket, text)
+
+
 async def ticket_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     chat = update.effective_chat
@@ -100,6 +147,7 @@ async def ticket_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             source_chat_id=chat.id,
             source_chat_title=getattr(chat, "title", None),
             source_message_id=message.message_id,
+            source_message_link=_message_link(message),
             author_telegram_id=user.id if user else None,
             author_username=username,
             author_name=user.full_name if user else None,
@@ -148,7 +196,8 @@ async def ticket_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # it even if recording Telegram's message ID failed.
         logging.exception("Failed to record technical message for support ticket #%s", ticket["id"])
 
-    await message.reply_text(format_club_status(ticket, "create"))
+    club_message = await message.reply_text(format_club_status(ticket, "create"))
+    _record_club_message(int(ticket["id"]), getattr(club_message, "message_id", None))
 
 
 async def chat_id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -220,16 +269,7 @@ async def ticket_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not result.get("changed"):
         return
 
-    notification_text = format_club_status(ticket, action)
     try:
-        await context.bot.send_message(
-            chat_id=ticket["source_chat_id"],
-            text=notification_text,
-            reply_to_message_id=ticket.get("source_message_id"),
-        )
+        await _update_club_status(context, ticket, action)
     except Exception:
-        logging.exception("Failed to reply to source message for support ticket #%s", ticket_id)
-        try:
-            await context.bot.send_message(chat_id=ticket["source_chat_id"], text=notification_text)
-        except Exception:
-            logging.exception("Failed to notify club chat about support ticket #%s", ticket_id)
+        logging.exception("Failed to notify club chat about support ticket #%s", ticket_id)
