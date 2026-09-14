@@ -86,10 +86,11 @@ def test_technical_message_escapes_user_content_and_shows_context():
     assert '<a href="https://t.me/c/1/77">Админы клуба</a>' in text
 
 
-def test_technical_message_falls_back_to_chat_title_and_id_without_link():
+def test_technical_message_falls_back_to_copyable_chat_title_without_link():
     text = service.format_technical_ticket(ticket(source_message_link=None))
 
-    assert "<b>Беседа:</b> Админы клуба (ID -1001)" in text
+    assert "<b>Беседа:</b> <code>Админы клуба</code>" in text
+    assert "ID -1001" not in text
 
 
 def test_ticket_keyboard_follows_status_machine():

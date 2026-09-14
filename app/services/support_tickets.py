@@ -359,7 +359,6 @@ def format_technical_ticket(ticket: dict[str, Any]) -> str:
         assignee = f"\n<b>Ответственный:</b> {assigned_name}"
 
     source_chat_title = escape(str(ticket.get("source_chat_title") or "Беседа клуба"))
-    source_chat_id = escape(str(ticket.get("source_chat_id") or "—"))
     source_message_link = str(ticket.get("source_message_link") or "").strip()
     if source_message_link.startswith("https://t.me/"):
         source = (
@@ -367,7 +366,7 @@ def format_technical_ticket(ticket: dict[str, Any]) -> str:
             f"{source_chat_title}</a>"
         )
     else:
-        source = f"<b>Беседа:</b> {source_chat_title} (ID {source_chat_id})"
+        source = f"<b>Беседа:</b> <code>{source_chat_title}</code>"
 
     return (
         f"<b>🎫 Заявка №{int(ticket['id'])}</b>\n"
