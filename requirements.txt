@@ -7,3 +7,4 @@ python-telegram-bot==20.8
 httpx
 Werkzeug
 Pillow
+reportlab>=4.2,<5

@@ -48,7 +48,7 @@ def test_stage_pc_settings_and_heatmap_read_without_write_locks(monkeypatch):
         conn = ReadOnlyConnection()
         monkeypatch.setattr(pc_heatmap, 'get_db_connection', lambda: conn)
         monkeypatch.setattr(pc_heatmap, 'stage_mirror_enabled', lambda: True)
-        result = read(7)
+        result = read(7, period_days=7) if read is pc_heatmap.get_pc_hours_heatmap_stats else read(7)
         assert conn.closed and len(conn.sql) == 1
         assert conn.sql[0][1][-1] == 7
         if isinstance(result, list):

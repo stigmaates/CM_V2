@@ -26,6 +26,7 @@ PRESERVE = {
     "background_job_locks", "background_job_runs", "module_registrations",
     "team_admins", "team_shifts", "team_sync_state", "team_admin_settings",
     "support_tickets", "support_ticket_events",
+    "monthly_reports",
 }
 PULSE_TABLES = (
     "guest_pulse_selections", "guest_lifecycle_events", "guest_score_history",
@@ -87,7 +88,7 @@ def make_plan(source, stage):
         raise ValueError("Both databases must contain the locally preserved clubs table")
     plan = {}
     for name, info in source_tables.items():
-        if name in PRESERVE or name.startswith("guest_pulse_"):
+        if name.startswith("guest_pulse_"):
             continue
         if info["TABLE_TYPE"] != "BASE TABLE":
             continue
@@ -100,6 +101,8 @@ def make_plan(source, stage):
         for key, column in source_columns.items():
             if key not in stage_columns or column["COLUMN_TYPE"] != stage_columns[key]["COLUMN_TYPE"]:
                 raise ValueError(f"Incompatible stage column: {name}.{key}")
+        if name in PRESERVE:
+            continue
         for key, column in stage_columns.items():
             if (key not in source_columns and column["IS_NULLABLE"] != "YES"
                     and column["COLUMN_DEFAULT"] is None and "auto_increment" not in column["EXTRA"]
