@@ -99,9 +99,7 @@
     function renderKpis(total) {
         $("kpiClub").textContent = num(total.club_registrations);
         $("kpiModule").textContent = num(total.module_registrations);
-        $("kpiModuleNote").textContent = total.module_estimated
-            ? `≈ ${num(total.module_estimated)} с восстановленной датой`
-            : "впервые подключились к Кибер Бонус";
+        $("kpiModuleNote").textContent = "впервые подключились к Кибер Бонус";
         $("kpiConversion12").textContent = percent(total.conversion12);
         $("kpiConversion23").textContent = percent(total.conversion23);
     }
@@ -142,18 +140,16 @@
         const ordered = sortAdmins(admins, "registrations");
         updateSortHeaders("registrations");
         if (!ordered.length) {
-            $("teamRegistrations").innerHTML = '<tr><td class="team-empty" colspan="6">Нет данных по выбранному составу</td></tr>';
+            $("teamRegistrations").innerHTML = '<tr><td class="team-empty" colspan="7">Нет данных по выбранному составу</td></tr>';
             return;
         }
         $("teamRegistrations").innerHTML = ordered.map((admin, index) => {
-            const estimated = admin.module_estimated
-                ? `<small>≈ ${num(admin.module_estimated)} восстановлено</small>`
-                : "";
             return `<tr class="${admin.admin_id === null ? "team-unknown" : ""}">
                 <td>${rank(index)}</td>
                 <td>${identity(admin)}</td>
                 <td><span class="team-number">${num(admin.club_registrations)}</span></td>
-                <td><span class="team-number">${num(admin.module_registrations)}${estimated}</span></td>
+                <td><span class="team-number">${num(admin.club_to_module)}</span></td>
+                <td><span class="team-number">${num(admin.module_registrations)}</span></td>
                 <td><span class="team-number">${num(admin.shift_count)}</span></td>
                 <td><span class="team-module-conversion"><strong>${percent(admin.module_conversion)}</strong><small>${num(admin.club_to_module)} из ${num(admin.club_registrations)}</small></span></td>
             </tr>`;
@@ -369,7 +365,7 @@
             : data.stale ? "Данные смен требуют обновления." : "";
         setActivePreset();
         renderView();
-        $("teamCoverage").textContent = `Конверсия Langame → КБ показывает, сколько новых гостей из выбранного периода уже подключились к Кибер Бонус; подключение может произойти позже. ≈ — дата подключения восстановлена приблизительно. Без известной даты: в клубе ${num(data.unknown_club_dates)}, в модуле ${num(data.unknown_module_dates)}.`;
+        $("teamCoverage").textContent = "«Из них в КБ» — новые гости администратора, которые уже подключились к Кибер Бонус. «Зарегистрировано в КБ» — все подключения во время его смен. Смены считаются по уникальным рабочим дням. Конверсия = «Из них в КБ» / «Новые в Langame».";
     }
 
     async function load() {
@@ -475,7 +471,10 @@
         load();
     });
     document.addEventListener("click", (event) => {
-        if (!event.target.closest(".team-period")) closeCalendar();
+        const clickedInsidePeriod = event.composedPath().some(
+            (element) => element instanceof Element && element.classList.contains("team-period"),
+        );
+        if (!clickedInsidePeriod) closeCalendar();
     });
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && !$("teamCalendarPopover").hidden) closeCalendar();

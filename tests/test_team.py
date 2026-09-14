@@ -48,6 +48,18 @@ def test_shift_count_uses_selected_registration_period():
     assert result["admins"][0]["shift_count"] == 2
 
 
+def test_shift_count_deduplicates_reopened_shifts_on_same_working_day():
+    shifts = [
+        shift(1, D - timedelta(days=1), D),
+        shift(1, D, D + timedelta(hours=4)),
+        shift(1, D + timedelta(hours=5), D + timedelta(hours=12)),
+    ]
+
+    result = report([], shifts=shifts)
+
+    assert result["admins"][0]["shift_count"] == 1
+
+
 def test_recent_admin_candidates_use_last_50_days_and_exclude_future_shifts():
     now = datetime(2026, 4, 1)
     admins = [dict(admin_id=admin_id, name=f"Админ {admin_id}") for admin_id in (1, 2, 3)]
