@@ -27,6 +27,7 @@ CM_BONUS_PROXY_URL = os.getenv("CM_BONUS_PROXY_URL", "")
 TECH_ALERT_BOT_TOKEN = os.getenv("TECH_ALERT_BOT_TOKEN", "")
 TECH_ALERT_CHAT_ID = os.getenv("TECH_ALERT_CHAT_ID", "")
 TECH_ALERT_PROXY_URL = os.getenv("TECH_ALERT_PROXY_URL", "").strip()
+TECH_SUPPORT_CHAT_ID = os.getenv("TECH_SUPPORT_CHAT_ID", "").strip() or TECH_ALERT_CHAT_ID.strip()
 ADMIN_SERVICE_RESTART_ENABLED = os.getenv("ADMIN_SERVICE_RESTART_ENABLED", "").strip().lower() in {
     "1",
     "true",

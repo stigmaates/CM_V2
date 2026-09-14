@@ -9,7 +9,7 @@ sent the message.
 | Env var | Service | Entrypoint | Purpose |
 | --- | --- | --- | --- |
 | `BOT_TOKEN` | `clubmodule-stage-bot.service` / `clubmodule-bot.service` | `python -m bot.main` | Guest login, guest bot flows, `/start`, contact sharing, guest-facing callbacks. |
-| `CM_BONUS_BOT_TOKEN` | `clubmodule-stage-admin-bot.service` / `clubmodule-admin-bot.service` | `python -m bot.admin_main` | Admin chat buttons: prize issued, КБ credited. |
+| `CM_BONUS_BOT_TOKEN` | `clubmodule-stage-admin-bot.service` / `clubmodule-admin-bot.service` | `python -m bot.admin_main` | Admin chat buttons, `/ticket` in club chats, and support-ticket status buttons. |
 
 Do not run `bot.admin_main` instead of the guest bot service. That fixes admin
 chat buttons but breaks guest login.
