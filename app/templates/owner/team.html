@@ -89,7 +89,7 @@
                     <th scope="col">#</th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="name">Администратор</button></th>
                     <th scope="col" aria-sort="descending"><button class="team-sort-button is-active" type="button" data-sort-table="registrations" data-sort-key="club_registrations" title="Регистрации в системе клуба Langame">Новые в Langame</button></th>
-                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_registrations" title="Подключения к Кибер Бонус">Новые в КБ</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="club_to_module" title="Новые гости этого администратора, которые затем подключились к Кибер Бонус">Из них в КБ</button></th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="shift_count">Смены</button></th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_conversion" title="Конверсия регистрации Langame в подключение к Кибер Бонус">Конверсия в КБ</button></th>
                 </tr></thead><tbody id="teamRegistrations"></tbody></table>
@@ -142,4 +142,4 @@
     </dialog>
 </main>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='9') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='10') }}" defer></script>{% endblock %}

@@ -148,7 +148,7 @@
                 <td>${rank(index)}</td>
                 <td>${identity(admin)}</td>
                 <td><span class="team-number">${num(admin.club_registrations)}</span></td>
-                <td><span class="team-number">${num(admin.module_registrations)}</span></td>
+                <td><span class="team-number">${num(admin.club_to_module)}</span></td>
                 <td><span class="team-number">${num(admin.shift_count)}</span></td>
                 <td><span class="team-module-conversion"><strong>${percent(admin.module_conversion)}</strong><small>${num(admin.club_to_module)} из ${num(admin.club_registrations)}</small></span></td>
             </tr>`;
@@ -364,7 +364,7 @@
             : data.stale ? "Данные смен требуют обновления." : "";
         setActivePreset();
         renderView();
-        $("teamCoverage").textContent = "Конверсия Langame → КБ показывает, сколько новых гостей из выбранного периода уже подключились к Кибер Бонус; подключение может произойти позже.";
+        $("teamCoverage").textContent = "«Из них в КБ» — новые гости администратора из выбранного периода, которые уже подключились к Кибер Бонус. Конверсия = это число / новые гости в Langame; подключение может произойти позже.";
     }
 
     async function load() {
