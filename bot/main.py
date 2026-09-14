@@ -90,13 +90,24 @@ def normalize_phone(phone: str):
     if not phone:
         return None
 
-    digits = re.sub(r"\D", "", phone)
+    raw_phone = str(phone).strip()
+    digits = re.sub(r"\D", "", raw_phone)
+    has_international_prefix = raw_phone.startswith("+") or digits.startswith("00")
+
+    if digits.startswith("00"):
+        digits = digits[2:]
 
     if len(digits) == 11 and digits.startswith("8"):
         digits = "7" + digits[1:]
 
-    if len(digits) == 10:
+    if len(digits) == 10 and not has_international_prefix:
         digits = "7" + digits
+
+    # E.164 numbers contain at most 15 digits. A shorter value is almost
+    # certainly an extension or an incomplete local number. International
+    # numbers without punctuation are accepted when the country code is present.
+    if not 7 <= len(digits) <= 15 or digits.startswith("0"):
+        return None
 
     return digits
 
