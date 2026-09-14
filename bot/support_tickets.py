@@ -151,6 +151,15 @@ async def ticket_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await message.reply_text(format_club_status(ticket, "create"))
 
 
+async def chat_id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    chat = update.effective_chat
+    if not message or not chat:
+        return
+    title = getattr(chat, "title", None) or "личный чат"
+    await message.reply_text(f"ID беседы «{title}»: {chat.id}")
+
+
 async def ticket_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     chat = update.effective_chat

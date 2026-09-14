@@ -180,6 +180,18 @@ def test_ticket_command_creates_and_delivers_ticket(monkeypatch):
     message.reply_text.assert_awaited_once_with("Заявка №214 сформирована.\nСтатус: ожидание оператора.")
 
 
+def test_chat_id_command_reports_current_chat():
+    message = SimpleNamespace(reply_text=AsyncMock())
+    update = SimpleNamespace(
+        effective_message=message,
+        effective_chat=SimpleNamespace(id=-5287615323, title="WALLZ x TEST"),
+    )
+
+    asyncio.run(bot_tickets.chat_id_command(update, SimpleNamespace()))
+
+    message.reply_text.assert_awaited_once_with("ID беседы «WALLZ x TEST»: -5287615323")
+
+
 def test_ticket_callback_changes_message_and_notifies_club(monkeypatch):
     updated_ticket = ticket(
         status=service.STATUS_IN_PROGRESS,
