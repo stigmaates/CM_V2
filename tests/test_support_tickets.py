@@ -57,7 +57,10 @@ def ticket(**overrides):
         "club_name": "Клуб <Тест>",
         "club_timezone": "Europe/Moscow",
         "source_chat_id": "-1001",
+        "source_chat_title": "Админы клуба",
         "source_message_id": 77,
+        "source_message_link": "https://t.me/c/1/77",
+        "club_status_message_id": None,
         "author_telegram_id": 42,
         "author_username": "@user",
         "author_name": "Иван <Иванов>",
@@ -80,6 +83,13 @@ def test_technical_message_escapes_user_content_and_shows_context():
     assert "Иван &lt;Иванов&gt;" in text
     assert "Не выдаётся &lt;приз&gt;" in text
     assert "14.09.2026 12:30" in text
+    assert '<a href="https://t.me/c/1/77">Админы клуба</a>' in text
+
+
+def test_technical_message_falls_back_to_chat_title_and_id_without_link():
+    text = service.format_technical_ticket(ticket(source_message_link=None))
+
+    assert "<b>Беседа:</b> Админы клуба (ID -1001)" in text
 
 
 def test_ticket_keyboard_follows_status_machine():
@@ -151,7 +161,8 @@ def test_ticket_command_creates_and_delivers_ticket(monkeypatch):
         caption=None,
         reply_to_message=None,
         message_id=77,
-        reply_text=AsyncMock(),
+        link="https://t.me/c/1/77",
+        reply_text=AsyncMock(return_value=SimpleNamespace(message_id=601)),
     )
     update = SimpleNamespace(
         effective_message=message,
@@ -160,23 +171,36 @@ def test_ticket_command_creates_and_delivers_ticket(monkeypatch):
     )
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=501))))
     recorded = []
+    recorded_club = []
+    created = []
     monkeypatch.setattr(bot_tickets, "TECH_SUPPORT_CHAT_ID", "-5206784490")
     monkeypatch.setattr(
         bot_tickets,
         "get_club_for_ticket_chat",
         lambda _chat_id: {"club_id": 1, "name": "Клуб", "timezone": "Europe/Moscow"},
     )
-    monkeypatch.setattr(bot_tickets, "create_support_ticket", lambda **_kwargs: ticket())
+    monkeypatch.setattr(
+        bot_tickets,
+        "create_support_ticket",
+        lambda **kwargs: created.append(kwargs) or ticket(),
+    )
     monkeypatch.setattr(
         bot_tickets,
         "record_technical_delivery",
         lambda *args, **kwargs: recorded.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        bot_tickets,
+        "record_club_status_message",
+        lambda *args: recorded_club.append(args),
     )
 
     asyncio.run(bot_tickets.ticket_command(update, context))
 
     assert context.bot.send_message.await_args.kwargs["chat_id"] == "-5206784490"
     assert recorded[0][1]["technical_message_id"] == 501
+    assert created[0]["source_message_link"] == "https://t.me/c/1/77"
+    assert recorded_club == [(214, 601)]
     message.reply_text.assert_awaited_once_with("Заявка №214 сформирована.\nСтатус: ожидание оператора.")
 
 
@@ -197,6 +221,7 @@ def test_ticket_callback_changes_message_and_notifies_club(monkeypatch):
         status=service.STATUS_IN_PROGRESS,
         assigned_to_name="Оператор",
         assigned_to_username="@operator",
+        club_status_message_id=601,
     )
     query = SimpleNamespace(
         data="support_ticket:214:take",
@@ -208,7 +233,9 @@ def test_ticket_callback_changes_message_and_notifies_club(monkeypatch):
         effective_chat=SimpleNamespace(id=-5206784490),
         effective_user=SimpleNamespace(id=99, username="operator", full_name="Оператор"),
     )
-    context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    context = SimpleNamespace(
+        bot=SimpleNamespace(send_message=AsyncMock(), edit_message_text=AsyncMock())
+    )
     monkeypatch.setattr(bot_tickets, "TECH_SUPPORT_CHAT_ID", "-5206784490")
     monkeypatch.setattr(
         bot_tickets,
@@ -219,6 +246,47 @@ def test_ticket_callback_changes_message_and_notifies_club(monkeypatch):
     asyncio.run(bot_tickets.ticket_callback(update, context))
 
     query.edit_message_text.assert_awaited_once()
-    assert context.bot.send_message.await_args.kwargs["chat_id"] == "-1001"
-    assert "взята в работу" in context.bot.send_message.await_args.kwargs["text"]
+    context.bot.edit_message_text.assert_awaited_once_with(
+        chat_id="-1001",
+        message_id=601,
+        text="Заявка №214 взята в работу.\nСотрудники уже занимаются вашим вопросом.",
+    )
+    context.bot.send_message.assert_not_awaited()
     query.answer.assert_awaited_once_with("Заявка взята в работу", show_alert=False)
+
+
+def test_ticket_callback_sends_replacement_when_saved_club_message_is_gone(monkeypatch):
+    updated_ticket = ticket(status=service.STATUS_PAUSED, club_status_message_id=601)
+    query = SimpleNamespace(
+        data="support_ticket:214:pause",
+        answer=AsyncMock(),
+        edit_message_text=AsyncMock(),
+    )
+    update = SimpleNamespace(
+        callback_query=query,
+        effective_chat=SimpleNamespace(id=-5206784490),
+        effective_user=SimpleNamespace(id=99, username="operator", full_name="Оператор"),
+    )
+    context = SimpleNamespace(
+        bot=SimpleNamespace(
+            edit_message_text=AsyncMock(side_effect=RuntimeError("message not found")),
+            send_message=AsyncMock(return_value=SimpleNamespace(message_id=602)),
+        )
+    )
+    recorded_club = []
+    monkeypatch.setattr(bot_tickets, "TECH_SUPPORT_CHAT_ID", "-5206784490")
+    monkeypatch.setattr(
+        bot_tickets,
+        "transition_support_ticket",
+        lambda **_kwargs: {"ok": True, "changed": True, "ticket": updated_ticket},
+    )
+    monkeypatch.setattr(
+        bot_tickets,
+        "record_club_status_message",
+        lambda *args: recorded_club.append(args),
+    )
+
+    asyncio.run(bot_tickets.ticket_callback(update, context))
+
+    assert context.bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
+    assert recorded_club == [(214, 602)]

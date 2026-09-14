@@ -62,6 +62,7 @@ def create_support_ticket(
     source_chat_id: int | str,
     source_chat_title: str | None,
     source_message_id: int | None,
+    source_message_link: str | None,
     author_telegram_id: int | None,
     author_username: str | None,
     author_name: str | None,
@@ -80,17 +81,18 @@ def create_support_ticket(
             cursor.execute(
                 """
                 INSERT INTO support_tickets (
-                    club_id, source_chat_id, source_chat_title, source_message_id,
+                    club_id, source_chat_id, source_chat_title, source_message_id, source_message_link,
                     author_telegram_id, author_username, author_name, message_text,
                     status, created_at, updated_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     int(club_id),
                     str(source_chat_id),
                     (source_chat_title or "").strip()[:255] or None,
                     source_message_id,
+                    (source_message_link or "").strip()[:512] or None,
                     author_telegram_id,
                     (author_username or "").strip()[:255] or None,
                     (author_name or "").strip()[:255] or None,
@@ -126,6 +128,27 @@ def create_support_ticket(
         conn.close()
 
     return get_support_ticket(ticket_id)
+
+
+def record_club_status_message(ticket_id: int, message_id: int) -> None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE support_tickets
+                SET club_status_message_id = %s,
+                    updated_at = %s
+                WHERE id = %s
+                """,
+                (int(message_id), _utcnow(), int(ticket_id)),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def get_support_ticket(ticket_id: int) -> dict[str, Any]:
@@ -335,12 +358,24 @@ def format_technical_ticket(ticket: dict[str, Any]) -> str:
             assigned_name += f" ({escape(displayed_username)})"
         assignee = f"\n<b>Ответственный:</b> {assigned_name}"
 
+    source_chat_title = escape(str(ticket.get("source_chat_title") or "Беседа клуба"))
+    source_chat_id = escape(str(ticket.get("source_chat_id") or "—"))
+    source_message_link = str(ticket.get("source_message_link") or "").strip()
+    if source_message_link.startswith("https://t.me/"):
+        source = (
+            f'<b>Беседа:</b> <a href="{escape(source_message_link, quote=True)}">'
+            f"{source_chat_title}</a>"
+        )
+    else:
+        source = f"<b>Беседа:</b> {source_chat_title} (ID {source_chat_id})"
+
     return (
         f"<b>🎫 Заявка №{int(ticket['id'])}</b>\n"
         f"<b>Статус:</b> {escape(status)}\n"
         f"<b>Время:</b> {created_text} ({escape(timezone_name)})\n"
         f"<b>Клуб:</b> {escape(str(ticket.get('club_name') or ticket.get('club_id') or '—'))}\n"
-        f"<b>Отправитель:</b> {author}{assignee}\n\n"
+        f"<b>Отправитель:</b> {author}{assignee}\n"
+        f"{source}\n\n"
         f"<b>Обращение:</b>\n{escape(str(ticket.get('message_text') or ''))}"
     )
 
