@@ -77,6 +77,15 @@ def _styles():
         "muted": ParagraphStyle(
             "Muted", parent=base["BodyText"], fontName=REGULAR, fontSize=7.5, leading=10, textColor=MUTED
         ),
+        "muted_center": ParagraphStyle(
+            "MutedCenter",
+            parent=base["BodyText"],
+            fontName=REGULAR,
+            fontSize=6.7,
+            leading=8,
+            textColor=MUTED,
+            alignment=TA_CENTER,
+        ),
         "kpi": ParagraphStyle("KPI", parent=base["BodyText"], fontName=BOLD, fontSize=20, leading=23, textColor=PURPLE),
         "center": ParagraphStyle(
             "Center",
@@ -219,6 +228,46 @@ def _bar_rows(rows, value_key, styles, *, max_value=None, suffix=""):
     )
 
 
+def _visit_funnel_rows(rows, styles):
+    maximum = max([int(row.get("count") or 0) for row in rows] + [1])
+    data = []
+    for index, row in enumerate(rows):
+        count = int(row.get("count") or 0)
+        width = max(2, 64 * count / maximum)
+        bar = Table(
+            [[""]],
+            colWidths=[width * mm],
+            rowHeights=[4 * mm],
+            style=TableStyle([("BACKGROUND", (0, 0), (-1, -1), PURPLE)]),
+        )
+        conversion = row.get("step_percent")
+        note = (
+            "100% всех гостей месяца" if index == 0 and count else f"{format_percent(conversion)} от предыдущего этапа"
+        )
+        value = Table(
+            [
+                [Paragraph(format_number(count), styles["center_bold"])],
+                [Paragraph(note, styles["muted_center"])],
+            ],
+            colWidths=[38 * mm],
+            style=TableStyle(
+                [
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            ),
+        )
+        data.append([Paragraph(f"{row['visits']}+ визит", styles["body"]), bar, value])
+    return Table(
+        data,
+        colWidths=[47 * mm, 67 * mm, 44 * mm],
+        rowHeights=12 * mm,
+        style=TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]),
+    )
+
+
 def _data_table(headers, rows, widths, styles):
     data = [[Paragraph(header, styles["header"]) for header in headers]]
     data.extend(
@@ -314,16 +363,16 @@ def render_monthly_report_pdf(view, output_path):
     story += [
         PageBreak(),
         _section_title(
-            "Health Score базы",
-            "Оценка регулярности и устойчивости поведения гостей по действующей HVE-логике.",
+            "Здоровье клиентской базы",
+            "Health Score — оценка от 0 до 100: чем выше значение, тем регулярнее и устойчивее поведение гостей.",
             styles,
         ),
     ]
     h = view["health"]
     health_cards = [
-        _kpi_card("Health на конец месяца", h["average_label"], f"Оценено гостей: {h['scored_guests']}", styles),
-        _kpi_card("Прошлый месяц", h["previous_label"], "Предыдущая контрольная точка", styles),
-        _kpi_card("Изменение", format_number(h.get("change"), 1), "пункта Health Score", styles),
+        _kpi_card("Health Score на конец месяца", h["average_label"], f"Оценено гостей: {h['scored_guests']}", styles),
+        _kpi_card("Месяц ранее", h["previous_label"], "Предыдущая контрольная точка", styles),
+        _kpi_card("Изменение Health Score", format_number(h.get("change"), 1), "пункта за месяц", styles),
     ]
     story += [
         Table(
@@ -341,39 +390,47 @@ def render_monthly_report_pdf(view, output_path):
     ]
     story.append(_bar_rows(h["distribution"], "percent", styles, max_value=100, suffix="%"))
     story += [
-        Spacer(1, 12 * mm),
+        Spacer(1, 8 * mm),
+        _data_table(
+            ["Группа", "Health Score", "Что это значит"],
+            [[row["label"], row["range"], row["description"]] for row in h["distribution"]],
+            [48 * mm, 30 * mm, 87 * mm],
+            styles,
+        ),
+        PageBreak(),
         _section_title(
             "Удержание новых гостей",
-            "Когорта гостей, чей первый известный визит состоялся в отчётном месяце. Возвраты учитываются по доступной истории на дату формирования.",
+            "Берём гостей, которые впервые пришли в клуб в отчётном месяце, и смотрим, сколько из них затем пришли второй и третий раз.",
             styles,
         ),
     ]
     funnel = view["retention"]["new_guests"]
     story.append(
         _data_table(
-            ["Этап", "Гости", "От новой когорты"],
+            ["Этап", "Гости", "Доля от всех новых гостей"],
             [
-                ["1-й визит", funnel["first"], "100%" if funnel["first"] else "—"],
-                ["2-й визит", funnel["second"], format_percent(funnel["second_percent"])],
-                ["3-й визит", funnel["third"], format_percent(funnel["third_percent"])],
+                ["1-й визит", funnel["first"], "Все новые гости" if funnel["first"] else "—"],
+                [
+                    "2-й визит",
+                    funnel["second"],
+                    f"{format_percent(funnel['second_percent'])} от {funnel['first']}",
+                ],
+                [
+                    "3-й визит",
+                    funnel["third"],
+                    f"{format_percent(funnel['third_percent'])} от {funnel['first']}",
+                ],
             ],
-            [75 * mm, 35 * mm, 55 * mm],
+            [65 * mm, 30 * mm, 70 * mm],
             styles,
         )
     )
     story += [
         Spacer(1, 8 * mm),
-        Paragraph("Частота посещений всех гостей месяца", styles["h2"]),
-        _bar_rows(
-            [
-                {"label": f"{row['visits']}+ визит", "value": row["percent"] or 0}
-                for row in view["retention"]["all_guests"]
-            ],
-            "value",
-            styles,
-            max_value=100,
-            suffix="%",
-        ),
+        Paragraph("Сколько гостей дошли до каждого визита", styles["h2"]),
+        Paragraph("Крупно показано число гостей. Мелко — какая доля перешла с предыдущего этапа.", styles["muted"]),
+        Spacer(1, 2 * mm),
+        _visit_funnel_rows(view["retention"]["all_guests"], styles),
     ]
 
     story += [
@@ -493,7 +550,7 @@ def render_monthly_report_pdf(view, output_path):
         Spacer(1, 14 * mm),
         _section_title(
             f"Вклад Cyber Bonus за {view['period']['title'].lower()}",
-            "Итоговые показатели связаны с коммуникациями и игровыми механиками Cyber Bonus.",
+            "Участник кейсов — гость, который хотя бы раз открыл кейс в отчётном месяце. Ниже показана связь его активности с пополнениями.",
             styles,
         ),
     ]
@@ -511,11 +568,15 @@ def render_monthly_report_pdf(view, output_path):
             "после первого возвратного визита до конца месяца",
         ],
         [
-            "Кейс → пополнение",
+            "Участники кейсов с пополнением",
             impact["cases_to_topup"]["topped_up_users"],
-            f"из {impact['cases_to_topup']['case_users']} участников · {format_percent(impact['cases_to_topup']['conversion_percent'])}",
+            f"из {impact['cases_to_topup']['case_users']} гостей, открывавших кейсы · {format_percent(impact['cases_to_topup']['conversion_percent'])}",
         ],
-        ["Пополнения участников кейсов", impact["cases_to_topup"]["topup_label"], "в отчётном месяце"],
+        [
+            "Сумма их пополнений",
+            impact["cases_to_topup"]["topup_label"],
+            "Все пополнения этих гостей в отчётном месяце",
+        ],
         [
             "Частота визитов вовлечённых",
             f"{format_number(freq['previous'], 2)} → {format_number(freq['current'], 2)}",

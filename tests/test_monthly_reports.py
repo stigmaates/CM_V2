@@ -77,6 +77,8 @@ def test_report_uses_visits_cohorts_and_seven_day_crm_attribution():
     }
     assert report["retention"]["all_guests"][0]["count"] == 3
     assert report["retention"]["all_guests"][1]["count"] == 1
+    assert report["retention"]["all_guests"][0]["step_percent"] == 100.0
+    assert report["retention"]["all_guests"][1]["step_percent"] == 33.3
     assert report["crm"]["automatic"][0]["returned"] == 1
     assert report["crm"]["automatic"][0]["conversion_percent"] == 50.0
     assert report["engaged_revenue"]["amount"] == 800

@@ -58,7 +58,7 @@
     </div>
     <div class="report-preview-grid">
         <article class="admin-card report-mini-card">
-            <h3>Health Score</h3>
+            <h3>Здоровье базы</h3>
             <strong>{{ selected.view.health.average_label }}</strong>
             <span>Было {{ selected.view.health.previous_label }}{% if selected.view.health.change is not none %} · изменение {{ '%+.1f'|format(selected.view.health.change) }}{% endif %}</span>
         </article>
@@ -68,7 +68,7 @@
             <span>{{ selected.view.engaged_revenue.guests }} гостей · {{ selected.view.engaged_revenue.topped_up_guests }} с пополнением</span>
         </article>
         <article class="admin-card report-mini-card">
-            <h3>Удержание новой когорты</h3>
+            <h3>Возврат новых гостей</h3>
             <strong>{{ selected.view.retention.new_guests.second_percent|default('—', true) }}{% if selected.view.retention.new_guests.second_percent is not none %}%{% endif %}</strong>
             <span>{{ selected.view.retention.new_guests.second }} из {{ selected.view.retention.new_guests.first }} пришли второй раз</span>
         </article>

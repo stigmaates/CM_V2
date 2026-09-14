@@ -121,20 +121,46 @@ def _audience_from_lifecycle(status: str | None) -> str:
 def _health_distribution(state: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
     thresholds = GUEST_PULSE_CONFIG
     groups = [
-        ("healthy", "Healthy", lambda score: score >= thresholds["healthy_min"]),
-        ("stable", "Stable", lambda score: thresholds["stable_min"] <= score < thresholds["healthy_min"]),
-        ("risk", "Risk", lambda score: thresholds["at_risk_min"] <= score < thresholds["stable_min"]),
-        ("critical", "Critical", lambda score: score < thresholds["at_risk_min"]),
+        (
+            "healthy",
+            "Здоровая база",
+            "80-100",
+            "Гости приходят регулярно, поведение устойчивое.",
+            lambda score: score >= thresholds["healthy_min"],
+        ),
+        (
+            "stable",
+            "Стабильная база",
+            "60-79",
+            "Посещения стабильны, выраженного риска ухода нет.",
+            lambda score: thresholds["stable_min"] <= score < thresholds["healthy_min"],
+        ),
+        (
+            "risk",
+            "Зона риска",
+            "40-59",
+            "Регулярность снизилась: стоит вернуть внимание гостя.",
+            lambda score: thresholds["at_risk_min"] <= score < thresholds["stable_min"],
+        ),
+        (
+            "critical",
+            "Критическая зона",
+            "ниже 40",
+            "Высокий риск ухода или длительное отсутствие.",
+            lambda score: score < thresholds["at_risk_min"],
+        ),
     ]
     scores = [float(row["health_score"]) for row in state.values() if row.get("health_score") is not None]
     return [
         {
             "code": code,
             "label": label,
+            "range": score_range,
+            "description": description,
             "count": sum(check(score) for score in scores),
             "percent": _percent(sum(check(score) for score in scores), len(scores)),
         }
-        for code, label, check in groups
+        for code, label, score_range, description, check in groups
     ]
 
 
@@ -332,6 +358,9 @@ def build_report_from_sources(
         }
         for number in range(1, 6)
     ]
+    for index, level in enumerate(all_funnel):
+        previous_count = all_funnel[index - 1]["count"] if index else len(active)
+        level["step_percent"] = _percent(level["count"], previous_count)
 
     cases = _mechanic_stats(
         [row for row in sources.get("case_openings", []) if _in_period(row.get("created_at"), start, end)], len(active)
