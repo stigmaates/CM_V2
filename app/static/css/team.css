@@ -638,6 +638,7 @@
     padding: 15px 8px;
     border-bottom: 1px solid rgba(158, 105, 255, 0.12);
     text-align: center;
+    vertical-align: middle;
 }
 
 .team th {
@@ -719,6 +720,7 @@
 }
 
 .team tbody tr {
+    height: 96px;
     transition: background 0.16s ease;
 }
 
