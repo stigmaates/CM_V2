@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, time, timedelta
 
 from app.services.guest_pulse import rows
-from app.services.timezones import club_local_datetime_to_utc, get_club_local_now, utc_datetime_to_club_local
+from app.services.timezones import get_club_local_now, utc_datetime_to_club_local
 from app.services.visits import collapse_sessions_to_visits
 
 
@@ -149,26 +149,36 @@ def load_report(conn, club_id, args):
     # Match the existing Guest Pulse convention for raw Langame timestamps: UTC -> club time.
     guests = rows(conn, "SELECT guest_id,date_insert FROM guests WHERE club_id=%s", (club_id,))
     registrations = rows(conn, "SELECT * FROM module_registrations WHERE club_id=%s", (club_id,))
-    for registration in registrations:
-        registration["registered_at"] = utc_datetime_to_club_local(registration["registered_at"], tz)
-    cohort_start = club_local_datetime_to_utc(datetime.combine(cohort_range[0], time.min), tz)
-    cohort_end = club_local_datetime_to_utc(datetime.combine(cohort_range[1] + timedelta(days=1), time.min), tz)
-    sessions = rows(
-        conn,
-        """SELECT s.guest_id,s.date_start,s.date_stop FROM guest_sessions s
-        JOIN guests g ON g.club_id=s.club_id AND g.guest_id=s.guest_id
-        WHERE s.club_id=%s AND g.date_insert>=%s AND g.date_insert<%s
-        AND s.date_start IS NOT NULL AND s.date_stop IS NOT NULL AND s.date_stop<=%s""",
-        (club_id, cohort_start, cohort_end, datetime.now(UTC).replace(tzinfo=None)),
-    )
-    for items, fields in (
-        (shifts, ("started_at", "stopped_at")),
-        (guests, ("date_insert",)),
-        (sessions, ("date_start", "date_stop")),
-    ):
+    for items, fields in ((shifts, ("started_at", "stopped_at")), (guests, ("date_insert",))):
         for item in items:
             for field in fields:
                 item[field] = utc_datetime_to_club_local(item.get(field), tz)
+    for registration in registrations:
+        registration["registered_at"] = utc_datetime_to_club_local(registration["registered_at"], tz)
+
+    # Resolve the cohort in club-local time, then load visits for those exact
+    # guests. A second SQL date filter on raw Langame timestamps can otherwise
+    # discard the cohort's sessions at timezone/date boundaries.
+    cohort_guest_ids = sorted(
+        int(guest["guest_id"]) for guest in guests if in_range(guest.get("date_insert"), cohort_range)
+    )
+    sessions = []
+    completed_before = datetime.now(UTC).replace(tzinfo=None)
+    for offset in range(0, len(cohort_guest_ids), 500):
+        batch = cohort_guest_ids[offset : offset + 500]
+        placeholders = ",".join(["%s"] * len(batch))
+        sessions.extend(
+            rows(
+                conn,
+                f"""SELECT guest_id,date_start,date_stop FROM guest_sessions
+                WHERE club_id=%s AND guest_id IN ({placeholders})
+                AND date_start IS NOT NULL AND date_stop IS NOT NULL AND date_stop<=%s""",
+                (club_id, *batch, completed_before),
+            )
+        )
+    for session in sessions:
+        for field in ("date_start", "date_stop"):
+            session[field] = utc_datetime_to_club_local(session.get(field), tz)
     report = build_report(admins, shifts, guests, registrations, sessions, registration_range, cohort_range, now)
     state = (rows(conn, "SELECT * FROM team_sync_state WHERE club_id=%s", (club_id,)) or [{}])[0]
     updated = state.get("updated_at")
