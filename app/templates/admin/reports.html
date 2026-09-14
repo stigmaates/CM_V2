@@ -83,19 +83,32 @@
     <div class="admin-section-head"><div><h2>История отчётов</h2><p>Сохранённые снимки можно открыть и скачать повторно.</p></div></div>
     <div class="admin-table-wrap">
         <table class="admin-table">
-            <thead><tr><th>Клуб</th><th>Период</th><th>Сформирован</th><th>Версия</th><th></th></tr></thead>
+            <thead><tr><th>Клуб</th><th>Период</th><th>Запущен</th><th>Версия</th><th>Статус</th><th></th></tr></thead>
             <tbody>
             {% for report in reports %}
                 <tr>
                     <td><strong>{{ report.club_name }}</strong><span class="admin-table-sub">ID {{ report.club_id }}</span></td>
                     <td>{{ '%02d.%d'|format(report.report_month, report.report_year) }}</td>
                     <td>{{ report.generated_at.strftime('%d.%m.%Y %H:%M') if report.generated_at else '—' }}</td>
-                    <td><span class="status-pill success">{{ report.version }}</span></td>
-                    <td class="report-actions"><a href="{{ url_for('admin.reports', report_id=report.id) }}">Открыть</a><a href="{{ url_for('admin.download_report', report_id=report.id) }}">PDF</a></td>
+                    <td>{{ report.version }}</td>
+                    <td>
+                        {% if report.status == 'ready' %}<span class="status-pill success">Готов</span>
+                        {% elif report.status == 'queued' %}<span class="status-pill warning">В очереди</span>
+                        {% elif report.status == 'running' %}<span class="status-pill running">Формируется</span>
+                        {% else %}<span class="status-pill error" title="{{ report.error_message or '' }}">Ошибка</span>{% endif %}
+                    </td>
+                    <td class="report-actions">
+                        {% if report.status == 'ready' %}<a href="{{ url_for('admin.reports', report_id=report.id) }}">Открыть</a><a href="{{ url_for('admin.download_report', report_id=report.id) }}">PDF</a>
+                        {% elif report.status == 'failed' %}<span class="report-action-note" title="{{ report.error_message or '' }}">Запустите повторно</span>
+                        {% else %}<span class="report-action-note">Можно закрыть страницу</span>{% endif %}
+                    </td>
                 </tr>
-            {% else %}<tr><td colspan="5" class="empty-cell">Отчётов пока нет</td></tr>{% endfor %}
+            {% else %}<tr><td colspan="6" class="empty-cell">Отчётов пока нет</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>
 </section>
+{% endblock %}
+{% block scripts %}
+{% if has_pending_reports %}<script>window.setTimeout(() => window.location.reload(), 3000);</script>{% endif %}
 {% endblock %}
