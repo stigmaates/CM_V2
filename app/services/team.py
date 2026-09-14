@@ -67,15 +67,21 @@ def build_report(admins, shifts, guests, registrations, sessions, registration_r
     recent_shift_cutoff = now - timedelta(days=50)
     period_start = datetime.combine(registration_range[0], time.min)
     period_end = datetime.combine(registration_range[1] + timedelta(days=1), time.min)
+    shift_days = defaultdict(set)
     for shift in shifts:
         if shift["started_at"] <= now and (
             shift["stopped_at"] is None or shift["stopped_at"] >= recent_shift_cutoff
         ):
             result[shift["admin_id"]]["has_recent_shift"] = True
         if shift["started_at"] < period_end and (
-            shift["stopped_at"] is None or shift["stopped_at"] >= period_start
+            shift["stopped_at"] is None or shift["stopped_at"] > period_start
         ):
-            result[shift["admin_id"]]["shift_count"] += 1
+            # Langame may create several shift records after a close/reopen during
+            # one working day. Report that day once for the administrator.
+            day = max(shift["started_at"].date(), registration_range[0])
+            shift_days[shift["admin_id"]].add(day)
+    for admin_id, days in shift_days.items():
+        result[admin_id]["shift_count"] = len(days)
     grouped = defaultdict(list)
     for session in sessions:
         if session.get("date_stop") and session["date_stop"] <= now:
