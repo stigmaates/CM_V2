@@ -25,6 +25,7 @@ PRESERVE = {
     "schema_migrations", "guest_score_history", "guest_lifecycle_events",
     "background_job_locks", "background_job_runs", "module_registrations",
     "team_admins", "team_shifts", "team_sync_state", "team_admin_settings",
+    "support_tickets", "support_ticket_events",
 }
 PULSE_TABLES = (
     "guest_pulse_selections", "guest_lifecycle_events", "guest_score_history",

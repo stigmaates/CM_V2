@@ -58,3 +58,11 @@ def test_bots_cannot_start_polling(blocked):
     for entry in (admin_main.main, main.main):
         with pytest.raises(ValueError, match='отключены'):
             entry()
+
+
+def test_admin_bot_override_does_not_unblock_other_outbound(blocked, monkeypatch):
+    monkeypatch.setenv('ALLOW_STAGE_ADMIN_BOT', '1')
+
+    policy.ensure_admin_bot_allowed()
+    with pytest.raises(ValueError, match='отключены'):
+        policy.ensure_outbound_allowed()

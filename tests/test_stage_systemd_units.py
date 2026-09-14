@@ -50,4 +50,5 @@ def test_guest_and_admin_bot_units_are_environment_scoped():
     assert "WorkingDirectory=/root/cm_stage/CM_V2" in stage_admin
     assert "EnvironmentFile=/root/cm_stage/CM_V2/.env" in stage_admin
     assert "ExecStart=/root/cm_stage/CM_V2/venv/bin/python -m bot.admin_main" in stage_admin
+    assert "Environment=ALLOW_STAGE_ADMIN_BOT=1" in stage_admin
     assert "/root/cm_v2/CM_V2" not in stage_admin
