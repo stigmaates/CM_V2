@@ -8,10 +8,10 @@ from datetime import datetime
 METRIC_LABELS = {
     "unique_guests": "Уникальные гости",
     "new_guests": "Новые гости",
-    "new_module_guests": "Новые в Cyber Bonus",
-    "reactivated_guests": "Реактивированные",
+    "new_module_guests": "Новые в КБ",
+    "reactivated_guests": "Вернувшиеся гости",
     "average_visits": "Визитов на гостя",
-    "lost_guests": "Перешли в Lost",
+    "lost_guests": "Потерянные гости",
 }
 
 

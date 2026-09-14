@@ -179,6 +179,7 @@ def _kpi_card(label, value, note, styles):
                 ("BACKGROUND", (0, 0), (-1, -1), PANEL),
                 ("BOX", (0, 0), (-1, -1), 0.7, LINE),
                 ("ROUNDEDCORNERS", [5 * mm]),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 5 * mm),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 5 * mm),
                 ("TOPPADDING", (0, 0), (-1, -1), 3 * mm),
@@ -300,6 +301,13 @@ def render_monthly_report_pdf(view, output_path):
         )
     )
     story += [
+        Spacer(1, 3 * mm),
+        Paragraph(
+            "Вернувшиеся гости — те, кто снова пришёл после статуса «Потерян» или «Высокий риск ухода».",
+            styles["muted"],
+        ),
+    ]
+    story += [
         Spacer(1, 9 * mm),
         _section_title(
             "Пульс клиентской базы",
@@ -380,7 +388,7 @@ def render_monthly_report_pdf(view, output_path):
         PageBreak(),
         _section_title(
             "CRM-коммуникации",
-            f"Возврат считается, если следующий визит произошёл в течение {view['crm']['attribution_days']} дней после отправки.",
+            f"Каждая строка объединяет все запуски одной авторассылки за месяц; один гость считается один раз. Возврат — визит в течение {view['crm']['attribution_days']} дней после отправки.",
             styles,
         ),
     ]
@@ -388,7 +396,7 @@ def render_monthly_report_pdf(view, output_path):
     if auto:
         story.append(
             _data_table(
-                ["Автосценарий", "Получили", "Вернулись", "Конверсия", "Пополнения"],
+                ["Авторассылка", "Получили гостей", "Вернулись", "Конверсия", "Пополнения"],
                 [
                     [
                         row["title"],
