@@ -44,7 +44,7 @@ def test_report_uses_visits_cohorts_and_seven_day_crm_attribution():
                 "mailing_id": 7,
                 "guest_id": 1,
                 "status": "sent",
-                "interaction_at": datetime(2026, 8, 4),
+                "interaction_at": datetime(2026, 8, 3),
                 "filters_json": '{"auto_mailing":"lost_60d"}',
                 "scenario_title": "Возврат потерянных",
             },

@@ -184,38 +184,42 @@ def _campaigns(
     output = []
     window = timedelta(days=MONTHLY_REPORT_ATTRIBUTION_DAYS)
     for key, guests in grouped.items():
-        sent_rows = [
-            min((row for row in rows if row.get("status") == "sent"), key=lambda row: row["interaction_at"])
-            for rows in guests.values()
-            if any(row.get("status") == "sent" for row in rows)
-        ]
+        sent_by_guest = {
+            guest_id: sorted(
+                (row for row in rows if row.get("status") == "sent"), key=lambda row: row["interaction_at"]
+            )
+            for guest_id, rows in guests.items()
+        }
+        sent_by_guest = {guest_id: rows for guest_id, rows in sent_by_guest.items() if rows}
         returned = 0
         topup_amount = 0.0
         return_details = []
-        for row in sent_rows:
-            at = row["interaction_at"]
-            deadline = min(at + window, period_end)
-            next_visit = next(
-                (visit for visit in visits_by_guest.get(row["guest_id"], []) if at < visit["date_start"] < deadline),
-                None,
-            )
+        for guest_id, sent_rows in sent_by_guest.items():
+            next_visit = None
+            for row in sent_rows:
+                at = row["interaction_at"]
+                deadline = min(at + window, period_end)
+                next_visit = next(
+                    (visit for visit in visits_by_guest.get(guest_id, []) if at < visit["date_start"] < deadline),
+                    None,
+                )
+                if next_visit:
+                    break
             if next_visit:
                 returned += 1
                 amount = sum(
                     float(topup.get("amount") or 0)
-                    for topup in topups_by_guest.get(row["guest_id"], [])
+                    for topup in topups_by_guest.get(guest_id, [])
                     if next_visit["date_start"] <= topup["topup_at"] < period_end
                 )
                 topup_amount += amount
-                return_details.append(
-                    {"guest_id": row["guest_id"], "visit_at": next_visit["date_start"], "topups": amount}
-                )
+                return_details.append({"guest_id": guest_id, "visit_at": next_visit["date_start"], "topups": amount})
         item = {
             **meta[key],
             "targeted": len(guests),
-            "sent": len(sent_rows),
+            "sent": len(sent_by_guest),
             "returned": returned,
-            "conversion_percent": _percent(returned, len(sent_rows)),
+            "conversion_percent": _percent(returned, len(sent_by_guest)),
             "topup_amount": round(topup_amount, 2),
             "return_details": return_details,
         }
