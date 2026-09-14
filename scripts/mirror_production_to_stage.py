@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STAGE_ROOT = Path("/root/cm_stage/CM_V2")
 PROD_ROOT = Path("/root/cm_v2/CM_V2")
 PRESERVE = {
-    "schema_migrations", "guest_score_history", "guest_lifecycle_events",
+    "schema_migrations", "clubs", "guest_score_history", "guest_lifecycle_events",
     "background_job_locks", "background_job_runs", "module_registrations",
     "team_admins", "team_shifts", "team_sync_state", "team_admin_settings",
     "support_tickets", "support_ticket_events",
@@ -83,6 +83,8 @@ def columns(conn, table):
 
 def make_plan(source, stage):
     source_tables, stage_tables = inventory(source), inventory(stage)
+    if "clubs" not in source_tables or "clubs" not in stage_tables:
+        raise ValueError("Both databases must contain the locally preserved clubs table")
     plan = {}
     for name, info in source_tables.items():
         if name in PRESERVE or name.startswith("guest_pulse_"):
@@ -104,7 +106,7 @@ def make_plan(source, stage):
                     and not any(k in column["EXTRA"] for k in ("STORED GENERATED", "VIRTUAL GENERATED"))):
                 raise ValueError(f"Required stage-only column has no default: {name}.{key}")
         plan[name] = [key for key, col in source_columns.items() if not any(k in col["EXTRA"] for k in ("STORED GENERATED", "VIRTUAL GENERATED"))]
-    for required in ("clubs", "guests", "guest_sessions", "guest_balance_topups"):
+    for required in ("guests", "guest_sessions", "guest_balance_topups"):
         if required not in plan:
             raise ValueError(f"Missing business source table: {required}")
     return plan

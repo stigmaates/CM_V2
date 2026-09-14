@@ -105,7 +105,26 @@ def test_schema_plan_keeps_default_generated_timestamps_and_excludes_local_histo
     plan = mirror.make_plan(object(), object())
     assert plan['guests'] == ['created_at']
     assert 'mailings' in plan
-    assert not set(plan) & {'guest_score_history', 'guest_pulse_dirty'}
+    assert not set(plan) & {'clubs', 'guest_score_history', 'guest_pulse_dirty'}
+
+
+def test_schema_plan_requires_preserved_clubs_on_both_sides(monkeypatch):
+    source, stage = object(), object()
+    monkeypatch.setattr(
+        mirror,
+        'inventory',
+        lambda connection: {
+            name: {'TABLE_TYPE': 'BASE TABLE', 'ENGINE': 'InnoDB'}
+            for name in (
+                ['clubs', 'guests', 'guest_sessions', 'guest_balance_topups']
+                if connection is source
+                else ['guests', 'guest_sessions', 'guest_balance_topups']
+            )
+        },
+    )
+
+    with pytest.raises(ValueError, match='clubs table'):
+        mirror.make_plan(source, stage)
 
 
 def test_equal_database_names_refused_even_with_host_aliases():
