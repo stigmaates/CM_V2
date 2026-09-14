@@ -140,7 +140,7 @@
         const ordered = sortAdmins(admins, "registrations");
         updateSortHeaders("registrations");
         if (!ordered.length) {
-            $("teamRegistrations").innerHTML = '<tr><td class="team-empty" colspan="6">Нет данных по выбранному составу</td></tr>';
+            $("teamRegistrations").innerHTML = '<tr><td class="team-empty" colspan="7">Нет данных по выбранному составу</td></tr>';
             return;
         }
         $("teamRegistrations").innerHTML = ordered.map((admin, index) => {
@@ -149,6 +149,7 @@
                 <td>${identity(admin)}</td>
                 <td><span class="team-number">${num(admin.club_registrations)}</span></td>
                 <td><span class="team-number">${num(admin.club_to_module)}</span></td>
+                <td><span class="team-number">${num(admin.module_registrations)}</span></td>
                 <td><span class="team-number">${num(admin.shift_count)}</span></td>
                 <td><span class="team-module-conversion"><strong>${percent(admin.module_conversion)}</strong><small>${num(admin.club_to_module)} из ${num(admin.club_registrations)}</small></span></td>
             </tr>`;
@@ -364,7 +365,7 @@
             : data.stale ? "Данные смен требуют обновления." : "";
         setActivePreset();
         renderView();
-        $("teamCoverage").textContent = "«Из них в КБ» — новые гости администратора из выбранного периода, которые уже подключились к Кибер Бонус. Конверсия = это число / новые гости в Langame; подключение может произойти позже.";
+        $("teamCoverage").textContent = "«Из них в КБ» — новые гости администратора, которые уже подключились к Кибер Бонус. «Зарегистрировано в КБ» — все подключения, совершённые во время его смен. Конверсия = «Из них в КБ» / «Новые в Langame».";
     }
 
     async function load() {
