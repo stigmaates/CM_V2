@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from urllib.parse import urlencode
 
 import httpx
 import pymysql
 
-from app.config import STEAM_API_KEY
+from app.config import OPENDOTA_API_KEY, STEAM_API_KEY
 from app.core import get_db_connection
 
 STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login"
 STEAM_API_ROOT = "https://api.steampowered.com"
+OPENDOTA_API_ROOT = "https://api.opendota.com/api"
 STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d{17})/?$")
+STEAM_ID_ACCOUNT_OFFSET = 76561197960265728
+DOTA_MATCH_LIMIT = 5
 SUPPORTED_GAMES = (
     {
         "appid": 730,
@@ -28,6 +32,30 @@ SUPPORTED_GAMES = (
         "image_url": "https://cdn.cloudflare.steamstatic.com/steam/apps/570/header.jpg",
     },
 )
+
+DOTA_LOBBY_LABELS = {
+    0: "Обычный",
+    1: "Тренировка",
+    2: "Турнирный",
+    4: "С ботами",
+    7: "Рейтинговый",
+    8: "1 на 1",
+    9: "Боевой кубок",
+}
+DOTA_MODE_LABELS = {
+    1: "All Pick",
+    2: "Captain's Mode",
+    3: "Random Draft",
+    4: "Single Draft",
+    5: "All Random",
+    11: "Mid Only",
+    16: "Captain's Draft",
+    18: "Ability Draft",
+    20: "All Random Deathmatch",
+    21: "1v1 Mid",
+    22: "Ranked All Pick",
+    23: "Turbo",
+}
 
 
 class SteamError(RuntimeError):
@@ -178,6 +206,99 @@ def fetch_game_profile(steam_id: str) -> dict:
         "stats_available": "game_count" in response or "total_count" in recent_response,
         "games": games,
     }
+
+
+def steam_id_to_account_id(steam_id: str) -> int:
+    try:
+        account_id = int(steam_id) - STEAM_ID_ACCOUNT_OFFSET
+    except (TypeError, ValueError) as exc:
+        raise SteamError("Некорректный SteamID") from exc
+    if not 0 <= account_id <= 0xFFFFFFFF:
+        raise SteamError("Некорректный SteamID")
+    return account_id
+
+
+def _opendota_api_get(path: str):
+    params = {"api_key": OPENDOTA_API_KEY} if OPENDOTA_API_KEY else None
+    try:
+        with httpx.Client(timeout=12.0, follow_redirects=False) as client:
+            response = client.get(f"{OPENDOTA_API_ROOT}/{path.lstrip('/')}", params=params)
+            response.raise_for_status()
+            return response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise SteamError("Не удалось получить данные OpenDota") from exc
+
+
+@lru_cache(maxsize=1)
+def _dota_hero_catalog() -> dict[int, dict]:
+    result = _opendota_api_get("constants/heroes")
+    heroes = {}
+    for hero in result.values() if isinstance(result, dict) else []:
+        hero_id = int(hero.get("id") or 0)
+        if not hero_id:
+            continue
+        api_name = str(hero.get("name") or "")
+        slug = api_name.removeprefix("npc_dota_hero_")
+        image_path = str(hero.get("img") or "").split("?", 1)[0]
+        heroes[hero_id] = {
+            "name": str(hero.get("localized_name") or slug.replace("_", " ").title() or f"Герой {hero_id}"),
+            "image_url": (
+                f"https://cdn.cloudflare.steamstatic.com{image_path}"
+                if image_path.startswith("/apps/dota2/images/")
+                else None
+            ),
+        }
+    return heroes
+
+
+def fetch_dota_recent_matches(steam_id: str, *, limit: int = DOTA_MATCH_LIMIT) -> dict:
+    """Return a guest's latest public Dota matches with player-level results."""
+    account_id = steam_id_to_account_id(steam_id)
+    safe_limit = max(1, min(int(limit), DOTA_MATCH_LIMIT))
+    history = _opendota_api_get(f"players/{account_id}/recentMatches")
+    history_matches = history[:safe_limit] if isinstance(history, list) else []
+    if not history_matches:
+        return {
+            "matches": [],
+            "is_private": False,
+        }
+
+    try:
+        heroes = _dota_hero_catalog()
+    except SteamError:
+        heroes = {}
+    matches = []
+
+    for match in history_matches:
+        match_id = int(match.get("match_id") or 0)
+        if not match_id:
+            continue
+        hero_id = int(match.get("hero_id") or 0)
+        hero = heroes.get(hero_id) or {"name": f"Герой #{hero_id}", "image_url": None}
+        player_is_radiant = int(match.get("player_slot") or 0) < 128
+        radiant_win = match.get("radiant_win")
+        won = None if not isinstance(radiant_win, bool) else radiant_win == player_is_radiant
+        lobby_type = int(match.get("lobby_type") or 0)
+        game_mode = int(match.get("game_mode") or 0)
+        matches.append(
+            {
+                "match_id": str(match_id),
+                "hero_id": hero_id,
+                "hero_name": hero["name"],
+                "hero_image_url": hero["image_url"],
+                "won": won,
+                "result_label": "Победа" if won is True else "Поражение" if won is False else "Завершён",
+                "lobby_label": DOTA_LOBBY_LABELS.get(lobby_type, "Обычный"),
+                "mode_label": DOTA_MODE_LABELS.get(game_mode, "Другой режим"),
+                "started_at": int(match.get("start_time") or 0),
+                "duration_seconds": int(match.get("duration") or 0),
+                "kills": int(match.get("kills") or 0) if "kills" in match else None,
+                "deaths": int(match.get("deaths") or 0) if "deaths" in match else None,
+                "assists": int(match.get("assists") or 0) if "assists" in match else None,
+                "party_size": int(match.get("party_size") or 1),
+            }
+        )
+    return {"matches": matches, "is_private": False}
 
 
 def get_linked_steam_account(*, club_id: int, guest_id: int) -> dict | None:

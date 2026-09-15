@@ -36,6 +36,7 @@ from app.services.steam import (
     SteamError,
     SteamNotConfiguredError,
     build_openid_redirect_url,
+    fetch_dota_recent_matches,
     fetch_game_profile,
     fetch_player_summary,
     get_linked_steam_account,
@@ -242,6 +243,37 @@ def api_steam_profile():
             "message": "Steam временно не отвечает. Попробуйте позже.",
         }, 502
     return {"ok": True, "profile": profile}
+
+
+@guest_bp.route("/api/steam-dota-matches")
+@guest_required
+def api_steam_dota_matches():
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    if is_rate_limited(f"guest.steam_dota_matches:{club_id}:{guest_id}", limit=6, window_seconds=60):
+        return {
+            "ok": False,
+            "error": "rate_limited",
+            "message": "Слишком много запросов. Подождите минуту.",
+        }, 429
+    account = get_linked_steam_account(club_id=club_id, guest_id=guest_id)
+    if not account:
+        return {"ok": False, "error": "steam_not_linked", "message": "Steam-аккаунт не привязан"}, 404
+    try:
+        result = fetch_dota_recent_matches(account["steam_id"])
+    except SteamNotConfiguredError:
+        return {
+            "ok": False,
+            "error": "steam_not_configured",
+            "message": "Статистика Steam пока не настроена на сервере",
+        }, 503
+    except SteamError:
+        return {
+            "ok": False,
+            "error": "steam_unavailable",
+            "message": "Не удалось получить матчи Dota 2. Попробуйте позже.",
+        }, 502
+    return {"ok": True, **result}
 
 
 @guest_bp.route("/check-login")

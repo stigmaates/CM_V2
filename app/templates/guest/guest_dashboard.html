@@ -524,6 +524,8 @@
             border-radius: 14px;
             background: rgba(255,255,255,.045);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
         .steam-game-cover {
             position: relative;
@@ -561,6 +563,29 @@
             gap: 10px;
             padding: 15px 16px 16px;
         }
+        .steam-game-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: auto;
+            padding: 0 16px 16px;
+        }
+        .steam-dota-matches-btn {
+            border: 1px solid rgba(102, 192, 244, .38);
+            border-radius: 10px;
+            padding: 9px 12px;
+            background: rgba(102, 192, 244, .1);
+            color: #8ed4ff;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+            transition: transform .16s ease, background .16s ease, border-color .16s ease;
+        }
+        .steam-dota-matches-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(102, 192, 244, .18);
+            border-color: rgba(102, 192, 244, .6);
+        }
         .steam-hour-value { color: #fff; font-size: 22px; font-weight: 900; line-height: 1.1; }
         .steam-hour-label { margin-top: 4px; color: var(--text-muted); font-size: 11px; line-height: 1.3; }
         .steam-profile-status {
@@ -571,11 +596,88 @@
             text-align: center;
             line-height: 1.45;
         }
+        .app-modal--dota-matches {
+            width: min(980px, 96%);
+            max-height: calc(100vh - 36px);
+            max-height: calc(100dvh - 36px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+        .dota-matches-caption {
+            margin: -8px 0 16px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .dota-match-table {
+            overflow: hidden;
+            border: 1px solid rgba(102, 192, 244, .18);
+            border-radius: 14px;
+            background: rgba(10, 15, 24, .28);
+        }
+        .dota-match-head,
+        .dota-match-row {
+            display: grid;
+            grid-template-columns: minmax(190px, 1.7fr) minmax(135px, 1fr) minmax(150px, 1fr) 100px 110px;
+            gap: 14px;
+            align-items: center;
+        }
+        .dota-match-head {
+            padding: 12px 14px;
+            background: rgba(102, 192, 244, .08);
+            color: rgba(255, 255, 255, .8);
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .dota-match-row {
+            min-height: 76px;
+            padding: 10px 14px;
+            border-top: 1px solid rgba(102, 192, 244, .12);
+        }
+        .dota-match-hero { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .dota-match-hero-image {
+            width: 72px;
+            aspect-ratio: 16 / 9;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            border-radius: 9px;
+            background: rgba(255,255,255,.07);
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        .dota-match-hero-image img { width: 100%; height: 100%; display: block; object-fit: cover; }
+        .dota-match-hero-name { min-width: 0; color: #b6e15b; font-size: 15px; font-weight: 900; }
+        .dota-match-result { font-size: 15px; font-weight: 900; }
+        .dota-match-result--win { color: #9fdb45; }
+        .dota-match-result--loss { color: #ff6254; }
+        .dota-match-result--unknown { color: #d9d1e7; }
+        .dota-match-meta { margin-top: 3px; color: var(--text-muted); font-size: 12px; line-height: 1.3; }
+        .dota-match-type-main,
+        .dota-match-duration,
+        .dota-match-kda { color: #fff; font-size: 15px; font-weight: 800; }
+        .dota-match-kda { white-space: nowrap; }
+        .dota-kda-kills { color: #ff5d67; }
+        .dota-kda-assists { color: #a9dd58; }
         @media (max-width: 680px) {
             .steam-account-card { grid-template-columns: auto minmax(0, 1fr); }
             .steam-account-actions { grid-column: 1 / -1; }
             .steam-profile-btn, .steam-connect-btn { flex: 1; }
             .steam-games-grid { grid-template-columns: 1fr; }
+            .dota-match-head { display: none; }
+            .dota-match-row {
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px 12px;
+                padding: 14px;
+            }
+            .dota-match-hero { grid-column: 1 / -1; }
+            .dota-match-result-wrap { grid-column: 1 / 2; grid-row: 2 / 3; }
+            .dota-match-kda { grid-column: 2 / 3; grid-row: 2 / 3; text-align: right; align-self: start; }
+            .dota-match-type { grid-column: 1 / 2; grid-row: 3 / 4; }
+            .dota-match-duration { grid-column: 2 / 3; grid-row: 3 / 4; text-align: right; }
         }
         .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
         .stat-card {
@@ -2963,6 +3065,16 @@
             </div>
         </div>
     </div>
+    <div class="modal-backdrop" id="steamDotaMatchesModal">
+        <div class="app-modal app-modal--dota-matches">
+            <button class="modal-close" onclick="closeModal('steamDotaMatchesModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Последние матчи Dota 2</h2>
+            <div class="dota-matches-caption">Пять последних матчей, доступных в истории OpenDota</div>
+            <div id="steamDotaMatchesContent">
+                <div class="steam-profile-status">Загружаем матчи…</div>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     <div class="modal-backdrop" id="streakRulesModal">
@@ -3012,6 +3124,7 @@
         const openCmBonusRedeemHistoryBtn = document.getElementById('openCmBonusRedeemHistoryBtn');
         const openSteamProfileBtn = document.getElementById('openSteamProfileBtn');
         const steamProfileContent = document.getElementById('steamProfileContent');
+        const steamDotaMatchesContent = document.getElementById('steamDotaMatchesContent');
         const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
         const cmBonusModalText = document.getElementById('cmBonusModalText');
         const winImage = document.getElementById('winImage');
@@ -3056,6 +3169,7 @@
         let activePrizeSegmentPath = null;
         let activePrizeSegmentLabel = null;
         let steamProfileLoaded = false;
+        let steamDotaMatchesLoaded = false;
         let modalScrollPosition = 0;
 
         function lockModalPageScroll() {
@@ -3103,6 +3217,150 @@
                 ? String(hours)
                 : hours.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
             return `${formatted} ч`;
+        }
+
+        function pluralizeRu(value, one, few, many) {
+            const n = Math.abs(Number(value || 0));
+            const mod100 = n % 100;
+            const mod10 = n % 10;
+            if (mod100 >= 11 && mod100 <= 14) return many;
+            if (mod10 === 1) return one;
+            if (mod10 >= 2 && mod10 <= 4) return few;
+            return many;
+        }
+
+        function formatDotaRelativeTime(timestamp) {
+            const seconds = Math.max(0, Math.floor(Date.now() / 1000) - Number(timestamp || 0));
+            if (seconds < 60) return 'только что';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} ${pluralizeRu(minutes, 'минуту', 'минуты', 'минут')} назад`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} ${pluralizeRu(hours, 'час', 'часа', 'часов')} назад`;
+            const days = Math.floor(hours / 24);
+            return `${days} ${pluralizeRu(days, 'день', 'дня', 'дней')} назад`;
+        }
+
+        function formatDotaDuration(seconds) {
+            const safeSeconds = Math.max(0, Number(seconds || 0));
+            const minutes = Math.floor(safeSeconds / 60);
+            const rest = Math.floor(safeSeconds % 60);
+            return `${minutes}:${String(rest).padStart(2, '0')}`;
+        }
+
+        function renderDotaMatches(matches) {
+            if (!steamDotaMatchesContent) return;
+            steamDotaMatchesContent.innerHTML = '';
+            if (!matches.length) {
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = 'Матчи не найдены. Проверьте в Dota 2 настройку «Показывать общедоступную историю матчей».';
+                steamDotaMatchesContent.appendChild(notice);
+                return;
+            }
+
+            const table = document.createElement('div');
+            table.className = 'dota-match-table';
+            const head = document.createElement('div');
+            head.className = 'dota-match-head';
+            ['Герой', 'Результат', 'Тип', 'Длительность', 'K / D / A'].forEach((label) => {
+                const cell = document.createElement('div');
+                cell.textContent = label;
+                head.appendChild(cell);
+            });
+            table.appendChild(head);
+
+            matches.forEach((match) => {
+                const row = document.createElement('div');
+                row.className = 'dota-match-row';
+
+                const hero = document.createElement('div');
+                hero.className = 'dota-match-hero';
+                const portrait = document.createElement('div');
+                portrait.className = 'dota-match-hero-image';
+                if (match.hero_image_url) {
+                    const image = document.createElement('img');
+                    image.src = match.hero_image_url;
+                    image.alt = '';
+                    image.loading = 'lazy';
+                    image.addEventListener('error', () => {
+                        image.remove();
+                        portrait.textContent = 'Dota 2';
+                    });
+                    portrait.appendChild(image);
+                } else {
+                    portrait.textContent = 'Dota 2';
+                }
+                const heroName = document.createElement('div');
+                heroName.className = 'dota-match-hero-name';
+                heroName.textContent = match.hero_name || 'Неизвестный герой';
+                hero.append(portrait, heroName);
+
+                const resultWrap = document.createElement('div');
+                resultWrap.className = 'dota-match-result-wrap';
+                const result = document.createElement('div');
+                const resultClass = match.won === true ? 'win' : match.won === false ? 'loss' : 'unknown';
+                result.className = `dota-match-result dota-match-result--${resultClass}`;
+                result.textContent = match.result_label || 'Завершён';
+                const started = document.createElement('div');
+                started.className = 'dota-match-meta';
+                started.textContent = formatDotaRelativeTime(match.started_at);
+                resultWrap.append(result, started);
+
+                const type = document.createElement('div');
+                type.className = 'dota-match-type';
+                const typeMain = document.createElement('div');
+                typeMain.className = 'dota-match-type-main';
+                typeMain.textContent = match.lobby_label || 'Обычный';
+                const mode = document.createElement('div');
+                mode.className = 'dota-match-meta';
+                const party = Number(match.party_size || 1) > 1 ? ` · группа ×${Number(match.party_size)}` : '';
+                mode.textContent = `${match.mode_label || 'Другой режим'}${party}`;
+                type.append(typeMain, mode);
+
+                const duration = document.createElement('div');
+                duration.className = 'dota-match-duration';
+                duration.textContent = formatDotaDuration(match.duration_seconds);
+
+                const kda = document.createElement('div');
+                kda.className = 'dota-match-kda';
+                if ([match.kills, match.deaths, match.assists].some((value) => value === null || value === undefined)) {
+                    kda.textContent = '—';
+                } else {
+                    const kills = document.createElement('span');
+                    kills.className = 'dota-kda-kills';
+                    kills.textContent = String(match.kills);
+                    const deaths = document.createElement('span');
+                    deaths.textContent = ` / ${match.deaths} / `;
+                    const assists = document.createElement('span');
+                    assists.className = 'dota-kda-assists';
+                    assists.textContent = String(match.assists);
+                    kda.append(kills, deaths, assists);
+                }
+
+                row.append(hero, resultWrap, type, duration, kda);
+                table.appendChild(row);
+            });
+            steamDotaMatchesContent.appendChild(table);
+        }
+
+        async function loadDotaMatches() {
+            if (!steamDotaMatchesContent || steamDotaMatchesLoaded) return;
+            steamDotaMatchesContent.innerHTML = '<div class="steam-profile-status">Загружаем матчи…</div>';
+            try {
+                const response = await fetch({{ url_for('guest.api_steam_dota_matches')|tojson }}, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось загрузить матчи Dota 2');
+                renderDotaMatches(data.matches || []);
+                steamDotaMatchesLoaded = true;
+            } catch (error) {
+                steamDotaMatchesContent.innerHTML = '';
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = error.message || 'Не удалось загрузить матчи Dota 2';
+                steamDotaMatchesContent.appendChild(notice);
+            }
         }
 
         function renderSteamProfile(profile) {
@@ -3183,6 +3441,20 @@
                     hours.appendChild(item);
                 });
                 card.append(cover, hours);
+                if (game.slug === 'dota2') {
+                    const actions = document.createElement('div');
+                    actions.className = 'steam-game-actions';
+                    const matchesButton = document.createElement('button');
+                    matchesButton.type = 'button';
+                    matchesButton.className = 'steam-dota-matches-btn';
+                    matchesButton.textContent = 'Последние матчи';
+                    matchesButton.addEventListener('click', () => {
+                        openModal('steamDotaMatchesModal');
+                        loadDotaMatches();
+                    });
+                    actions.appendChild(matchesButton);
+                    card.appendChild(actions);
+                }
                 grid.appendChild(card);
             });
             container.appendChild(grid);

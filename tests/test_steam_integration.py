@@ -115,6 +115,100 @@ def test_game_profile_returns_cs2_and_dota_hours(monkeypatch):
     ]
 
 
+def test_dota_recent_matches_are_loaded_from_opendota(monkeypatch):
+    steam_id = "76561198000000000"
+    account_id = steam.steam_id_to_account_id(steam_id)
+
+    def fake_opendota(path):
+        if path == "constants/heroes":
+            return {
+                "46": {
+                    "id": 46,
+                    "name": "npc_dota_hero_templar_assassin",
+                    "localized_name": "Templar Assassin",
+                    "img": "/apps/dota2/images/dota_react/heroes/templar_assassin.png?",
+                }
+            }
+        assert path == f"players/{account_id}/recentMatches"
+        return [
+            {
+                "match_id": 987654321,
+                "player_slot": 0,
+                "radiant_win": True,
+                "duration": 1748,
+                "game_mode": 22,
+                "lobby_type": 7,
+                "hero_id": 46,
+                "start_time": 1_789_000_000,
+                "kills": 17,
+                "deaths": 2,
+                "assists": 16,
+                "party_size": 5,
+            }
+        ]
+
+    monkeypatch.setattr(steam, "_opendota_api_get", fake_opendota)
+    steam._dota_hero_catalog.cache_clear()
+
+    result = steam.fetch_dota_recent_matches(steam_id)
+    steam._dota_hero_catalog.cache_clear()
+
+    assert result == {
+        "is_private": False,
+        "matches": [
+            {
+                "match_id": "987654321",
+                "hero_id": 46,
+                "hero_name": "Templar Assassin",
+                "hero_image_url": (
+                    "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/"
+                    "dota_react/heroes/templar_assassin.png"
+                ),
+                "won": True,
+                "result_label": "Победа",
+                "lobby_label": "Рейтинговый",
+                "mode_label": "Ranked All Pick",
+                "started_at": 1_789_000_000,
+                "duration_seconds": 1748,
+                "kills": 17,
+                "deaths": 2,
+                "assists": 16,
+                "party_size": 5,
+            }
+        ],
+    }
+
+
+def test_dota_recent_matches_route_uses_linked_account(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        guest_routes,
+        "get_linked_steam_account",
+        lambda **kwargs: {"steam_id": "76561198000000000"},
+    )
+    monkeypatch.setattr(
+        guest_routes,
+        "fetch_dota_recent_matches",
+        lambda steam_id: {"matches": [{"match_id": "123"}], "is_private": False},
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.get("/guest/api/steam-dota-matches")
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "ok": True,
+        "matches": [{"match_id": "123"}],
+        "is_private": False,
+    }
+
+
 def test_steam_link_route_keeps_guest_bound_state(monkeypatch):
     flask_app = Flask(__name__)
     flask_app.secret_key = "test-secret"
@@ -217,5 +311,7 @@ def test_linked_steam_controls_render_in_guest_profile():
     assert "Игрок" in html
     assert "Мой игровой профиль" in html
     assert 'id="steamProfileModal"' in html
+    assert 'id="steamDotaMatchesModal"' in html
+    assert "Последние матчи" in html
     assert "data-steam-auth-link" in html
     assert "steam-game-cover" in html
