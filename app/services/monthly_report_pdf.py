@@ -481,7 +481,10 @@ def render_monthly_report_pdf(view, output_path):
         _kpi_card("Вовлечённых гостей", format_number(revenue["guests"]), "подошли под условия", styles),
         _kpi_card("С пополнением", format_number(revenue["topped_up_guests"]), "уникальных гостей", styles),
         _kpi_card(
-            "Сумма пополнений", revenue["amount_label"], f"в среднем {revenue['average_label']} на вовлечённого", styles
+            "Сумма пополнений",
+            format_number(revenue["amount"]),
+            f"руб. · в среднем {revenue['average_label']} на вовлечённого",
+            styles,
         ),
     ]
     story.append(
