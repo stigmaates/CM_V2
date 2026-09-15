@@ -6,6 +6,7 @@ from pathlib import Path
 STOP_FILE = Path(__file__).resolve().parents[2] / ".stage-no-outbound"
 BLOCKED_MESSAGE = "Исходящие сообщения отключены на тестовом стенде"
 ADMIN_BOT_OVERRIDE_ENV = "ALLOW_STAGE_ADMIN_BOT"
+GUEST_BOT_OVERRIDE_ENV = "ALLOW_STAGE_GUEST_BOT"
 
 
 def _enabled(value):
@@ -24,5 +25,12 @@ def ensure_outbound_allowed():
 def ensure_admin_bot_allowed():
     """Allow only the interactive stage admin bot under an explicit unit-level override."""
     if _enabled(os.getenv(ADMIN_BOT_OVERRIDE_ENV)):
+        return
+    ensure_outbound_allowed()
+
+
+def ensure_guest_bot_allowed():
+    """Allow only the interactive stage guest bot under an explicit unit-level override."""
+    if _enabled(os.getenv(GUEST_BOT_OVERRIDE_ENV)):
         return
     ensure_outbound_allowed()

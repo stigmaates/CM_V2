@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/root/cm_stage/CM_V2
 EnvironmentFile=/root/cm_stage/CM_V2/.env
+Environment=ALLOW_STAGE_GUEST_BOT=1
 ExecStart=/root/cm_stage/CM_V2/venv/bin/python -m bot.main
 Restart=always
 RestartSec=5

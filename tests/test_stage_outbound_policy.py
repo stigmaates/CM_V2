@@ -66,3 +66,11 @@ def test_admin_bot_override_does_not_unblock_other_outbound(blocked, monkeypatch
     policy.ensure_admin_bot_allowed()
     with pytest.raises(ValueError, match='отключены'):
         policy.ensure_outbound_allowed()
+
+
+def test_guest_bot_override_does_not_unblock_other_outbound(blocked, monkeypatch):
+    monkeypatch.setenv('ALLOW_STAGE_GUEST_BOT', '1')
+
+    policy.ensure_guest_bot_allowed()
+    with pytest.raises(ValueError, match='отключены'):
+        policy.ensure_outbound_allowed()
