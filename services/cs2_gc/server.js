@@ -5,12 +5,14 @@ const http = require('http');
 const SteamUser = require('steam-user');
 const GlobalOffensive = require('globaloffensive');
 const {matchMetadataDiagnostic, normalizeMatch} = require('./normalizer');
+const {enrichMatchWithDemo} = require('./demo_parser');
 
 const PORT = Number(process.env.CS2_GC_PORT || 32173);
 const HOST = '127.0.0.1';
 const SECRET = String(process.env.CS2_GC_BRIDGE_SECRET || '');
 const REFRESH_TOKEN = String(process.env.CS2_GC_REFRESH_TOKEN || '');
 const REQUEST_TIMEOUT_MS = 20000;
+const DEMO_WAIT_TIMEOUT_MS = Number(process.env.CS2_DEMO_WAIT_TIMEOUT_MS || 18000);
 
 if (!SECRET || !REFRESH_TOKEN) {
   console.error('CS2_GC_BRIDGE_SECRET and CS2_GC_REFRESH_TOKEN are required');
@@ -23,6 +25,35 @@ let ready = false;
 let queue = Promise.resolve();
 let reconnectTimer = null;
 let shuttingDown = false;
+const demoMetadataCache = new Map();
+
+function withTimeout(promise, timeoutMs) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function cachedDemoEnrichment(match, normalized) {
+  const cacheKey = normalized.match_id || normalized.share_code;
+  if (!demoMetadataCache.has(cacheKey)) {
+    const task = enrichMatchWithDemo(match, normalized)
+      .then((result) => {
+        demoMetadataCache.set(cacheKey, Promise.resolve(result));
+        return result;
+      })
+      .catch((error) => {
+        demoMetadataCache.delete(cacheKey);
+        throw error;
+      });
+    demoMetadataCache.set(cacheKey, task);
+    if (demoMetadataCache.size > 50) {
+      demoMetadataCache.delete(demoMetadataCache.keys().next().value);
+    }
+  }
+  return demoMetadataCache.get(cacheKey);
+}
 
 function launchCS2Coordinator() {
   steam.gamesPlayed([730]);
@@ -51,17 +82,29 @@ function requestMatch(shareCode, steamId) {
       cs2.removeListener('matchList', onMatchList);
       error ? reject(error) : resolve(value);
     };
-    const onMatchList = (matches) => {
+    const onMatchList = async (matches) => {
       if (!Array.isArray(matches) || !matches.length) {
         finish(new Error('Матч по этому коду не найден'));
         return;
       }
       try {
-        const normalized = normalizeMatch(matches[0], steamId, shareCode);
+        clearTimeout(timeout);
+        cs2.removeListener('matchList', onMatchList);
+        const sourceMatch = matches[0];
+        const normalized = normalizeMatch(sourceMatch, steamId, shareCode);
+        let enriched = normalized;
         if (normalized.map_name === 'unknown' || normalized.mode_label === 'Официальный матч') {
-          console.warn(`CS2 unresolved match metadata: ${JSON.stringify(matchMetadataDiagnostic(matches[0]))}`);
+          const task = cachedDemoEnrichment(sourceMatch, normalized);
+          task.catch((error) => console.warn(`CS2 demo parse failed: ${error.message}`));
+          enriched = await withTimeout(task.catch(() => null), DEMO_WAIT_TIMEOUT_MS) || normalized;
+          if (enriched === normalized) {
+            console.warn(`CS2 demo parsing continues in background for match ${normalized.match_id}`);
+          }
         }
-        finish(null, normalized);
+        if (enriched.map_name === 'unknown' || enriched.mode_label === 'Официальный матч') {
+          console.warn(`CS2 unresolved match metadata: ${JSON.stringify(matchMetadataDiagnostic(sourceMatch))}`);
+        }
+        finish(null, enriched);
       } catch (error) {
         finish(error);
       }

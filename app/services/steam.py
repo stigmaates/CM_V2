@@ -435,7 +435,9 @@ def fetch_cs2_match_from_gc(*, steam_id: str, share_code: str) -> dict:
     if not CS2_GC_BRIDGE_URL or not CS2_GC_BRIDGE_SECRET:
         raise CS2HistoryNotConfiguredError("Сервис матчей CS2 пока не настроен на сервере")
     try:
-        with httpx.Client(timeout=25.0, follow_redirects=False) as client:
+        # The bridge may spend up to 18 seconds downloading and parsing a new demo
+        # after Steam GC returns the match. Cached matches remain fast.
+        with httpx.Client(timeout=45.0, follow_redirects=False) as client:
             response = client.post(
                 f"{CS2_GC_BRIDGE_URL}/match",
                 headers={"Authorization": f"Bearer {CS2_GC_BRIDGE_SECRET}"},

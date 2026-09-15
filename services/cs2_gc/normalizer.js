@@ -69,6 +69,19 @@ function modeLabel({gameType, rankType, playerCount}) {
   return labels[gameType] || 'Официальный матч';
 }
 
+function rankTypeModeLabel(rankType) {
+  return modeLabel({gameType: -1, rankType: asNumber(rankType, -1), playerCount: -1});
+}
+
+function extractDemoUrl(match) {
+  const rounds = pick(match, 'roundstatsall', 'roundstatsAll') || [];
+  for (let index = rounds.length - 1; index >= 0; index -= 1) {
+    const value = asString(pick(rounds[index], 'map')).trim();
+    if (/^https?:\/\//i.test(value)) return value;
+  }
+  return '';
+}
+
 function matchMetadataDiagnostic(match) {
   const rounds = pick(match, 'roundstatsall', 'roundstatsAll') || [];
   const finalRound = rounds[rounds.length - 1] || {};
@@ -108,6 +121,7 @@ function normalizeMatch(match, steamId, shareCode) {
   const finalRound = rounds[rounds.length - 1];
   const reservation = pick(finalRound, 'reservation') || {};
   const accountIds = pick(reservation, 'account_ids', 'accountIds') || [];
+  const activePlayerCount = accountIds.filter((value) => asNumber(value, 0) > 0).length;
   const accountId = Number(BigInt(steamId) - ACCOUNT_ID_OFFSET);
   const playerIndex = accountIds.findIndex((value) => asNumber(value, -1) === accountId);
   if (playerIndex < 0) throw new Error('Игрок не найден в переданном матче');
@@ -140,7 +154,7 @@ function normalizeMatch(match, steamId, shareCode) {
     match_id: asString(pick(match, 'matchid', 'matchId')),
     played_at: asNumber(pick(match, 'matchtime', 'matchTime')) || null,
     map_name: mapName,
-    mode_label: modeLabel({gameType, rankType, playerCount: accountIds.length}),
+    mode_label: modeLabel({gameType, rankType, playerCount: activePlayerCount}),
     result_label: won === true ? 'Победа' : won === false ? 'Поражение' : 'Ничья',
     won,
     team_score: teamScore,
@@ -152,4 +166,10 @@ function normalizeMatch(match, steamId, shareCode) {
   };
 }
 
-module.exports = {matchMetadataDiagnostic, normalizeMatch};
+module.exports = {
+  extractDemoUrl,
+  extractMapName,
+  matchMetadataDiagnostic,
+  normalizeMatch,
+  rankTypeModeLabel,
+};

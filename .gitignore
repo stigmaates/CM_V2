@@ -21,3 +21,4 @@ tmp/
 .stage-mirror-state.json
 
 .stage-mirror-state.tmp
+node_modules/
