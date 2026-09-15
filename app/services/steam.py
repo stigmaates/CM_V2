@@ -15,8 +15,18 @@ STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login"
 STEAM_API_ROOT = "https://api.steampowered.com"
 STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d{17})/?$")
 SUPPORTED_GAMES = (
-    {"appid": 730, "slug": "cs2", "name": "Counter-Strike 2"},
-    {"appid": 570, "slug": "dota2", "name": "Dota 2"},
+    {
+        "appid": 730,
+        "slug": "cs2",
+        "name": "Counter-Strike 2",
+        "image_url": "https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg",
+    },
+    {
+        "appid": 570,
+        "slug": "dota2",
+        "name": "Dota 2",
+        "image_url": "https://cdn.cloudflare.steamstatic.com/steam/apps/570/header.jpg",
+    },
 )
 
 

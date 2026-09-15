@@ -96,8 +96,22 @@ def test_game_profile_returns_cs2_and_dota_hours(monkeypatch):
     assert profile["persona_name"] == "Игрок"
     assert profile["stats_available"] is True
     assert profile["games"] == [
-        {"appid": 730, "slug": "cs2", "name": "Counter-Strike 2", "hours_total": 12.6, "hours_2weeks": 1.5},
-        {"appid": 570, "slug": "dota2", "name": "Dota 2", "hours_total": 2.0, "hours_2weeks": 0.0},
+        {
+            "appid": 730,
+            "slug": "cs2",
+            "name": "Counter-Strike 2",
+            "image_url": "https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg",
+            "hours_total": 12.6,
+            "hours_2weeks": 1.5,
+        },
+        {
+            "appid": 570,
+            "slug": "dota2",
+            "name": "Dota 2",
+            "image_url": "https://cdn.cloudflare.steamstatic.com/steam/apps/570/header.jpg",
+            "hours_total": 2.0,
+            "hours_2weeks": 0.0,
+        },
     ]
 
 
@@ -203,3 +217,5 @@ def test_linked_steam_controls_render_in_guest_profile():
     assert "Игрок" in html
     assert "Мой игровой профиль" in html
     assert 'id="steamProfileModal"' in html
+    assert "data-steam-auth-link" in html
+    assert "steam-game-cover" in html
