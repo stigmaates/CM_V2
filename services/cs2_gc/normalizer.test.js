@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {normalizeMatch} = require('./normalizer');
+const {matchMetadataDiagnostic, normalizeMatch} = require('./normalizer');
 
 test('normalizes the linked player result from cumulative round stats', () => {
   const steamId = '76561198000000000';
@@ -92,4 +92,26 @@ test('uses the linked player rank type to distinguish Premier', () => {
     normalizeMatch(match, steamId, 'CSGO-aaaaa-bbbbb-ccccc-ddddd-eeeee').mode_label,
     'Premier',
   );
+});
+
+test('builds a serializable diagnostic for unresolved Steam metadata', () => {
+  const diagnostic = matchMetadataDiagnostic({
+    matchid: '987654323',
+    roundstatsall: [{
+      map: 'http://replay.example/730/987654323_123.dem.bz2',
+      map_id: 42,
+      max_rounds: 16,
+      reservation: {
+        account_ids: [1, 2, 0, 0],
+        game_type: 1048584,
+        rankings: [{rank_type_id: 7}],
+      },
+    }],
+  });
+
+  assert.equal(diagnostic.final_round.map_id, 42);
+  assert.equal(diagnostic.final_round.account_count, 4);
+  assert.equal(diagnostic.final_round.active_account_count, 2);
+  assert.deepEqual(diagnostic.final_round.rank_types, [7]);
+  assert.doesNotThrow(() => JSON.stringify(diagnostic));
 });

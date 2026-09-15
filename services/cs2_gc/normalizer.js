@@ -69,6 +69,39 @@ function modeLabel({gameType, rankType, playerCount}) {
   return labels[gameType] || 'Официальный матч';
 }
 
+function matchMetadataDiagnostic(match) {
+  const rounds = pick(match, 'roundstatsall', 'roundstatsAll') || [];
+  const finalRound = rounds[rounds.length - 1] || {};
+  const reservation = pick(finalRound, 'reservation') || {};
+  const watchable = pick(match, 'watchablematchinfo', 'watchableMatchInfo') || {};
+  const accountIds = pick(reservation, 'account_ids', 'accountIds') || [];
+  const rankings = pick(reservation, 'rankings') || [];
+  return {
+    match_id: asString(pick(match, 'matchid', 'matchId')),
+    match_keys: Object.keys(match || {}).sort(),
+    watchable: {
+      game_map: asString(pick(watchable, 'game_map', 'gameMap')),
+      game_mapgroup: asString(
+        pick(watchable, 'game_mapgroup', 'gameMapgroup', 'gameMapGroup'),
+      ),
+      game_type: asNumber(pick(watchable, 'game_type', 'gameType'), -1),
+    },
+    final_round: {
+      map: asString(pick(finalRound, 'map')),
+      map_id: asNumber(pick(finalRound, 'map_id', 'mapId'), -1),
+      max_rounds: asNumber(pick(finalRound, 'max_rounds', 'maxRounds'), -1),
+      game_type: asNumber(pick(reservation, 'game_type', 'gameType'), -1),
+      account_count: accountIds.length,
+      active_account_count: accountIds.filter((value) => asNumber(value, 0) > 0).length,
+      rank_types: rankings
+        .map((value) => asNumber(pick(value, 'rank_type_id', 'rankTypeId'), -1))
+        .filter((value) => value >= 0),
+      round_keys: Object.keys(finalRound || {}).sort(),
+      reservation_keys: Object.keys(reservation || {}).sort(),
+    },
+  };
+}
+
 function normalizeMatch(match, steamId, shareCode) {
   const rounds = pick(match, 'roundstatsall', 'roundstatsAll') || [];
   if (!rounds.length) throw new Error('Steam вернул матч без итоговой статистики');
@@ -119,4 +152,4 @@ function normalizeMatch(match, steamId, shareCode) {
   };
 }
 
-module.exports = {normalizeMatch};
+module.exports = {matchMetadataDiagnostic, normalizeMatch};
