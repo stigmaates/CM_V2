@@ -78,6 +78,9 @@ def _styles():
             "Muted", parent=base["BodyText"], fontName=REGULAR, fontSize=7.5, leading=10, textColor=MUTED
         ),
         "kpi": ParagraphStyle("KPI", parent=base["BodyText"], fontName=BOLD, fontSize=20, leading=23, textColor=PURPLE),
+        "kpi_money": ParagraphStyle(
+            "KPIMoney", parent=base["BodyText"], fontName=BOLD, fontSize=16, leading=19, textColor=PURPLE
+        ),
         "center": ParagraphStyle(
             "Center",
             parent=base["BodyText"],
@@ -169,9 +172,13 @@ def _cover(canvas, doc):
     canvas.restoreState()
 
 
-def _kpi_card(label, value, note, styles):
+def _kpi_card(label, value, note, styles, *, value_style=None):
     return Table(
-        [[Paragraph(label, styles["h2"])], [Paragraph(value, styles["kpi"])], [Paragraph(note, styles["muted"])]],
+        [
+            [Paragraph(label, styles["h2"])],
+            [Paragraph(value, value_style or styles["kpi"])],
+            [Paragraph(note, styles["muted"])],
+        ],
         colWidths=[53 * mm],
         rowHeights=[13 * mm, 11 * mm, 12 * mm],
         style=TableStyle(
@@ -482,9 +489,10 @@ def render_monthly_report_pdf(view, output_path):
         _kpi_card("С пополнением", format_number(revenue["topped_up_guests"]), "уникальных гостей", styles),
         _kpi_card(
             "Сумма пополнений",
-            format_number(revenue["amount"]),
-            f"руб. · в среднем {revenue['average_label']} на вовлечённого",
+            revenue["amount_label"].replace(" ", "&nbsp;"),
+            f"в среднем {revenue['average_label']} на вовлечённого",
             styles,
+            value_style=styles["kpi_money"],
         ),
     ]
     story.append(
