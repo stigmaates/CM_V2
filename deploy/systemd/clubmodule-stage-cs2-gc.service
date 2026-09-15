@@ -11,6 +11,7 @@ EnvironmentFile=/root/cm_stage/CM_V2/.env
 ExecStart=/usr/bin/node /root/cm_stage/CM_V2/services/cs2_gc/server.js
 Restart=always
 RestartSec=10
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target

@@ -24,16 +24,47 @@ function asString(value) {
     : String(value);
 }
 
-function modeLabel(gameType) {
+function extractMapName(...values) {
+  for (const value of values) {
+    const raw = asString(value).trim().toLowerCase();
+    if (!raw) continue;
+    const match = raw.match(/(?:^|[^a-z0-9])((?:de|cs|ar|dz)_[a-z0-9_]+)(?:$|[^a-z0-9_])/i);
+    if (match) return match[1].toLowerCase();
+  }
+  return 'unknown';
+}
+
+function playerRankType(reservation, accountId, playerIndex) {
+  const rankings = pick(reservation, 'rankings') || [];
+  const ranking = rankings.find(
+    (value) => asNumber(pick(value, 'account_id', 'accountId'), -1) === accountId,
+  ) || rankings[playerIndex];
+  return asNumber(pick(ranking, 'rank_type_id', 'rankTypeId'), -1);
+}
+
+function modeLabel({gameType, rankType, playerCount}) {
+  const rankLabels = {
+    6: 'Competitive',
+    7: 'Wingman',
+    10: 'Danger Zone',
+    11: 'Premier',
+    12: 'Competitive',
+  };
+  if (rankLabels[rankType]) return rankLabels[rankType];
+
+  // Steam occasionally omits ranking metadata from match-history responses.
+  // Official Wingman games always contain two teams of two players.
+  if (playerCount === 4) return 'Wingman';
+
   const labels = {
-    0: 'Обычный',
-    1: 'Соревновательный',
-    2: 'Напарники',
-    4: 'Гонка вооружений',
-    5: 'Уничтожение объекта',
-    6: 'Запретная зона',
-    16: 'Бой насмерть',
-    32768: 'Премьер',
+    0: 'Casual',
+    1: 'Competitive',
+    2: 'Wingman',
+    4: 'Arms Race',
+    5: 'Demolition',
+    6: 'Danger Zone',
+    16: 'Deathmatch',
+    32768: 'Premier',
   };
   return labels[gameType] || 'Официальный матч';
 }
@@ -60,16 +91,23 @@ function normalizeMatch(match, steamId, shareCode) {
     ? null
     : teamScore > opponentScore;
   const watchable = pick(match, 'watchablematchinfo', 'watchableMatchInfo') || {};
-  const rawMap = String(pick(finalRound, 'map') || pick(watchable, 'game_map', 'gameMap') || '');
-  const mapName = rawMap.match(/[a-z0-9_]+/i)?.[0] || 'unknown';
-  const gameType = asNumber(pick(reservation, 'game_type', 'gameType'), -1);
+  const mapName = extractMapName(
+    pick(watchable, 'game_map', 'gameMap'),
+    pick(finalRound, 'map'),
+    pick(watchable, 'game_mapgroup', 'gameMapgroup', 'gameMapGroup'),
+  );
+  const gameType = asNumber(
+    pick(watchable, 'game_type', 'gameType') ?? pick(reservation, 'game_type', 'gameType'),
+    -1,
+  );
+  const rankType = playerRankType(reservation, accountId, playerIndex);
 
   return {
     share_code: shareCode,
     match_id: asString(pick(match, 'matchid', 'matchId')),
     played_at: asNumber(pick(match, 'matchtime', 'matchTime')) || null,
     map_name: mapName,
-    mode_label: modeLabel(gameType),
+    mode_label: modeLabel({gameType, rankType, playerCount: accountIds.length}),
     result_label: won === true ? 'Победа' : won === false ? 'Поражение' : 'Ничья',
     won,
     team_score: teamScore,

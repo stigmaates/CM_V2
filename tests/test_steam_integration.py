@@ -245,6 +245,16 @@ def test_cs2_next_share_code_reads_steam_nested_response():
     ) is None
 
 
+def test_cs2_bad_map_and_generic_mode_are_refreshed():
+    assert steam._cs2_match_metadata_stale(None) is True
+    assert steam._cs2_match_metadata_stale(
+        {"map_name": "Http", "mode_label": "Официальный матч"}
+    ) is True
+    assert steam._cs2_match_metadata_stale(
+        {"map_name": "de_inferno", "mode_label": "Wingman"}
+    ) is False
+
+
 def test_cs2_sync_imports_known_match_and_walks_forward(monkeypatch):
     imported_codes = []
     advanced_codes = []
@@ -261,7 +271,7 @@ def test_cs2_sync_imports_known_match_and_walks_forward(monkeypatch):
             "last_share_code": "CSGO-aaaaa-aaaaa-aaaaa-aaaaa-aaaaa",
         },
     )
-    monkeypatch.setattr(steam, "_cs2_match_exists", lambda **kwargs: False)
+    monkeypatch.setattr(steam, "_cs2_match_needs_refresh", lambda **kwargs: True)
     monkeypatch.setattr(
         steam,
         "fetch_cs2_match_from_gc",
