@@ -660,8 +660,6 @@
         .dota-match-duration,
         .dota-match-kda { color: #fff; font-size: 15px; font-weight: 800; }
         .dota-match-kda { white-space: nowrap; }
-        .dota-kda-kills { color: #ff5d67; }
-        .dota-kda-assists { color: #a9dd58; }
         @media (max-width: 680px) {
             .steam-account-card { grid-template-columns: auto minmax(0, 1fr); }
             .steam-account-actions { grid-column: 1 / -1; }
@@ -3313,7 +3311,8 @@
                 typeMain.textContent = match.lobby_label || 'Обычный';
                 const mode = document.createElement('div');
                 mode.className = 'dota-match-meta';
-                const party = Number(match.party_size || 1) > 1 ? ` · группа ×${Number(match.party_size)}` : '';
+                const partySize = Number(match.party_size || 1);
+                const party = partySize > 1 ? ` · группа ×${partySize}` : ' · соло';
                 mode.textContent = `${match.mode_label || 'Другой режим'}${party}`;
                 type.append(typeMain, mode);
 
@@ -3326,15 +3325,7 @@
                 if ([match.kills, match.deaths, match.assists].some((value) => value === null || value === undefined)) {
                     kda.textContent = '—';
                 } else {
-                    const kills = document.createElement('span');
-                    kills.className = 'dota-kda-kills';
-                    kills.textContent = String(match.kills);
-                    const deaths = document.createElement('span');
-                    deaths.textContent = ` / ${match.deaths} / `;
-                    const assists = document.createElement('span');
-                    assists.className = 'dota-kda-assists';
-                    assists.textContent = String(match.assists);
-                    kda.append(kills, deaths, assists);
+                    kda.textContent = `${match.kills} / ${match.deaths} / ${match.assists}`;
                 }
 
                 row.append(hero, resultWrap, type, duration, kda);
