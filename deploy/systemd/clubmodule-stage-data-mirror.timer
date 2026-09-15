@@ -2,9 +2,10 @@
 Description=Keep stage business data and Guest Pulse current with production
 
 [Timer]
-OnActiveSec=5min
-OnUnitInactiveSec=5min
-AccuracySec=10s
+OnCalendar=*-*-* 01:30:00 UTC
+Persistent=true
+RandomizedDelaySec=10min
+AccuracySec=1min
 Unit=clubmodule-stage-data-mirror.service
 
 [Install]
