@@ -28,6 +28,7 @@ PRESERVE = {
     "support_tickets", "support_ticket_events",
     "monthly_reports",
     "guest_steam_accounts",
+    "guest_cs2_match_access", "guest_cs2_matches",
 }
 PULSE_TABLES = (
     "guest_pulse_selections", "guest_lifecycle_events", "guest_score_history",

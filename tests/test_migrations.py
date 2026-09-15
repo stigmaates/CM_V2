@@ -237,6 +237,15 @@ def test_team_admin_settings_migration_exports_table():
     assert any("team_admin_settings" in value for value in constants)
 
 
+def test_guest_cs2_matches_migration_exports_tables():
+    migration = importlib.import_module("migrations.versions.0037_guest_cs2_matches")
+
+    assert migration.revision == "0037_guest_cs2_matches"
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("guest_cs2_match_access" in value for value in constants)
+    assert any("guest_cs2_matches" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

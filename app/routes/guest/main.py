@@ -32,15 +32,21 @@ from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.rate_limit import client_ip, is_rate_limited
 from app.services.steam import (
+    CS2HistoryCodeError,
+    CS2HistoryNotConfiguredError,
     SteamAlreadyLinkedError,
     SteamError,
     SteamNotConfiguredError,
     build_openid_redirect_url,
+    configure_cs2_match_history,
     fetch_dota_recent_matches,
     fetch_game_profile,
     fetch_player_summary,
+    get_cs2_match_access,
+    get_cs2_recent_matches,
     get_linked_steam_account,
     link_steam_account,
+    sync_cs2_match_history,
     verify_openid_response,
 )
 from app.services.wheel import (
@@ -274,6 +280,93 @@ def api_steam_dota_matches():
             "message": "Не удалось получить матчи Dota 2. Попробуйте позже.",
         }, 502
     return {"ok": True, **result}
+
+
+@guest_bp.route("/api/steam-cs2-matches")
+@guest_required
+def api_steam_cs2_matches():
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    if is_rate_limited(f"guest.steam_cs2_matches:{club_id}:{guest_id}", limit=6, window_seconds=60):
+        return {
+            "ok": False,
+            "error": "rate_limited",
+            "message": "Слишком много запросов. Подождите минуту.",
+        }, 429
+    account = get_linked_steam_account(club_id=club_id, guest_id=guest_id)
+    if not account:
+        return {
+            "ok": False,
+            "error": "steam_not_linked",
+            "message": "Steam-аккаунт не привязан",
+        }, 404
+    access = get_cs2_match_access(club_id=club_id, guest_id=guest_id)
+    if not access:
+        return {"ok": True, "configured": False, "matches": []}
+
+    warning = None
+    try:
+        sync_cs2_match_history(
+            club_id=club_id,
+            guest_id=guest_id,
+            steam_id=account["steam_id"],
+        )
+    except (SteamError, CS2HistoryNotConfiguredError, CS2HistoryCodeError) as exc:
+        warning = str(exc)
+    matches = get_cs2_recent_matches(club_id=club_id, guest_id=guest_id)
+    return {"ok": True, "configured": True, "matches": matches, "warning": warning}
+
+
+@guest_bp.route("/api/steam-cs2-matches/connect", methods=["POST"])
+@guest_required
+def api_steam_cs2_matches_connect():
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    if is_rate_limited(f"guest.steam_cs2_connect:{club_id}:{guest_id}", limit=5, window_seconds=300):
+        return {
+            "ok": False,
+            "error": "rate_limited",
+            "message": "Слишком много попыток. Подождите несколько минут.",
+        }, 429
+    account = get_linked_steam_account(club_id=club_id, guest_id=guest_id)
+    if not account:
+        return {
+            "ok": False,
+            "error": "steam_not_linked",
+            "message": "Steam-аккаунт не привязан",
+        }, 404
+    payload = request.get_json(silent=True) or {}
+    try:
+        imported = configure_cs2_match_history(
+            club_id=club_id,
+            guest_id=guest_id,
+            steam_id=account["steam_id"],
+            auth_code=str(payload.get("auth_code") or ""),
+            share_code=str(payload.get("share_code") or ""),
+        )
+    except CS2HistoryCodeError as exc:
+        return {"ok": False, "error": "invalid_codes", "message": str(exc)}, 400
+    except SteamNotConfiguredError:
+        return {
+            "ok": False,
+            "error": "steam_not_configured",
+            "message": "Статистика Steam пока не настроена на сервере",
+        }, 503
+    except CS2HistoryNotConfiguredError as exc:
+        return {
+            "ok": False,
+            "error": "gc_unavailable",
+            "message": f"Коды сохранены. {exc}",
+            "setup_saved": True,
+        }, 503
+    except SteamError as exc:
+        return {"ok": False, "error": "steam_unavailable", "message": str(exc)}, 502
+    return {
+        "ok": True,
+        "configured": True,
+        "imported": imported,
+        "matches": get_cs2_recent_matches(club_id=club_id, guest_id=guest_id),
+    }
 
 
 @guest_bp.route("/check-login")
