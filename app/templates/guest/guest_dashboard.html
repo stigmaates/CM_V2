@@ -27,6 +27,18 @@
         .guest-logo { display: inline-flex; align-items: center; width: 54px; height: 64px; text-decoration: none; filter: drop-shadow(0 10px 24px rgba(147, 69, 255, 0.32)); }
         .guest-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
         .top-actions { display: flex; align-items: center; gap: 12px; }
+        .guest-flashes { display: grid; gap: 8px; margin: 0 0 16px; }
+        .guest-flash {
+            padding: 11px 14px;
+            border: 1px solid rgba(165, 114, 255, .34);
+            border-radius: 12px;
+            background: rgba(143, 91, 255, .14);
+            color: var(--text-main);
+            font-size: 14px;
+            font-weight: 800;
+        }
+        .guest-flash.success { border-color: rgba(71, 219, 157, .38); background: rgba(71, 219, 157, .12); }
+        .guest-flash.error { border-color: rgba(255, 111, 128, .42); background: rgba(255, 111, 128, .12); }
         .valuable-drops-panel {
             margin: 0 0 18px;
             padding: 13px 0;
@@ -389,6 +401,121 @@
 
         .profile-name { font-size: 28px; font-weight: 800; margin-bottom: 4px; line-height: 1.15; }
         .profile-subtitle { color: var(--text-muted); margin-bottom: 0; font-size: 14px; line-height: 1.35; }
+        .steam-account-card {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 12px;
+            margin: 2px 0 14px;
+            padding: 12px 14px;
+            border: 1px solid rgba(102, 192, 244, .28);
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(27, 40, 56, .78), rgba(43, 25, 80, .68));
+        }
+        .steam-account-mark,
+        .steam-account-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            background: linear-gradient(145deg, #66c0f4, #1b2838);
+            color: #fff;
+            font-size: 21px;
+            font-weight: 900;
+            overflow: hidden;
+        }
+        .steam-account-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .steam-account-copy { min-width: 0; }
+        .steam-account-title { color: #fff; font-size: 15px; font-weight: 900; line-height: 1.25; }
+        .steam-account-subtitle {
+            margin-top: 3px;
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.35;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .steam-account-actions { display: flex; align-items: center; gap: 8px; }
+        .steam-profile-btn,
+        .steam-connect-btn,
+        .steam-relink-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+            border-radius: 11px;
+            padding: 9px 13px;
+            text-decoration: none;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .steam-profile-btn,
+        .steam-connect-btn {
+            border: 1px solid rgba(102, 192, 244, .52);
+            background: linear-gradient(135deg, #2a75a4, #1b526f);
+            color: #fff;
+        }
+        .steam-relink-btn {
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.05);
+            color: var(--text-muted);
+        }
+        .steam-profile-btn:hover,
+        .steam-connect-btn:hover,
+        .steam-relink-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .app-modal--steam { width: min(720px, 96%); }
+        .steam-modal-profile {
+            display: grid;
+            grid-template-columns: 72px minmax(0, 1fr);
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .steam-modal-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background: linear-gradient(145deg, #66c0f4, #1b2838);
+            font-size: 28px;
+            font-weight: 900;
+        }
+        .steam-modal-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .steam-modal-name { font-size: 22px; font-weight: 900; line-height: 1.2; }
+        .steam-modal-link { display: inline-block; margin-top: 5px; color: #66c0f4; font-size: 13px; }
+        .steam-games-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .steam-game-card {
+            padding: 16px;
+            border: 1px solid rgba(102, 192, 244, .22);
+            border-radius: 14px;
+            background: rgba(255,255,255,.045);
+        }
+        .steam-game-name { font-size: 17px; font-weight: 900; margin-bottom: 14px; }
+        .steam-game-hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .steam-hour-value { color: #fff; font-size: 22px; font-weight: 900; line-height: 1.1; }
+        .steam-hour-label { margin-top: 4px; color: var(--text-muted); font-size: 11px; line-height: 1.3; }
+        .steam-profile-status {
+            padding: 18px;
+            border: 1px dashed rgba(102, 192, 244, .3);
+            border-radius: 14px;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.45;
+        }
+        @media (max-width: 680px) {
+            .steam-account-card { grid-template-columns: auto minmax(0, 1fr); }
+            .steam-account-actions { grid-column: 1 / -1; }
+            .steam-profile-btn, .steam-connect-btn { flex: 1; }
+            .steam-games-grid { grid-template-columns: 1fr; }
+        }
         .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
         .stat-card {
             border: 1px solid var(--border);
@@ -2327,6 +2454,7 @@
     {% set streak = streak_info|default({}) %}
     {% set cm_balance = cm_bonus_balance|default(0) %}
     {% set tokens_balance = token_balance|default(0) %}
+    {% set steam = steam_account|default(None) %}
 
     <div class="guest-page">
         <header class="guest-topbar">
@@ -2339,6 +2467,16 @@
                 <a class="logout-link" href="{{ url_for('guest.logout') }}">Выйти</a>
             </div>
         </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="guest-flashes" role="status">
+                    {% for category, message in messages %}
+                        <div class="guest-flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
 
         {% if session.get('guest_test_mode') %}
             <div class="guest-test-banner">
@@ -2403,6 +2541,32 @@
                             <div class="profile-subtitle">Твой игровой профиль Cyber Bonus</div>
                         </div>
                     </div>
+                    {% if steam %}
+                        <div class="steam-account-card">
+                            <div class="steam-account-avatar">
+                                {% if steam.avatar_url %}<img src="{{ steam.avatar_url }}" alt="">{% else %}S{% endif %}
+                            </div>
+                            <div class="steam-account-copy">
+                                <div class="steam-account-title">{{ steam.persona_name or 'Steam подключён' }}</div>
+                                <div class="steam-account-subtitle">Привязанный Steam-аккаунт</div>
+                            </div>
+                            <div class="steam-account-actions">
+                                <button class="steam-profile-btn" id="openSteamProfileBtn" type="button">Мой игровой профиль</button>
+                                <a class="steam-relink-btn" href="{{ url_for('guest.steam_link') }}">Сменить</a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="steam-account-card">
+                            <div class="steam-account-mark">S</div>
+                            <div class="steam-account-copy">
+                                <div class="steam-account-title">Подключить Steam</div>
+                                <div class="steam-account-subtitle">Для игровой статистики CS2 и Dota 2</div>
+                            </div>
+                            <div class="steam-account-actions">
+                                <a class="steam-connect-btn" href="{{ url_for('guest.steam_link') }}">Авторизоваться в Steam</a>
+                            </div>
+                        </div>
+                    {% endif %}
                     <div class="profile-stats-stack">
                         <div class="stats">
                             <div class="stat-card">
@@ -2715,6 +2879,18 @@
         </div>
     </div>
 
+    {% if steam %}
+    <div class="modal-backdrop" id="steamProfileModal">
+        <div class="app-modal app-modal--steam">
+            <button class="modal-close" onclick="closeModal('steamProfileModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Мой игровой профиль</h2>
+            <div id="steamProfileContent">
+                <div class="steam-profile-status">Загружаем данные Steam…</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="modal-backdrop" id="streakRulesModal">
         <div class="app-modal app-modal--streak">
             <div class="streak-modal-head">
@@ -2760,6 +2936,8 @@
         const cmBonusBalance = document.getElementById('cmBonusBalance');
         const cmBonusTransferBtn = document.getElementById('cmBonusTransferBtn');
         const openCmBonusRedeemHistoryBtn = document.getElementById('openCmBonusRedeemHistoryBtn');
+        const openSteamProfileBtn = document.getElementById('openSteamProfileBtn');
+        const steamProfileContent = document.getElementById('steamProfileContent');
         const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
         const cmBonusModalText = document.getElementById('cmBonusModalText');
         const winImage = document.getElementById('winImage');
@@ -2803,6 +2981,7 @@
         let activePrizeBlinkTimeout = null;
         let activePrizeSegmentPath = null;
         let activePrizeSegmentLabel = null;
+        let steamProfileLoaded = false;
 
         function openModal(id) {
             const modal = document.getElementById(id);
@@ -2815,6 +2994,106 @@
             if (id === 'caseOpenModal' && !isCaseOpening) {
                 stopIdleCaseReel();
                 selectedCaseId = null;
+            }
+        }
+
+        function formatSteamHours(value) {
+            const hours = Number(value || 0);
+            const formatted = Number.isInteger(hours)
+                ? String(hours)
+                : hours.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+            return `${formatted} ч`;
+        }
+
+        function renderSteamProfile(profile) {
+            const container = steamProfileContent;
+            if (!container) return;
+            container.innerHTML = '';
+
+            const profileRow = document.createElement('div');
+            profileRow.className = 'steam-modal-profile';
+            const avatar = document.createElement('div');
+            avatar.className = 'steam-modal-avatar';
+            if (profile.avatar_url) {
+                const image = document.createElement('img');
+                image.src = profile.avatar_url;
+                image.alt = '';
+                avatar.appendChild(image);
+            } else {
+                avatar.textContent = 'S';
+            }
+            const identity = document.createElement('div');
+            const name = document.createElement('div');
+            name.className = 'steam-modal-name';
+            name.textContent = profile.persona_name || 'Steam-профиль';
+            identity.appendChild(name);
+            if (profile.profile_url) {
+                const link = document.createElement('a');
+                link.className = 'steam-modal-link';
+                link.href = profile.profile_url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = 'Открыть профиль в Steam';
+                identity.appendChild(link);
+            }
+            profileRow.append(avatar, identity);
+            container.appendChild(profileRow);
+
+            if (!profile.stats_available) {
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = 'Steam не показывает часы этого аккаунта. Откройте в Steam доступ к разделу «Данные об играх» и попробуйте снова.';
+                container.appendChild(notice);
+                return;
+            }
+
+            const grid = document.createElement('div');
+            grid.className = 'steam-games-grid';
+            (profile.games || []).forEach((game) => {
+                const card = document.createElement('div');
+                card.className = 'steam-game-card';
+                const title = document.createElement('div');
+                title.className = 'steam-game-name';
+                title.textContent = game.name;
+                const hours = document.createElement('div');
+                hours.className = 'steam-game-hours';
+                [
+                    [formatSteamHours(game.hours_total), 'за всё время'],
+                    [formatSteamHours(game.hours_2weeks), 'за последние 2 недели'],
+                ].forEach(([value, label]) => {
+                    const item = document.createElement('div');
+                    const valueNode = document.createElement('div');
+                    valueNode.className = 'steam-hour-value';
+                    valueNode.textContent = value;
+                    const labelNode = document.createElement('div');
+                    labelNode.className = 'steam-hour-label';
+                    labelNode.textContent = label;
+                    item.append(valueNode, labelNode);
+                    hours.appendChild(item);
+                });
+                card.append(title, hours);
+                grid.appendChild(card);
+            });
+            container.appendChild(grid);
+        }
+
+        async function loadSteamProfile() {
+            if (!steamProfileContent || steamProfileLoaded) return;
+            steamProfileContent.innerHTML = '<div class="steam-profile-status">Загружаем данные Steam…</div>';
+            try {
+                const response = await fetch({{ url_for('guest.api_steam_profile')|tojson }}, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось загрузить профиль Steam');
+                renderSteamProfile(data.profile);
+                steamProfileLoaded = true;
+            } catch (error) {
+                steamProfileContent.innerHTML = '';
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = error.message || 'Не удалось загрузить профиль Steam';
+                steamProfileContent.appendChild(notice);
             }
         }
 
@@ -3780,6 +4059,13 @@
 
         if (openCmBonusRedeemHistoryBtn) {
             openCmBonusRedeemHistoryBtn.addEventListener('click', () => openModal('cmBonusRedeemHistoryModal'));
+        }
+
+        if (openSteamProfileBtn) {
+            openSteamProfileBtn.addEventListener('click', () => {
+                openModal('steamProfileModal');
+                loadSteamProfile();
+            });
         }
 
         document.querySelectorAll('.modal-backdrop').forEach((modal) => {

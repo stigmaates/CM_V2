@@ -54,6 +54,11 @@ MONTHLY_REPORT_ROOT = os.getenv(
 )
 MONTHLY_REPORT_ATTRIBUTION_DAYS = int(os.getenv("MONTHLY_REPORT_ATTRIBUTION_DAYS", "7"))
 
+# Steam OpenID returns a SteamID64. One server-side Web API key is used only
+# for public profile and playtime data; guests never provide their own API key.
+STEAM_API_KEY = os.getenv("STEAM_API_KEY", "").strip()
+STEAM_PUBLIC_BASE_URL = os.getenv("STEAM_PUBLIC_BASE_URL", "").strip().rstrip("/")
+
 if IS_PRODUCTION:
     missing = [
         name

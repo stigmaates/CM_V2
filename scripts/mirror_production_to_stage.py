@@ -27,6 +27,7 @@ PRESERVE = {
     "team_admins", "team_shifts", "team_sync_state", "team_admin_settings",
     "support_tickets", "support_ticket_events",
     "monthly_reports",
+    "guest_steam_accounts",
 }
 PULSE_TABLES = (
     "guest_pulse_selections", "guest_lifecycle_events", "guest_score_history",
