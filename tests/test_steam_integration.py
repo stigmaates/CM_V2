@@ -226,6 +226,9 @@ def test_cs2_share_code_accepts_mixed_case_and_full_game_link():
     assert steam.normalize_cs2_share_code(
         f"steam://rungame/730/76561202255233023/+csgo_download_match%20{share_code}"
     ) == share_code
+    assert steam.normalize_cs2_share_code(
+        "CSGO-aX9KN-\u200bLc3Nu-yzkzj-\nqbN6B-My6SA"
+    ) == share_code
 
 
 def test_cs2_sync_imports_known_match_and_walks_forward(monkeypatch):
