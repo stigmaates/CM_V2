@@ -4,6 +4,7 @@ from flask import Flask, render_template
 
 import app.routes.guest.main as guest_routes
 import app.services.guest_management as guest_management
+import app.services.faceit as faceit
 import app.services.steam as steam
 from app.main import app
 from app.routes.guest import guest_bp
@@ -206,6 +207,148 @@ def test_dota_recent_matches_route_uses_linked_account(monkeypatch):
         "ok": True,
         "matches": [{"match_id": "123"}],
         "is_private": False,
+    }
+
+
+def test_faceit_recent_matches_are_resolved_from_linked_steam(monkeypatch):
+    calls = []
+
+    def fake_faceit(path, *, params=None, client=None):
+        calls.append((path, params))
+        if path == "players":
+            return {
+                "player_id": "faceit-player-1",
+                "nickname": "Игрок",
+                "faceit_url": "https://www.faceit.com/ru/players/test",
+            }
+        if path == "players/faceit-player-1/history":
+            return {
+                "items": [
+                    {
+                        "match_id": "match-1",
+                        "competition_name": "FACEIT Matchmaking",
+                        "game_mode": "5v5",
+                        "finished_at": 1_789_000_000,
+                        "faceit_url": "https://www.faceit.com/ru/cs2/room/match-1",
+                        "results": {"winner": "faction1"},
+                        "teams": {
+                            "faction1": {"players": [{"player_id": "faceit-player-1"}]},
+                            "faction2": {"players": [{"player_id": "another-player"}]},
+                        },
+                    }
+                ]
+            }
+        if path == "players/faceit-player-1/games/cs2/stats":
+            return {
+                "items": [
+                    {
+                        "stats": {
+                            "Match Id": "match-1",
+                            "Map": "de_mirage",
+                            "Kills": "21",
+                            "Deaths": "14",
+                            "Assists": "7",
+                            "Result": "1",
+                        }
+                    }
+                ]
+            }
+        assert path == "matches/match-1"
+        return {
+            "voting": {
+                "map": {
+                    "pick": ["de_mirage"],
+                    "entities": [
+                        {
+                            "class_name": "de_mirage",
+                            "image_lg": "https://distribution.faceit-cdn.net/images/mirage.jpg",
+                        }
+                    ],
+                }
+            }
+        }
+
+    monkeypatch.setattr(faceit, "FACEIT_API_KEY", "server-key")
+    monkeypatch.setattr(faceit, "_faceit_api_get", fake_faceit)
+
+    result = faceit.fetch_faceit_recent_matches("76561198000000000")
+
+    assert calls[0] == (
+        "players",
+        {"game": "cs2", "game_player_id": "76561198000000000"},
+    )
+    assert result == {
+        "faceit_profile_found": True,
+        "faceit_profile_url": "https://www.faceit.com/ru/players/test",
+        "faceit_nickname": "Игрок",
+        "matches": [
+            {
+                "match_id": "match-1",
+                "map_name": "de_mirage",
+                "map_label": "Mirage",
+                "map_image_url": "https://distribution.faceit-cdn.net/images/mirage.jpg",
+                "won": True,
+                "result_label": "Победа",
+                "type_label": "FACEIT Matchmaking",
+                "type_detail": "5V5",
+                "finished_at": 1_789_000_000,
+                "kills": 21,
+                "deaths": 14,
+                "assists": 7,
+                "match_url": "https://www.faceit.com/ru/cs2/room/match-1",
+            }
+        ],
+    }
+
+
+def test_faceit_missing_profile_is_a_valid_empty_state(monkeypatch):
+    monkeypatch.setattr(faceit, "FACEIT_API_KEY", "server-key")
+    monkeypatch.setattr(faceit, "_faceit_api_get", lambda *args, **kwargs: None)
+
+    result = faceit.fetch_faceit_recent_matches("76561198000000000")
+
+    assert result == {
+        "faceit_profile_found": False,
+        "faceit_profile_url": None,
+        "faceit_nickname": None,
+        "matches": [],
+    }
+
+
+def test_cs2_recent_matches_route_uses_linked_steam(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        guest_routes,
+        "get_linked_steam_account",
+        lambda **kwargs: {"steam_id": "76561198000000000"},
+    )
+    monkeypatch.setattr(
+        guest_routes,
+        "fetch_faceit_recent_matches",
+        lambda steam_id: {
+            "faceit_profile_found": True,
+            "faceit_profile_url": "https://www.faceit.com/ru/players/test",
+            "faceit_nickname": "Игрок",
+            "matches": [{"match_id": "match-1"}],
+        },
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.get("/guest/api/steam-cs2-matches")
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "ok": True,
+        "faceit_profile_found": True,
+        "faceit_profile_url": "https://www.faceit.com/ru/players/test",
+        "faceit_nickname": "Игрок",
+        "matches": [{"match_id": "match-1"}],
     }
 
 

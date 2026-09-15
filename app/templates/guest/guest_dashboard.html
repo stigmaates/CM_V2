@@ -569,7 +569,7 @@
             margin-top: auto;
             padding: 0 16px 16px;
         }
-        .steam-dota-matches-btn {
+        .steam-recent-matches-btn {
             border: 1px solid rgba(102, 192, 244, .38);
             border-radius: 10px;
             padding: 9px 12px;
@@ -581,7 +581,7 @@
             cursor: pointer;
             transition: transform .16s ease, background .16s ease, border-color .16s ease;
         }
-        .steam-dota-matches-btn:hover {
+        .steam-recent-matches-btn:hover {
             transform: translateY(-1px);
             background: rgba(102, 192, 244, .18);
             border-color: rgba(102, 192, 244, .6);
@@ -660,6 +660,81 @@
         .dota-match-duration,
         .dota-match-kda { color: #fff; font-size: 15px; font-weight: 800; }
         .dota-match-kda { white-space: nowrap; }
+        .app-modal--cs2-matches {
+            width: min(920px, 96%);
+            max-height: calc(100vh - 36px);
+            max-height: calc(100dvh - 36px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+        .cs2-matches-caption {
+            margin: -8px 0 16px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .cs2-match-table {
+            overflow: hidden;
+            border: 1px solid rgba(102, 192, 244, .18);
+            border-radius: 14px;
+            background: rgba(10, 15, 24, .28);
+        }
+        .cs2-match-head,
+        .cs2-match-row {
+            display: grid;
+            grid-template-columns: minmax(210px, 1.6fr) minmax(130px, .8fr) minmax(190px, 1.2fr) 110px;
+            gap: 14px;
+            align-items: center;
+        }
+        .cs2-match-head {
+            padding: 12px 14px;
+            background: rgba(102, 192, 244, .08);
+            color: rgba(255, 255, 255, .8);
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .cs2-match-row {
+            min-height: 76px;
+            padding: 10px 14px;
+            border-top: 1px solid rgba(102, 192, 244, .12);
+        }
+        .cs2-match-map { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .cs2-match-map-image {
+            width: 96px;
+            aspect-ratio: 16 / 9;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            border-radius: 9px;
+            background: linear-gradient(135deg, rgba(255, 144, 64, .28), rgba(57, 83, 111, .35));
+            color: rgba(255, 255, 255, .75);
+            font-size: 11px;
+            font-weight: 900;
+        }
+        .cs2-match-map-image img { width: 100%; height: 100%; display: block; object-fit: cover; }
+        .cs2-match-map-name,
+        .cs2-match-type-main,
+        .cs2-match-kda { color: #fff; font-size: 15px; font-weight: 800; }
+        .cs2-match-result { font-size: 15px; font-weight: 900; }
+        .cs2-match-result--win { color: #9fdb45; }
+        .cs2-match-result--loss { color: #ff6254; }
+        .cs2-match-result--unknown { color: #d9d1e7; }
+        .cs2-match-meta { margin-top: 3px; color: var(--text-muted); font-size: 12px; line-height: 1.3; }
+        .cs2-match-kda { white-space: nowrap; }
+        .cs2-faceit-link {
+            color: #ff6b35;
+            font-weight: 900;
+            text-decoration: underline;
+        }
+        .cs2-source-note {
+            margin-top: 14px;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-align: right;
+        }
         @media (max-width: 680px) {
             .steam-account-card { grid-template-columns: auto minmax(0, 1fr); }
             .steam-account-actions { grid-column: 1 / -1; }
@@ -676,6 +751,16 @@
             .dota-match-kda { grid-column: 2 / 3; grid-row: 2 / 3; text-align: right; align-self: start; }
             .dota-match-type { grid-column: 1 / 2; grid-row: 3 / 4; }
             .dota-match-duration { grid-column: 2 / 3; grid-row: 3 / 4; text-align: right; }
+            .cs2-match-head { display: none; }
+            .cs2-match-row {
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px 12px;
+                padding: 14px;
+            }
+            .cs2-match-map { grid-column: 1 / -1; }
+            .cs2-match-result-wrap { grid-column: 1 / 2; grid-row: 2 / 3; }
+            .cs2-match-kda { grid-column: 2 / 3; grid-row: 2 / 3; text-align: right; align-self: start; }
+            .cs2-match-type { grid-column: 1 / -1; grid-row: 3 / 4; }
         }
         .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
         .stat-card {
@@ -3073,6 +3158,16 @@
             </div>
         </div>
     </div>
+    <div class="modal-backdrop" id="steamCs2MatchesModal">
+        <div class="app-modal app-modal--cs2-matches">
+            <button class="modal-close" onclick="closeModal('steamCs2MatchesModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Последние матчи Counter-Strike 2</h2>
+            <div class="cs2-matches-caption">Пять последних матчей FACEIT, доступных для привязанного Steam-аккаунта</div>
+            <div id="steamCs2MatchesContent">
+                <div class="steam-profile-status">Загружаем матчи…</div>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     <div class="modal-backdrop" id="streakRulesModal">
@@ -3123,6 +3218,7 @@
         const openSteamProfileBtn = document.getElementById('openSteamProfileBtn');
         const steamProfileContent = document.getElementById('steamProfileContent');
         const steamDotaMatchesContent = document.getElementById('steamDotaMatchesContent');
+        const steamCs2MatchesContent = document.getElementById('steamCs2MatchesContent');
         const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
         const cmBonusModalText = document.getElementById('cmBonusModalText');
         const winImage = document.getElementById('winImage');
@@ -3168,6 +3264,7 @@
         let activePrizeSegmentLabel = null;
         let steamProfileLoaded = false;
         let steamDotaMatchesLoaded = false;
+        let steamCs2MatchesLoaded = false;
         let modalScrollPosition = 0;
 
         function lockModalPageScroll() {
@@ -3354,6 +3451,150 @@
             }
         }
 
+        function renderCs2Matches(data) {
+            if (!steamCs2MatchesContent) return;
+            steamCs2MatchesContent.innerHTML = '';
+
+            if (!data.faceit_profile_found) {
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.append('Для этого Steam-аккаунта не найден профиль FACEIT. Матчи появятся после подключения CS2 в FACEIT. ');
+                const link = document.createElement('a');
+                link.className = 'cs2-faceit-link';
+                link.href = 'https://www.faceit.com/ru';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = 'Открыть FACEIT';
+                notice.appendChild(link);
+                steamCs2MatchesContent.appendChild(notice);
+                return;
+            }
+
+            const matches = data.matches || [];
+            if (!matches.length) {
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = 'В истории FACEIT пока нет завершённых матчей CS2.';
+                if (data.faceit_profile_url) {
+                    notice.append(' ');
+                    const link = document.createElement('a');
+                    link.className = 'cs2-faceit-link';
+                    link.href = data.faceit_profile_url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = 'Открыть профиль FACEIT';
+                    notice.appendChild(link);
+                }
+                steamCs2MatchesContent.appendChild(notice);
+                return;
+            }
+
+            const table = document.createElement('div');
+            table.className = 'cs2-match-table';
+            const head = document.createElement('div');
+            head.className = 'cs2-match-head';
+            ['Карта', 'Результат', 'Тип', 'K / D / A'].forEach((label) => {
+                const cell = document.createElement('div');
+                cell.textContent = label;
+                head.appendChild(cell);
+            });
+            table.appendChild(head);
+
+            matches.forEach((match) => {
+                const row = document.createElement('div');
+                row.className = 'cs2-match-row';
+
+                const map = document.createElement('div');
+                map.className = 'cs2-match-map';
+                const preview = document.createElement('div');
+                preview.className = 'cs2-match-map-image';
+                if (match.map_image_url) {
+                    const image = document.createElement('img');
+                    image.src = match.map_image_url;
+                    image.alt = '';
+                    image.loading = 'lazy';
+                    image.addEventListener('error', () => {
+                        image.remove();
+                        preview.textContent = 'CS2';
+                    });
+                    preview.appendChild(image);
+                } else {
+                    preview.textContent = 'CS2';
+                }
+                const mapName = document.createElement('div');
+                mapName.className = 'cs2-match-map-name';
+                mapName.textContent = match.map_label || 'Карта не указана';
+                map.append(preview, mapName);
+
+                const resultWrap = document.createElement('div');
+                resultWrap.className = 'cs2-match-result-wrap';
+                const result = document.createElement('div');
+                const resultClass = match.won === true ? 'win' : match.won === false ? 'loss' : 'unknown';
+                result.className = `cs2-match-result cs2-match-result--${resultClass}`;
+                result.textContent = match.result_label || 'Завершён';
+                const finished = document.createElement('div');
+                finished.className = 'cs2-match-meta';
+                finished.textContent = formatDotaRelativeTime(match.finished_at);
+                resultWrap.append(result, finished);
+
+                const type = document.createElement('div');
+                type.className = 'cs2-match-type';
+                const typeMain = document.createElement('div');
+                typeMain.className = 'cs2-match-type-main';
+                typeMain.textContent = match.type_label || 'FACEIT';
+                const typeDetail = document.createElement('div');
+                typeDetail.className = 'cs2-match-meta';
+                typeDetail.textContent = match.type_detail || 'CS2';
+                type.append(typeMain, typeDetail);
+                if (match.match_url) {
+                    const matchLink = document.createElement('a');
+                    matchLink.className = 'cs2-faceit-link cs2-match-meta';
+                    matchLink.href = match.match_url;
+                    matchLink.target = '_blank';
+                    matchLink.rel = 'noopener noreferrer';
+                    matchLink.textContent = 'Открыть матч';
+                    type.appendChild(matchLink);
+                }
+
+                const kda = document.createElement('div');
+                kda.className = 'cs2-match-kda';
+                if ([match.kills, match.deaths, match.assists].some((value) => value === null || value === undefined)) {
+                    kda.textContent = '—';
+                } else {
+                    kda.textContent = `${match.kills} / ${match.deaths} / ${match.assists}`;
+                }
+
+                row.append(map, resultWrap, type, kda);
+                table.appendChild(row);
+            });
+            steamCs2MatchesContent.appendChild(table);
+
+            const source = document.createElement('div');
+            source.className = 'cs2-source-note';
+            source.textContent = 'Данные предоставлены FACEIT';
+            steamCs2MatchesContent.appendChild(source);
+        }
+
+        async function loadCs2Matches() {
+            if (!steamCs2MatchesContent || steamCs2MatchesLoaded) return;
+            steamCs2MatchesContent.innerHTML = '<div class="steam-profile-status">Загружаем матчи…</div>';
+            try {
+                const response = await fetch({{ url_for('guest.api_steam_cs2_matches')|tojson }}, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось загрузить матчи CS2');
+                renderCs2Matches(data);
+                steamCs2MatchesLoaded = true;
+            } catch (error) {
+                steamCs2MatchesContent.innerHTML = '';
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = error.message || 'Не удалось загрузить матчи CS2';
+                steamCs2MatchesContent.appendChild(notice);
+            }
+        }
+
         function renderSteamProfile(profile) {
             const container = steamProfileContent;
             if (!container) return;
@@ -3432,16 +3673,21 @@
                     hours.appendChild(item);
                 });
                 card.append(cover, hours);
-                if (game.slug === 'dota2') {
+                if (game.slug === 'dota2' || game.slug === 'cs2') {
                     const actions = document.createElement('div');
                     actions.className = 'steam-game-actions';
                     const matchesButton = document.createElement('button');
                     matchesButton.type = 'button';
-                    matchesButton.className = 'steam-dota-matches-btn';
+                    matchesButton.className = 'steam-recent-matches-btn';
                     matchesButton.textContent = 'Последние матчи';
                     matchesButton.addEventListener('click', () => {
-                        openModal('steamDotaMatchesModal');
-                        loadDotaMatches();
+                        if (game.slug === 'cs2') {
+                            openModal('steamCs2MatchesModal');
+                            loadCs2Matches();
+                        } else {
+                            openModal('steamDotaMatchesModal');
+                            loadDotaMatches();
+                        }
                     });
                     actions.appendChild(matchesButton);
                     card.appendChild(actions);
