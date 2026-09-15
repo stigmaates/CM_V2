@@ -6,7 +6,7 @@ import base64
 import hashlib
 import re
 from functools import lru_cache
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 import httpx
 import pymysql
@@ -29,7 +29,7 @@ STEAM_ID_ACCOUNT_OFFSET = 76561197960265728
 DOTA_MATCH_LIMIT = 5
 CS2_MATCH_LIMIT = 5
 CS2_SYNC_LIMIT = 5
-CS2_SHARE_CODE_RE = re.compile(r"^CSGO-(?:[A-Za-z0-9]{5}-){4}[A-Za-z0-9]{5}$")
+CS2_SHARE_CODE_RE = re.compile(r"CSGO-(?:[A-Za-z0-9]{5}-){4}[A-Za-z0-9]{5}", re.IGNORECASE)
 CS2_AUTH_CODE_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 CS2_MAP_IMAGE_ROOT = "https://raw.githubusercontent.com/MurkyYT/cs2-map-icons/main/images/thumbs"
 CS2_MAP_LABELS = {
@@ -360,10 +360,20 @@ def normalize_cs2_auth_code(value: str) -> str:
 
 
 def normalize_cs2_share_code(value: str) -> str:
-    code = (value or "").strip()
-    if not CS2_SHARE_CODE_RE.fullmatch(code):
-        raise CS2HistoryCodeError("Код матча должен начинаться с CSGO- и содержать пять групп символов")
-    return code
+    raw_value = unquote((value or "").strip())
+    normalized_value = (
+        raw_value.replace("\u2010", "-")
+        .replace("\u2011", "-")
+        .replace("\u2012", "-")
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+        .replace("\u2212", "-")
+    )
+    match = CS2_SHARE_CODE_RE.search(normalized_value)
+    if not match:
+        raise CS2HistoryCodeError("Вставьте код матча CSGO-… или ссылку, скопированную из CS2")
+    code = match.group(0)
+    return f"CSGO-{code[5:]}"
 
 
 def fetch_next_cs2_share_code(*, steam_id: str, auth_code: str, known_code: str) -> str | None:

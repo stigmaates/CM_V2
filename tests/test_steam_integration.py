@@ -219,6 +219,15 @@ def test_cs2_codes_are_validated_and_auth_code_is_encrypted():
     assert steam._decrypt_cs2_auth_code(encrypted) == auth_code
 
 
+def test_cs2_share_code_accepts_mixed_case_and_full_game_link():
+    share_code = "CSGO-aX9KN-Lc3Nu-yzkzj-qbN6B-My6SA"
+
+    assert steam.normalize_cs2_share_code(share_code) == share_code
+    assert steam.normalize_cs2_share_code(
+        f"steam://rungame/730/76561202255233023/+csgo_download_match%20{share_code}"
+    ) == share_code
+
+
 def test_cs2_sync_imports_known_match_and_walks_forward(monkeypatch):
     imported_codes = []
     advanced_codes = []
