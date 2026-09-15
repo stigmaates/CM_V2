@@ -21,7 +21,6 @@ from app.services.cm_bonuses import (
     get_cm_bonus_redeem_history,
     redeem_cm_bonuses,
 )
-from app.services.faceit import FaceitError, FaceitNotConfiguredError, fetch_faceit_recent_matches
 from app.services.guest_auth import (
     create_guest_login_token,
     get_guest_by_id,
@@ -273,37 +272,6 @@ def api_steam_dota_matches():
             "ok": False,
             "error": "steam_unavailable",
             "message": "Не удалось получить матчи Dota 2. Попробуйте позже.",
-        }, 502
-    return {"ok": True, **result}
-
-
-@guest_bp.route("/api/steam-cs2-matches")
-@guest_required
-def api_steam_cs2_matches():
-    club_id = int(session["guest_club_id"])
-    guest_id = int(session["guest_id"])
-    if is_rate_limited(f"guest.steam_cs2_matches:{club_id}:{guest_id}", limit=6, window_seconds=60):
-        return {
-            "ok": False,
-            "error": "rate_limited",
-            "message": "Слишком много запросов. Подождите минуту.",
-        }, 429
-    account = get_linked_steam_account(club_id=club_id, guest_id=guest_id)
-    if not account:
-        return {"ok": False, "error": "steam_not_linked", "message": "Steam-аккаунт не привязан"}, 404
-    try:
-        result = fetch_faceit_recent_matches(account["steam_id"])
-    except FaceitNotConfiguredError:
-        return {
-            "ok": False,
-            "error": "faceit_not_configured",
-            "message": "Матчи FACEIT пока не настроены на сервере",
-        }, 503
-    except FaceitError:
-        return {
-            "ok": False,
-            "error": "faceit_unavailable",
-            "message": "Не удалось получить матчи CS2 из FACEIT. Попробуйте позже.",
         }, 502
     return {"ok": True, **result}
 
