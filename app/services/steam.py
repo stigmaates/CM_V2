@@ -663,8 +663,13 @@ def get_cs2_recent_matches(*, club_id: int, guest_id: int, limit: int = CS2_MATC
     for row in rows:
         map_name = str(row.get("map_name") or "unknown")
         safe_map = map_name if re.fullmatch(r"[a-z0-9_]+", map_name) else "unknown"
-        row["map_label"] = CS2_MAP_LABELS.get(map_name, map_name.removeprefix("de_").removeprefix("cs_").title())
-        row["map_image_url"] = f"{CS2_MAP_IMAGE_ROOT}/{safe_map}_1_png.png" if safe_map != "unknown" else None
+        unresolved_map = safe_map in {"http", "https", "unknown"}
+        row["map_label"] = (
+            "Карта определяется…"
+            if unresolved_map
+            else CS2_MAP_LABELS.get(map_name, map_name.removeprefix("de_").removeprefix("cs_").title())
+        )
+        row["map_image_url"] = f"{CS2_MAP_IMAGE_ROOT}/{safe_map}_1_png.png" if not unresolved_map else None
         row["won"] = None if row.get("won") is None else bool(row["won"])
     return rows
 

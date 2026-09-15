@@ -3272,6 +3272,7 @@
         let steamProfileLoaded = false;
         let steamDotaMatchesLoaded = false;
         let steamCS2MatchesLoaded = false;
+        let steamCS2MetadataRetryTimer = null;
         let modalScrollPosition = 0;
 
         function lockModalPageScroll() {
@@ -3567,10 +3568,29 @@
             steamCS2MatchesContent.appendChild(table);
         }
 
-        async function loadCS2Matches(force = false) {
+        function cs2MetadataPending(matches) {
+            return matches.some((match) => {
+                const mapName = String(match.map_name || '').trim().toLowerCase();
+                const mode = String(match.mode_label || '').trim();
+                return ['', 'http', 'https', 'unknown'].includes(mapName)
+                    || ['', 'Официальный матч'].includes(mode);
+            });
+        }
+
+        function scheduleCS2MetadataRetry(matches, retryCount) {
+            clearTimeout(steamCS2MetadataRetryTimer);
+            if (!cs2MetadataPending(matches) || retryCount >= 2) return;
+            steamCS2MetadataRetryTimer = setTimeout(() => {
+                loadCS2Matches(true, retryCount + 1);
+            }, 2500);
+        }
+
+        async function loadCS2Matches(force = false, retryCount = 0) {
             if (!steamCS2MatchesContent || (steamCS2MatchesLoaded && !force)) return;
             if (cs2MatchSetupForm) cs2MatchSetupForm.classList.remove('show');
-            steamCS2MatchesContent.innerHTML = '<div class="steam-profile-status">Загружаем матчи…</div>';
+            if (!force) {
+                steamCS2MatchesContent.innerHTML = '<div class="steam-profile-status">Загружаем матчи…</div>';
+            }
             try {
                 const response = await fetch({{ url_for('guest.api_steam_cs2_matches')|tojson }}, {
                     headers: { 'Accept': 'application/json' },
@@ -3581,9 +3601,12 @@
                     showCS2Setup();
                     return;
                 }
-                renderCS2Matches(data.matches || [], data.warning || '');
-                steamCS2MatchesLoaded = true;
+                const matches = data.matches || [];
+                renderCS2Matches(matches, data.warning || '');
+                steamCS2MatchesLoaded = !cs2MetadataPending(matches);
+                scheduleCS2MetadataRetry(matches, retryCount);
             } catch (error) {
+                if (force) return;
                 steamCS2MatchesContent.innerHTML = '';
                 const notice = document.createElement('div');
                 notice.className = 'steam-profile-status';
@@ -3612,8 +3635,10 @@
                 const data = await response.json();
                 if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось подключить историю CS2');
                 cs2MatchSetupForm.reset();
-                steamCS2MatchesLoaded = true;
-                renderCS2Matches(data.matches || []);
+                const matches = data.matches || [];
+                renderCS2Matches(matches);
+                steamCS2MatchesLoaded = !cs2MetadataPending(matches);
+                scheduleCS2MetadataRetry(matches, 0);
             } catch (error) {
                 if (cs2MatchSetupMessage) {
                     cs2MatchSetupMessage.textContent = error.message || 'Не удалось подключить историю CS2';
