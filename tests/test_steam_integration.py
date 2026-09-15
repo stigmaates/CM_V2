@@ -304,6 +304,45 @@ def test_cs2_sync_imports_known_match_and_walks_forward(monkeypatch):
     assert advanced_codes == list(next_codes)[1:]
 
 
+def test_cs2_sync_batch_reports_one_completed_step(monkeypatch):
+    monkeypatch.setattr(
+        steam,
+        "get_cs2_match_access",
+        lambda **kwargs: {
+            "auth_code": "ABCD-EFGHI-JKLM",
+            "last_share_code": "CSGO-aaaaa-aaaaa-aaaaa-aaaaa-aaaaa",
+        },
+    )
+    monkeypatch.setattr(steam, "_cs2_match_needs_refresh", lambda **kwargs: True)
+    monkeypatch.setattr(
+        steam,
+        "fetch_cs2_match_from_gc",
+        lambda **kwargs: {"match_id": kwargs["share_code"]},
+    )
+    monkeypatch.setattr(steam, "_store_cs2_match", lambda **kwargs: None)
+    monkeypatch.setattr(
+        steam,
+        "fetch_next_cs2_share_code",
+        lambda **kwargs: "CSGO-bbbbb-bbbbb-bbbbb-bbbbb-bbbbb",
+    )
+    advanced_codes = []
+    monkeypatch.setattr(
+        steam,
+        "_advance_cs2_match_cursor",
+        lambda **kwargs: advanced_codes.append(kwargs["share_code"]),
+    )
+
+    result = steam.sync_cs2_match_history_batch(
+        club_id=3,
+        guest_id=14,
+        steam_id="76561198000000000",
+        limit=1,
+    )
+
+    assert result == {"processed": 1, "imported": 1, "has_more": True}
+    assert advanced_codes == ["CSGO-bbbbb-bbbbb-bbbbb-bbbbb-bbbbb"]
+
+
 def test_cs2_match_connect_route_imports_history(monkeypatch):
     flask_app = Flask(__name__)
     flask_app.secret_key = "test-secret"
@@ -347,6 +386,7 @@ def test_cs2_match_connect_route_imports_history(monkeypatch):
             "steam_id": "76561198000000000",
             "auth_code": "ABCD-EFGHI-JKLM",
             "share_code": "CSGO-abcde-fghij-klmno-pqrst-uvwxy",
+            "sync_limit": 0,
         }
     ]
 
@@ -371,6 +411,40 @@ def test_cs2_matches_route_requests_setup_when_codes_are_missing(monkeypatch):
 
     assert response.status_code == 200
     assert response.get_json() == {"ok": True, "configured": False, "matches": []}
+
+
+def test_cs2_matches_route_returns_single_batch_progress(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        guest_routes,
+        "get_linked_steam_account",
+        lambda **kwargs: {"steam_id": "76561198000000000"},
+    )
+    monkeypatch.setattr(guest_routes, "get_cs2_match_access", lambda **kwargs: {"last_share_code": "code"})
+    calls = []
+    monkeypatch.setattr(
+        guest_routes,
+        "sync_cs2_match_history_batch",
+        lambda **kwargs: calls.append(kwargs) or {"processed": 1, "imported": 1, "has_more": True},
+    )
+    monkeypatch.setattr(
+        guest_routes,
+        "get_cs2_recent_matches",
+        lambda **kwargs: [{"match_id": "123", "map_label": "Mirage"}],
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.get("/guest/api/steam-cs2-matches?batch=1")
+
+    assert response.status_code == 200
+    assert response.get_json()["sync"] == {"processed": 1, "imported": 1, "has_more": True}
+    assert calls == [{"club_id": 3, "guest_id": 14, "steam_id": "76561198000000000", "limit": 1}]
 
 
 def test_steam_link_route_keeps_guest_bound_state(monkeypatch):
