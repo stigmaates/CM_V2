@@ -524,8 +524,12 @@ def run_sessions_incremental_for_club(club_id: int):
     from scripts.sync_sessions_incremental import sync_sessions_incremental
 
     result = sync_sessions_incremental(club_id)
-    item = result[0] if result else {"saved": 0, "date_from": "", "date_to": ""}
-    return f"Период: {item.get('date_from')} — {item.get('date_to')}. Обработано сессий: {item.get('saved', 0)}."
+    item = result[0] if result else {"received": 0, "saved": 0, "skipped": 0, "date_from": "", "date_to": ""}
+    return (
+        f"Период: {item.get('date_from')} — {item.get('date_to')}. "
+        f"Получено: {item.get('received', 0)}. Сохранено: {item.get('saved', 0)}. "
+        f"Пропущено без гостя: {item.get('skipped', 0)}."
+    )
 
 
 def run_operations_incremental_for_club(club_id: int):

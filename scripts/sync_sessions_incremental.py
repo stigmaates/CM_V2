@@ -24,6 +24,7 @@ from app.config import (
 )
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
+from scripts.sync_sessions_initial import filter_sessions, get_existing_guest_ids
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
 logging.basicConfig(level=logging.INFO)
@@ -215,6 +216,8 @@ def sync_sessions_incremental(club_id=None):
             page = 1
             total_saved = 0
             total_received = 0
+            total_skipped = 0
+            existing_guest_ids = get_existing_guest_ids(current_club_id)
 
             while True:
                 data = fetch_sessions(secret, api_key, page, date_from, date_to)
@@ -226,11 +229,19 @@ def sync_sessions_incremental(club_id=None):
                     break
 
                 total_received += len(sessions)
-                saved = save_sessions(current_club_id, sessions)
+                filtered_sessions, skipped = filter_sessions(sessions, existing_guest_ids)
+                total_skipped += skipped
+                saved = save_sessions(current_club_id, filtered_sessions)
                 total_saved += saved
 
                 logging.info(
-                    f"Клуб {current_club_id} | page {page}/{total_pages}: {len(sessions)} | сохранено: {saved}"
+                    "Клуб %s | page %s/%s: получено %s | сохранено %s | пропущено без гостя %s",
+                    current_club_id,
+                    page,
+                    total_pages,
+                    len(sessions),
+                    saved,
+                    skipped,
                 )
 
                 if page >= total_pages:
@@ -243,10 +254,17 @@ def sync_sessions_incremental(club_id=None):
                 "success",
                 rows_received=total_received,
                 rows_saved=total_saved,
-                metadata={"date_from": date_from, "date_to": date_to},
+                metadata={"date_from": date_from, "date_to": date_to, "rows_skipped": total_skipped},
             )
             summary.append(
-                {"club_id": current_club_id, "saved": total_saved, "date_from": date_from, "date_to": date_to}
+                {
+                    "club_id": current_club_id,
+                    "received": total_received,
+                    "saved": total_saved,
+                    "skipped": total_skipped,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                }
             )
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))

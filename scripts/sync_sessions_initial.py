@@ -1,11 +1,17 @@
 import argparse
 import logging
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 import httpx
 import pymysql
 from pymysql.cursors import DictCursor
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.config import (
     DB_CONNECT_TIMEOUT,
@@ -87,7 +93,11 @@ def get_existing_guest_ids(club_id: int):
             """,
                 (club_id,),
             )
-            return {row["guest_id"] for row in cursor.fetchall()}
+            return {
+                int(row["guest_id"])
+                for row in cursor.fetchall()
+                if row.get("guest_id") is not None
+            }
     finally:
         conn.close()
 
@@ -124,12 +134,20 @@ def parse_datetime(value):
 def filter_sessions(sessions: list, existing_guest_ids: set):
     filtered = []
     skipped = 0
+    normalized_guest_ids = {int(value) for value in existing_guest_ids if value is not None}
 
     for s in sessions:
-        if s.get("guest_id") in existing_guest_ids:
-            filtered.append(s)
-        else:
+        try:
+            guest_id = int(s.get("guest_id"))
+        except (TypeError, ValueError):
             skipped += 1
+            continue
+        if guest_id not in normalized_guest_ids:
+            skipped += 1
+            continue
+        normalized = dict(s)
+        normalized["guest_id"] = guest_id
+        filtered.append(normalized)
 
     return filtered, skipped
 
