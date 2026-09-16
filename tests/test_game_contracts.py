@@ -5,6 +5,7 @@ import pytest
 
 from app.services.game_contracts import (
     GameContractError,
+    _contract_signature,
     _match_contribution,
     generate_system_contract_pool,
     normalize_contract_template,
@@ -84,6 +85,21 @@ def test_system_constructor_builds_personal_six_contract_pool(game):
     ) <= 2
     assert all(item["reward_tokens"] == 0 for item in selected)
     assert all(item["reward_bonus"] == 0 for item in selected)
+
+
+@pytest.mark.parametrize("game", ["cs2", "dota2"])
+def test_refreshed_pool_does_not_repeat_previous_contracts(game):
+    first = generate_system_contract_pool(game, rng=random.Random(17))
+    excluded = {_contract_signature(item) for item in first}
+
+    refreshed = generate_system_contract_pool(
+        game,
+        rng=random.Random(17),
+        excluded_signatures=excluded,
+    )
+
+    assert len(refreshed) == 6
+    assert not ({_contract_signature(item) for item in refreshed} & excluded)
 
 
 def test_progress_uses_match_facts_and_contract_conditions():

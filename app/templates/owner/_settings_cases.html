@@ -488,6 +488,10 @@
                                                 <input class="form-input" type="number" id="item_tokens_{{ item.id }}" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}">
                                             </div>
                                             <div class="form-group">
+                                                <label for="item_contract_refresh_{{ item.id }}">Обновления контрактов</label>
+                                                <input class="form-input" type="number" id="item_contract_refresh_{{ item.id }}" name="contract_refresh_amount" min="0" step="1" value="{{ item.contract_refresh_amount or 0 }}">
+                                            </div>
+                                            <div class="form-group">
                                                 <label for="item_sort_{{ item.id }}">Порядок</label>
                                                 <input class="form-input" type="number" id="item_sort_{{ item.id }}" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}">
                                             </div>
@@ -559,6 +563,10 @@
                                     <div class="form-group">
                                         <label>Жетоны</label>
                                         <input class="form-input" type="number" name="token_amount" min="0" step="1" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Обновления контрактов</label>
+                                        <input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="0">
                                     </div>
                                     <div class="form-group">
                                         <label>Порядок</label>
@@ -824,6 +832,10 @@
                         <div class="form-group">
                             <label>Жетоны</label>
                             <input class="form-input" type="number" name="token_amount" min="0" step="1" value="${item.token_amount || 0}">
+                        </div>
+                        <div class="form-group">
+                            <label>Обновления контрактов</label>
+                            <input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="${item.contract_refresh_amount || 0}">
                         </div>
                         <div class="form-group">
                             <label>Порядок</label>

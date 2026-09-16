@@ -277,6 +277,18 @@ def save_contract_reward_settings(club_id: int, values: dict[str, dict]) -> None
                 """,
                 rows,
             )
+            cursor.execute(
+                """
+                UPDATE guest_game_contracts c
+                JOIN game_contract_reward_settings r
+                  ON r.club_id=c.club_id AND r.difficulty=c.difficulty
+                SET c.reward_tokens=r.reward_tokens,
+                    c.reward_bonus=r.reward_bonus,
+                    c.updated_at=CURRENT_TIMESTAMP
+                WHERE c.club_id=%s AND c.status='offered'
+                """,
+                (club_id,),
+            )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -566,7 +578,10 @@ def _system_contract_candidates(game: str, rng: random.Random) -> dict[str, list
 
 
 def generate_system_contract_pool(
-    game: str, *, rng: random.Random | None = None
+    game: str,
+    *,
+    rng: random.Random | None = None,
+    excluded_signatures: set[tuple[str, str, str, str]] | None = None,
 ) -> list[dict]:
     """Build a personal six-contract pool without club-authored templates."""
     game = str(game or "").lower()
@@ -574,11 +589,15 @@ def generate_system_contract_pool(
         raise GameContractError("Неизвестная игра")
     rng = rng or random.SystemRandom()
     candidates = _system_contract_candidates(game, rng)
+    excluded_signatures = excluded_signatures or set()
     selected: list[dict] = []
     metric_counts: dict[str, int] = {}
 
     for difficulty, required_count in POOL_SIZE_BY_DIFFICULTY.items():
-        tier = list(candidates[difficulty])
+        tier = [
+            item for item in candidates[difficulty]
+            if _contract_signature(item) not in excluded_signatures
+        ]
         rng.shuffle(tier)
         for item in tier:
             metric = str(item["metric_type"])
@@ -594,6 +613,20 @@ def generate_system_contract_pool(
     for index, item in enumerate(selected, start=1):
         item["id"] = -index
     return selected
+
+
+def _contract_signature(contract: dict) -> tuple[str, str, str, str]:
+    """Stable identity used to keep a refreshed pool different from the previous one."""
+    target = Decimal(str(contract.get("target_value") or 0)).quantize(Decimal("0.01"))
+    conditions = contract.get("conditions_json")
+    if isinstance(conditions, dict):
+        conditions = _json_dumps(conditions)
+    return (
+        str(contract.get("metric_type") or ""),
+        str(target),
+        str(conditions or ""),
+        str(contract.get("period_type") or "week"),
+    )
 
 
 def _available_games(cursor, club_id: int, guest_id: int) -> tuple[str | None, dict[str, bool]]:
@@ -643,10 +676,31 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
             if last_set and last_set.get("status") == "selecting":
                 conn.commit()
                 return get_guest_contract_pool(club_id, guest_id, game)["contracts"]
-            if last_set and last_set["started_at"] + CONTRACT_DURATION > now:
+            if (
+                last_set
+                and last_set.get("status") != "rerolled"
+                and last_set["started_at"] + CONTRACT_DURATION > now
+            ):
                 raise GameContractError("Недельный набор этой игры уже получен")
 
-            selected = generate_system_contract_pool(game)
+            excluded_signatures: set[tuple[str, str, str, str]] = set()
+            if last_set and last_set.get("status") == "rerolled":
+                cursor.execute(
+                    """
+                    SELECT metric_type, target_value, conditions_json, period_type
+                    FROM guest_game_contracts
+                    WHERE set_id=%s
+                    """,
+                    (last_set["id"],),
+                )
+                excluded_signatures = {
+                    _contract_signature(row) for row in cursor.fetchall()
+                }
+
+            selected = generate_system_contract_pool(
+                game,
+                excluded_signatures=excluded_signatures,
+            )
             rewards = _contract_rewards_for_club(cursor, club_id)
             for contract in selected:
                 contract.update(rewards[contract["difficulty"]])
@@ -723,6 +777,9 @@ def get_guest_contract_pool(club_id: int, guest_id: int, game: str) -> dict | No
                 (contract_set["id"],),
             )
             contracts = cursor.fetchall()
+            rewards = _contract_rewards_for_club(cursor, club_id)
+            for contract in contracts:
+                contract.update(rewards[contract["difficulty"]])
     finally:
         conn.close()
     return {
@@ -750,10 +807,11 @@ def accept_weekly_contracts(club_id: int, guest_id: int, game: str, contract_ids
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
+                "SELECT id, steam_id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
                 (club_id, guest_id),
             )
-            if not cursor.fetchone():
+            account = cursor.fetchone()
+            if not account:
                 raise GameContractError("Сначала подключите Steam")
             cursor.execute(
                 """
@@ -777,6 +835,22 @@ def accept_weekly_contracts(club_id: int, guest_id: int, game: str, contract_ids
             difficulties = {offered_by_id[contract_id]["difficulty"] for contract_id in selected_ids}
             if difficulties != set(POOL_SIZE_BY_DIFFICULTY):
                 raise GameContractError("Выберите по одному лёгкому, среднему и сложному контракту")
+
+            rewards = _contract_rewards_for_club(cursor, club_id)
+            cursor.executemany(
+                """
+                UPDATE guest_game_contracts
+                SET reward_tokens=%s, reward_bonus=%s, updated_at=%s
+                WHERE set_id=%s AND difficulty=%s AND status='offered'
+                """,
+                [
+                    (
+                        reward["reward_tokens"], reward["reward_bonus"], now,
+                        contract_set["id"], difficulty,
+                    )
+                    for difficulty, reward in rewards.items()
+                ],
+            )
 
             placeholders = ",".join(["%s"] * len(selected_ids))
             cursor.execute(
@@ -869,6 +943,199 @@ def get_guest_contracts(club_id: int, guest_id: int, *, game: str | None = None)
     return [_serialize_contract(row, now) for row in rows if int(row["set_id"]) == latest_set_by_game[row["game"]]]
 
 
+def add_contract_refreshes(
+    cursor,
+    *,
+    club_id: int,
+    guest_id: int,
+    amount: int,
+) -> int:
+    """Add refreshes inside an existing transaction, for example when a case is opened."""
+    amount = int(amount or 0)
+    if amount <= 0:
+        raise GameContractError("Количество обновлений должно быть больше нуля")
+    cursor.execute(
+        """
+        INSERT INTO guest_contract_refresh_balances
+            (club_id, guest_id, balance, created_at, updated_at)
+        VALUES (%s, %s, %s, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+        ON DUPLICATE KEY UPDATE
+            balance=balance + VALUES(balance),
+            updated_at=UTC_TIMESTAMP()
+        """,
+        (club_id, guest_id, amount),
+    )
+    cursor.execute(
+        """
+        SELECT balance FROM guest_contract_refresh_balances
+        WHERE club_id=%s AND guest_id=%s
+        """,
+        (club_id, guest_id),
+    )
+    return int((cursor.fetchone() or {}).get("balance") or 0)
+
+
+def get_contract_refresh_balance(club_id: int, guest_id: int) -> int:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT balance FROM guest_contract_refresh_balances
+                WHERE club_id=%s AND guest_id=%s
+                """,
+                (club_id, guest_id),
+            )
+            return int((cursor.fetchone() or {}).get("balance") or 0)
+    finally:
+        conn.close()
+
+
+def reroll_guest_contracts(
+    club_id: int,
+    guest_id: int,
+    game: str,
+    *,
+    consume_refresh: bool = True,
+) -> dict:
+    """Archive the latest unfinished set so the next request creates a different pool."""
+    game = str(game or "").lower()
+    if game not in GAMES:
+        raise GameContractError("Неизвестная игра")
+    now = _utcnow()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
+                (club_id, guest_id),
+            )
+            if not cursor.fetchone():
+                raise GameContractError("Сначала подключите Steam")
+
+            cursor.execute(
+                """
+                SELECT * FROM guest_game_contract_sets
+                WHERE club_id=%s AND guest_id=%s AND game=%s
+                ORDER BY id DESC LIMIT 1 FOR UPDATE
+                """,
+                (club_id, guest_id, game),
+            )
+            contract_set = cursor.fetchone()
+            if not contract_set or contract_set.get("status") not in {"selecting", "active"}:
+                raise GameContractError("Нет текущего набора контрактов для обновления")
+
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS completed_count
+                FROM guest_game_contracts
+                WHERE set_id=%s
+                  AND (status='completed' OR reward_claimed_at IS NOT NULL)
+                """,
+                (contract_set["id"],),
+            )
+            if int((cursor.fetchone() or {}).get("completed_count") or 0):
+                raise GameContractError("Нельзя обновить набор с уже выполненным контрактом")
+
+            cursor.execute(
+                """
+                SELECT metric_type, target_value, conditions_json, period_type
+                FROM guest_game_contracts
+                WHERE set_id=%s
+                """,
+                (contract_set["id"],),
+            )
+            excluded_signatures = {
+                _contract_signature(row) for row in cursor.fetchall()
+            }
+            selected = generate_system_contract_pool(
+                game,
+                excluded_signatures=excluded_signatures,
+            )
+            rewards = _contract_rewards_for_club(cursor, club_id)
+            for contract in selected:
+                contract.update(rewards[contract["difficulty"]])
+
+            remaining = None
+            if consume_refresh:
+                cursor.execute(
+                    """
+                    SELECT balance FROM guest_contract_refresh_balances
+                    WHERE club_id=%s AND guest_id=%s FOR UPDATE
+                    """,
+                    (club_id, guest_id),
+                )
+                balance = int((cursor.fetchone() or {}).get("balance") or 0)
+                if balance <= 0:
+                    raise GameContractError("Нет доступных обновлений контрактов")
+                remaining = balance - 1
+                cursor.execute(
+                    """
+                    UPDATE guest_contract_refresh_balances
+                    SET balance=%s, updated_at=%s
+                    WHERE club_id=%s AND guest_id=%s
+                    """,
+                    (remaining, now, club_id, guest_id),
+                )
+
+            cursor.execute(
+                """
+                UPDATE guest_game_contracts
+                SET status='rerolled', updated_at=%s
+                WHERE set_id=%s AND status IN ('offered', 'active', 'declined')
+                """,
+                (now, contract_set["id"]),
+            )
+            cursor.execute(
+                """
+                UPDATE guest_game_contract_sets
+                SET status='rerolled', finalized_at=%s, updated_at=%s
+                WHERE id=%s
+                """,
+                (now, now, contract_set["id"]),
+            )
+
+            expires_at = now + CONTRACT_DURATION
+            cursor.execute(
+                """
+                INSERT INTO guest_game_contract_sets
+                    (club_id, guest_id, steam_id, game, status, started_at, expires_at)
+                VALUES (%s, %s, %s, %s, 'selecting', %s, %s)
+                """,
+                (club_id, guest_id, str(account["steam_id"]), game, now, expires_at),
+            )
+            new_set_id = int(cursor.lastrowid)
+            for template in selected:
+                cursor.execute(
+                    """
+                    INSERT INTO guest_game_contracts (
+                        set_id, club_id, guest_id, steam_id, game, template_id, title, description,
+                        metric_type, target_value, period_type, difficulty, reward_tokens,
+                        reward_bonus, conditions_json, status, started_at, expires_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'offered', %s, %s)
+                    """,
+                    (
+                        new_set_id, club_id, guest_id, str(account["steam_id"]), game, template["id"],
+                        template["title"], template["description_template"], template["metric_type"],
+                        template["target_value"], template["period_type"], template["difficulty"],
+                        template["reward_tokens"], template["reward_bonus"], template.get("conditions_json"),
+                        now, expires_at,
+                    ),
+                )
+        conn.commit()
+        return {
+            "set_id": int(contract_set["id"]),
+            "new_set_id": new_set_id,
+            "game": game,
+            "refreshes_remaining": remaining,
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def get_guest_contracts_state(club_id: int, guest_id: int) -> dict:
     now = _utcnow()
     conn = get_db_connection()
@@ -896,6 +1163,14 @@ def get_guest_contracts_state(club_id: int, guest_id: int) -> dict:
                 (club_id, guest_id),
             )
             sync_states = {row["game"]: row for row in cursor.fetchall()}
+            cursor.execute(
+                """
+                SELECT balance FROM guest_contract_refresh_balances
+                WHERE club_id=%s AND guest_id=%s
+                """,
+                (club_id, guest_id),
+            )
+            refresh_balance = int((cursor.fetchone() or {}).get("balance") or 0)
     finally:
         conn.close()
     contracts = get_guest_contracts(club_id, guest_id)
@@ -909,7 +1184,7 @@ def get_guest_contracts_state(club_id: int, guest_id: int) -> dict:
         offer = offers.get(game)
         next_at = (
             last_set["started_at"] + CONTRACT_DURATION
-            if last_set and last_set.get("status") != "selecting"
+            if last_set and last_set.get("status") not in {"selecting", "rerolled"}
             else now
         )
         games[game] = {
@@ -927,8 +1202,18 @@ def get_guest_contracts_state(club_id: int, guest_id: int) -> dict:
             "next_at": next_at,
             "next_label": _remaining_label(next_at, now) if next_at > now and not offer else None,
             "sync": sync_states.get(game) or {},
+            "can_refresh": bool(
+                refresh_balance > 0
+                and last_set
+                and last_set.get("status") in {"selecting", "active"}
+                and not any(contract.get("status") == "completed" for contract in by_game[game])
+            ),
         }
-    return {"steam_linked": bool(steam_id), "games": games}
+    return {
+        "steam_linked": bool(steam_id),
+        "refresh_balance": refresh_balance,
+        "games": games,
+    }
 
 
 def _upsert_match(cursor, *, club_id: int, guest_id: int, steam_id: str, game: str, match: dict) -> None:

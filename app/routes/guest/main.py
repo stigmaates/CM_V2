@@ -34,6 +34,7 @@ from app.services.game_contracts import (
     generate_weekly_contracts,
     get_guest_contract_pool,
     get_guest_contracts_state,
+    reroll_guest_contracts,
 )
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
@@ -212,6 +213,31 @@ def accept_game_contracts(game: str):
     except Exception:
         current_app.logger.exception("Failed to accept game contracts")
         return jsonify({"ok": False, "message": "Не удалось сохранить выбор. Попробуйте позже."}), 500
+
+
+@guest_bp.route("/contracts/<game>/refresh", methods=["POST"])
+@guest_required
+def refresh_game_contracts(game: str):
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    if is_rate_limited(f"guest.game_contracts.refresh:{club_id}:{guest_id}:{game}", limit=3, window_seconds=60):
+        return jsonify({"ok": False, "message": "Слишком много попыток. Подождите минуту."}), 429
+    try:
+        result = reroll_guest_contracts(club_id, guest_id, game, consume_refresh=True)
+        pool = get_guest_contract_pool(club_id, guest_id, game)
+        record_audit_event(
+            action="guest.game_contracts.refresh",
+            club_id=club_id,
+            entity_type="guest",
+            entity_id=guest_id,
+            details=result,
+        )
+        return jsonify({"ok": True, **result, "pool": pool})
+    except GameContractError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("Failed to refresh game contracts")
+        return jsonify({"ok": False, "message": "Не удалось обновить контракты. Попробуйте позже."}), 500
 
 
 @guest_bp.route("/steam/link")
