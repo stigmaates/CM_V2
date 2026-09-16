@@ -487,7 +487,10 @@ def run_sessions_initial(club_id: int, log_id: int | None = None):
     from scripts.sync_sessions_initial import sync_sessions_initial
 
     result = sync_sessions_initial(club_id, progress=_sync_progress(log_id) if log_id else None)
-    return f"Сохранено сессий: {result.get('saved', 0)}. Пропущено без гостя: {result.get('skipped', 0)}."
+    return (
+        f"Сохранено сессий: {result.get('saved', 0)}. "
+        f"Пропущено с некорректным guest_id: {result.get('skipped', 0)}."
+    )
 
 
 def run_operations_initial(club_id: int):
@@ -528,7 +531,7 @@ def run_sessions_incremental_for_club(club_id: int):
     return (
         f"Период: {item.get('date_from')} — {item.get('date_to')}. "
         f"Получено: {item.get('received', 0)}. Сохранено: {item.get('saved', 0)}. "
-        f"Пропущено без гостя: {item.get('skipped', 0)}."
+        f"Пропущено с некорректным guest_id: {item.get('skipped', 0)}."
     )
 
 
