@@ -1007,10 +1007,11 @@ def reroll_guest_contracts(
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
+                "SELECT id, steam_id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
                 (club_id, guest_id),
             )
-            if not cursor.fetchone():
+            account = cursor.fetchone()
+            if not account:
                 raise GameContractError("Сначала подключите Steam")
 
             cursor.execute(

@@ -3,6 +3,7 @@ import random
 
 import pytest
 
+import app.services.game_contracts as game_contracts
 from app.services.game_contracts import (
     GameContractError,
     _contract_signature,
@@ -100,6 +101,71 @@ def test_refreshed_pool_does_not_repeat_previous_contracts(game):
 
     assert len(refreshed) == 6
     assert not ({_contract_signature(item) for item in refreshed} & excluded)
+
+
+def test_force_refresh_uses_the_linked_steam_account_and_creates_six_offers(monkeypatch):
+    class Cursor:
+        def __init__(self):
+            self.rows = []
+            self.lastrowid = 0
+            self.contract_inserts = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=()):
+            normalized = " ".join(sql.split())
+            self.rows = []
+            if "FROM guest_steam_accounts" in normalized:
+                self.rows = [{"id": 1, "steam_id": "76561190000000000"}]
+            elif "FROM guest_game_contract_sets" in normalized and normalized.startswith("SELECT"):
+                self.rows = [{"id": 41, "status": "active"}]
+            elif "COUNT(*) AS completed_count" in normalized:
+                self.rows = [{"completed_count": 0}]
+            elif normalized.startswith("SELECT metric_type"):
+                self.rows = []
+            elif "FROM game_contract_reward_settings" in normalized:
+                self.rows = []
+            elif normalized.startswith("INSERT INTO guest_game_contract_sets"):
+                self.lastrowid = 42
+            elif normalized.startswith("INSERT INTO guest_game_contracts"):
+                self.contract_inserts.append(params)
+
+        def fetchone(self):
+            return self.rows[0] if self.rows else None
+
+        def fetchall(self):
+            return list(self.rows)
+
+    class Connection:
+        def __init__(self):
+            self.test_cursor = Cursor()
+            self.committed = False
+
+        def cursor(self):
+            return self.test_cursor
+
+        def commit(self):
+            self.committed = True
+
+        def rollback(self):
+            raise AssertionError("refresh transaction should not roll back")
+
+        def close(self):
+            pass
+
+    connection = Connection()
+    monkeypatch.setattr(game_contracts, "get_db_connection", lambda: connection)
+
+    result = game_contracts.reroll_guest_contracts(1, 63253, "dota2", consume_refresh=False)
+
+    assert result["new_set_id"] == 42
+    assert connection.committed is True
+    assert len(connection.test_cursor.contract_inserts) == 6
+    assert all(params[3] == "76561190000000000" for params in connection.test_cursor.contract_inserts)
 
 
 def test_progress_uses_match_facts_and_contract_conditions():
