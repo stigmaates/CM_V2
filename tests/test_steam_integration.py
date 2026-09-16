@@ -497,6 +497,46 @@ def test_cs2_matches_route_returns_single_batch_progress(monkeypatch):
     assert calls == [{"club_id": 3, "guest_id": 14, "steam_id": "76561198000000000", "limit": 1}]
 
 
+def test_dashboard_contract_sync_updates_active_games(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    contract = {
+        "id": 91,
+        "status": "active",
+        "current_display": "1",
+        "target_display": "3",
+        "progress_percent": 33,
+        "remaining_label": "6 дн. 2 ч.",
+        "is_waiting_for_sync": False,
+    }
+    state = {
+        "games": {
+            "dota2": {"available": True, "contracts": [contract], "sync": {}},
+            "cs2": {"available": True, "contracts": [], "sync": {}},
+        }
+    }
+    monkeypatch.setattr(guest_routes, "get_guest_contracts_state", lambda *args: state)
+    synced = []
+    monkeypatch.setattr(
+        guest_routes,
+        "sync_contracts_for_guest",
+        lambda club_id, guest_id, game: synced.append((club_id, guest_id, game)),
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.post("/guest/api/game-contracts/sync")
+
+    assert response.status_code == 200
+    assert response.get_json()["contracts"] == [contract]
+    assert response.get_json()["synced_games"] == ["dota2"]
+    assert synced == [(3, 14, "dota2")]
+
+
 def test_steam_link_route_keeps_guest_bound_state(monkeypatch):
     flask_app = Flask(__name__)
     flask_app.secret_key = "test-secret"

@@ -1,6 +1,6 @@
 import secrets
 import time
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote, quote_plus
 
 from flask import after_this_request, current_app, flash, jsonify, redirect, render_template, request, session, url_for
@@ -28,6 +28,7 @@ from app.services.game_contracts import (
     get_guest_contract_pool,
     get_guest_contracts_state,
     reroll_guest_contracts,
+    sync_contracts_for_guest,
 )
 from app.services.guest_auth import (
     create_guest_login_token,
@@ -240,6 +241,67 @@ def refresh_game_contracts(game: str):
     except Exception:
         current_app.logger.exception("Failed to refresh game contracts")
         return jsonify({"ok": False, "message": "Не удалось обновить контракты. Попробуйте позже."}), 500
+
+
+@guest_bp.route("/api/game-contracts/sync", methods=["POST"])
+@guest_required
+def api_game_contracts_sync():
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    if is_rate_limited(f"guest.game_contracts.sync:{club_id}:{guest_id}", limit=4, window_seconds=60):
+        return jsonify({"ok": False, "message": "Слишком много попыток обновления."}), 429
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    cooldown = timedelta(minutes=15)
+    synced_games = []
+    errors = {}
+    state = get_guest_contracts_state(club_id, guest_id)
+    for game, game_state in state.get("games", {}).items():
+        active_contracts = [
+            contract for contract in game_state.get("contracts", [])
+            if contract.get("status") == "active"
+        ]
+        if not active_contracts or not game_state.get("available"):
+            continue
+        last_attempt = (game_state.get("sync") or {}).get("last_attempt_at")
+        if last_attempt and now - last_attempt < cooldown:
+            continue
+        try:
+            sync_contracts_for_guest(club_id, guest_id, game)
+            synced_games.append(game)
+        except Exception as exc:
+            current_app.logger.warning(
+                "Dashboard contract sync failed for club=%s guest=%s game=%s: %s",
+                club_id,
+                guest_id,
+                game,
+                exc,
+            )
+            errors[game] = str(exc)
+
+    state = get_guest_contracts_state(club_id, guest_id)
+    contracts = []
+    for game_state in state.get("games", {}).values():
+        for contract in game_state.get("contracts", []):
+            contracts.append(
+                {
+                    "id": int(contract["id"]),
+                    "status": contract["status"],
+                    "current_display": contract["current_display"],
+                    "target_display": contract["target_display"],
+                    "progress_percent": int(contract["progress_percent"]),
+                    "remaining_label": contract["remaining_label"],
+                    "is_waiting_for_sync": bool(contract["is_waiting_for_sync"]),
+                }
+            )
+    return jsonify(
+        {
+            "ok": True,
+            "contracts": contracts,
+            "synced_games": synced_games,
+            "errors": errors,
+        }
+    )
 
 
 @guest_bp.route("/steam/link")
