@@ -3815,9 +3815,15 @@
             return `${minutes}:${String(rest).padStart(2, '0')}`;
         }
 
-        function renderDotaMatches(matches) {
+        function renderDotaMatches(matches, warning = '') {
             if (!steamDotaMatchesContent) return;
             steamDotaMatchesContent.innerHTML = '';
+            if (warning) {
+                const warningNotice = document.createElement('div');
+                warningNotice.className = 'steam-profile-status';
+                warningNotice.textContent = warning;
+                steamDotaMatchesContent.appendChild(warningNotice);
+            }
             if (!matches.length) {
                 const notice = document.createElement('div');
                 notice.className = 'steam-profile-status';
@@ -3913,7 +3919,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось загрузить матчи Dota 2');
-                renderDotaMatches(data.matches || []);
+                renderDotaMatches(data.matches || [], data.warning || '');
                 steamDotaMatchesLoaded = true;
             } catch (error) {
                 steamDotaMatchesContent.innerHTML = '';
@@ -3984,8 +3990,8 @@
                     image.alt = '';
                     image.loading = 'lazy';
                     image.addEventListener('error', () => {
-                        image.src = 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg';
-                        image.addEventListener('error', () => image.remove(), {once: true});
+                        image.remove();
+                        picture.textContent = 'CS2';
                     }, {once: true});
                     picture.appendChild(image);
                 } else {

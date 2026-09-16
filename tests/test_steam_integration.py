@@ -194,6 +194,12 @@ def test_dota_recent_matches_route_uses_linked_account(monkeypatch):
         "fetch_dota_recent_matches",
         lambda steam_id: {"matches": [{"match_id": "123"}], "is_private": False},
     )
+    cached = []
+    monkeypatch.setattr(
+        guest_routes,
+        "cache_dota_recent_matches",
+        lambda **kwargs: cached.append(kwargs),
+    )
 
     with flask_app.test_client() as client:
         with client.session_transaction() as sess:
@@ -205,6 +211,50 @@ def test_dota_recent_matches_route_uses_linked_account(monkeypatch):
         "ok": True,
         "matches": [{"match_id": "123"}],
         "is_private": False,
+    }
+    assert cached == [
+        {
+            "club_id": 3,
+            "guest_id": 14,
+            "steam_id": "76561198000000000",
+            "matches": [{"match_id": "123"}],
+        }
+    ]
+
+
+def test_dota_recent_matches_route_uses_cache_when_opendota_is_unavailable(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        guest_routes,
+        "get_linked_steam_account",
+        lambda **kwargs: {"steam_id": "76561198000000000"},
+    )
+    monkeypatch.setattr(
+        guest_routes,
+        "fetch_dota_recent_matches",
+        lambda _steam_id: (_ for _ in ()).throw(steam.OpenDotaError("лимит")),
+    )
+    monkeypatch.setattr(
+        guest_routes,
+        "get_cached_dota_recent_matches",
+        lambda **kwargs: [{"match_id": "saved"}],
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.get("/guest/api/steam-dota-matches")
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "ok": True,
+        "matches": [{"match_id": "saved"}],
+        "is_private": False,
+        "warning": "OpenDota сейчас не отвечает. Показаны последние сохранённые матчи.",
     }
 
 

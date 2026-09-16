@@ -21,13 +21,6 @@ from app.services.cm_bonuses import (
     get_cm_bonus_redeem_history,
     redeem_cm_bonuses,
 )
-from app.services.guest_auth import (
-    create_guest_login_token,
-    get_guest_by_id,
-    get_guest_login_club,
-    get_guest_login_token,
-)
-from app.services.guest_rewards import get_guest_reward_history
 from app.services.game_contracts import (
     GameContractError,
     accept_weekly_contracts,
@@ -36,6 +29,13 @@ from app.services.game_contracts import (
     get_guest_contracts_state,
     reroll_guest_contracts,
 )
+from app.services.guest_auth import (
+    create_guest_login_token,
+    get_guest_by_id,
+    get_guest_login_club,
+    get_guest_login_token,
+)
+from app.services.guest_rewards import get_guest_reward_history
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.rate_limit import client_ip, is_rate_limited
@@ -46,10 +46,12 @@ from app.services.steam import (
     SteamError,
     SteamNotConfiguredError,
     build_openid_redirect_url,
+    cache_dota_recent_matches,
     configure_cs2_match_history,
     fetch_dota_recent_matches,
     fetch_game_profile,
     fetch_player_summary,
+    get_cached_dota_recent_matches,
     get_cs2_match_access,
     get_cs2_recent_matches,
     get_linked_steam_account,
@@ -368,12 +370,43 @@ def api_steam_dota_matches():
             "error": "steam_not_configured",
             "message": "Статистика Steam пока не настроена на сервере",
         }, 503
-    except SteamError:
+    except SteamError as exc:
+        current_app.logger.warning(
+            "Dota match history unavailable for club=%s guest=%s: %s",
+            club_id,
+            guest_id,
+            exc,
+        )
+        try:
+            cached_matches = get_cached_dota_recent_matches(club_id=club_id, guest_id=guest_id)
+        except Exception:
+            current_app.logger.exception(
+                "Failed to read cached Dota matches for club=%s guest=%s", club_id, guest_id
+            )
+            cached_matches = []
+        if cached_matches:
+            return {
+                "ok": True,
+                "matches": cached_matches,
+                "is_private": False,
+                "warning": "OpenDota сейчас не отвечает. Показаны последние сохранённые матчи.",
+            }
         return {
             "ok": False,
             "error": "steam_unavailable",
-            "message": "Не удалось получить матчи Dota 2. Попробуйте позже.",
+            "message": str(exc) or "Не удалось получить матчи Dota 2. Попробуйте позже.",
         }, 502
+    try:
+        cache_dota_recent_matches(
+            club_id=club_id,
+            guest_id=guest_id,
+            steam_id=account["steam_id"],
+            matches=result.get("matches", []),
+        )
+    except Exception:
+        current_app.logger.exception(
+            "Failed to cache Dota matches for club=%s guest=%s", club_id, guest_id
+        )
     return {"ok": True, **result}
 
 
