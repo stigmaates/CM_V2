@@ -118,6 +118,68 @@ function parseDemoMetadata(filePath, parser = demoParser) {
   };
 }
 
+function sameSteamId(value, steamId) {
+  return String(value ?? '').replace(/\.0$/, '') === String(steamId || '');
+}
+
+function normalizeWeapon(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^weapon_/, '')
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+function parseDemoPlayerStats(filePath, steamId, parser = demoParser) {
+  if (!steamId) return {};
+  const result = {};
+  try {
+    const deaths = rows(parser.parseEvent(filePath, 'player_death', [], []));
+    let kills = 0;
+    let assists = 0;
+    let headshots = 0;
+    const weaponKills = {};
+    let foundPlayer = false;
+    for (const event of deaths) {
+      const attacker = event.attacker_steamid ?? event.attackerSteamid;
+      const victim = event.userid_steamid ?? event.user_steamid ?? event.useridSteamid;
+      const assister = event.assister_steamid ?? event.assisterSteamid;
+      if (sameSteamId(attacker, steamId) || sameSteamId(victim, steamId) || sameSteamId(assister, steamId)) {
+        foundPlayer = true;
+      }
+      if (sameSteamId(attacker, steamId) && !sameSteamId(victim, steamId)) {
+        kills += 1;
+        if (Boolean(event.headshot)) headshots += 1;
+        const weapon = normalizeWeapon(event.weapon);
+        if (weapon) weaponKills[weapon] = (weaponKills[weapon] || 0) + 1;
+      }
+      if (sameSteamId(assister, steamId)) assists += 1;
+    }
+    if (foundPlayer) {
+      result.kills = kills;
+      result.assists = assists;
+      result.headshots = headshots;
+      result.weapon_kills = weaponKills;
+    }
+  } catch (error) {
+    // GC totals remain available when a new demo patch changes event fields.
+  }
+  try {
+    const mvps = rows(parser.parseEvent(filePath, 'round_mvp', [], []));
+    const hasSteamIds = mvps.some((event) => (
+      event.userid_steamid ?? event.user_steamid ?? event.useridSteamid
+    ) !== undefined);
+    const mvp = mvps.filter((event) => sameSteamId(
+      event.userid_steamid ?? event.user_steamid ?? event.useridSteamid,
+      steamId,
+    )).length;
+    if (hasSteamIds) result.mvp = mvp;
+  } catch (error) {
+    // MVP is optional; other parsed metrics should still be returned.
+  }
+  return result;
+}
+
 async function loadDemoMetadata(rawUrl, dependencies = {}) {
   const download = dependencies.downloadAndDecompressDemo || downloadAndDecompressDemo;
   const parse = dependencies.parseDemoMetadata || parseDemoMetadata;
@@ -125,7 +187,7 @@ async function loadDemoMetadata(rawUrl, dependencies = {}) {
   const demoPath = path.join(tempDirectory, 'match.dem');
   try {
     await download(rawUrl, demoPath);
-    return parse(demoPath);
+    return parse(demoPath, dependencies.parser || demoParser, dependencies.steamId);
   } finally {
     await rm(tempDirectory, {recursive: true, force: true});
   }
@@ -134,8 +196,15 @@ async function loadDemoMetadata(rawUrl, dependencies = {}) {
 function enrichMatchWithDemo(match, normalized, dependencies = {}) {
   const rawUrl = extractDemoUrl(match);
   if (!rawUrl) return Promise.resolve(normalized);
-  return loadDemoMetadata(rawUrl, dependencies).then((metadata) => ({
+  return loadDemoMetadata(rawUrl, {
+    ...dependencies,
+    parseDemoMetadata: dependencies.parseDemoMetadata || ((filePath, parser, steamId) => ({
+      ...parseDemoMetadata(filePath, parser),
+      ...parseDemoPlayerStats(filePath, steamId, parser),
+    })),
+  }).then((metadata) => ({
     ...normalized,
+    ...metadata,
     map_name: metadata.map_name || normalized.map_name,
     mode_label: metadata.mode_label || normalized.mode_label,
   }));
@@ -147,5 +216,6 @@ module.exports = {
   loadDemoMetadata,
   modeFromDemo,
   parseDemoMetadata,
+  parseDemoPlayerStats,
   validateDemoUrl,
 };

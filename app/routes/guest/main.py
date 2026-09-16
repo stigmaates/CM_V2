@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from urllib.parse import quote, quote_plus
 
-from flask import after_this_request, flash, redirect, render_template, request, session, url_for
+from flask import after_this_request, current_app, flash, redirect, render_template, request, session, url_for
 
 from app.config import BOT_USERNAME, STEAM_PUBLIC_BASE_URL
 from app.core import guest_required
@@ -28,6 +28,7 @@ from app.services.guest_auth import (
     get_guest_login_token,
 )
 from app.services.guest_rewards import get_guest_reward_history
+from app.services.game_contracts import GameContractError, generate_weekly_contracts, get_guest_contracts_state
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.rate_limit import client_ip, is_rate_limited
@@ -123,6 +124,17 @@ def dashboard():
         guest_id=guest["guest_id"], club_id=guest["club_id"], limit=30
     )
     steam_account = get_linked_steam_account(club_id=guest["club_id"], guest_id=guest["guest_id"])
+    try:
+        game_contracts_state = get_guest_contracts_state(guest["club_id"], guest["guest_id"])
+    except Exception:
+        current_app.logger.exception("Failed to load game contracts for guest %s", guest["guest_id"])
+        game_contracts_state = {
+            "steam_linked": bool(steam_account),
+            "games": {
+                "cs2": {"key": "cs2", "label": "CS2", "available": False, "contracts": [], "can_generate": False},
+                "dota2": {"key": "dota2", "label": "Dota 2", "available": bool(steam_account), "contracts": [], "can_generate": False},
+            },
+        }
 
     return render_template(
         "guest/guest_dashboard.html",
@@ -143,7 +155,34 @@ def dashboard():
         cm_bonus_history=cm_bonus_history,
         cm_bonus_redeem_history=cm_bonus_redeem_history,
         steam_account=steam_account,
+        game_contracts_state=game_contracts_state,
     )
+
+
+@guest_bp.route("/contracts/<game>/generate", methods=["POST"])
+@guest_required
+def generate_game_contracts(game: str):
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    if is_rate_limited(f"guest.game_contracts:{club_id}:{guest_id}:{game}", limit=4, window_seconds=60):
+        flash("Слишком много попыток. Подождите минуту.", "error")
+        return redirect(url_for("guest.dashboard") + "#game-contracts")
+    try:
+        contracts = generate_weekly_contracts(club_id, guest_id, game)
+        record_audit_event(
+            action="guest.game_contracts.generate",
+            club_id=club_id,
+            entity_type="guest",
+            entity_id=guest_id,
+            details={"game": game, "contracts_count": len(contracts)},
+        )
+        flash("Недельные игровые контракты получены", "success")
+    except GameContractError as exc:
+        flash(str(exc), "error")
+    except Exception:
+        current_app.logger.exception("Failed to generate game contracts")
+        flash("Не удалось получить контракты. Попробуйте позже.", "error")
+    return redirect(url_for("guest.dashboard") + "#game-contracts")
 
 
 @guest_bp.route("/steam/link")

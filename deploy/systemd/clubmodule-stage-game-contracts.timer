@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh stage game contracts every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Unit=clubmodule-stage-game-contracts.service
+
+[Install]
+WantedBy=timers.target

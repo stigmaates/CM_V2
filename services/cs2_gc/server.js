@@ -35,10 +35,10 @@ function withTimeout(promise, timeoutMs) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-function cachedDemoEnrichment(match, normalized) {
-  const cacheKey = normalized.match_id || normalized.share_code;
+function cachedDemoEnrichment(match, normalized, steamId) {
+  const cacheKey = `${normalized.match_id || normalized.share_code}:${steamId}`;
   if (!demoMetadataCache.has(cacheKey)) {
-    const task = enrichMatchWithDemo(match, normalized)
+    const task = enrichMatchWithDemo(match, normalized, {steamId})
       .then((result) => {
         console.log(
           `CS2 demo parsed for match ${cacheKey}: map=${result.map_name}, mode=${result.mode_label}`,
@@ -96,13 +96,11 @@ function requestMatch(shareCode, steamId) {
         const sourceMatch = matches[0];
         const normalized = normalizeMatch(sourceMatch, steamId, shareCode);
         let enriched = normalized;
-        if (normalized.map_name === 'unknown' || normalized.mode_label === 'Официальный матч') {
-          const task = cachedDemoEnrichment(sourceMatch, normalized);
-          task.catch((error) => console.warn(`CS2 demo parse failed: ${error.message}`));
-          enriched = await withTimeout(task.catch(() => null), DEMO_WAIT_TIMEOUT_MS) || normalized;
-          if (enriched === normalized) {
-            console.warn(`CS2 demo parsing continues in background for match ${normalized.match_id}`);
-          }
+        const task = cachedDemoEnrichment(sourceMatch, normalized, steamId);
+        task.catch((error) => console.warn(`CS2 demo parse failed: ${error.message}`));
+        enriched = await withTimeout(task.catch(() => null), DEMO_WAIT_TIMEOUT_MS) || normalized;
+        if (enriched === normalized) {
+          console.warn(`CS2 demo parsing continues in background for match ${normalized.match_id}`);
         }
         if (enriched.map_name === 'unknown' || enriched.mode_label === 'Официальный матч') {
           console.warn(`CS2 unresolved match metadata: ${JSON.stringify(matchMetadataDiagnostic(sourceMatch))}`);

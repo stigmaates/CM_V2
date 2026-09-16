@@ -11,6 +11,7 @@ from app.routes.guest import (
 from app.routes.owner import (  # noqa: F401
     cases,
     club,
+    contracts,
     crm,
     dashboard,
     guest_pulse,

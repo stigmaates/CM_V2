@@ -11,6 +11,7 @@ const {
   loadDemoMetadata,
   modeFromDemo,
   parseDemoMetadata,
+  parseDemoPlayerStats,
   validateDemoUrl,
 } = require('./demo_parser');
 
@@ -34,6 +35,29 @@ test('downloads and decompresses a Valve demo response', async () => {
   } finally {
     fs.rmSync(directory, {recursive: true, force: true});
   }
+});
+
+test('counts CS2 contract facts for the linked Steam player', () => {
+  const steamId = '76561198000000001';
+  const parser = {
+    parseEvent: (filePath, eventName) => eventName === 'player_death' ? [
+      {attacker_steamid: steamId, userid_steamid: '76561198000000002', weapon: 'weapon_ak47', headshot: true},
+      {attacker_steamid: steamId, userid_steamid: '76561198000000003', weapon: 'awp', headshot: false},
+      {attacker_steamid: '76561198000000004', userid_steamid: steamId, assister_steamid: '76561198000000005'},
+      {attacker_steamid: '76561198000000004', userid_steamid: '76561198000000005', assister_steamid: steamId},
+    ] : [
+      {userid_steamid: steamId},
+      {userid_steamid: '76561198000000002'},
+    ],
+  };
+
+  assert.deepEqual(parseDemoPlayerStats('/tmp/match.dem', steamId, parser), {
+    kills: 2,
+    assists: 1,
+    headshots: 1,
+    weapon_kills: {ak47: 1, awp: 1},
+    mvp: 1,
+  });
 });
 
 test('accepts only Valve and Steam content demo URLs', () => {

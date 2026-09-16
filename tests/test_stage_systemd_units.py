@@ -63,3 +63,13 @@ def test_guest_and_admin_bot_units_are_environment_scoped():
     assert "ExecStart=/root/cm_stage/CM_V2/venv/bin/python -m bot.admin_main" in stage_admin
     assert "Environment=ALLOW_STAGE_ADMIN_BOT=1" in stage_admin
     assert "/root/cm_v2/CM_V2" not in stage_admin
+
+
+def test_stage_game_contracts_run_every_fifteen_minutes():
+    service = (ROOT / "deploy/systemd/clubmodule-stage-game-contracts.service").read_text(encoding="utf-8")
+    timer = (ROOT / "deploy/systemd/clubmodule-stage-game-contracts.timer").read_text(encoding="utf-8")
+
+    assert "WorkingDirectory=/root/cm_stage/CM_V2" in service
+    assert "scripts/process_game_contracts.py" in service
+    assert "OnUnitActiveSec=15min" in timer
+    assert "Unit=clubmodule-stage-game-contracts.service" in timer
