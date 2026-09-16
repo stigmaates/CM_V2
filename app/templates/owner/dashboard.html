@@ -1,6 +1,6 @@
 {% extends "owner/base.html" %}
 
-{% block title %}Cyber Bonus — Дашборд{% endblock %}
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — Дашборд{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260913-utilization-1') }}">

@@ -1,4 +1,4 @@
-from flask import render_template
+from flask import render_template, session
 
 from app.main import app
 
@@ -29,6 +29,7 @@ def _base_template_context():
 
 def test_crm_analytics_renders_cohort_analysis_block():
     with app.test_request_context("/owner/crm-analytics"):
+        session["club_name"] = "Тестовый клуб"
         html = render_template(
             "owner/crm_analytics.html",
             **_base_template_context(),
@@ -79,6 +80,8 @@ def test_crm_analytics_renders_cohort_analysis_block():
         )
 
     assert "Анализ" in html
+    assert "<title>Тестовый клуб — CRM-Аналитика</title>" in html
+    assert "WALLZ" not in html
     assert "Период воронки" in html
     assert 'data-period="all"' in html
     assert "Сохранить когорту" in html

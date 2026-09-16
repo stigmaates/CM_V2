@@ -31,8 +31,10 @@ from app.routes.reception import reception_bp
 @app.context_processor
 def inject_header_context():
     """Global context for the owner/admin header."""
-    club_name = session.get("club_name")
-    club_id = session.get("club_id")
+    is_guest_session = bool(session.get("guest_logged_in"))
+    club_id = session.get("guest_club_id") if is_guest_session else session.get("club_id")
+    club_name_session_key = "guest_club_name" if is_guest_session else "club_name"
+    club_name = session.get(club_name_session_key)
 
     if club_id and not club_name:
         conn = None
@@ -51,7 +53,7 @@ def inject_header_context():
                 row = cursor.fetchone()
             if row and row.get("name"):
                 club_name = row["name"]
-                session["club_name"] = club_name
+                session[club_name_session_key] = club_name
         except Exception:
             club_name = None
         finally:

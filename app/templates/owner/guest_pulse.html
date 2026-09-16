@@ -1,5 +1,5 @@
 {% extends 'owner/base.html' %}
-{% block title %}Пульс гостя — Кибер Бонус{% endblock %}
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — Пульс гостя{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260911-pulse-inline-1') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
