@@ -1111,6 +1111,50 @@
             cursor: pointer;
         }
         .game-contract-generate:hover { filter: brightness(1.1); }
+        .game-contract-action-message { min-height: 17px; margin-top: 7px; color: #ff8f9b; font-size: 11px; }
+        .app-modal--contracts {
+            width: min(980px, 96%);
+            max-height: min(860px, calc(100vh - 36px));
+            overflow-y: auto;
+        }
+        .game-contract-pool-caption { margin: -8px 0 18px; color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+        .game-contract-pool-groups { display: grid; gap: 18px; }
+        .game-contract-pool-group-title { margin-bottom: 9px; color: #fff; font-size: 14px; font-weight: 900; }
+        .game-contract-pool-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .game-contract-choice { display: block; cursor: pointer; }
+        .game-contract-choice input { position: absolute; opacity: 0; pointer-events: none; }
+        .game-contract-choice-body {
+            display: flex;
+            flex-direction: column;
+            min-height: 132px;
+            padding: 14px;
+            border: 1px solid rgba(165,114,255,.24);
+            border-radius: 14px;
+            background: rgba(255,255,255,.035);
+            transition: border-color .16s ease, background .16s ease, transform .16s ease;
+        }
+        .game-contract-choice:hover .game-contract-choice-body { transform: translateY(-1px); border-color: rgba(165,114,255,.5); }
+        .game-contract-choice input:checked + .game-contract-choice-body {
+            border-color: #a572ff;
+            background: rgba(143,91,255,.17);
+            box-shadow: 0 0 0 2px rgba(143,91,255,.12);
+        }
+        .game-contract-choice-title { color: #fff; font-size: 14px; font-weight: 900; line-height: 1.3; }
+        .game-contract-choice-description { margin-top: 5px; color: var(--text-muted); font-size: 12px; line-height: 1.4; }
+        .game-contract-choice-reward { margin-top: auto; padding-top: 12px; color: #ffd469; font-size: 12px; font-weight: 900; }
+        .game-contract-pool-footer { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 20px; }
+        .game-contract-pool-error { flex: 1; color: #ff8f9b; font-size: 12px; }
+        .game-contract-accept {
+            border: 0; border-radius: 12px; padding: 12px 18px;
+            background: linear-gradient(135deg, #8f5bff, #6934cc); color: #fff;
+            font: inherit; font-size: 13px; font-weight: 900; cursor: pointer;
+        }
+        .game-contract-accept:disabled { opacity: .45; cursor: default; }
+        @media (max-width: 680px) {
+            .game-contract-pool-options { grid-template-columns: 1fr; }
+            .game-contract-choice-body { min-height: 112px; }
+            .game-contract-pool-footer { align-items: stretch; flex-direction: column; }
+        }
 
         .wheel-panel {
             grid-area: wheel;
@@ -3048,21 +3092,29 @@
                                             {% endfor %}
                                         </div>
                                         {% if contract_game.can_generate %}
-                                            <form method="POST" action="{{ url_for('guest.generate_game_contracts', game=game_key) }}">
-                                                <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
-                                                <button class="game-contract-generate" type="submit">Получить новые контракты</button>
-                                            </form>
+                                            <button class="game-contract-generate" type="button"
+                                                    data-contract-pool-trigger
+                                                    data-generate-url="{{ url_for('guest.generate_game_contracts', game=game_key) }}"
+                                                    data-accept-url="{{ url_for('guest.accept_game_contracts', game=game_key) }}"
+                                                    data-existing-pool="{{ (contract_game.offer or {})|tojson|forceescape }}">
+                                                {% if contract_game.offer %}Продолжить выбор контрактов{% else %}Получить новые контракты{% endif %}
+                                            </button>
+                                            <div class="game-contract-action-message" aria-live="polite"></div>
                                         {% endif %}
                                     {% elif not contract_game.available %}
                                         <div class="game-contract-empty">{% if game_key == 'cs2' %}Подключи историю матчей CS2 в игровом профиле, чтобы получать контракты.{% else %}История матчей этой игры пока недоступна.{% endif %}</div>
                                     {% elif not contract_game.templates_count %}
                                         <div class="game-contract-empty">Владелец клуба ещё не настроил контракты для этой игры.</div>
                                     {% elif contract_game.can_generate %}
-                                        <div class="game-contract-empty">Получи готовый недельный набор из трёх контрактов.</div>
-                                        <form method="POST" action="{{ url_for('guest.generate_game_contracts', game=game_key) }}">
-                                            <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
-                                            <button class="game-contract-generate" type="submit">Получить контракты</button>
-                                        </form>
+                                        <div class="game-contract-empty">Выбери по одному контракту каждой сложности из шести предложенных вариантов.</div>
+                                        <button class="game-contract-generate" type="button"
+                                                data-contract-pool-trigger
+                                                data-generate-url="{{ url_for('guest.generate_game_contracts', game=game_key) }}"
+                                                data-accept-url="{{ url_for('guest.accept_game_contracts', game=game_key) }}"
+                                                data-existing-pool="{{ (contract_game.offer or {})|tojson|forceescape }}">
+                                            {% if contract_game.offer %}Продолжить выбор контрактов{% else %}Получить контракты{% endif %}
+                                        </button>
+                                        <div class="game-contract-action-message" aria-live="polite"></div>
                                     {% else %}
                                         <div class="game-contract-empty">Новый недельный набор пока недоступен.</div>
                                     {% endif %}
@@ -3204,6 +3256,20 @@
                 </section>
             </div>
         </main>
+    </div>
+
+
+    <div class="modal-backdrop" id="gameContractPoolModal">
+        <div class="app-modal app-modal--contracts">
+            <button class="modal-close" onclick="closeModal('gameContractPoolModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title" id="gameContractPoolTitle">Выберите контракты</h2>
+            <div class="game-contract-pool-caption">Выберите по одному лёгкому, среднему и сложному контракту. После подтверждения начнётся отсчёт семи дней.</div>
+            <div class="game-contract-pool-groups" id="gameContractPoolGroups"></div>
+            <div class="game-contract-pool-footer">
+                <div class="game-contract-pool-error" id="gameContractPoolError" aria-live="polite"></div>
+                <button class="game-contract-accept" id="gameContractPoolAccept" type="button" disabled>Подтвердить 3 контракта</button>
+            </div>
+        </div>
     </div>
 
 
@@ -3508,6 +3574,145 @@
                 stopIdleCaseReel();
                 selectedCaseId = null;
             }
+        }
+
+        const gameContractPoolTitle = document.getElementById('gameContractPoolTitle');
+        const gameContractPoolGroups = document.getElementById('gameContractPoolGroups');
+        const gameContractPoolError = document.getElementById('gameContractPoolError');
+        const gameContractPoolAccept = document.getElementById('gameContractPoolAccept');
+        let gameContractAcceptUrl = '';
+
+        function contractRewardLabel(contract) {
+            const rewards = [];
+            if (Number(contract.reward_tokens || 0) > 0) rewards.push(`+${contract.reward_tokens} жет.`);
+            if (Number(contract.reward_bonus || 0) > 0) rewards.push(`+${contract.reward_bonus} КБ`);
+            return rewards.length ? rewards.join(' · ') : 'Без награды';
+        }
+
+        function updateContractPoolSelection() {
+            if (!gameContractPoolGroups || !gameContractPoolAccept) return;
+            const selected = gameContractPoolGroups.querySelectorAll('input[type="radio"]:checked');
+            gameContractPoolAccept.disabled = selected.length !== 3;
+            if (gameContractPoolError) gameContractPoolError.textContent = '';
+        }
+
+        function renderContractPool(pool, acceptUrl) {
+            if (!pool || !Array.isArray(pool.contracts) || !gameContractPoolGroups) return;
+            gameContractAcceptUrl = acceptUrl;
+            gameContractPoolGroups.innerHTML = '';
+            if (gameContractPoolError) gameContractPoolError.textContent = '';
+            if (gameContractPoolAccept) {
+                gameContractPoolAccept.disabled = true;
+                gameContractPoolAccept.textContent = 'Подтвердить 3 контракта';
+            }
+            if (gameContractPoolTitle) gameContractPoolTitle.textContent = `Контракты ${pool.game_label || ''}`.trim();
+
+            const levels = [
+                ['easy', 'Лёгкие'],
+                ['medium', 'Средние'],
+                ['hard', 'Сложные'],
+            ];
+            levels.forEach(([difficulty, labelText]) => {
+                const group = document.createElement('section');
+                group.className = 'game-contract-pool-group';
+                const title = document.createElement('div');
+                title.className = 'game-contract-pool-group-title';
+                title.textContent = `${labelText} — выберите один`;
+                const options = document.createElement('div');
+                options.className = 'game-contract-pool-options';
+
+                pool.contracts.filter((item) => item.difficulty === difficulty).forEach((contract) => {
+                    const choice = document.createElement('label');
+                    choice.className = 'game-contract-choice';
+                    const input = document.createElement('input');
+                    input.type = 'radio';
+                    input.name = `game-contract-${difficulty}`;
+                    input.value = String(contract.id);
+                    input.addEventListener('change', updateContractPoolSelection);
+                    const body = document.createElement('span');
+                    body.className = 'game-contract-choice-body';
+                    const contractTitle = document.createElement('span');
+                    contractTitle.className = 'game-contract-choice-title';
+                    contractTitle.textContent = contract.title;
+                    const description = document.createElement('span');
+                    description.className = 'game-contract-choice-description';
+                    description.textContent = contract.description;
+                    const reward = document.createElement('span');
+                    reward.className = 'game-contract-choice-reward';
+                    reward.textContent = contractRewardLabel(contract);
+                    body.append(contractTitle, description, reward);
+                    choice.append(input, body);
+                    options.appendChild(choice);
+                });
+                group.append(title, options);
+                gameContractPoolGroups.appendChild(group);
+            });
+            openModal('gameContractPoolModal');
+        }
+
+        document.querySelectorAll('[data-contract-pool-trigger]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const message = button.parentElement?.querySelector('.game-contract-action-message');
+                if (message) message.textContent = '';
+                try {
+                    const existingPool = JSON.parse(button.dataset.existingPool || '{}');
+                    if (Array.isArray(existingPool.contracts) && existingPool.contracts.length === 6) {
+                        renderContractPool(existingPool, button.dataset.acceptUrl || '');
+                        return;
+                    }
+                } catch (error) {
+                    // A malformed cached value should simply be requested again from the server.
+                }
+
+                button.disabled = true;
+                const originalText = button.textContent;
+                button.textContent = 'Формируем…';
+                try {
+                    const response = await fetch(button.dataset.generateUrl || '', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok || !data.pool) {
+                        throw new Error(data.message || 'Не удалось сформировать контракты');
+                    }
+                    button.dataset.existingPool = JSON.stringify(data.pool);
+                    button.textContent = 'Продолжить выбор контрактов';
+                    renderContractPool(data.pool, button.dataset.acceptUrl || '');
+                } catch (error) {
+                    button.textContent = originalText;
+                    if (message) message.textContent = error.message || 'Не удалось сформировать контракты';
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        });
+
+        if (gameContractPoolAccept) {
+            gameContractPoolAccept.addEventListener('click', async () => {
+                const selectedIds = Array.from(
+                    gameContractPoolGroups.querySelectorAll('input[type="radio"]:checked')
+                ).map((input) => Number(input.value));
+                if (selectedIds.length !== 3) return;
+                gameContractPoolAccept.disabled = true;
+                gameContractPoolAccept.textContent = 'Сохраняем…';
+                if (gameContractPoolError) gameContractPoolError.textContent = '';
+                try {
+                    const response = await fetch(gameContractAcceptUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ contract_ids: selectedIds }),
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось сохранить выбор');
+                    window.location.hash = 'game-contracts';
+                    window.location.reload();
+                } catch (error) {
+                    if (gameContractPoolError) gameContractPoolError.textContent = error.message || 'Не удалось сохранить выбор';
+                    gameContractPoolAccept.disabled = false;
+                    gameContractPoolAccept.textContent = 'Подтвердить 3 контракта';
+                }
+            });
         }
 
         function formatSteamHours(value) {
