@@ -19,7 +19,6 @@ def test_sessions_initial_reports_page_progress(monkeypatch):
         "get_club_data",
         lambda club_id: {"club_id": club_id, "lg_api_key": "api", "secret": "secret", "service_enabled": 1},
     )
-    monkeypatch.setattr(sync_sessions_initial, "get_existing_guest_ids", lambda club_id: {1, 2})
     monkeypatch.setattr(
         sync_sessions_initial,
         "fetch_sessions_page",
@@ -47,14 +46,14 @@ def test_sessions_initial_matches_string_api_guest_ids_to_integer_database_ids()
         {"id": 13, "guest_id": None},
     ]
 
-    filtered, skipped = sync_sessions_initial.filter_sessions(sessions, {1, 2})
+    filtered, skipped = sync_sessions_initial.filter_sessions(sessions)
 
-    assert [row["id"] for row in filtered] == [10, 11]
-    assert [row["guest_id"] for row in filtered] == [1, 2]
-    assert skipped == 2
+    assert [row["id"] for row in filtered] == [10, 11, 12]
+    assert [row["guest_id"] for row in filtered] == [1, 2, 999]
+    assert skipped == 1
 
 
-def test_sessions_incremental_filters_orphans_after_normalizing_guest_ids(monkeypatch):
+def test_sessions_incremental_keeps_orphans_for_utilization_after_normalizing_guest_ids(monkeypatch):
     saved_rows = []
     finished = []
     monkeypatch.setattr(
@@ -69,7 +68,6 @@ def test_sessions_incremental_filters_orphans_after_normalizing_guest_ids(monkey
         "finish_job_run",
         lambda job_id, status, **kwargs: finished.append((status, kwargs)),
     )
-    monkeypatch.setattr(sync_sessions_incremental, "get_existing_guest_ids", lambda club_id: {100})
     monkeypatch.setattr(
         sync_sessions_incremental,
         "fetch_sessions",
@@ -87,12 +85,12 @@ def test_sessions_incremental_filters_orphans_after_normalizing_guest_ids(monkey
 
     result = sync_sessions_incremental.sync_sessions_incremental(4)
 
-    assert [row["guest_id"] for row in saved_rows] == [100]
+    assert [row["guest_id"] for row in saved_rows] == [100, 999]
     assert result[0]["received"] == 2
-    assert result[0]["saved"] == 1
-    assert result[0]["skipped"] == 1
+    assert result[0]["saved"] == 2
+    assert result[0]["skipped"] == 0
     assert finished[-1][0] == "success"
-    assert finished[-1][1]["metadata"]["rows_skipped"] == 1
+    assert finished[-1][1]["metadata"]["rows_skipped"] == 0
 
 
 def test_guests_initial_reports_page_progress(monkeypatch):

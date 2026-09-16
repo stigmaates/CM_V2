@@ -81,27 +81,6 @@ def get_clubs():
         conn.close()
 
 
-def get_existing_guest_ids(club_id: int):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT guest_id
-                FROM guests
-                WHERE club_id = %s
-            """,
-                (club_id,),
-            )
-            return {
-                int(row["guest_id"])
-                for row in cursor.fetchall()
-                if row.get("guest_id") is not None
-            }
-    finally:
-        conn.close()
-
-
 def fetch_sessions_page(secret: str, api_key: str, page: int):
     url = f"https://{secret}.langame.ru/public_api/guests/sessions"
 
@@ -131,18 +110,21 @@ def parse_datetime(value):
         return None
 
 
-def filter_sessions(sessions: list, existing_guest_ids: set):
+def filter_sessions(sessions: list):
+    """Normalize Langame guest IDs and reject only malformed session rows.
+
+    A session may legitimately reference a deleted or service guest that is no
+    longer present in ``guests``. It still represents real PC occupancy and
+    must remain available to utilization analytics. Guest-level reports join
+    by ``(club_id, guest_id)`` and therefore ignore such rows naturally.
+    """
     filtered = []
     skipped = 0
-    normalized_guest_ids = {int(value) for value in existing_guest_ids if value is not None}
 
     for s in sessions:
         try:
             guest_id = int(s.get("guest_id"))
         except (TypeError, ValueError):
-            skipped += 1
-            continue
-        if guest_id not in normalized_guest_ids:
             skipped += 1
             continue
         normalized = dict(s)
@@ -220,12 +202,7 @@ def sync_sessions_initial(club_id: int, progress: Callable[[str], None] | None =
 
     logging.info("Клуб %s | Langame sessions initial sync", club_id)
     if progress:
-        progress("Сессии: загружаем список гостей для фильтрации")
-
-    existing_guest_ids = get_existing_guest_ids(club_id)
-    logging.info(f"Загружено гостей: {len(existing_guest_ids)}")
-    if progress:
-        progress(f"Сессии: найдено гостей в базе: {len(existing_guest_ids)}. Запрашиваем первую страницу")
+        progress("Сессии: запрашиваем первую страницу Langame")
 
     first_page = fetch_sessions_page(secret, api_key, page=1)
 
@@ -239,14 +216,14 @@ def sync_sessions_initial(club_id: int, progress: Callable[[str], None] | None =
     total_saved = 0
     total_skipped = 0
 
-    filtered, skipped = filter_sessions(sessions, existing_guest_ids)
+    filtered, skipped = filter_sessions(sessions)
     total_skipped += skipped
     logging.info(f"Страница 1: {len(filtered)} сохранено, {skipped} пропущено")
     total_saved += save_sessions(club_id, filtered)
     if progress:
         progress(
             f"Сессии: страница 1/{total_pages or 1}. "
-            f"Сохранено всего: {total_saved}. Пропущено без гостя: {total_skipped}"
+            f"Сохранено всего: {total_saved}. Пропущено с некорректным guest_id: {total_skipped}"
         )
 
     for page in range(2, total_pages + 1):
@@ -258,7 +235,7 @@ def sync_sessions_initial(club_id: int, progress: Callable[[str], None] | None =
         data = fetch_sessions_page(secret, api_key, page=page)
         sessions = data.get("data", [])
 
-        filtered, skipped = filter_sessions(sessions, existing_guest_ids)
+        filtered, skipped = filter_sessions(sessions)
         total_skipped += skipped
 
         logging.info(f"Страница {page}/{total_pages}: {len(filtered)} сохранено, {skipped} пропущено")
@@ -266,12 +243,15 @@ def sync_sessions_initial(club_id: int, progress: Callable[[str], None] | None =
         if progress:
             progress(
                 f"Сессии: страница {page}/{total_pages} обработана. "
-                f"Сохранено всего: {total_saved}. Пропущено без гостя: {total_skipped}"
+                f"Сохранено всего: {total_saved}. Пропущено с некорректным guest_id: {total_skipped}"
             )
 
     logging.info(f"Initial sync сессий клуба {club_id} завершен. Сохранено: {total_saved}, пропущено: {total_skipped}")
     if progress:
-        progress(f"Сессии: готово. Сохранено: {total_saved}. Пропущено без гостя: {total_skipped}")
+        progress(
+            f"Сессии: готово. Сохранено: {total_saved}. "
+            f"Пропущено с некорректным guest_id: {total_skipped}"
+        )
     return {"club_id": club_id, "saved": total_saved, "skipped": total_skipped}
 
 

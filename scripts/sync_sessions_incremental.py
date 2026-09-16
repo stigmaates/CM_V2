@@ -24,7 +24,7 @@ from app.config import (
 )
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
-from scripts.sync_sessions_initial import filter_sessions, get_existing_guest_ids
+from scripts.sync_sessions_initial import filter_sessions
 from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
 
 logging.basicConfig(level=logging.INFO)
@@ -217,7 +217,6 @@ def sync_sessions_incremental(club_id=None):
             total_saved = 0
             total_received = 0
             total_skipped = 0
-            existing_guest_ids = get_existing_guest_ids(current_club_id)
 
             while True:
                 data = fetch_sessions(secret, api_key, page, date_from, date_to)
@@ -229,13 +228,13 @@ def sync_sessions_incremental(club_id=None):
                     break
 
                 total_received += len(sessions)
-                filtered_sessions, skipped = filter_sessions(sessions, existing_guest_ids)
+                filtered_sessions, skipped = filter_sessions(sessions)
                 total_skipped += skipped
                 saved = save_sessions(current_club_id, filtered_sessions)
                 total_saved += saved
 
                 logging.info(
-                    "Клуб %s | page %s/%s: получено %s | сохранено %s | пропущено без гостя %s",
+                    "Клуб %s | page %s/%s: получено %s | сохранено %s | пропущено с некорректным guest_id %s",
                     current_club_id,
                     page,
                     total_pages,
