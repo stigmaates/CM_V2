@@ -1,13 +1,15 @@
-from decimal import Decimal
 import random
+from decimal import Decimal
 
 import pytest
 
 import app.services.game_contracts as game_contracts
 from app.services.game_contracts import (
+    DOTA_HEROES,
     GameContractError,
     _contract_signature,
     _match_contribution,
+    _system_contract_candidates,
     generate_system_contract_pool,
     normalize_contract_template,
     select_contract_templates,
@@ -86,6 +88,25 @@ def test_system_constructor_builds_personal_six_contract_pool(game):
     ) <= 2
     assert all(item["reward_tokens"] == 0 for item in selected)
     assert all(item["reward_bonus"] == 0 for item in selected)
+
+
+def test_dota_hero_contracts_use_full_catalog_and_scale_matches_by_difficulty():
+    assert len(DOTA_HEROES) >= 120
+    candidates = _system_contract_candidates("dota2", random.Random(31))
+    expected_targets = {"easy": Decimal("1.00"), "medium": Decimal("3.00"), "hard": Decimal("5.00")}
+    hero_contracts = {}
+    hero_ids = set()
+
+    for difficulty, target in expected_targets.items():
+        contract = next(item for item in candidates[difficulty] if item["metric_type"] == "hero_played")
+        hero_contracts[difficulty] = contract
+        hero_ids.add(int(game_contracts._json_loads(contract["conditions_json"])["hero_id"]))
+        assert contract["target_value"] == target
+        assert "матч" in contract["description_template"]
+
+    assert len(hero_contracts) == 3
+    assert len(hero_ids) == 3
+    assert hero_ids <= {hero_id for hero_id, _hero_name in DOTA_HEROES}
 
 
 @pytest.mark.parametrize("game", ["cs2", "dota2"])

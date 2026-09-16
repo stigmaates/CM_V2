@@ -5,6 +5,7 @@ import logging
 import random
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import Any
 
 from app.core import get_db_connection
@@ -46,22 +47,22 @@ CS2_MAPS = (
     ("de_train", "Train"),
     ("de_overpass", "Overpass"),
 )
-DOTA_HEROES = (
-    (2, "Axe"),
-    (5, "Crystal Maiden"),
-    (8, "Juggernaut"),
-    (14, "Pudge"),
-    (22, "Zeus"),
-    (25, "Lina"),
-    (26, "Lion"),
-    (35, "Sniper"),
-    (44, "Phantom Assassin"),
-    (46, "Templar Assassin"),
-    (74, "Invoker"),
-    (93, "Slark"),
-    (106, "Ember Spirit"),
-    (114, "Monkey King"),
-)
+DOTA_HERO_CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "dota_heroes.json"
+
+
+def _load_dota_heroes() -> tuple[tuple[int, str], ...]:
+    payload = json.loads(DOTA_HERO_CATALOG_PATH.read_text(encoding="utf-8"))
+    heroes = tuple(
+        (int(hero["id"]), str(hero["name"]))
+        for hero in payload.get("heroes", [])
+        if hero.get("id") and hero.get("name")
+    )
+    if len(heroes) < 100:
+        raise RuntimeError("Каталог героев Dota 2 повреждён или неполон")
+    return heroes
+
+
+DOTA_HEROES = _load_dota_heroes()
 
 GAME_METRICS = {
     "cs2": {
@@ -537,8 +538,10 @@ def _system_contract_candidates(game: str, rng: random.Random) -> dict[str, list
             ],
         }
 
-    hero_id, hero_name = rng.choice(DOTA_HEROES)
-    hard_hero_id, hard_hero_name = rng.choice([item for item in DOTA_HEROES if item[0] != hero_id])
+    (easy_hero_id, easy_hero_name), (medium_hero_id, medium_hero_name), (
+        hard_hero_id,
+        hard_hero_name,
+    ) = rng.sample(DOTA_HEROES, k=3)
     return {
         "easy": [
             _generated_contract("Первая игра", "Сыграть 1 матч", "matches_played", 1, "easy"),
@@ -547,6 +550,10 @@ def _system_contract_candidates(game: str, rng: random.Random) -> dict[str, list
             _generated_contract("Фарм", "Добить 100 крипов", "last_hits", 100, "easy"),
             _generated_contract("Первая победа", "Победить в 1 матче", "wins", 1, "easy"),
             _generated_contract("Урон по героям", "Нанести 25 000 урона героям", "damage", 25000, "easy"),
+            _generated_contract(
+                f"Знакомство с {easy_hero_name}", f"Сыграть 1 матч за {easy_hero_name}",
+                "hero_played", 1, "easy", conditions={"hero_id": easy_hero_id},
+            ),
         ],
         "medium": [
             _generated_contract("Серия матчей", "Сыграть 3 матча", "matches_played", 3, "medium"),
@@ -556,8 +563,8 @@ def _system_contract_candidates(game: str, rng: random.Random) -> dict[str, list
             _generated_contract("Победная серия", "Победить в 2 матчах", "wins", 2, "medium"),
             _generated_contract("Серьёзный урон", "Нанести 75 000 урона героям", "damage", 75000, "medium"),
             _generated_contract(
-                f"Знакомство с {hero_name}", f"Сыграть 2 матча за {hero_name}",
-                "hero_played", 2, "medium", conditions={"hero_id": hero_id},
+                f"Практика на {medium_hero_name}", f"Сыграть 3 матча за {medium_hero_name}",
+                "hero_played", 3, "medium", conditions={"hero_id": medium_hero_id},
             ),
             _generated_contract("Экономика", "Завершить матч с GPM не ниже 600", "gpm", 600, "medium", period_type="match"),
         ],
@@ -569,8 +576,8 @@ def _system_contract_candidates(game: str, rng: random.Random) -> dict[str, list
             _generated_contract("Только победа", "Победить в 4 матчах", "wins", 4, "hard"),
             _generated_contract("Разрушительная сила", "Нанести 150 000 урона героям", "damage", 150000, "hard"),
             _generated_contract(
-                f"Мастер {hard_hero_name}", f"Совершить 15 убийств за {hard_hero_name}",
-                "hero_kills", 15, "hard", conditions={"hero_id": hard_hero_id},
+                f"Мастер {hard_hero_name}", f"Сыграть 5 матчей за {hard_hero_name}",
+                "hero_played", 5, "hard", conditions={"hero_id": hard_hero_id},
             ),
             _generated_contract("Высокий темп", "Завершить матч с XPM не ниже 850", "xpm", 850, "hard", period_type="match"),
         ],
