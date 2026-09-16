@@ -18,7 +18,6 @@ from cryptography.fernet import Fernet, InvalidToken
 from app.config import (
     CS2_GC_BRIDGE_SECRET,
     CS2_GC_BRIDGE_URL,
-    OPENDOTA_API_KEY,
     SECRET_KEY,
     STEAM_API_KEY,
 )
@@ -274,10 +273,9 @@ def steam_id_to_account_id(steam_id: str) -> int:
 
 
 def _opendota_api_get(path: str):
-    params = {"api_key": OPENDOTA_API_KEY} if OPENDOTA_API_KEY else None
     try:
         with httpx.Client(timeout=12.0, follow_redirects=False) as client:
-            response = client.get(f"{OPENDOTA_API_ROOT}/{path.lstrip('/')}", params=params)
+            response = client.get(f"{OPENDOTA_API_ROOT}/{path.lstrip('/')}")
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as exc:
