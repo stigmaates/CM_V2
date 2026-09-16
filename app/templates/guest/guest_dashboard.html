@@ -5078,7 +5078,7 @@
 
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    caseReelTrack.style.transition = 'transform 3.6s cubic-bezier(0.12, 0.78, 0.15, 1)';
+                    caseReelTrack.style.transition = 'transform 5s cubic-bezier(0.12, 0.78, 0.15, 1)';
                     caseReelTrack.style.transform = `translateX(-${targetOffset}px)`;
                 });
             });
@@ -5087,7 +5087,7 @@
                 const winnerCell = caseReelTrack.querySelector('.js-case-winner');
                 if (winnerCell) winnerCell.classList.add('is-winner');
                 onDone();
-            }, 3700);
+            }, 5100);
         }
 
         function showCaseResult(item, claim = null) {
