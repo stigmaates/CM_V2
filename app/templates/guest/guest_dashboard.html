@@ -3103,8 +3103,6 @@
                                         {% endif %}
                                     {% elif not contract_game.available %}
                                         <div class="game-contract-empty">{% if game_key == 'cs2' %}Подключи историю матчей CS2 в игровом профиле, чтобы получать контракты.{% else %}История матчей этой игры пока недоступна.{% endif %}</div>
-                                    {% elif not contract_game.templates_count %}
-                                        <div class="game-contract-empty">Владелец клуба ещё не настроил контракты для этой игры.</div>
                                     {% elif contract_game.can_generate %}
                                         <div class="game-contract-empty">Выбери по одному контракту каждой сложности из шести предложенных вариантов.</div>
                                         <button class="game-contract-generate" type="button"

@@ -26,6 +26,43 @@ CONTRACT_DURATION = timedelta(days=7)
 INGESTION_GRACE = timedelta(hours=24)
 POOL_SIZE_BY_DIFFICULTY = {"easy": 2, "medium": 2, "hard": 2}
 
+CS2_WEAPONS = (
+    ("ak47", "AK-47"),
+    ("m4a1", "M4A4"),
+    ("m4a1_silencer", "M4A1-S"),
+    ("awp", "AWP"),
+    ("deagle", "Desert Eagle"),
+    ("ssg08", "SSG 08"),
+    ("mp9", "MP9"),
+    ("mac10", "MAC-10"),
+)
+CS2_MAPS = (
+    ("de_mirage", "Mirage"),
+    ("de_inferno", "Inferno"),
+    ("de_dust2", "Dust II"),
+    ("de_nuke", "Nuke"),
+    ("de_ancient", "Ancient"),
+    ("de_anubis", "Anubis"),
+    ("de_train", "Train"),
+    ("de_overpass", "Overpass"),
+)
+DOTA_HEROES = (
+    (2, "Axe"),
+    (5, "Crystal Maiden"),
+    (8, "Juggernaut"),
+    (14, "Pudge"),
+    (22, "Zeus"),
+    (25, "Lina"),
+    (26, "Lion"),
+    (35, "Sniper"),
+    (44, "Phantom Assassin"),
+    (46, "Templar Assassin"),
+    (74, "Invoker"),
+    (93, "Slark"),
+    (106, "Ember Spirit"),
+    (114, "Monkey King"),
+)
+
 GAME_METRICS = {
     "cs2": {
         "kills": "Убийства",
@@ -180,6 +217,97 @@ def get_contract_templates(club_id: int, *, include_inactive: bool = True) -> li
     return rows
 
 
+def get_contract_reward_settings(club_id: int) -> dict[str, dict]:
+    result = {
+        difficulty: {
+            "difficulty": difficulty,
+            "difficulty_label": label,
+            "reward_tokens": 0,
+            "reward_bonus": 0,
+        }
+        for difficulty, label in DIFFICULTIES.items()
+    }
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT difficulty, reward_tokens, reward_bonus
+                FROM game_contract_reward_settings
+                WHERE club_id=%s
+                """,
+                (club_id,),
+            )
+            for row in cursor.fetchall():
+                difficulty = str(row.get("difficulty") or "")
+                if difficulty in result:
+                    result[difficulty]["reward_tokens"] = int(row.get("reward_tokens") or 0)
+                    result[difficulty]["reward_bonus"] = int(row.get("reward_bonus") or 0)
+    finally:
+        conn.close()
+    return result
+
+
+def save_contract_reward_settings(club_id: int, values: dict[str, dict]) -> None:
+    rows = []
+    for difficulty in DIFFICULTIES:
+        raw = values.get(difficulty) or {}
+        try:
+            reward_tokens = int(raw.get("reward_tokens") or 0)
+            reward_bonus = int(raw.get("reward_bonus") or 0)
+        except (TypeError, ValueError) as exc:
+            raise GameContractError("Награда должна быть целым числом") from exc
+        if reward_tokens < 0 or reward_bonus < 0:
+            raise GameContractError("Награда не может быть отрицательной")
+        if reward_tokens > 10000 or reward_bonus > 10_000_000:
+            raise GameContractError("Указана слишком большая награда")
+        rows.append((club_id, difficulty, reward_tokens, reward_bonus))
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.executemany(
+                """
+                INSERT INTO game_contract_reward_settings
+                    (club_id, difficulty, reward_tokens, reward_bonus)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    reward_tokens=VALUES(reward_tokens),
+                    reward_bonus=VALUES(reward_bonus)
+                """,
+                rows,
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _contract_rewards_for_club(cursor, club_id: int) -> dict[str, dict[str, int]]:
+    rewards = {
+        difficulty: {"reward_tokens": 0, "reward_bonus": 0}
+        for difficulty in DIFFICULTIES
+    }
+    cursor.execute(
+        """
+        SELECT difficulty, reward_tokens, reward_bonus
+        FROM game_contract_reward_settings
+        WHERE club_id=%s
+        """,
+        (club_id,),
+    )
+    for row in cursor.fetchall():
+        difficulty = str(row.get("difficulty") or "")
+        if difficulty in rewards:
+            rewards[difficulty] = {
+                "reward_tokens": int(row.get("reward_tokens") or 0),
+                "reward_bonus": int(row.get("reward_bonus") or 0),
+            }
+    return rewards
+
+
 def create_contract_template(club_id: int, data: dict) -> int:
     item = normalize_contract_template(data)
     conn = get_db_connection()
@@ -322,6 +450,152 @@ def select_contract_templates(
     return chosen
 
 
+def _generated_contract(
+    title: str,
+    description: str,
+    metric_type: str,
+    target_value: int | float | Decimal,
+    difficulty: str,
+    *,
+    period_type: str = "week",
+    conditions: dict | None = None,
+) -> dict:
+    return {
+        "title": title,
+        "description_template": description,
+        "metric_type": metric_type,
+        "target_value": Decimal(str(target_value)).quantize(Decimal("0.01")),
+        "period_type": period_type,
+        "difficulty": difficulty,
+        # Club-level difficulty rewards are copied in immediately before persistence.
+        "reward_tokens": 0,
+        "reward_bonus": 0,
+        "conditions_json": _json_dumps(conditions),
+        "weight": 100,
+    }
+
+
+def _system_contract_candidates(game: str, rng: random.Random) -> dict[str, list[dict]]:
+    if game == "cs2":
+        weapon_code, weapon_name = rng.choice(CS2_WEAPONS)
+        hard_weapon_code, hard_weapon_name = rng.choice(
+            [item for item in CS2_WEAPONS if item[0] != weapon_code]
+        )
+        map_code, map_name = rng.choice(CS2_MAPS)
+        hard_map_code, hard_map_name = rng.choice([item for item in CS2_MAPS if item[0] != map_code])
+        return {
+            "easy": [
+                _generated_contract("Разминка", "Сыграть 1 матч", "matches_played", 1, "easy"),
+                _generated_contract("Первый фраг", "Совершить 10 убийств", "kills", 10, "easy"),
+                _generated_contract("Точно в цель", "Совершить 5 убийств в голову", "headshots", 5, "easy"),
+                _generated_contract("Командная игра", "Сделать 5 ассистов", "assists", 5, "easy"),
+                _generated_contract("Путь к победе", "Победить в 1 матче", "wins", 1, "easy"),
+                _generated_contract("Звезда раунда", "Получить 2 MVP-звезды", "mvp", 2, "easy"),
+            ],
+            "medium": [
+                _generated_contract("Серия убийств", "Совершить 25 убийств", "kills", 25, "medium"),
+                _generated_contract("Охотник за головами", "Совершить 15 убийств в голову", "headshots", 15, "medium"),
+                _generated_contract("Надёжный напарник", "Сделать 15 ассистов", "assists", 15, "medium"),
+                _generated_contract("Игровой вечер", "Сыграть 3 матча", "matches_played", 3, "medium"),
+                _generated_contract("Победная серия", "Победить в 2 матчах", "wins", 2, "medium"),
+                _generated_contract(
+                    f"Мастер {weapon_name}", f"Совершить 10 убийств из {weapon_name}",
+                    "weapon_kills", 10, "medium", conditions={"weapon": weapon_code},
+                ),
+                _generated_contract(
+                    f"Знаток {map_name}", f"Совершить 20 убийств на карте {map_name}",
+                    "map_kills", 20, "medium", conditions={"map": map_code},
+                ),
+            ],
+            "hard": [
+                _generated_contract("Главный стрелок", "Совершить 60 убийств", "kills", 60, "hard"),
+                _generated_contract("Только хедшоты", "Совершить 30 убийств в голову", "headshots", 30, "hard"),
+                _generated_contract("Опора команды", "Сделать 30 ассистов", "assists", 30, "hard"),
+                _generated_contract("Марафон", "Сыграть 5 матчей", "matches_played", 5, "hard"),
+                _generated_contract("Победитель", "Победить в 4 матчах", "wins", 4, "hard"),
+                _generated_contract(
+                    f"Эксперт {hard_weapon_name}", f"Совершить 25 убийств из {hard_weapon_name}",
+                    "weapon_kills", 25, "hard", conditions={"weapon": hard_weapon_code},
+                ),
+                _generated_contract(
+                    f"Хозяин {hard_map_name}", f"Совершить 40 убийств на карте {hard_map_name}",
+                    "map_kills", 40, "hard", conditions={"map": hard_map_code},
+                ),
+                _generated_contract("Жёсткий K/D", "Завершить матч с K/D не ниже 1,8", "kd_ratio", 1.8, "hard", period_type="match"),
+            ],
+        }
+
+    hero_id, hero_name = rng.choice(DOTA_HEROES)
+    hard_hero_id, hard_hero_name = rng.choice([item for item in DOTA_HEROES if item[0] != hero_id])
+    return {
+        "easy": [
+            _generated_contract("Первая игра", "Сыграть 1 матч", "matches_played", 1, "easy"),
+            _generated_contract("Охота началась", "Совершить 10 убийств", "kills", 10, "easy"),
+            _generated_contract("Поддержка команды", "Сделать 15 ассистов", "assists", 15, "easy"),
+            _generated_contract("Фарм", "Добить 100 крипов", "last_hits", 100, "easy"),
+            _generated_contract("Первая победа", "Победить в 1 матче", "wins", 1, "easy"),
+            _generated_contract("Урон по героям", "Нанести 25 000 урона героям", "damage", 25000, "easy"),
+        ],
+        "medium": [
+            _generated_contract("Серия матчей", "Сыграть 3 матча", "matches_played", 3, "medium"),
+            _generated_contract("Боевой настрой", "Совершить 25 убийств", "kills", 25, "medium"),
+            _generated_contract("Командный игрок", "Сделать 40 ассистов", "assists", 40, "medium"),
+            _generated_contract("Уверенный фарм", "Добить 500 крипов", "last_hits", 500, "medium"),
+            _generated_contract("Победная серия", "Победить в 2 матчах", "wins", 2, "medium"),
+            _generated_contract("Серьёзный урон", "Нанести 75 000 урона героям", "damage", 75000, "medium"),
+            _generated_contract(
+                f"Знакомство с {hero_name}", f"Сыграть 2 матча за {hero_name}",
+                "hero_played", 2, "medium", conditions={"hero_id": hero_id},
+            ),
+            _generated_contract("Экономика", "Завершить матч с GPM не ниже 600", "gpm", 600, "medium", period_type="match"),
+        ],
+        "hard": [
+            _generated_contract("Недельный марафон", "Сыграть 5 матчей", "matches_played", 5, "hard"),
+            _generated_contract("Доминирование", "Совершить 50 убийств", "kills", 50, "hard"),
+            _generated_contract("Идеальная поддержка", "Сделать 75 ассистов", "assists", 75, "hard"),
+            _generated_contract("Король фарма", "Добить 1 000 крипов", "last_hits", 1000, "hard"),
+            _generated_contract("Только победа", "Победить в 4 матчах", "wins", 4, "hard"),
+            _generated_contract("Разрушительная сила", "Нанести 150 000 урона героям", "damage", 150000, "hard"),
+            _generated_contract(
+                f"Мастер {hard_hero_name}", f"Совершить 15 убийств за {hard_hero_name}",
+                "hero_kills", 15, "hard", conditions={"hero_id": hard_hero_id},
+            ),
+            _generated_contract("Высокий темп", "Завершить матч с XPM не ниже 850", "xpm", 850, "hard", period_type="match"),
+        ],
+    }
+
+
+def generate_system_contract_pool(
+    game: str, *, rng: random.Random | None = None
+) -> list[dict]:
+    """Build a personal six-contract pool without club-authored templates."""
+    game = str(game or "").lower()
+    if game not in GAMES:
+        raise GameContractError("Неизвестная игра")
+    rng = rng or random.SystemRandom()
+    candidates = _system_contract_candidates(game, rng)
+    selected: list[dict] = []
+    metric_counts: dict[str, int] = {}
+
+    for difficulty, required_count in POOL_SIZE_BY_DIFFICULTY.items():
+        tier = list(candidates[difficulty])
+        rng.shuffle(tier)
+        for item in tier:
+            metric = str(item["metric_type"])
+            if metric_counts.get(metric, 0) >= 2:
+                continue
+            selected.append(item)
+            metric_counts[metric] = metric_counts.get(metric, 0) + 1
+            if sum(contract["difficulty"] == difficulty for contract in selected) == required_count:
+                break
+
+    if len(selected) != sum(POOL_SIZE_BY_DIFFICULTY.values()):
+        raise GameContractError("Не удалось сформировать сбалансированный набор контрактов")
+    for index, item in enumerate(selected, start=1):
+        item["id"] = -index
+    return selected
+
+
 def _available_games(cursor, club_id: int, guest_id: int) -> tuple[str | None, dict[str, bool]]:
     cursor.execute(
         "SELECT steam_id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s LIMIT 1",
@@ -372,36 +646,10 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
             if last_set and last_set["started_at"] + CONTRACT_DURATION > now:
                 raise GameContractError("Недельный набор этой игры уже получен")
 
-            cursor.execute(
-                """
-                SELECT * FROM game_contract_templates
-                WHERE club_id=%s AND game=%s AND is_active=1
-                ORDER BY id
-                """,
-                (club_id, game),
-            )
-            templates = cursor.fetchall()
-            if not templates:
-                raise GameContractError("Владелец клуба ещё не настроил контракты для этой игры")
-            previous_ids: set[int] = set()
-            if last_set:
-                cursor.execute("SELECT template_id FROM guest_game_contracts WHERE set_id=%s", (last_set["id"],))
-                previous_ids = {int(row["template_id"]) for row in cursor.fetchall()}
-            selected = select_contract_templates(templates, previous_ids)
-            selected_counts = {
-                difficulty: sum(1 for item in selected if item.get("difficulty") == difficulty)
-                for difficulty in POOL_SIZE_BY_DIFFICULTY
-            }
-            missing = [
-                DIFFICULTIES[difficulty]
-                for difficulty, required in POOL_SIZE_BY_DIFFICULTY.items()
-                if selected_counts[difficulty] < required
-            ]
-            if missing:
-                raise GameContractError(
-                    "Для выбора нужно минимум по два активных шаблона каждой сложности. "
-                    f"Не хватает: {', '.join(missing)}"
-                )
+            selected = generate_system_contract_pool(game)
+            rewards = _contract_rewards_for_club(cursor, club_id)
+            for contract in selected:
+                contract.update(rewards[contract["difficulty"]])
 
             expires_at = now + CONTRACT_DURATION
             cursor.execute(
@@ -641,15 +889,6 @@ def get_guest_contracts_state(club_id: int, guest_id: int) -> dict:
             sets = {row["game"]: row for row in cursor.fetchall()}
             cursor.execute(
                 """
-                SELECT game, COUNT(*) AS count
-                FROM game_contract_templates
-                WHERE club_id=%s AND is_active=1 GROUP BY game
-                """,
-                (club_id,),
-            )
-            pools = {row["game"]: int(row["count"]) for row in cursor.fetchall()}
-            cursor.execute(
-                """
                 SELECT game, last_attempt_at, last_synced_at, last_error
                 FROM guest_game_sync_state
                 WHERE club_id=%s AND guest_id=%s
@@ -677,13 +916,13 @@ def get_guest_contracts_state(club_id: int, guest_id: int) -> dict:
             "key": game,
             "label": label,
             "available": bool(availability.get(game)),
-            "templates_count": pools.get(game, 0),
+            "templates_count": 6,
             "contracts": by_game[game],
             "offer": offer,
             "can_generate": bool(
                 steam_id
                 and availability.get(game)
-                and (offer or (pools.get(game, 0) and next_at <= now))
+                and (offer or next_at <= now)
             ),
             "next_at": next_at,
             "next_label": _remaining_label(next_at, now) if next_at > now and not offer else None,

@@ -6,6 +6,7 @@ import pytest
 from app.services.game_contracts import (
     GameContractError,
     _match_contribution,
+    generate_system_contract_pool,
     normalize_contract_template,
     select_contract_templates,
 )
@@ -66,6 +67,23 @@ def test_weekly_pool_contains_two_contracts_of_each_difficulty_without_duplicate
     assert [item["difficulty"] for item in selected].count("hard") == 2
     assert len({item["id"] for item in selected}) == 6
     assert len({item["metric_type"] for item in selected}) == 6
+
+
+@pytest.mark.parametrize("game", ["cs2", "dota2"])
+def test_system_constructor_builds_personal_six_contract_pool(game):
+    selected = generate_system_contract_pool(game, rng=random.Random(17))
+
+    assert len(selected) == 6
+    assert [item["difficulty"] for item in selected].count("easy") == 2
+    assert [item["difficulty"] for item in selected].count("medium") == 2
+    assert [item["difficulty"] for item in selected].count("hard") == 2
+    assert len({item["id"] for item in selected}) == 6
+    assert max(
+        [item["metric_type"] for item in selected].count(metric)
+        for metric in {item["metric_type"] for item in selected}
+    ) <= 2
+    assert all(item["reward_tokens"] == 0 for item in selected)
+    assert all(item["reward_bonus"] == 0 for item in selected)
 
 
 def test_progress_uses_match_facts_and_contract_conditions():
