@@ -1,4 +1,14 @@
-from scripts import sync_guests, sync_sessions_initial
+from scripts import sync_guests, sync_sessions_incremental, sync_sessions_initial
+
+
+class _Lock:
+    acquired = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
 
 
 def test_sessions_initial_reports_page_progress(monkeypatch):
@@ -27,6 +37,62 @@ def test_sessions_initial_reports_page_progress(monkeypatch):
     assert any("страница 1/2" in message for message in progress_messages)
     assert any("страница 2/2" in message for message in progress_messages)
     assert progress_messages[-1].startswith("Сессии: готово")
+
+
+def test_sessions_initial_matches_string_api_guest_ids_to_integer_database_ids():
+    sessions = [
+        {"id": 10, "guest_id": "1"},
+        {"id": 11, "guest_id": 2},
+        {"id": 12, "guest_id": "999"},
+        {"id": 13, "guest_id": None},
+    ]
+
+    filtered, skipped = sync_sessions_initial.filter_sessions(sessions, {1, 2})
+
+    assert [row["id"] for row in filtered] == [10, 11]
+    assert [row["guest_id"] for row in filtered] == [1, 2]
+    assert skipped == 2
+
+
+def test_sessions_incremental_filters_orphans_after_normalizing_guest_ids(monkeypatch):
+    saved_rows = []
+    finished = []
+    monkeypatch.setattr(
+        sync_sessions_incremental,
+        "get_clubs",
+        lambda club_id=None: [{"club_id": 4, "lg_api_key": "key", "secret": "club", "service_enabled": 1}],
+    )
+    monkeypatch.setattr(sync_sessions_incremental, "job_lock", lambda *args, **kwargs: _Lock())
+    monkeypatch.setattr(sync_sessions_incremental, "start_job_run", lambda *args, **kwargs: 10)
+    monkeypatch.setattr(
+        sync_sessions_incremental,
+        "finish_job_run",
+        lambda job_id, status, **kwargs: finished.append((status, kwargs)),
+    )
+    monkeypatch.setattr(sync_sessions_incremental, "get_existing_guest_ids", lambda club_id: {100})
+    monkeypatch.setattr(
+        sync_sessions_incremental,
+        "fetch_sessions",
+        lambda *args, **kwargs: {
+            "status": True,
+            "total_pages": 1,
+            "data": [{"id": 1, "guest_id": "100"}, {"id": 2, "guest_id": "999"}],
+        },
+    )
+    monkeypatch.setattr(
+        sync_sessions_incremental,
+        "save_sessions",
+        lambda club_id, rows: saved_rows.extend(rows) or len(rows),
+    )
+
+    result = sync_sessions_incremental.sync_sessions_incremental(4)
+
+    assert [row["guest_id"] for row in saved_rows] == [100]
+    assert result[0]["received"] == 2
+    assert result[0]["saved"] == 1
+    assert result[0]["skipped"] == 1
+    assert finished[-1][0] == "success"
+    assert finished[-1][1]["metadata"]["rows_skipped"] == 1
 
 
 def test_guests_initial_reports_page_progress(monkeypatch):
