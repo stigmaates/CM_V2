@@ -692,6 +692,11 @@ def test_linked_steam_controls_render_in_guest_profile():
     assert "help.steampowered.com/ru/wizard/HelpWithGameIssue/" in html
     assert "Последние матчи" in html
     assert "data-steam-auth-link" in html
+    assert 'id="steamAuthNoticeModal"' in html
+    assert "Страница авторизации Steam обычно загружается дольше" in html
+    assert "ничего не нажимайте и дождитесь её полной загрузки" in html
+    assert "warmSteamAuthPage" in html
+    assert "event.preventDefault()" in html
     assert "steam-game-cover" in html
 
 def test_profile_game_hours_and_dominant_game_are_normalized():
