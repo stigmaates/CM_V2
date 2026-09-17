@@ -87,13 +87,14 @@ and a monitored production cycle.
 | 0 | Release foundation and migration compatibility | Existing production anchors | None | Internal only |
 | 1 | Training video library and playlist modal | `0042_training_videos` | YouTube embeds | Admin/owner visible after smoke |
 | 2 | Private admin file drive | `0043_admin_drive` | Private persistent storage, backup, Nginx request limits | Admin only |
-| 3 | Team analytics, monthly reports, support tickets | `0029`, both `0031`, `0032`, `0034`, `0035` | Admin bot, PDF storage, report worker | Enable modules separately |
+| 3 | Support tickets | `0031_support_tickets`, `0032_support_ticket_message_tracking` | Production admin bot and support chat | Enable after bot smoke |
 | 4 | Guest Pulse and CRM P/C/V | `0028_guest_pulse` | MySQL triggers, pulse worker/timer | Pilot club first |
-| 5 | Steam profile and Dota history | `0036_guest_steam_accounts` | Steam Web API, OpenDota, `cryptography` | Pilot club first |
-| 6 | CS2 match history | `0037_guest_cs2_matches` | Node.js CS2 GC bridge, technical Steam account | Service disabled until healthy |
-| 7 | Contracts and contract refresh rewards | `0038`-`0041`, `0045` | Contract worker/timer, game match data | Off for every club |
-| 8 | Game preferences and contract CRM filters | `0044_game_preferences_and_contract_engagement` | Steam and contracts | Enable after source data exists |
-| 9 | Remaining UI polish | None expected | Existing web assets | After functional stabilization |
+| 5 | Team analytics and monthly reports | `0029`, `0031_team_admin_settings`, `0034`, `0035` | Production team sync, PDF storage, report worker | Enable modules separately |
+| 6 | Steam profile and Dota history | `0036_guest_steam_accounts` | Steam Web API, OpenDota, `cryptography` | Pilot club first |
+| 7 | CS2 match history | `0037_guest_cs2_matches` | Node.js CS2 GC bridge, technical Steam account | Service disabled until healthy |
+| 8 | Contracts and contract refresh rewards | `0038`-`0041`, `0045` | Contract worker/timer, game match data | Off for every club |
+| 9 | Game preferences and contract CRM filters | `0044_game_preferences_and_contract_engagement` | Steam and contracts | Enable after source data exists |
+| 10 | Remaining UI polish | None expected | Existing web assets | After functional stabilization |
 
 Navigation refactoring is a later release. Do not combine route/menu
 reorganization with the stage-to-production transfer.
@@ -154,6 +155,15 @@ Create production versions of the pulse service and timer. Do not copy stage
 unit files verbatim. Migration `0028_guest_pulse` creates multiple triggers,
 so the production database user needs `CREATE TRIGGER` and the rehearsal must
 measure ALTER/trigger installation time on a current database copy.
+
+### Team data
+
+The stage team importer is deliberately guarded by `.stage-no-outbound` and
+cannot run on production. Team reports also import the shared visit layer used
+by Guest Pulse. Therefore Guest Pulse is a prerequisite for the Team batch.
+Before enabling Team, provide a production-safe supervised sync that only
+reads Langame staff/shift endpoints and writes the production `team_*` cache.
+Do not copy the stage-mirror guard or couple the worker to the mirror timer.
 
 ### Steam and Dota
 
