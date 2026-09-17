@@ -123,11 +123,11 @@ Current release branch progress:
   exact HTTPS origin, rehearse `0036_guest_steam_accounts` and verify OpenDota
   from the production host. No CS2 bridge, credentials or technical Steam
   account is included in this batch. Nothing from this batch is deployed.
-- batch 7 has not been integrated. The stage bridge has no committed
-  `package-lock.json` and this integration workspace has no Node.js/npm runtime,
-  so its dependency graph and bridge tests cannot be reproduced yet. Generate
-  and review a lock file on an isolated Node 18+ environment before code or a
-  production unit is added to this release branch.
+- batch 7 has not been integrated. A reproducible Node 20 installation and all
+  bridge tests succeeded, but the resulting dependency audit reports four high
+  and one critical vulnerability with no safe compatible automatic upgrade.
+  The bridge, its lock file, production unit and Steam credentials remain out of
+  the release branch. See `docs/CS2_BRIDGE_AUDIT.md`.
 
 No production deployment or production database migration has been performed.
 
