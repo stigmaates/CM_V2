@@ -107,7 +107,10 @@ Current release branch progress:
 - batch 1 complete at `71550fd` and `2be2001`: training catalogue and playlist modal;
 - batch 2 complete at `da582c9`: private admin file drive;
 - batch 3 complete through `9bcb0a1`: production support-ticket workflow;
-- batch 4 is the next batch and has not been started.
+- batch 4 code integration complete through `e010a37`: Guest Pulse, CRM handoff,
+  deviation and Telegram filters, P/Ц/В labels, overall guest score and production
+  worker templates. Production migration rehearsal, pilot-club enablement and
+  monitored worker cycle are still required; nothing from this batch is deployed.
 
 No production deployment or production database migration has been performed.
 
