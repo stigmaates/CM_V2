@@ -270,7 +270,7 @@
             <div class="auto-mailing-head">
                 <div>
                     <h3>Авторассылки</h3>
-                    <p>Сообщения отправляются с 10:00 до 22:30 по местному времени клуба.</p>
+                    <p>У каждой рассылки своё окно отправки. Используется время клуба: {{ club_timezone_label }}.</p>
                 </div>
             </div>
 
@@ -342,6 +342,25 @@
                                             >
                                         </label>
                                     {% endif %}
+
+                                    <label class="auto-mailing-field">
+                                        <span>Отправлять с</span>
+                                        <input
+                                            type="time"
+                                            class="auto-mailing-send-start"
+                                            value="{{ item.send_start_time or '10:00' }}"
+                                            step="60"
+                                        >
+                                    </label>
+                                    <label class="auto-mailing-field">
+                                        <span>Отправлять до</span>
+                                        <input
+                                            type="time"
+                                            class="auto-mailing-send-end"
+                                            value="{{ item.send_end_time or '22:30' }}"
+                                            step="60"
+                                        >
+                                    </label>
                                 </div>
 
                                 <label class="auto-mailing-field auto-mailing-field--full auto-mailing-message-field">

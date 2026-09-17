@@ -89,7 +89,7 @@ def test_auto_status_shows_night_pause_in_club_timezone(monkeypatch):
         now=datetime(2026, 8, 28, 0, 30),
     )
 
-    assert status["status"] == "ночная пауза до 10:00"
+    assert status["status"] == "пауза до 10:00"
     assert status["status_class"] == "off"
     assert status["last_run"] == "28.08.2026 00:25"
 
@@ -110,6 +110,26 @@ def test_auto_status_marks_stale_job_bad_during_send_window(monkeypatch):
 
     assert status["status"] == "не работает"
     assert status["status_class"] == "bad"
+
+
+def test_auto_status_uses_configured_send_window(monkeypatch):
+    monkeypatch.setattr(system_status, "_minutes_since", lambda dt: 120)
+
+    status = system_status._build_auto_status(
+        {
+            "code": "inactive_14_bonus",
+            "title": "Вернуть гостей после неактива",
+            "is_enabled": 1,
+            "last_run_at": None,
+            "send_start_time": "08:15",
+            "send_end_time": "19:45",
+        },
+        timezone_name="Europe/Samara",
+        now=datetime(2026, 8, 28, 7, 30),
+    )
+
+    assert status["status"] == "пауза до 08:15"
+    assert status["status_class"] == "off"
 
 
 def test_disabled_auto_mailing_stays_disabled_at_night(monkeypatch):

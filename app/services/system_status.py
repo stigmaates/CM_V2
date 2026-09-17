@@ -6,7 +6,11 @@ from typing import Any, Dict
 from zoneinfo import ZoneInfo
 
 from app.core import get_db_connection
-from app.services.auto_mailing_schedule import is_auto_mailing_send_time
+from app.services.auto_mailing_schedule import (
+    AUTO_MAILING_SEND_START,
+    format_auto_mailing_time,
+    is_auto_mailing_send_time,
+)
 from app.services.job_runs import get_latest_job_runs_by_club
 from app.services.mailing import ensure_auto_mailings
 from app.services.timezones import DEFAULT_CLUB_TIMEZONE, get_club_timezone_label
@@ -164,8 +168,13 @@ def _build_auto_status(
     if not is_enabled:
         status = "выключена"
         status_class = "off"
-    elif not is_auto_mailing_send_time(local_now):
-        status = "ночная пауза до 10:00"
+    elif not is_auto_mailing_send_time(
+        local_now,
+        row.get("send_start_time"),
+        row.get("send_end_time"),
+    ):
+        start_label = format_auto_mailing_time(row.get("send_start_time"), AUTO_MAILING_SEND_START)
+        status = f"пауза до {start_label}"
         status_class = "off"
     elif is_recent:
         status = "работает"
@@ -203,7 +212,7 @@ def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
             timezone_name = club_row.get("timezone") or DEFAULT_CLUB_TIMEZONE
             cur.execute(
                 """
-                SELECT code, title, is_enabled, last_run_at
+                SELECT code, title, is_enabled, last_run_at, send_start_time, send_end_time
                 FROM auto_mailing_settings
                 WHERE club_id = %s
                 ORDER BY id ASC
