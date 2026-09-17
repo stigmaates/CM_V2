@@ -21,6 +21,7 @@ from app.routes.owner import (  # noqa: F401
     prize_claims,
     settings,
     sync,
+    team,
     training,
     wheel,
 )

@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh production team and shift data
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=15min
+AccuracySec=30s
+Unit=clubmodule-team-sync.service
+
+[Install]
+WantedBy=timers.target

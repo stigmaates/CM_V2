@@ -1,0 +1,19 @@
+{% extends 'owner/base.html' %}
+{% block title %}Команда — Кибер Бонус{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='1') }}">{% endblock %}
+{% block content %}
+<main class="team"><header class="team-heading"><div><span class="team-eyebrow">КИБЕР БОНУС</span><h1>Команда</h1><p>Регистрации и возвращаемость гостей по сменам администраторов</p></div><button id="teamRefresh" type="button">Обновить отчёт</button></header>
+<div id="teamError" role="alert" hidden></div><p id="teamStatus" role="status">Загружаем данные…</p>
+<section class="team-card"><header><h2>Регистрации гостей</h2><p>Дата регистрации в каждом продукте считается отдельно. Администратор определяется по смене в этот момент.</p></header>
+<div class="team-range" data-range="registration"><div class="team-presets"><button type="button" data-preset="week">Неделя</button><button type="button" data-preset="month">Месяц</button></div><label>С <input type="date" id="registrationFrom"></label><label>По <input type="date" id="registrationTo"></label><button type="button" data-apply>Применить</button></div>
+<div class="team-table-wrap"><table><thead><tr><th>Администратор</th><th>В системе клуба</th><th>В Кибер Бонус</th></tr></thead><tbody id="teamRegistrations"></tbody></table></div><p class="team-note" id="teamCoverage"></p>
+</section>
+<section class="team-card"><header><h2>Возвращаемость новых гостей</h2><p>Выберите период регистрации в Langame. Все завершённые визиты после регистрации учитываются по текущую дату.</p></header>
+<div class="team-range" data-range="cohort"><div class="team-presets"><button type="button" data-preset="week">Неделя</button><button type="button" data-preset="month">Месяц</button></div><label>С <input type="date" id="cohortFrom"></label><label>По <input type="date" id="cohortTo"></label><button type="button" data-apply>Применить</button></div>
+<div class="team-table-wrap"><table><thead><tr><th>Администратор</th><th>Зарегистрировались</th><th>1-й визит</th><th>2-й визит</th><th>3-й визит</th><th>1 → 2</th><th>2 → 3</th></tr></thead><tbody id="teamFunnel"></tbody></table></div>
+<p class="team-note">Проценты: второй визит / первый и третий / второй. При отсутствии базы для расчёта — прочерк. Сессии с перерывом до 2 часов считаются одним визитом. Недавние гости могли ещё не успеть вернуться.</p>
+</section>
+<details class="team-method"><summary>Как считаем и кому засчитываем</summary><p>Регистрация относится к единственной смене, открытой в её момент. Если смены нет или они пересекаются — «Не определён». Считаем результат смены, а не доказанное личное приглашение сотрудника. Повторный вход в модуль и перепривязка Telegram не дают новую регистрацию.</p><p>Точная дата регистрации в модуле — первая привязка Telegram, зафиксированная новым механизмом. Для истории используем первое сохранённое подтверждение входа, приветственную награду или одобрение привязки; такие даты отмечены знаком ≈. Гости без известной даты не включаются в период.</p><p>На stage данные приходят из production, где новый механизм ещё не установлен. Поэтому даты поступающих оттуда регистраций восстанавливаются приблизительно. Временные метки интерпретируются так же, как в «Пульсе гостя», с переводом в часовой пояс клуба; перед применением показателей для мотивации нужно сверить смены с Langame.</p></details>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='1') }}" defer></script>{% endblock %}
