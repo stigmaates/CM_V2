@@ -8,6 +8,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260729">
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="preconnect" href="https://steamcommunity.com">
+    <link rel="dns-prefetch" href="https://steamcommunity.com">
+    <link rel="preconnect" href="https://cdn.cloudflare.steamstatic.com">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
@@ -469,7 +472,31 @@
         .steam-profile-btn:hover,
         .steam-connect-btn:hover,
         .steam-relink-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
-        .app-modal--steam { width: min(720px, 96%); }
+        .steam-connect-btn.is-loading,
+        .steam-relink-btn.is-loading {
+            pointer-events: none;
+            opacity: .72;
+        }
+        .steam-connect-btn.is-loading::before,
+        .steam-relink-btn.is-loading::before {
+            content: '';
+            width: 14px;
+            height: 14px;
+            margin-right: 7px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: steamAuthSpin .7s linear infinite;
+        }
+        @keyframes steamAuthSpin { to { transform: rotate(360deg); } }
+        .app-modal--steam {
+            width: min(720px, 96%);
+            max-height: calc(100vh - 36px);
+            max-height: calc(100dvh - 36px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
         .steam-modal-profile {
             display: grid;
             grid-template-columns: 72px minmax(0, 1fr);
@@ -493,13 +520,47 @@
         .steam-modal-link { display: inline-block; margin-top: 5px; color: #66c0f4; font-size: 13px; }
         .steam-games-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .steam-game-card {
-            padding: 16px;
             border: 1px solid rgba(102, 192, 244, .22);
             border-radius: 14px;
             background: rgba(255,255,255,.045);
+            overflow: hidden;
         }
-        .steam-game-name { font-size: 17px; font-weight: 900; margin-bottom: 14px; }
-        .steam-game-hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .steam-game-cover {
+            position: relative;
+            aspect-ratio: 460 / 215;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1b2838, #392162);
+        }
+        .steam-game-cover::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 35%, rgba(8, 4, 15, .92));
+            pointer-events: none;
+        }
+        .steam-game-cover img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+        .steam-game-name {
+            position: absolute;
+            left: 14px;
+            right: 14px;
+            bottom: 11px;
+            z-index: 1;
+            font-size: 17px;
+            font-weight: 900;
+            line-height: 1.2;
+            text-shadow: 0 2px 12px rgba(0,0,0,.8);
+        }
+        .steam-game-hours {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            padding: 15px 16px 16px;
+        }
         .steam-hour-value { color: #fff; font-size: 22px; font-weight: 900; line-height: 1.1; }
         .steam-hour-label { margin-top: 4px; color: var(--text-muted); font-size: 11px; line-height: 1.3; }
         .steam-profile-status {
@@ -1199,6 +1260,8 @@
         .modal-backdrop {
             position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 18px;
             background: rgba(8, 4, 15, 0.74); backdrop-filter: blur(8px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -1229,6 +1292,17 @@
             background: rgba(255, 255, 255, 0.08);
         }
         .modal-title { margin: 0 0 16px; font-size: 24px; font-weight: 800; }
+        html.modal-open,
+        body.modal-open {
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+        body.modal-open {
+            position: fixed;
+            left: 0;
+            right: 0;
+            width: 100%;
+        }
         .app-modal--streak {
             width: min(860px, 96%);
             max-height: min(780px, calc(100vh - 36px));
@@ -2551,7 +2625,7 @@
                             </div>
                             <div class="steam-account-actions">
                                 <button class="steam-profile-btn" id="openSteamProfileBtn" type="button">Мой игровой профиль</button>
-                                <a class="steam-relink-btn" href="{{ url_for('guest.steam_link') }}">Сменить</a>
+                                <a class="steam-relink-btn" data-steam-auth-link href="{{ url_for('guest.steam_link') }}">Сменить</a>
                             </div>
                         </div>
                     {% else %}
@@ -2562,7 +2636,7 @@
                                 <div class="steam-account-subtitle">Для игровой статистики CS2 и Dota 2</div>
                             </div>
                             <div class="steam-account-actions">
-                                <a class="steam-connect-btn" href="{{ url_for('guest.steam_link') }}">Авторизоваться в Steam</a>
+                                <a class="steam-connect-btn" data-steam-auth-link href="{{ url_for('guest.steam_link') }}">Авторизоваться в Steam</a>
                             </div>
                         </div>
                     {% endif %}
@@ -2980,15 +3054,41 @@
         let activePrizeSegmentPath = null;
         let activePrizeSegmentLabel = null;
         let steamProfileLoaded = false;
+        let modalScrollPosition = 0;
+
+        function lockModalPageScroll() {
+            if (document.body.classList.contains('modal-open')) return;
+            modalScrollPosition = window.scrollY || window.pageYOffset || 0;
+            document.body.style.top = `-${modalScrollPosition}px`;
+            document.documentElement.classList.add('modal-open');
+            document.body.classList.add('modal-open');
+        }
+
+        function unlockModalPageScroll() {
+            if (!document.body.classList.contains('modal-open')) return;
+            document.documentElement.classList.remove('modal-open');
+            document.body.classList.remove('modal-open');
+            document.body.style.top = '';
+            window.scrollTo(0, modalScrollPosition);
+        }
+
+        function syncModalPageScroll() {
+            if (document.querySelector('.modal-backdrop.show')) lockModalPageScroll();
+            else unlockModalPageScroll();
+        }
 
         function openModal(id) {
             const modal = document.getElementById(id);
-            if (modal) modal.classList.add('show');
+            if (modal) {
+                modal.classList.add('show');
+                syncModalPageScroll();
+            }
         }
 
         function closeModal(id) {
             const modal = document.getElementById(id);
             if (modal) modal.classList.remove('show');
+            syncModalPageScroll();
             if (id === 'caseOpenModal' && !isCaseOpening) {
                 stopIdleCaseReel();
                 selectedCaseId = null;
@@ -3050,9 +3150,20 @@
             (profile.games || []).forEach((game) => {
                 const card = document.createElement('div');
                 card.className = 'steam-game-card';
+                const cover = document.createElement('div');
+                cover.className = `steam-game-cover steam-game-cover--${game.slug || 'game'}`;
+                if (game.image_url) {
+                    const image = document.createElement('img');
+                    image.src = game.image_url;
+                    image.alt = '';
+                    image.decoding = 'async';
+                    image.addEventListener('error', () => image.remove());
+                    cover.appendChild(image);
+                }
                 const title = document.createElement('div');
                 title.className = 'steam-game-name';
                 title.textContent = game.name;
+                cover.appendChild(title);
                 const hours = document.createElement('div');
                 hours.className = 'steam-game-hours';
                 [
@@ -3069,7 +3180,7 @@
                     item.append(valueNode, labelNode);
                     hours.appendChild(item);
                 });
-                card.append(title, hours);
+                card.append(cover, hours);
                 grid.appendChild(card);
             });
             container.appendChild(grid);
@@ -4066,15 +4177,29 @@
             });
         }
 
+        document.querySelectorAll('[data-steam-auth-link]').forEach((link) => {
+            const originalText = link.textContent;
+            link.addEventListener('click', () => {
+                link.classList.add('is-loading');
+                link.setAttribute('aria-busy', 'true');
+                link.textContent = 'Открываем Steam…';
+            });
+            window.addEventListener('pageshow', () => {
+                link.classList.remove('is-loading');
+                link.removeAttribute('aria-busy');
+                link.textContent = originalText;
+            });
+        });
+
         document.querySelectorAll('.modal-backdrop').forEach((modal) => {
             modal.addEventListener('click', (event) => {
-                if (event.target === modal) modal.classList.remove('show');
+                if (event.target === modal) closeModal(modal.id);
             });
         });
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
-                document.querySelectorAll('.modal-backdrop.show').forEach((modal) => modal.classList.remove('show'));
+                document.querySelectorAll('.modal-backdrop.show').forEach((modal) => closeModal(modal.id));
             }
         });
 
