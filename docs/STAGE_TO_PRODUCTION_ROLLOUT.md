@@ -123,6 +123,11 @@ Current release branch progress:
   exact HTTPS origin, rehearse `0036_guest_steam_accounts` and verify OpenDota
   from the production host. No CS2 bridge, credentials or technical Steam
   account is included in this batch. Nothing from this batch is deployed.
+- batch 7 has not been integrated. The stage bridge has no committed
+  `package-lock.json` and this integration workspace has no Node.js/npm runtime,
+  so its dependency graph and bridge tests cannot be reproduced yet. Generate
+  and review a lock file on an isolated Node 18+ environment before code or a
+  production unit is added to this release branch.
 
 No production deployment or production database migration has been performed.
 
@@ -212,7 +217,8 @@ is throttled; production rollout must also verify that the host can reach
 Before production:
 
 - provide a production unit with `/root/cm_v2/CM_V2` paths;
-- commit a dependency lock and install with `npm ci --omit=dev`;
+- generate, review and commit a dependency lock, then install with
+  `npm ci --omit=dev`;
 - review dependency audit findings instead of applying a forced upgrade;
 - issue a new `CS2_GC_BRIDGE_SECRET`;
 - issue a new refresh token for a dedicated production technical Steam account;
