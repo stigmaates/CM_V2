@@ -595,7 +595,7 @@
             margin-top: auto;
             padding: 0 16px 16px;
         }
-        .steam-dota-matches-btn {
+        .steam-game-matches-btn {
             border: 1px solid rgba(102, 192, 244, .38);
             border-radius: 10px;
             padding: 9px 12px;
@@ -607,7 +607,7 @@
             cursor: pointer;
             transition: transform .16s ease, background .16s ease, border-color .16s ease;
         }
-        .steam-dota-matches-btn:hover {
+        .steam-game-matches-btn:hover {
             transform: translateY(-1px);
             background: rgba(102, 192, 244, .18);
             border-color: rgba(102, 192, 244, .6);
@@ -686,6 +686,66 @@
         .dota-match-duration,
         .dota-match-kda { color: #fff; font-size: 15px; font-weight: 800; }
         .dota-match-kda { white-space: nowrap; }
+        .cs2-setup {
+            display: none;
+            padding: 18px;
+            border: 1px solid rgba(102, 192, 244, .24);
+            border-radius: 14px;
+            background: rgba(10, 15, 24, .34);
+        }
+        .cs2-setup.show { display: block; }
+        .cs2-setup-title { color: #fff; font-size: 18px; font-weight: 900; }
+        .cs2-setup-copy { margin: 7px 0 16px; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+        .cs2-setup-steps { margin: 0 0 18px 20px; padding: 0; color: #e8e0f4; font-size: 13px; line-height: 1.55; }
+        .cs2-setup-steps li + li { margin-top: 7px; }
+        .cs2-setup-link { color: #66c0f4; font-weight: 800; }
+        .cs2-setup-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .cs2-setup-label { display: grid; gap: 6px; color: #fff; font-size: 12px; font-weight: 800; }
+        .cs2-setup-input {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid rgba(165, 114, 255, .32);
+            border-radius: 10px;
+            padding: 11px 12px;
+            background: rgba(255,255,255,.06);
+            color: #fff;
+            font: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+        .cs2-setup-input:focus { border-color: rgba(102, 192, 244, .72); }
+        .cs2-setup-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+        .cs2-setup-submit {
+            border: 0;
+            border-radius: 10px;
+            padding: 11px 16px;
+            background: linear-gradient(135deg, #66c0f4, #7067df);
+            color: #fff;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+        .cs2-setup-submit:disabled { cursor: wait; opacity: .65; }
+        .cs2-setup-message { color: #ff9b8f; font-size: 12px; line-height: 1.4; }
+        .cs2-match-tools { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+        .cs2-change-codes {
+            border: 0;
+            padding: 4px 0;
+            background: transparent;
+            color: #66c0f4;
+            font: inherit;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .cs2-match-head,
+        .cs2-match-row {
+            display: grid;
+            grid-template-columns: minmax(210px, 1.6fr) minmax(130px, .9fr) minmax(160px, 1fr) 110px;
+            gap: 16px;
+            align-items: center;
+        }
+        .cs2-match-map-name { color: #fff; font-size: 15px; font-weight: 900; }
         @media (max-width: 680px) {
             .steam-account-card { grid-template-columns: auto minmax(0, 1fr); }
             .steam-account-actions { grid-column: 1 / -1; }
@@ -702,6 +762,13 @@
             .dota-match-kda { grid-column: 2 / 3; grid-row: 2 / 3; text-align: right; align-self: start; }
             .dota-match-type { grid-column: 1 / 2; grid-row: 3 / 4; }
             .dota-match-duration { grid-column: 2 / 3; grid-row: 3 / 4; text-align: right; }
+            .cs2-setup-fields { grid-template-columns: 1fr; }
+            .cs2-match-head { display: none; }
+            .cs2-match-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; padding: 14px; }
+            .cs2-match-row .dota-match-hero { grid-column: 1 / -1; }
+            .cs2-match-row .dota-match-result-wrap { grid-column: 1 / 2; }
+            .cs2-match-row .dota-match-type { grid-column: 1 / 2; }
+            .cs2-match-row .dota-match-kda { grid-column: 2 / 3; grid-row: 2 / 4; text-align: right; }
         }
         .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
         .stat-card {
@@ -3110,6 +3177,36 @@
             </div>
         </div>
     </div>
+    <div class="modal-backdrop" id="steamCS2MatchesModal">
+        <div class="app-modal app-modal--dota-matches">
+            <button class="modal-close" onclick="closeModal('steamCS2MatchesModal')" aria-label="Закрыть">×</button>
+            <h2 class="modal-title">Последние матчи Counter-Strike 2</h2>
+            <div class="dota-matches-caption">Пять последних матчей из официальной истории Steam</div>
+            <form class="cs2-setup" id="cs2MatchSetupForm">
+                <div class="cs2-setup-title">Подключите историю матчей</div>
+                <div class="cs2-setup-copy">Steam выдаёт эти коды специально для чтения истории CS2. Пароль Steam вводить не нужно.</div>
+                <ol class="cs2-setup-steps">
+                    <li>Откройте <a class="cs2-setup-link" href="https://help.steampowered.com/ru/wizard/HelpWithGameIssue/?appid=730&amp;issueid=128&amp;transid=147828156131720625&amp;line_item=147828156131720628" target="_blank" rel="noopener noreferrer">страницу Steam с кодом авторизации</a> и скопируйте код.</li>
+                    <li>В CS2 откройте «Смотреть» → «Ваши матчи», выберите матч и нажмите «Копировать код матча». Чтобы сразу загрузить до пяти игр, возьмите самый ранний код из доступных последних пяти; если вставить код последнего матча, следующие игры появятся автоматически после их завершения.</li>
+                </ol>
+                <div class="cs2-setup-fields">
+                    <label class="cs2-setup-label">Код авторизации Steam
+                        <input class="cs2-setup-input" id="cs2AuthCodeInput" name="auth_code" autocomplete="off" spellcheck="false" required placeholder="XXXX-XXXXX-XXXX">
+                    </label>
+                    <label class="cs2-setup-label">Код матча
+                        <input class="cs2-setup-input" id="cs2ShareCodeInput" name="share_code" autocomplete="off" spellcheck="false" required placeholder="CSGO-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx">
+                    </label>
+                </div>
+                <div class="cs2-setup-actions">
+                    <button class="cs2-setup-submit" id="cs2MatchSetupSubmit" type="submit">Подключить матчи</button>
+                    <div class="cs2-setup-message" id="cs2MatchSetupMessage" role="status"></div>
+                </div>
+            </form>
+            <div id="steamCS2MatchesContent">
+                <div class="steam-profile-status">Проверяем подключение…</div>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     <div class="modal-backdrop" id="streakRulesModal">
@@ -3161,6 +3258,10 @@
         const steamAuthNoticeConfirm = document.getElementById('steamAuthNoticeConfirm');
         const steamProfileContent = document.getElementById('steamProfileContent');
         const steamDotaMatchesContent = document.getElementById('steamDotaMatchesContent');
+        const steamCS2MatchesContent = document.getElementById('steamCS2MatchesContent');
+        const cs2MatchSetupForm = document.getElementById('cs2MatchSetupForm');
+        const cs2MatchSetupSubmit = document.getElementById('cs2MatchSetupSubmit');
+        const cs2MatchSetupMessage = document.getElementById('cs2MatchSetupMessage');
         const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
         const cmBonusModalText = document.getElementById('cmBonusModalText');
         const winImage = document.getElementById('winImage');
@@ -3208,6 +3309,7 @@
         let steamDotaMatchesLoaded = false;
         let pendingSteamAuthUrl = '';
         const warmedSteamAuthUrls = new Set();
+        let steamCS2MatchesLoaded = false;
         let modalScrollPosition = 0;
 
         function lockModalPageScroll() {
@@ -3418,6 +3520,171 @@
             }
         }
 
+        function showCS2Setup(message = '') {
+            if (!cs2MatchSetupForm || !steamCS2MatchesContent) return;
+            cs2MatchSetupForm.classList.add('show');
+            steamCS2MatchesContent.innerHTML = '';
+            if (cs2MatchSetupMessage) cs2MatchSetupMessage.textContent = message;
+        }
+
+        function renderCS2Matches(matches, warning = '') {
+            if (!steamCS2MatchesContent || !cs2MatchSetupForm) return;
+            cs2MatchSetupForm.classList.remove('show');
+            steamCS2MatchesContent.innerHTML = '';
+
+            const tools = document.createElement('div');
+            tools.className = 'cs2-match-tools';
+            const changeCodes = document.createElement('button');
+            changeCodes.type = 'button';
+            changeCodes.className = 'cs2-change-codes';
+            changeCodes.textContent = 'Изменить коды подключения';
+            changeCodes.addEventListener('click', () => showCS2Setup());
+            tools.appendChild(changeCodes);
+            steamCS2MatchesContent.appendChild(tools);
+
+            if (warning) {
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = warning;
+                steamCS2MatchesContent.appendChild(notice);
+            }
+            if (!matches.length) {
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = 'Матчи пока не найдены. После следующей официальной игры откройте этот раздел снова.';
+                steamCS2MatchesContent.appendChild(notice);
+                return;
+            }
+
+            const table = document.createElement('div');
+            table.className = 'dota-match-table';
+            const head = document.createElement('div');
+            head.className = 'dota-match-head cs2-match-head';
+            ['Карта', 'Результат', 'Тип', 'K / D / A'].forEach((label) => {
+                const cell = document.createElement('div');
+                cell.textContent = label;
+                head.appendChild(cell);
+            });
+            table.appendChild(head);
+
+            matches.forEach((match) => {
+                const row = document.createElement('div');
+                row.className = 'dota-match-row cs2-match-row';
+                const map = document.createElement('div');
+                map.className = 'dota-match-hero';
+                const picture = document.createElement('div');
+                picture.className = 'dota-match-hero-image';
+                if (match.map_image_url) {
+                    const image = document.createElement('img');
+                    image.src = match.map_image_url;
+                    image.alt = '';
+                    image.loading = 'lazy';
+                    image.addEventListener('error', () => {
+                        image.src = 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg';
+                        image.addEventListener('error', () => image.remove(), {once: true});
+                    }, {once: true});
+                    picture.appendChild(image);
+                } else {
+                    picture.textContent = 'CS2';
+                }
+                const mapName = document.createElement('div');
+                mapName.className = 'cs2-match-map-name';
+                mapName.textContent = match.map_label || 'Карта';
+                map.append(picture, mapName);
+
+                const resultWrap = document.createElement('div');
+                resultWrap.className = 'dota-match-result-wrap';
+                const result = document.createElement('div');
+                const resultClass = match.won === true ? 'win' : match.won === false ? 'loss' : 'unknown';
+                result.className = `dota-match-result dota-match-result--${resultClass}`;
+                result.textContent = match.result_label || 'Завершён';
+                const score = document.createElement('div');
+                score.className = 'dota-match-meta';
+                const hasScore = match.team_score !== null && match.team_score !== undefined
+                    && match.opponent_score !== null && match.opponent_score !== undefined;
+                score.textContent = hasScore
+                    ? `${match.team_score}:${match.opponent_score}`
+                    : formatDotaRelativeTime(match.played_at);
+                resultWrap.append(result, score);
+
+                const type = document.createElement('div');
+                type.className = 'dota-match-type';
+                const typeMain = document.createElement('div');
+                typeMain.className = 'dota-match-type-main';
+                typeMain.textContent = match.mode_label || 'Официальный матч';
+                const started = document.createElement('div');
+                started.className = 'dota-match-meta';
+                started.textContent = formatDotaRelativeTime(match.played_at);
+                type.append(typeMain, started);
+
+                const kda = document.createElement('div');
+                kda.className = 'dota-match-kda';
+                const missingKda = [match.kills, match.deaths, match.assists]
+                    .some((value) => value === null || value === undefined);
+                kda.textContent = missingKda ? '—' : `${match.kills} / ${match.deaths} / ${match.assists}`;
+
+                row.append(map, resultWrap, type, kda);
+                table.appendChild(row);
+            });
+            steamCS2MatchesContent.appendChild(table);
+        }
+
+        async function loadCS2Matches(force = false) {
+            if (!steamCS2MatchesContent || (steamCS2MatchesLoaded && !force)) return;
+            if (cs2MatchSetupForm) cs2MatchSetupForm.classList.remove('show');
+            steamCS2MatchesContent.innerHTML = '<div class="steam-profile-status">Загружаем матчи…</div>';
+            try {
+                const response = await fetch({{ url_for('guest.api_steam_cs2_matches')|tojson }}, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось загрузить матчи CS2');
+                if (!data.configured) {
+                    showCS2Setup();
+                    return;
+                }
+                renderCS2Matches(data.matches || [], data.warning || '');
+                steamCS2MatchesLoaded = true;
+            } catch (error) {
+                steamCS2MatchesContent.innerHTML = '';
+                const notice = document.createElement('div');
+                notice.className = 'steam-profile-status';
+                notice.textContent = error.message || 'Не удалось загрузить матчи CS2';
+                steamCS2MatchesContent.appendChild(notice);
+            }
+        }
+
+        async function connectCS2MatchHistory(event) {
+            event.preventDefault();
+            if (!cs2MatchSetupForm || !cs2MatchSetupSubmit) return;
+            const formData = new FormData(cs2MatchSetupForm);
+            cs2MatchSetupSubmit.disabled = true;
+            cs2MatchSetupSubmit.textContent = 'Подключаем…';
+            if (cs2MatchSetupMessage) cs2MatchSetupMessage.textContent = '';
+            try {
+                const response = await fetch({{ url_for('guest.api_steam_cs2_matches_connect')|tojson }}, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        auth_code: String(formData.get('auth_code') || '').trim(),
+                        share_code: String(formData.get('share_code') || '').trim(),
+                    }),
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось подключить историю CS2');
+                cs2MatchSetupForm.reset();
+                steamCS2MatchesLoaded = true;
+                renderCS2Matches(data.matches || []);
+            } catch (error) {
+                if (cs2MatchSetupMessage) {
+                    cs2MatchSetupMessage.textContent = error.message || 'Не удалось подключить историю CS2';
+                }
+            } finally {
+                cs2MatchSetupSubmit.disabled = false;
+                cs2MatchSetupSubmit.textContent = 'Подключить матчи';
+            }
+        }
+
         function renderSteamProfile(profile) {
             const container = steamProfileContent;
             if (!container) return;
@@ -3496,16 +3763,21 @@
                     hours.appendChild(item);
                 });
                 card.append(cover, hours);
-                if (game.slug === 'dota2') {
+                if (game.slug === 'dota2' || game.slug === 'cs2') {
                     const actions = document.createElement('div');
                     actions.className = 'steam-game-actions';
                     const matchesButton = document.createElement('button');
                     matchesButton.type = 'button';
-                    matchesButton.className = 'steam-dota-matches-btn';
+                    matchesButton.className = 'steam-game-matches-btn';
                     matchesButton.textContent = 'Последние матчи';
                     matchesButton.addEventListener('click', () => {
-                        openModal('steamDotaMatchesModal');
-                        loadDotaMatches();
+                        if (game.slug === 'dota2') {
+                            openModal('steamDotaMatchesModal');
+                            loadDotaMatches();
+                        } else {
+                            openModal('steamCS2MatchesModal');
+                            loadCS2Matches();
+                        }
                     });
                     actions.appendChild(matchesButton);
                     card.appendChild(actions);
@@ -4504,6 +4776,10 @@
                 openModal('steamProfileModal');
                 loadSteamProfile();
             });
+        }
+
+        if (cs2MatchSetupForm) {
+            cs2MatchSetupForm.addEventListener('submit', connectCS2MatchHistory);
         }
 
         document.querySelectorAll('[data-steam-auth-link]').forEach((link) => {

@@ -8,3 +8,4 @@ httpx
 Werkzeug
 Pillow
 reportlab>=4.2,<5
+cryptography>=43,<47

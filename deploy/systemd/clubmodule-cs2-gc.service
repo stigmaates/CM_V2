@@ -1,0 +1,17 @@
+[Unit]
+Description=ClubModule CS2 Game Coordinator bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/cm_v2/CM_V2/services/cs2_gc
+EnvironmentFile=/root/cm_v2/CM_V2/.env
+ExecStart=/usr/bin/node /root/cm_v2/CM_V2/services/cs2_gc/server.js
+Restart=always
+RestartSec=10
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

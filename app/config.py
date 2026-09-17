@@ -68,6 +68,8 @@ MONTHLY_REPORT_ATTRIBUTION_DAYS = int(os.getenv("MONTHLY_REPORT_ATTRIBUTION_DAYS
 # for public profile and playtime data; guests never provide their own API key.
 STEAM_API_KEY = os.getenv("STEAM_API_KEY", "").strip()
 STEAM_PUBLIC_BASE_URL = os.getenv("STEAM_PUBLIC_BASE_URL", "").strip().rstrip("/")
+CS2_GC_BRIDGE_URL = os.getenv("CS2_GC_BRIDGE_URL", "").strip().rstrip("/")
+CS2_GC_BRIDGE_SECRET = os.getenv("CS2_GC_BRIDGE_SECRET", "").strip()
 
 if IS_PRODUCTION:
     missing = [

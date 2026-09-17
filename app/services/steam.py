@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import re
 from functools import lru_cache
 from urllib.parse import urlencode
 
 import httpx
 import pymysql
+from cryptography.fernet import Fernet, InvalidToken
 
-from app.config import STEAM_API_KEY
+from app.config import (
+    CS2_GC_BRIDGE_SECRET,
+    CS2_GC_BRIDGE_URL,
+    SECRET_KEY,
+    STEAM_API_KEY,
+)
 from app.core import get_db_connection
 
 STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login"
@@ -18,6 +26,24 @@ OPENDOTA_API_ROOT = "https://api.opendota.com/api"
 STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d{17})/?$")
 STEAM_ID_ACCOUNT_OFFSET = 76561197960265728
 DOTA_MATCH_LIMIT = 5
+CS2_MATCH_LIMIT = 5
+CS2_SYNC_LIMIT = 5
+CS2_SHARE_CODE_RE = re.compile(r"^CSGO-(?:[A-Za-z0-9]{5}-){4}[A-Za-z0-9]{5}$")
+CS2_AUTH_CODE_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
+CS2_MAP_IMAGE_ROOT = "https://raw.githubusercontent.com/MurkyYT/cs2-map-icons/main/images/thumbs"
+CS2_MAP_LABELS = {
+    "de_ancient": "Ancient",
+    "de_anubis": "Anubis",
+    "de_cache": "Cache",
+    "de_dust2": "Dust II",
+    "de_inferno": "Inferno",
+    "de_mirage": "Mirage",
+    "de_nuke": "Nuke",
+    "de_overpass": "Overpass",
+    "de_train": "Train",
+    "de_vertigo": "Vertigo",
+    "cs_office": "Office",
+}
 SUPPORTED_GAMES = (
     {
         "appid": 730,
@@ -68,6 +94,14 @@ class SteamNotConfiguredError(SteamError):
 
 class SteamAlreadyLinkedError(SteamError):
     """A Steam account is already linked to another guest in this club."""
+
+
+class CS2HistoryNotConfiguredError(SteamError):
+    """The local CS2 Game Coordinator bridge is unavailable or not configured."""
+
+
+class CS2HistoryCodeError(SteamError):
+    """A guest supplied an invalid CS2 history code."""
 
 
 def build_openid_redirect_url(*, return_to: str, realm: str) -> str:
@@ -298,6 +332,294 @@ def fetch_dota_recent_matches(steam_id: str, *, limit: int = DOTA_MATCH_LIMIT) -
             }
         )
     return {"matches": matches, "is_private": False}
+
+
+def _cs2_fernet() -> Fernet:
+    material = hashlib.sha256(f"cyber-bonus:cs2:{SECRET_KEY}".encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(material))
+
+
+def _encrypt_cs2_auth_code(auth_code: str) -> str:
+    return _cs2_fernet().encrypt(auth_code.encode()).decode()
+
+
+def _decrypt_cs2_auth_code(encrypted: str) -> str:
+    try:
+        return _cs2_fernet().decrypt(encrypted.encode()).decode()
+    except (InvalidToken, ValueError) as exc:
+        raise CS2HistoryCodeError("Сохранённый код CS2 больше не читается. Подключите историю заново.") from exc
+
+
+def normalize_cs2_auth_code(value: str) -> str:
+    code = (value or "").strip()
+    if not CS2_AUTH_CODE_RE.fullmatch(code):
+        raise CS2HistoryCodeError("Проверьте код авторизации истории матчей Steam")
+    return code
+
+
+def normalize_cs2_share_code(value: str) -> str:
+    code = (value or "").strip()
+    if not CS2_SHARE_CODE_RE.fullmatch(code):
+        raise CS2HistoryCodeError("Код матча должен начинаться с CSGO- и содержать пять групп символов")
+    return code
+
+
+def fetch_next_cs2_share_code(*, steam_id: str, auth_code: str, known_code: str) -> str | None:
+    """Ask Steam for the match sharing code immediately after ``known_code``."""
+    if not STEAM_API_KEY:
+        raise SteamNotConfiguredError("На сервере не настроен STEAM_API_KEY")
+    try:
+        with httpx.Client(timeout=12.0, follow_redirects=False) as client:
+            response = client.get(
+                f"{STEAM_API_ROOT}/ICSGOPlayers_730/GetNextMatchSharingCode/v1/",
+                params={
+                    "key": STEAM_API_KEY,
+                    "steamid": steam_id,
+                    "steamidkey": auth_code,
+                    "knowncode": known_code,
+                },
+            )
+            if response.status_code in {400, 401, 403, 404, 412}:
+                raise CS2HistoryCodeError("Steam не принял коды. Проверьте код авторизации и код матча.")
+            response.raise_for_status()
+            payload = response.json()
+    except CS2HistoryCodeError:
+        raise
+    except (httpx.HTTPError, ValueError) as exc:
+        raise SteamError("Steam временно не отвечает по истории матчей") from exc
+
+    result = payload.get("result")
+    if result is None and isinstance(payload.get("response"), dict):
+        result = payload["response"].get("result")
+    result = str(result or "").strip()
+    if not result or result.lower() in {"n/a", "none"}:
+        return None
+    return normalize_cs2_share_code(result)
+
+
+def fetch_cs2_match_from_gc(*, steam_id: str, share_code: str) -> dict:
+    if not CS2_GC_BRIDGE_URL or not CS2_GC_BRIDGE_SECRET:
+        raise CS2HistoryNotConfiguredError("Сервис матчей CS2 пока не настроен на сервере")
+    try:
+        with httpx.Client(timeout=25.0, follow_redirects=False) as client:
+            response = client.post(
+                f"{CS2_GC_BRIDGE_URL}/match",
+                headers={"Authorization": f"Bearer {CS2_GC_BRIDGE_SECRET}"},
+                json={"steam_id": steam_id, "share_code": share_code},
+            )
+            if response.status_code == 503:
+                raise CS2HistoryNotConfiguredError("Steam-сервис матчей CS2 ещё подключается")
+            if response.status_code in {400, 404, 422}:
+                raise CS2HistoryCodeError("Не удалось найти игрока в матче по этому коду")
+            response.raise_for_status()
+            payload = response.json()
+    except (CS2HistoryNotConfiguredError, CS2HistoryCodeError):
+        raise
+    except (httpx.HTTPError, ValueError) as exc:
+        raise CS2HistoryNotConfiguredError("Сервис матчей CS2 временно недоступен") from exc
+    match = payload.get("match") if isinstance(payload, dict) else None
+    if not isinstance(payload, dict) or not payload.get("ok") or not isinstance(match, dict):
+        raise CS2HistoryCodeError("Steam не вернул данные матча")
+    return match
+
+
+def _save_cs2_match_access(*, club_id: int, guest_id: int, auth_code: str, share_code: str) -> None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO guest_cs2_match_access (
+                    club_id, guest_id, auth_code_encrypted, last_share_code
+                ) VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    auth_code_encrypted = VALUES(auth_code_encrypted),
+                    last_share_code = VALUES(last_share_code)
+                """,
+                (club_id, guest_id, _encrypt_cs2_auth_code(auth_code), share_code),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_cs2_match_access(*, club_id: int, guest_id: int) -> dict | None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT auth_code_encrypted, last_share_code, updated_at
+                FROM guest_cs2_match_access
+                WHERE club_id = %s AND guest_id = %s
+                LIMIT 1
+                """,
+                (club_id, guest_id),
+            )
+            row = cursor.fetchone()
+        if row:
+            row["auth_code"] = _decrypt_cs2_auth_code(row.pop("auth_code_encrypted"))
+        return row
+    finally:
+        conn.close()
+
+
+def _cs2_match_exists(*, club_id: int, guest_id: int, share_code: str) -> bool:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM guest_cs2_matches
+                WHERE club_id = %s AND guest_id = %s AND share_code = %s
+                LIMIT 1
+                """,
+                (club_id, guest_id, share_code),
+            )
+            return cursor.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def _store_cs2_match(*, club_id: int, guest_id: int, share_code: str, match: dict) -> None:
+    fields = (
+        "match_id",
+        "played_at",
+        "map_name",
+        "mode_label",
+        "result_label",
+        "won",
+        "team_score",
+        "opponent_score",
+        "duration_seconds",
+        "kills",
+        "deaths",
+        "assists",
+    )
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO guest_cs2_matches (
+                    club_id, guest_id, share_code, match_id, played_at, map_name, mode_label,
+                    result_label, won, team_score, opponent_score, duration_seconds, kills, deaths, assists
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    match_id = VALUES(match_id),
+                    played_at = VALUES(played_at),
+                    map_name = VALUES(map_name),
+                    mode_label = VALUES(mode_label),
+                    result_label = VALUES(result_label),
+                    won = VALUES(won),
+                    team_score = VALUES(team_score),
+                    opponent_score = VALUES(opponent_score),
+                    duration_seconds = VALUES(duration_seconds),
+                    kills = VALUES(kills),
+                    deaths = VALUES(deaths),
+                    assists = VALUES(assists)
+                """,
+                (club_id, guest_id, share_code, *(match.get(field) for field in fields)),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _advance_cs2_match_cursor(*, club_id: int, guest_id: int, share_code: str) -> None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE guest_cs2_match_access
+                SET last_share_code = %s
+                WHERE club_id = %s AND guest_id = %s
+                """,
+                (share_code, club_id, guest_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def sync_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str) -> int:
+    """Import the known CS2 match and move Steam's match-code cursor forward."""
+    access = get_cs2_match_access(club_id=club_id, guest_id=guest_id)
+    if not access:
+        return 0
+    auth_code = access["auth_code"]
+    share_code = normalize_cs2_share_code(access["last_share_code"])
+    imported = 0
+    for _ in range(CS2_SYNC_LIMIT):
+        if not _cs2_match_exists(club_id=club_id, guest_id=guest_id, share_code=share_code):
+            match = fetch_cs2_match_from_gc(steam_id=steam_id, share_code=share_code)
+            _store_cs2_match(
+                club_id=club_id,
+                guest_id=guest_id,
+                share_code=share_code,
+                match=match,
+            )
+            imported += 1
+        next_code = fetch_next_cs2_share_code(
+            steam_id=steam_id,
+            auth_code=auth_code,
+            known_code=share_code,
+        )
+        if not next_code or next_code == share_code:
+            break
+        share_code = next_code
+        _advance_cs2_match_cursor(club_id=club_id, guest_id=guest_id, share_code=share_code)
+    return imported
+
+
+def configure_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str, auth_code: str, share_code: str) -> int:
+    auth_code = normalize_cs2_auth_code(auth_code)
+    share_code = normalize_cs2_share_code(share_code)
+    # This call validates that the two user-provided codes belong to the linked Steam account.
+    fetch_next_cs2_share_code(steam_id=steam_id, auth_code=auth_code, known_code=share_code)
+    _save_cs2_match_access(
+        club_id=club_id,
+        guest_id=guest_id,
+        auth_code=auth_code,
+        share_code=share_code,
+    )
+    return sync_cs2_match_history(club_id=club_id, guest_id=guest_id, steam_id=steam_id)
+
+
+def get_cs2_recent_matches(*, club_id: int, guest_id: int, limit: int = CS2_MATCH_LIMIT) -> list[dict]:
+    safe_limit = max(1, min(int(limit), CS2_MATCH_LIMIT))
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT share_code, match_id, played_at, map_name, mode_label, result_label, won,
+                       team_score, opponent_score, duration_seconds, kills, deaths, assists
+                FROM guest_cs2_matches
+                WHERE club_id = %s AND guest_id = %s
+                ORDER BY COALESCE(played_at, 0) DESC, id DESC
+                LIMIT %s
+                """,
+                (club_id, guest_id, safe_limit),
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+    for row in rows:
+        map_name = str(row.get("map_name") or "unknown")
+        safe_map = map_name if re.fullmatch(r"[a-z0-9_]+", map_name) else "unknown"
+        row["map_label"] = CS2_MAP_LABELS.get(map_name, map_name.removeprefix("de_").removeprefix("cs_").title())
+        row["map_image_url"] = f"{CS2_MAP_IMAGE_ROOT}/{safe_map}_1_png.png" if safe_map != "unknown" else None
+        row["won"] = None if row.get("won") is None else bool(row["won"])
+    return rows
 
 
 def get_linked_steam_account(*, club_id: int, guest_id: int) -> dict | None:

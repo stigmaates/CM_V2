@@ -161,8 +161,7 @@ def test_dota_recent_matches_are_loaded_from_opendota(monkeypatch):
                 "hero_id": 46,
                 "hero_name": "Templar Assassin",
                 "hero_image_url": (
-                    "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/"
-                    "dota_react/heroes/templar_assassin.png"
+                    "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/templar_assassin.png"
                 ),
                 "won": True,
                 "result_label": "Победа",
@@ -207,6 +206,135 @@ def test_dota_recent_matches_route_uses_linked_account(monkeypatch):
         "matches": [{"match_id": "123"}],
         "is_private": False,
     }
+
+
+def test_cs2_codes_are_validated_and_auth_code_is_encrypted():
+    auth_code = steam.normalize_cs2_auth_code("ABCD-EFGHI-JKLM")
+    share_code = steam.normalize_cs2_share_code("CSGO-abcde-fghij-klmno-pqrst-uvwxy")
+
+    encrypted = steam._encrypt_cs2_auth_code(auth_code)
+
+    assert share_code == "CSGO-abcde-fghij-klmno-pqrst-uvwxy"
+    assert auth_code not in encrypted
+    assert steam._decrypt_cs2_auth_code(encrypted) == auth_code
+
+
+def test_cs2_sync_imports_known_match_and_walks_forward(monkeypatch):
+    imported_codes = []
+    advanced_codes = []
+    next_codes = {
+        "CSGO-aaaaa-aaaaa-aaaaa-aaaaa-aaaaa": "CSGO-bbbbb-bbbbb-bbbbb-bbbbb-bbbbb",
+        "CSGO-bbbbb-bbbbb-bbbbb-bbbbb-bbbbb": "CSGO-ccccc-ccccc-ccccc-ccccc-ccccc",
+        "CSGO-ccccc-ccccc-ccccc-ccccc-ccccc": None,
+    }
+    monkeypatch.setattr(
+        steam,
+        "get_cs2_match_access",
+        lambda **kwargs: {
+            "auth_code": "ABCD-EFGHI-JKLM",
+            "last_share_code": "CSGO-aaaaa-aaaaa-aaaaa-aaaaa-aaaaa",
+        },
+    )
+    monkeypatch.setattr(steam, "_cs2_match_exists", lambda **kwargs: False)
+    monkeypatch.setattr(
+        steam,
+        "fetch_cs2_match_from_gc",
+        lambda **kwargs: {"match_id": kwargs["share_code"]},
+    )
+    monkeypatch.setattr(
+        steam,
+        "_store_cs2_match",
+        lambda **kwargs: imported_codes.append(kwargs["share_code"]),
+    )
+    monkeypatch.setattr(
+        steam,
+        "fetch_next_cs2_share_code",
+        lambda **kwargs: next_codes[kwargs["known_code"]],
+    )
+    monkeypatch.setattr(
+        steam,
+        "_advance_cs2_match_cursor",
+        lambda **kwargs: advanced_codes.append(kwargs["share_code"]),
+    )
+
+    count = steam.sync_cs2_match_history(
+        club_id=3,
+        guest_id=14,
+        steam_id="76561198000000000",
+    )
+
+    assert count == 3
+    assert imported_codes == list(next_codes)
+    assert advanced_codes == list(next_codes)[1:]
+
+
+def test_cs2_match_connect_route_imports_history(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        guest_routes,
+        "get_linked_steam_account",
+        lambda **kwargs: {"steam_id": "76561198000000000"},
+    )
+    configured = []
+    monkeypatch.setattr(
+        guest_routes,
+        "configure_cs2_match_history",
+        lambda **kwargs: configured.append(kwargs) or 3,
+    )
+    monkeypatch.setattr(
+        guest_routes,
+        "get_cs2_recent_matches",
+        lambda **kwargs: [{"match_id": "123", "map_label": "Mirage"}],
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.post(
+            "/guest/api/steam-cs2-matches/connect",
+            json={
+                "auth_code": "ABCD-EFGHI-JKLM",
+                "share_code": "CSGO-abcde-fghij-klmno-pqrst-uvwxy",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.get_json()["imported"] == 3
+    assert configured == [
+        {
+            "club_id": 3,
+            "guest_id": 14,
+            "steam_id": "76561198000000000",
+            "auth_code": "ABCD-EFGHI-JKLM",
+            "share_code": "CSGO-abcde-fghij-klmno-pqrst-uvwxy",
+        }
+    ]
+
+
+def test_cs2_matches_route_requests_setup_when_codes_are_missing(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        guest_routes,
+        "get_linked_steam_account",
+        lambda **kwargs: {"steam_id": "76561198000000000"},
+    )
+    monkeypatch.setattr(guest_routes, "get_cs2_match_access", lambda **kwargs: None)
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.get("/guest/api/steam-cs2-matches")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True, "configured": False, "matches": []}
 
 
 def test_steam_link_route_keeps_guest_bound_state(monkeypatch):
@@ -312,6 +440,9 @@ def test_linked_steam_controls_render_in_guest_profile():
     assert "Мой игровой профиль" in html
     assert 'id="steamProfileModal"' in html
     assert 'id="steamDotaMatchesModal"' in html
+    assert 'id="steamCS2MatchesModal"' in html
+    assert 'id="cs2MatchSetupForm"' in html
+    assert "help.steampowered.com/ru/wizard/HelpWithGameIssue/" in html
     assert "Последние матчи" in html
     assert "data-steam-auth-link" in html
     assert 'id="steamAuthNoticeModal"' in html
