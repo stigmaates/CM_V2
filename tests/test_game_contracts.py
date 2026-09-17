@@ -208,3 +208,65 @@ def test_progress_uses_match_facts_and_contract_conditions():
     assert _match_contribution(
         {"metric_type": "kd_ratio", "conditions_json": "{}"}, match
     ) == Decimal("1.50")
+
+
+def test_repair_missing_contract_rewards_issues_completed_reward_once(monkeypatch):
+    contract = {
+        "id": 91,
+        "club_id": 1,
+        "guest_id": 63253,
+        "title": "Охота началась",
+        "reward_tokens": 3,
+        "reward_bonus": 0,
+    }
+
+    class Cursor:
+        def __init__(self):
+            self.updated = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def execute(self, sql, params=None):
+            if sql.strip().startswith("UPDATE guest_game_contracts"):
+                self.updated = True
+
+        def fetchall(self):
+            return [contract]
+
+    class RepairConnection:
+        def __init__(self):
+            self.cursor_instance = Cursor()
+            self.committed = False
+
+        def cursor(self):
+            return self.cursor_instance
+
+        def commit(self):
+            self.committed = True
+
+        def rollback(self):
+            raise AssertionError("repair should not roll back")
+
+        def close(self):
+            return None
+
+    connection = RepairConnection()
+    awarded = []
+    monkeypatch.setattr(game_contracts, "get_db_connection", lambda: connection)
+    monkeypatch.setattr(
+        game_contracts,
+        "add_guest_token_transaction",
+        lambda *args: awarded.append(args) or True,
+    )
+
+    repaired = game_contracts.repair_missing_contract_rewards(1, 63253)
+
+    assert repaired == 1
+    assert len(awarded) == 1
+    assert awarded[0][4:] == ("game_contract", "91", "Награда за игровой контракт «Охота началась»")
+    assert connection.cursor_instance.updated is True
+    assert connection.committed is True
