@@ -1,0 +1,54 @@
+{% if videos %}
+<dialog class="training-modal" data-training-modal aria-labelledby="trainingModalTitle" data-lenis-prevent>
+    <div class="training-modal__dialog">
+        <header class="training-modal__header">
+            <div>
+                <span class="training-modal__eyebrow">ОБУЧЕНИЕ</span>
+                <h2 id="trainingModalTitle" data-training-modal-title>Видео</h2>
+            </div>
+            <button class="training-modal__close" type="button" data-training-modal-close aria-label="Закрыть видео">×</button>
+        </header>
+
+        <div class="training-modal__layout">
+            <section class="training-modal__main">
+                <div class="training-modal__frame">
+                    <iframe
+                        data-training-modal-frame
+                        title="Видео обучения"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen
+                        referrerpolicy="strict-origin-when-cross-origin"
+                    ></iframe>
+                </div>
+                <div class="training-modal__description">
+                    <h3>О видео</h3>
+                    <p data-training-modal-description></p>
+                    <a data-training-modal-youtube href="#" target="_blank" rel="noopener noreferrer">Открыть на YouTube</a>
+                </div>
+            </section>
+
+            <aside class="training-modal__aside" aria-label="Следующие видео">
+                <h3>Следующие видео</h3>
+                <div class="training-modal__playlist" data-training-modal-playlist data-lenis-prevent data-lenis-prevent-wheel>
+                    {% for video in videos %}
+                    <button
+                        class="training-modal__item"
+                        type="button"
+                        data-training-modal-item
+                        data-video-id="{{ video.id }}"
+                        data-embed-url="{{ video.embed_url }}"
+                        data-youtube-url="{{ video.youtube_url }}"
+                        data-video-title="{{ video.title }}"
+                        data-video-description="{{ video.description }}"
+                    >
+                        <img src="{{ video.thumbnail_url }}" alt="" loading="lazy">
+                        <span>{{ video.title }}</span>
+                    </button>
+                    {% endfor %}
+                    <p class="training-modal__playlist-empty" data-training-modal-playlist-empty hidden>Других видео пока нет.</p>
+                </div>
+            </aside>
+        </div>
+    </div>
+</dialog>
+{% endif %}

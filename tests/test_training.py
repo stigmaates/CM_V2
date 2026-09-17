@@ -61,3 +61,8 @@ def test_training_templates_include_player_and_admin_sorting():
     assert "thumbnail_url" in owner_template
     assert "data-training-sortable" in admin_template
     assert "data-youtube-url-input" in admin_template
+
+    modal_template = (project_root / "app/templates/_training_video_modal.html").read_text()
+    assert "data-training-modal-frame" in modal_template
+    assert "Следующие видео" in modal_template
+    assert "data-training-modal-description" in modal_template
