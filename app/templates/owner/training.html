@@ -1,0 +1,39 @@
+{% extends "owner/base.html" %}
+
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — Обучение{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/training.css', v='1') }}">{% endblock %}
+
+{% block content %}
+<main class="training-page training-page--owner">
+    <header class="training-hero">
+        <span class="training-eyebrow">БАЗА ЗНАНИЙ</span>
+        <h1>Обучение</h1>
+        <p>Короткие видео о том, как настроить Cyber Bonus и использовать возможности системы.</p>
+    </header>
+
+    {% if videos %}
+    <section class="training-grid" aria-label="Обучающие видео">
+        {% for video in videos %}
+        <article class="training-card">
+            <button class="training-player" type="button" data-training-player data-embed-url="{{ video.embed_url }}" aria-label="Воспроизвести «{{ video.title }}»">
+                <img src="{{ video.thumbnail_url }}" alt="Превью: {{ video.title }}" loading="lazy">
+                <span class="training-play" aria-hidden="true">▶</span>
+            </button>
+            <div class="training-card__body">
+                <h2>{{ video.title }}</h2>
+                <p>{{ video.description or 'Откройте видео, чтобы посмотреть обучение.' }}</p>
+            </div>
+            <a class="training-youtube-link" href="{{ video.youtube_url }}" target="_blank" rel="noopener noreferrer">Открыть на YouTube</a>
+        </article>
+        {% endfor %}
+    </section>
+    {% else %}
+    <section class="training-empty">
+        <strong>Раздел скоро наполнится</strong>
+        <span>Здесь появятся короткие видео по работе с системой.</span>
+    </section>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='js/training.js', v='1') }}" defer></script>{% endblock %}
