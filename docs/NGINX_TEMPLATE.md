@@ -13,7 +13,8 @@ Adjust before installation:
 - `/opt/cyber-bonus/app/static/`
 - `/var/www/clubmodule_uploads/stage/`
 - upstream bind address if gunicorn does not listen on `127.0.0.1:8000`
-- `client_max_body_size` if `CLUBMODULE_IMAGE_MAX_MB` changes
+- global `client_max_body_size` if `CLUBMODULE_IMAGE_MAX_MB` changes
+- upload limit in `location = /admin/files/upload` if `ADMIN_FILES_REQUEST_MAX_MB` changes
 
 ## Install example
 
@@ -33,6 +34,9 @@ For the current template:
 ```env
 CLUBMODULE_UPLOAD_ROOT=/var/www/clubmodule_uploads/stage
 CLUBMODULE_UPLOAD_URL_PREFIX=/uploads
+ADMIN_FILES_ROOT=/var/www/clubmodule_uploads/stage_admin_drive
 ```
+
+`ADMIN_FILES_ROOT` must stay outside the public `/uploads/` alias. Files from the admin drive are returned only by authenticated `/admin/files/...` routes.
 
 If Nginx is not configured yet, Flask still has a fallback `/uploads/<path>` route, but production should serve uploads through Nginx.

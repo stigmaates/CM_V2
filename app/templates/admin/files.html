@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Файлы — Cyber Bonus Admin{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_files.css', v='1') }}">{% endblock %}
+
+{% block content %}
+<main class="drive-page" data-drive-page data-max-file-mb="{{ max_file_mb }}" data-request-max-mb="{{ request_max_mb }}">
+    <header class="admin-page-head drive-head">
+        <div>
+            <h1>Файлы</h1>
+            <p>Закрытое хранилище материалов, референсов и рабочих документов.</p>
+        </div>
+        <div class="drive-head__actions">
+            <button class="admin-btn secondary" type="button" data-drive-new-folder>＋ Новая папка</button>
+            <button class="admin-btn" type="button" data-drive-pick-files>↑ Загрузить файлы</button>
+        </div>
+    </header>
+
+    <section class="drive-usage" aria-label="Использование диска">
+        <div class="drive-usage__copy">
+            <span>Использовано {{ drive.usage.used_label }} из {{ drive.usage.limit_label }}</span>
+            <small>Свободно {{ drive.usage.remaining_label }}</small>
+        </div>
+        <div class="drive-usage__bar" aria-hidden="true"><span style="width: {{ [drive.usage.percent, 100]|min }}%"></span></div>
+    </section>
+
+    <nav class="drive-breadcrumbs" aria-label="Текущая папка">
+        <a href="{{ url_for('admin.files') }}">Мой диск</a>
+        {% for crumb in drive.breadcrumbs %}
+            <span aria-hidden="true">›</span>
+            {% if loop.last %}<strong>{{ crumb.name }}</strong>{% else %}<a href="{{ url_for('admin.files', folder=crumb.id) }}">{{ crumb.name }}</a>{% endif %}
+        {% endfor %}
+    </nav>
+
+    <section class="admin-card drive-toolbar-card">
+        <form class="drive-search" method="get" action="{{ url_for('admin.files') }}">
+            {% if drive.folder_id %}<input type="hidden" name="folder" value="{{ drive.folder_id }}">{% endif %}
+            <label>
+                <span aria-hidden="true">⌕</span>
+                <input type="search" name="q" value="{{ drive.query }}" placeholder="Найти в этой папке" aria-label="Найти в этой папке">
+            </label>
+            {% if drive.query %}<a href="{{ url_for('admin.files', folder=drive.folder_id) }}">Сбросить</a>{% endif %}
+        </form>
+
+        <form class="drive-upload-form" method="post" enctype="multipart/form-data" action="{{ url_for('admin.file_upload') }}" data-drive-upload-form>
+            {% if drive.folder_id %}<input type="hidden" name="folder_id" value="{{ drive.folder_id }}">{% endif %}
+            <input type="file" name="files" multiple hidden data-drive-file-input>
+            <div class="drive-dropzone" data-drive-dropzone tabindex="0" role="button">
+                <span class="drive-dropzone__icon" aria-hidden="true">⇧</span>
+                <span><strong>Перетащите файлы сюда</strong><small>или нажмите, чтобы выбрать · до {{ max_file_mb }} МБ на файл</small></span>
+            </div>
+            <div class="drive-upload-progress" data-drive-upload-progress hidden>
+                <div><strong data-drive-upload-label>Загрузка…</strong><span data-drive-upload-percent>0%</span></div>
+                <progress max="100" value="0" data-drive-upload-bar></progress>
+            </div>
+            <p class="drive-upload-status" data-drive-upload-status role="status"></p>
+        </form>
+    </section>
+
+    {% if drive.folders %}
+    <section class="drive-section" aria-labelledby="driveFoldersTitle">
+        <h2 id="driveFoldersTitle">Папки</h2>
+        <div class="drive-folder-grid">
+            {% for folder in drive.folders %}
+            <article class="drive-folder-card">
+                <a class="drive-folder-card__main" href="{{ url_for('admin.files', folder=folder.id) }}">
+                    <span class="drive-folder-icon" aria-hidden="true"></span>
+                    <strong>{{ folder.name }}</strong>
+                </a>
+                <details class="drive-actions">
+                    <summary aria-label="Действия с папкой {{ folder.name }}">•••</summary>
+                    <div>
+                        <button type="button" data-drive-rename data-kind="Папку" data-name="{{ folder.name }}" data-action="{{ url_for('admin.file_folder_rename', folder_id=folder.id) }}">Переименовать</button>
+                        <form method="post" action="{{ url_for('admin.file_folder_delete', folder_id=folder.id) }}" onsubmit="return confirm('Удалить папку «{{ folder.name }}» вместе со всем содержимым?')">
+                            {% if drive.folder_id %}<input type="hidden" name="current_folder_id" value="{{ drive.folder_id }}">{% endif %}
+                            <button class="is-danger" type="submit">Удалить</button>
+                        </form>
+                    </div>
+                </details>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="drive-section" aria-labelledby="driveFilesTitle">
+        <div class="drive-section__head">
+            <h2 id="driveFilesTitle">Файлы</h2>
+            <span>{{ drive.files|length }}</span>
+        </div>
+        {% if drive.files %}
+        <div class="drive-file-list">
+            {% for file in drive.files %}
+            <article class="drive-file-row">
+                <span class="drive-file-icon drive-file-icon--{{ file.kind }}" aria-hidden="true">{{ {'image':'IMG','pdf':'PDF','archive':'ZIP','sheet':'XLS','document':'DOC','video':'VID'}.get(file.kind, 'FILE') }}</span>
+                <div class="drive-file-name">
+                    {% if file.previewable %}
+                    <button type="button" data-drive-preview data-preview-url="{{ url_for('admin.file_preview', file_id=file.id) }}" data-name="{{ file.original_name }}">{{ file.original_name }}</button>
+                    {% else %}
+                    <strong>{{ file.original_name }}</strong>
+                    {% endif %}
+                    <small>{{ file.size_label }}</small>
+                </div>
+                <time datetime="{{ file.created_at.isoformat() if file.created_at else '' }}">{{ file.created_at.strftime('%d.%m.%Y %H:%M') if file.created_at else '—' }}</time>
+                <a class="drive-download" href="{{ url_for('admin.file_download', file_id=file.id) }}">Скачать</a>
+                <details class="drive-actions">
+                    <summary aria-label="Действия с файлом {{ file.original_name }}">•••</summary>
+                    <div>
+                        <button type="button" data-drive-rename data-kind="Файл" data-name="{{ file.original_name }}" data-action="{{ url_for('admin.file_rename', file_id=file.id) }}">Переименовать</button>
+                        <form method="post" action="{{ url_for('admin.file_delete', file_id=file.id) }}" onsubmit="return confirm('Удалить файл «{{ file.original_name }}»?')">
+                            {% if drive.folder_id %}<input type="hidden" name="folder_id" value="{{ drive.folder_id }}">{% endif %}
+                            <button class="is-danger" type="submit">Удалить</button>
+                        </form>
+                    </div>
+                </details>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="drive-empty">
+            <span aria-hidden="true">☁</span>
+            <strong>{{ 'Ничего не найдено' if drive.query else 'В этой папке пока нет файлов' }}</strong>
+            <p>{{ 'Попробуйте изменить запрос.' if drive.query else 'Перетащите сюда файлы или создайте новую папку.' }}</p>
+        </div>
+        {% endif %}
+    </section>
+
+    <dialog class="drive-dialog" data-drive-folder-dialog>
+        <form method="post" action="{{ url_for('admin.file_folder_create') }}">
+            {% if drive.folder_id %}<input type="hidden" name="parent_id" value="{{ drive.folder_id }}">{% endif %}
+            <header><div><span>МОЙ ДИСК</span><h2>Новая папка</h2></div><button type="button" data-drive-dialog-close aria-label="Закрыть">×</button></header>
+            <label>Название папки<input type="text" name="name" maxlength="255" autocomplete="off" required data-drive-folder-name></label>
+            <footer><button type="button" class="admin-btn secondary" data-drive-dialog-close>Отмена</button><button class="admin-btn" type="submit">Создать</button></footer>
+        </form>
+    </dialog>
+
+    <dialog class="drive-dialog" data-drive-rename-dialog>
+        <form method="post" data-drive-rename-form>
+            {% if drive.folder_id %}<input type="hidden" name="current_folder_id" value="{{ drive.folder_id }}"><input type="hidden" name="folder_id" value="{{ drive.folder_id }}">{% endif %}
+            <header><div><span>ИЗМЕНИТЬ НАЗВАНИЕ</span><h2 data-drive-rename-title>Переименовать</h2></div><button type="button" data-drive-dialog-close aria-label="Закрыть">×</button></header>
+            <label>Новое название<input type="text" name="name" maxlength="255" autocomplete="off" required data-drive-rename-input></label>
+            <footer><button type="button" class="admin-btn secondary" data-drive-dialog-close>Отмена</button><button class="admin-btn" type="submit">Сохранить</button></footer>
+        </form>
+    </dialog>
+
+    <dialog class="drive-preview" data-drive-preview-dialog>
+        <header><h2 data-drive-preview-title>Предпросмотр</h2><button type="button" data-drive-dialog-close aria-label="Закрыть">×</button></header>
+        <iframe data-drive-preview-frame title="Предпросмотр файла"></iframe>
+    </dialog>
+</main>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin_files.js', v='1') }}" defer></script>{% endblock %}
