@@ -11,6 +11,7 @@ from app.services.guest_pulse_scores import (
     engagement,
     health,
     lifecycle,
+    overall_score,
     value_scores,
     visit_features,
 )
@@ -45,6 +46,14 @@ def row(h=60, v=75, e=35, status="ACTIVE"):
         "lifecycle_status": status,
         "audience_type": "loyal",
     }
+
+
+def test_overall_score_uses_pcv_weights_and_requires_all_scores():
+    result = overall_score(row(60, 80, 40))
+    assert result["score"] == 63
+    assert result["level"] == "MEDIUM"
+    assert result["label"] == "Средний"
+    assert overall_score(row(None, 80, 40))["score"] is None
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,7 @@ from app.services.guest_pulse_scores import (
     engagement,
     health,
     lifecycle,
+    overall_score,
     value_scores,
     visit_features,
 )
@@ -143,6 +144,7 @@ def calculate_club(sources, now, previous=None, historical=False):
             **value[row["guest_id"]],
             **{k: row["visits"][k] for k in ("revenue_90d", "played_hours_90d", "visits_90d", "avg_check_90d")},
         }
+        row["overall"] = overall_score(row)
         row["audience_type"] = audience(row)
     return result
 
