@@ -99,6 +99,18 @@ and a monitored production cycle.
 Navigation refactoring is a later release. Do not combine route/menu
 reorganization with the stage-to-production transfer.
 
+## Integration progress
+
+Current release branch progress:
+
+- batch 0 complete at `480dbc1`: manifest and release-tree guards;
+- batch 1 complete at `71550fd` and `2be2001`: training catalogue and playlist modal;
+- batch 2 complete at `da582c9`: private admin file drive;
+- batch 3 complete through `9bcb0a1`: production support-ticket workflow;
+- batch 4 is the next batch and has not been started.
+
+No production deployment or production database migration has been performed.
+
 ## Migration inventory expected from stage
 
 The candidate migration list is:
