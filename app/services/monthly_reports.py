@@ -423,9 +423,9 @@ def build_report_from_sources(
 
     quality = []
     if not current_state:
-        quality.append("Нет снимка Пульса на конец месяца: блоки Пульса и Health показаны без значений.")
+        quality.append("Нет снимка Пульса на конец месяца: блоки Пульса и «Посещения» показаны без значений.")
     elif any(row.get("reconstructed") for row in current_state.values()):
-        quality.append("Пульс и Health частично восстановлены по историческим событиям.")
+        quality.append("Пульс и «Посещения» частично восстановлены по историческим событиям.")
     estimated_module = sum(bool(row.get("is_estimated")) for row in new_module)
     if estimated_module:
         quality.append(f"Дата регистрации в Cyber Bonus приблизительно восстановлена для {estimated_module} гостей.")

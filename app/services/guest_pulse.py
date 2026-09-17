@@ -143,7 +143,7 @@ def calculate_club(sources, now, previous=None, historical=False):
                 "engagement": e,
                 "visits": f,
                 "history_note": (
-                    "Восстановлено по событиям. Engagement приблизительный: Telegram считается подключённым с первой сохранённой авторизации или активности."
+                    "Восстановлено по событиям. Вовлечённость приблизительная: Telegram считается подключённым с первой сохранённой авторизации или активности."
                     if historical
                     else None
                 ),

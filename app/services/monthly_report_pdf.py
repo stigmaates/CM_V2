@@ -378,16 +378,16 @@ def render_monthly_report_pdf(view, output_path):
     story += [
         PageBreak(),
         _section_title(
-            "Здоровье клиентской базы",
-            "Health Score — оценка от 0 до 100: чем выше значение, тем регулярнее и устойчивее поведение гостей.",
+            "Посещения (П)",
+            "Оценка от 0 до 100: чем выше значение, тем регулярнее и устойчивее поведение гостей.",
             styles,
         ),
     ]
     h = view["health"]
     health_cards = [
-        _kpi_card("Health Score на конец месяца", h["average_label"], f"Оценено гостей: {h['scored_guests']}", styles),
+        _kpi_card("Посещения на конец месяца", h["average_label"], f"Оценено гостей: {h['scored_guests']}", styles),
         _kpi_card("Месяц ранее", h["previous_label"], "Предыдущая контрольная точка", styles),
-        _kpi_card("Изменение Health Score", format_number(h.get("change"), 1), "пункта за месяц", styles),
+        _kpi_card("Изменение посещений", format_number(h.get("change"), 1), "пункта за месяц", styles),
     ]
     story += [
         Table(
@@ -407,7 +407,7 @@ def render_monthly_report_pdf(view, output_path):
     story += [
         Spacer(1, 8 * mm),
         _data_table(
-            ["Группа", "Health Score", "Что это значит"],
+            ["Группа", "Посещения", "Что это значит"],
             [[row["label"], row["range"], row["description"]] for row in h["distribution"]],
             [48 * mm, 30 * mm, 87 * mm],
             styles,
