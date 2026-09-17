@@ -33,6 +33,12 @@ def parse_filters(args):
     result["audience_type"] = args.get("audience_type", "")
     result["metric"] = args.get("metric", "all")
     result["deviation_direction"] = args.get("deviation_direction", "all")
+    result["deviation_telegram_only"] = str(args.get("deviation_telegram_only", "false")).lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     result["segment"] = args.get("segment", "")
     if result["audience_type"] not in ("", *(x[0] for x in AUDIENCES)):
         raise ValueError("Неизвестный тип аудитории")
@@ -78,6 +84,8 @@ def segment_match(row, segment):
 
 
 def deviations(row, f):
+    if f["deviation_telegram_only"] and not row.get("has_telegram"):
+        return []
     return [
         {"metric": key, **row[key]}
         for key in ("health", "value", "engagement")

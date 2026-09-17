@@ -33,6 +33,7 @@
 /* Deviation filters keep score points and relative percentages visually distinct. */
 .gp-deviation-controls{align-items:flex-end;justify-content:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:14px}
 .gp-deviation-filter{display:grid;gap:7px}.gp-deviation-filter>span{font-size:11px;color:var(--text-muted)}
+.gp-contact-filter{display:flex;align-items:center;gap:10px;min-height:44px;padding:7px 12px;border:1px solid #50366a;border-radius:10px;background:#201330;cursor:pointer}.gp-contact-filter input{width:17px;height:17px;accent-color:#8c54e9;flex:none}.gp-contact-filter span{display:grid;gap:2px}.gp-contact-filter b{font-size:12px}.gp-contact-filter small{font-size:10px;color:var(--text-muted)}
 .gp-deviation-range{margin-left:auto}.gp-deviation-rule{margin:0 0 8px!important;padding:10px 12px;border:1px solid #50366a;border-radius:9px;background:#261838;color:#d8c6e9!important;font-size:12px!important}
 .gp-deviation-row{grid-template-columns:minmax(150px,1fr) minmax(160px,.8fr) minmax(280px,1.25fr)}.gp-deviation-change{gap:6px}.gp-deviation-change strong{margin-left:5px}
 @media(max-width:1000px){.gp-deviation-range{margin-left:0}.gp-deviation-row{grid-template-columns:1fr 1fr}.gp-deviation-change{grid-column:1/-1}}

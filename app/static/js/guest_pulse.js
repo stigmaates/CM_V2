@@ -9,7 +9,7 @@
     return match ? `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}` : String(s);
   };
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
-  const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',metric:'all',audience_type:'',segment:''};
+  const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:false,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
   let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null;
   const chartSectors=new Map(), circumference=2*Math.PI*91;
@@ -92,7 +92,8 @@
   };
   function renderDeviationRule(){
     const direction={all:'рост и снижение',up:'только рост',down:'только снижение'}[filters.deviation_direction];
-    $('gpDeviationRule').textContent=`Показаны ${direction} от ${num(filters.deviation_min*100)}% до ${num(filters.deviation_max*100)}% от личной нормы.`;
+    const contact=filters.deviation_telegram_only?' Только гости с Telegram.':'';
+    $('gpDeviationRule').textContent=`Показаны ${direction} от ${num(filters.deviation_min*100)}% до ${num(filters.deviation_max*100)}% от личной нормы.${contact}`;
   }
   function render(data,refill=false){
     responseData=data;
@@ -190,6 +191,7 @@
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));
   document.querySelectorAll('[name=gpDeviationDirection]').forEach(input=>input.addEventListener('change',()=>{filters.deviation_direction=input.value;deviationPage=1;renderDeviationRule();load({animate:false});}));
+  $('gpDeviationTelegram').addEventListener('change',event=>{filters.deviation_telegram_only=event.target.checked;deviationPage=1;renderDeviationRule();load({animate:false});});
   $('gpSegment').addEventListener('change',e=>{filters.segment=e.target.value;page=1;load();});
   $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;document.querySelectorAll(`[data-key="${k}_min"]`).forEach(e=>e.value=0);document.querySelectorAll(`[data-key="${k}_max"]`).forEach(e=>e.value=100);}['health','value','engagement'].forEach(syncRange);filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
   $('gpAllTypes').addEventListener('click',()=>{filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
