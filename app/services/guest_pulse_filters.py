@@ -32,11 +32,14 @@ def parse_filters(args):
             raise ValueError("Начало диапазона больше конца")
     result["audience_type"] = args.get("audience_type", "")
     result["metric"] = args.get("metric", "all")
+    result["deviation_direction"] = args.get("deviation_direction", "all")
     result["segment"] = args.get("segment", "")
     if result["audience_type"] not in ("", *(x[0] for x in AUDIENCES)):
         raise ValueError("Неизвестный тип аудитории")
     if result["metric"] not in ("all", "health", "value", "engagement"):
         raise ValueError("Неизвестный показатель")
+    if result["deviation_direction"] not in ("all", "up", "down"):
+        raise ValueError("Неизвестное направление отклонения")
     if result["segment"] not in ("", *SEGMENTS):
         raise ValueError("Неизвестный сегмент")
     return result
@@ -81,6 +84,10 @@ def deviations(row, f):
         if f["metric"] in ("all", key)
         and row[key].get("deviation_ratio") is not None
         and f["deviation_min"] <= row[key]["deviation_ratio"] <= f["deviation_max"]
+        and (
+            f["deviation_direction"] == "all"
+            or row[key].get("deviation_direction") == f["deviation_direction"].upper()
+        )
     ]
 
 

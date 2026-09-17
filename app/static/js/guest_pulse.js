@@ -9,7 +9,7 @@
     return match ? `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}` : String(s);
   };
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
-  const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,metric:'all',audience_type:'',segment:''};
+  const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
   let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null;
   const chartSectors=new Map(), circumference=2*Math.PI*91;
@@ -83,7 +83,17 @@
     }
   }
   const person = (r) => `<button class="gp-person" type="button" data-guest="${r.guest_id}">${esc(r.name)}<span>${esc(r.lifecycle_label)} · ${r.has_telegram?'С Telegram':'Без Telegram'}</span></button>`;
-  const change = (d) => `<div class="${d.deviation_direction==='UP'?'gp-up':'gp-down'}">${esc(d.metric)}: ${num(d.baseline_30d)} → ${num(d.score)} <b>${d.deviation_direction==='UP'?'↑':'↓'}${num(d.deviation_ratio*100)}%</b>${d.baseline_estimated?' <small>≈ норма восстановлена</small>':''}</div>`;
+  const metricLabel = {health:'H',value:'V',engagement:'E'};
+  const signed = (value,suffix='') => `${value>0?'+':''}${num(value)}${suffix}`;
+  const change = (d) => {
+    const points=d.deviation_points??(d.score-d.baseline_30d);
+    const percent=d.deviation_percent??((d.deviation_direction==='UP'?1:-1)*d.deviation_ratio*100);
+    return `<div class="${d.deviation_direction==='UP'?'gp-up':'gp-down'}"><b>${metricLabel[d.metric]||esc(d.metric)}</b>: норма ${num(d.baseline_30d)} → сейчас ${num(d.score)} <strong>${signed(points,' п.')} (${signed(percent,'%')})</strong>${d.baseline_estimated?' <small>≈ норма восстановлена</small>':''}</div>`;
+  };
+  function renderDeviationRule(){
+    const direction={all:'рост и снижение',up:'только рост',down:'только снижение'}[filters.deviation_direction];
+    $('gpDeviationRule').textContent=`Показаны ${direction} от ${num(filters.deviation_min*100)}% до ${num(filters.deviation_max*100)}% от личной нормы.`;
+  }
   function render(data,refill=false){
     responseData=data;
     $('gpUpdated').textContent=data.calculated_at?`${data.stale?'Данные устарели · ':''}${date(data.calculated_at)} · время клуба`:'Ожидается первый расчёт';
@@ -100,6 +110,7 @@
     $('gpGuests').innerHTML=data.guests.length?`<table class="gp-table"><thead><tr><th>Гость</th><th>H</th><th>V</th><th>E</th></tr></thead><tbody>${data.guests.map(r=>`<tr><td>${person(r)}</td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет гостей с такими показателями. Попробуйте расширить диапазоны.</div>';
     pagination($('gpGuestPages'),page,data.selected_count,p=>{page=p;load({animate:false});});
     $('gpDeviationCount').textContent=`${num(data.deviation_count)} гостей с отклонениями · с Telegram ${num(data.deviation_telegram_count)} · без Telegram ${num(data.deviation_count-data.deviation_telegram_count)}`;
+    renderDeviationRule();
     $('gpDeviations').innerHTML=data.deviations.length?data.deviations.map(r=>`<article class="gp-deviation-row">${person(r)}<div class="gp-triple"><span>H <b>${num(r.health.score)}</b></span><span>V <b>${num(r.value.score)}</b></span><span>E <b>${num(r.engagement.score)}</b></span></div><div class="gp-deviation-change">${r.deviations.map(change).join('')}</div></article>`).join(''):'<div class="gp-empty">Нет подходящих отклонений или пока недостаточно истории оценок.</div>';
     pagination($('gpDeviationPages'),deviationPage,data.deviation_count,p=>{deviationPage=p;load({animate:false});});
   }
@@ -178,6 +189,7 @@
   ['health','value','engagement','deviation'].forEach(syncRange);
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));
+  document.querySelectorAll('[name=gpDeviationDirection]').forEach(input=>input.addEventListener('change',()=>{filters.deviation_direction=input.value;deviationPage=1;renderDeviationRule();load({animate:false});}));
   $('gpSegment').addEventListener('change',e=>{filters.segment=e.target.value;page=1;load();});
   $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;document.querySelectorAll(`[data-key="${k}_min"]`).forEach(e=>e.value=0);document.querySelectorAll(`[data-key="${k}_max"]`).forEach(e=>e.value=100);}['health','value','engagement'].forEach(syncRange);filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
   $('gpAllTypes').addEventListener('click',()=>{filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});

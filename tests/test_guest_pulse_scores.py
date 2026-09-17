@@ -197,6 +197,8 @@ def test_history_previous_thirty_days_seven_valid_samples_and_zero_baseline():
     add_history(r, snapshots, NOW.date())
     assert r["health"]["baseline_30d"] == 80
     assert r["health"]["deviation_ratio"] == 0.25
+    assert r["health"]["deviation_points"] == -20
+    assert r["health"]["deviation_percent"] == -25
     assert r["health"]["deviation_direction"] == "DOWN"
     assert r["value"]["deviation_ratio"] == 0
     assert r["engagement"]["baseline_30d"] is None
@@ -221,6 +223,7 @@ def test_full_filters_include_null_and_ranges_exclude_it_without_mutating_scores
         {"audience_type": "bad"},
         {"health_min": -1},
         {"segment": "bad"},
+        {"deviation_direction": "sideways"},
     ],
 )
 def test_invalid_filters_rejected(args):
@@ -234,6 +237,19 @@ def test_all_deviations_returns_every_matching_score_and_ignores_audience_filter
         r[k]["deviation_ratio"] = 0.25
     f = parse_filters({"health_min": 90})
     assert len(select([r], f, "deviations")[0]["deviations"]) == 3
+
+
+def test_deviation_direction_and_numeric_boundaries_are_applied_together():
+    r = row()
+    r["health"].update(deviation_ratio=0.15, deviation_direction="UP")
+    r["value"].update(deviation_ratio=0.30, deviation_direction="DOWN")
+    r["engagement"].update(deviation_ratio=0.51, deviation_direction="UP")
+
+    positive = deviations(r, parse_filters({"deviation_direction": "up"}))
+    negative = deviations(r, parse_filters({"deviation_direction": "down"}))
+
+    assert [item["metric"] for item in positive] == ["health"]
+    assert [item["metric"] for item in negative] == ["value"]
 
 
 def test_replay_no_lookahead_excludes_no_visit_guests():
