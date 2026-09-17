@@ -27,6 +27,7 @@ from app.services.game_contracts import (
     generate_weekly_contracts,
     get_guest_contract_pool,
     get_guest_contracts_state,
+    is_game_contracts_enabled,
     repair_missing_contract_rewards,
     reroll_guest_contracts,
     sync_contracts_for_guest,
@@ -135,16 +136,23 @@ def dashboard():
         guest_id=guest["guest_id"], club_id=guest["club_id"], limit=30
     )
     steam_account = get_linked_steam_account(club_id=guest["club_id"], guest_id=guest["guest_id"])
-    try:
-        game_contracts_state = get_guest_contracts_state(guest["club_id"], guest["guest_id"])
-    except Exception:
-        current_app.logger.exception("Failed to load game contracts for guest %s", guest["guest_id"])
+    game_contracts_enabled = is_game_contracts_enabled(guest["club_id"])
+    if game_contracts_enabled:
+        try:
+            game_contracts_state = get_guest_contracts_state(guest["club_id"], guest["guest_id"])
+        except Exception:
+            current_app.logger.exception("Failed to load game contracts for guest %s", guest["guest_id"])
+            game_contracts_state = {
+                "steam_linked": bool(steam_account),
+                "games": {
+                    "cs2": {"key": "cs2", "label": "CS2", "available": False, "contracts": [], "can_generate": False},
+                    "dota2": {"key": "dota2", "label": "Dota 2", "available": bool(steam_account), "contracts": [], "can_generate": False},
+                },
+            }
+    else:
         game_contracts_state = {
             "steam_linked": bool(steam_account),
-            "games": {
-                "cs2": {"key": "cs2", "label": "CS2", "available": False, "contracts": [], "can_generate": False},
-                "dota2": {"key": "dota2", "label": "Dota 2", "available": bool(steam_account), "contracts": [], "can_generate": False},
-            },
+            "games": {},
         }
 
     return render_template(
@@ -166,6 +174,7 @@ def dashboard():
         cm_bonus_history=cm_bonus_history,
         cm_bonus_redeem_history=cm_bonus_redeem_history,
         steam_account=steam_account,
+        game_contracts_enabled=game_contracts_enabled,
         game_contracts_state=game_contracts_state,
     )
 
@@ -175,6 +184,8 @@ def dashboard():
 def generate_game_contracts(game: str):
     club_id = int(session["guest_club_id"])
     guest_id = int(session["guest_id"])
+    if not is_game_contracts_enabled(club_id):
+        return jsonify({"ok": False, "message": "Игровые контракты отключены клубом."}), 403
     if is_rate_limited(f"guest.game_contracts:{club_id}:{guest_id}:{game}", limit=4, window_seconds=60):
         return jsonify({"ok": False, "message": "Слишком много попыток. Подождите минуту."}), 429
     try:
@@ -200,6 +211,8 @@ def generate_game_contracts(game: str):
 def accept_game_contracts(game: str):
     club_id = int(session["guest_club_id"])
     guest_id = int(session["guest_id"])
+    if not is_game_contracts_enabled(club_id):
+        return jsonify({"ok": False, "message": "Игровые контракты отключены клубом."}), 403
     payload = request.get_json(silent=True) or {}
     contract_ids = payload.get("contract_ids") or []
     try:
@@ -224,6 +237,8 @@ def accept_game_contracts(game: str):
 def refresh_game_contracts(game: str):
     club_id = int(session["guest_club_id"])
     guest_id = int(session["guest_id"])
+    if not is_game_contracts_enabled(club_id):
+        return jsonify({"ok": False, "message": "Игровые контракты отключены клубом."}), 403
     if is_rate_limited(f"guest.game_contracts.refresh:{club_id}:{guest_id}:{game}", limit=3, window_seconds=60):
         return jsonify({"ok": False, "message": "Слишком много попыток. Подождите минуту."}), 429
     try:
@@ -249,6 +264,8 @@ def refresh_game_contracts(game: str):
 def api_game_contracts_sync():
     club_id = int(session["guest_club_id"])
     guest_id = int(session["guest_id"])
+    if not is_game_contracts_enabled(club_id):
+        return jsonify({"ok": False, "message": "Игровые контракты отключены клубом."}), 403
     if is_rate_limited(f"guest.game_contracts.sync:{club_id}:{guest_id}", limit=4, window_seconds=60):
         return jsonify({"ok": False, "message": "Слишком много попыток обновления."}), 429
 

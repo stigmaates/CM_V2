@@ -503,6 +503,7 @@ def test_dashboard_contract_sync_updates_active_games(monkeypatch):
     flask_app.register_blueprint(guest_bp)
     monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
     monkeypatch.setattr(guest_routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_game_contracts_enabled", lambda _club_id: True)
     contract = {
         "id": 91,
         "status": "active",
@@ -557,6 +558,30 @@ def test_dashboard_contract_sync_updates_active_games(monkeypatch):
     assert response.get_json()["repaired_rewards"] == 1
     assert response.get_json()["synced_games"] == ["dota2"]
     assert synced == [(3, 14, "dota2")]
+
+
+def test_contract_routes_are_unavailable_when_club_disables_feature(monkeypatch):
+    flask_app = Flask(__name__)
+    flask_app.secret_key = "test-secret"
+    flask_app.register_blueprint(guest_bp)
+    monkeypatch.setattr(guest_management, "is_guest_module_banned", lambda **kwargs: False)
+    monkeypatch.setattr(guest_routes, "is_game_contracts_enabled", lambda _club_id: False)
+    monkeypatch.setattr(
+        guest_routes,
+        "generate_weekly_contracts",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("generation must stay disabled")),
+    )
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=14, guest_club_id=3)
+        response = client.post("/guest/contracts/dota2/generate")
+
+    assert response.status_code == 403
+    assert response.get_json() == {
+        "ok": False,
+        "message": "Игровые контракты отключены клубом.",
+    }
 
 
 def test_steam_link_route_keeps_guest_bound_state(monkeypatch):
