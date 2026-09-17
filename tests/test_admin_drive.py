@@ -74,4 +74,3 @@ def test_admin_drive_migration_and_template_contract():
     assert "data-drive-dropzone" in template
     assert "data-drive-new-folder" in template
     assert "data-drive-rename" in template
-    assert "admin.case_images_export" in template

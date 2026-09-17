@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 
 from flask import abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
@@ -17,7 +16,6 @@ from app.services.admin_drive import (
     rename_folder,
     save_file,
 )
-from app.services.case_image_export import export_case_images
 
 
 def _folder_redirect(folder_id: int | None):
@@ -183,23 +181,4 @@ def file_preview(file_id: int):
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Cache-Control"] = "private, max-age=3600"
-    return response
-
-
-@admin_bp.get("/files/exports/case-images.zip")
-@admin_required
-def case_images_export():
-    archive_path, _summary = export_case_images()
-    try:
-        response = send_file(
-            archive_path,
-            as_attachment=True,
-            download_name=f"cyber_bonus_case_images_{datetime.now():%Y-%m-%d}.zip",
-            mimetype="application/zip",
-            conditional=True,
-        )
-    except Exception:
-        archive_path.unlink(missing_ok=True)
-        raise
-    response.call_on_close(lambda: archive_path.unlink(missing_ok=True))
     return response
