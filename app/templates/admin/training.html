@@ -1,0 +1,105 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Обучение — Cyber Bonus Admin{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/training.css', v='1') }}">{% endblock %}
+
+{% block content %}
+<div class="training-page training-page--admin">
+    <header class="admin-page-head training-heading">
+        <div>
+            <h1>Обучение</h1>
+            <p>Общий каталог роликов для владельцев всех клубов. Перетащите карточки, чтобы изменить порядок.</p>
+        </div>
+        <span class="training-count">{{ videos|length }} {{ 'видео' if videos|length else 'видео' }}</span>
+    </header>
+
+    <section class="admin-card training-create-card">
+        <div class="training-section-title">
+            <div>
+                <h2>Добавить видео</h2>
+                <p>YouTube-ссылка автоматически преобразуется в превью и встроенный плеер.</p>
+            </div>
+        </div>
+        <form class="training-form training-create-form" method="post" action="{{ url_for('admin.training_video_create') }}" data-training-create-form>
+            <label class="training-field">
+                <span>Ссылка на YouTube</span>
+                <input type="url" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..." required data-youtube-url-input>
+                <small>Поддерживаются обычные ссылки, youtu.be, Shorts и YouTube Live.</small>
+            </label>
+            <label class="training-field">
+                <span>Название карточки</span>
+                <input type="text" name="title" maxlength="255" placeholder="Например: Как настроить авторассылку" required>
+            </label>
+            <label class="training-field training-field--wide">
+                <span>Описание</span>
+                <textarea name="description" maxlength="5000" rows="4" placeholder="Коротко расскажите, чему научится владелец клуба" required></textarea>
+            </label>
+            <div class="training-create-preview" data-youtube-preview hidden>
+                <img alt="Предпросмотр ролика" loading="lazy">
+                <span>Превью найдено</span>
+            </div>
+            <div class="training-form-actions training-field--wide">
+                <label class="training-check"><input type="checkbox" name="is_active" value="1" checked> Показывать владельцам</label>
+                <button class="admin-btn" type="submit">Добавить видео</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="training-library" aria-labelledby="trainingLibraryTitle">
+        <div class="training-section-title">
+            <div>
+                <h2 id="trainingLibraryTitle">Карточки обучения</h2>
+                <p>Порядок сохраняется сразу после перетаскивания.</p>
+            </div>
+            <p class="training-sort-status" data-training-sort-status aria-live="polite"></p>
+        </div>
+
+        {% if videos %}
+        <div class="training-grid training-grid--sortable" data-training-sortable data-reorder-url="{{ url_for('admin.training_video_reorder') }}">
+            {% for video in videos %}
+            <article class="training-card {% if not video.is_active %}is-hidden{% endif %}" data-training-card data-video-id="{{ video.id }}">
+                <div class="training-card__topline">
+                    <button class="training-drag-handle" type="button" aria-label="Перетащить карточку «{{ video.title }}»" title="Перетащить">⠿</button>
+                    <span class="training-visibility">{{ 'Показывается' if video.is_active else 'Скрыто' }}</span>
+                </div>
+                <button class="training-player" type="button" data-training-player data-embed-url="{{ video.embed_url }}" aria-label="Воспроизвести «{{ video.title }}»">
+                    <img src="{{ video.thumbnail_url }}" alt="Превью: {{ video.title }}" loading="lazy">
+                    <span class="training-play" aria-hidden="true">▶</span>
+                </button>
+                <div class="training-card__body">
+                    <h3>{{ video.title }}</h3>
+                    <p>{{ video.description or 'Описание пока не добавлено.' }}</p>
+                </div>
+                <div class="training-card__actions">
+                    <a href="{{ video.youtube_url }}" target="_blank" rel="noopener noreferrer">Открыть на YouTube</a>
+                    <button type="button" data-training-edit-toggle aria-expanded="false">Редактировать</button>
+                </div>
+                <div class="training-card__editor" data-training-editor hidden>
+                    <form class="training-form" method="post" action="{{ url_for('admin.training_video_update', video_pk=video.id) }}">
+                        <label class="training-field"><span>Ссылка YouTube</span><input type="url" name="youtube_url" value="{{ video.youtube_url }}" required></label>
+                        <label class="training-field"><span>Название</span><input type="text" name="title" maxlength="255" value="{{ video.title }}" required></label>
+                        <label class="training-field"><span>Описание</span><textarea name="description" maxlength="5000" rows="4" required>{{ video.description }}</textarea></label>
+                        <label class="training-check"><input type="checkbox" name="is_active" value="1" {% if video.is_active %}checked{% endif %}> Показывать владельцам</label>
+                        <button class="admin-btn" type="submit">Сохранить</button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin.training_video_delete', video_pk=video.id) }}" onsubmit="return confirm('Удалить эту карточку обучения?')">
+                        <button class="admin-btn danger training-delete" type="submit">Удалить карточку</button>
+                    </form>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="training-empty">
+            <strong>Видео пока нет</strong>
+            <span>Добавьте первый ролик по ссылке YouTube выше.</span>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/training.js', v='1') }}" defer></script>
+<script src="{{ url_for('static', filename='js/admin_training.js', v='1') }}" defer></script>
+{% endblock %}
