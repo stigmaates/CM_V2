@@ -1,289 +1,246 @@
-# Stage to Production Rollout
+# Stage to production release manifest
 
-Документ описывает безопасный перенос функциональности из stage/readiness ветки в production без копирования stage-данных, секретов и тестовой конфигурации.
+This document is the source of truth for moving verified stage functionality
+to production. It describes code and schema transfer only. Stage data,
+secrets, uploads and runtime configuration never move to production.
 
-## Текущее состояние веток
+## Baseline
 
-Актуально на момент проверки:
+Inventory captured on 2026-09-17:
 
-- production-кандидат в репозитории: `origin/main`
-- активная stage/readiness ветка: `origin/product-readiness-from-stage`
-- старая stage ветка: `origin/stage`
+- production branch: `origin/production-release-20260714` at `3986e93`;
+- stage branch: `origin/product-readiness-from-stage` at `d8a6dc8`;
+- integration branch: `release/stage-production-merge`, created from production;
+- common ancestor: `71e43b5`;
+- tip-to-tip difference: 209 files, about 22,000 added lines and 293 removed lines.
 
-Сравнение:
+The integration branch must remain based on production. Do not merge the
+stage branch wholesale: both branches contain independently cherry-picked
+changes, production-only migration history and environment-specific services.
 
-- `origin/main...origin/product-readiness-from-stage`: `main` содержит 2 своих коммита, stage/readiness содержит 91 коммит сверху относительно общей истории.
-- `origin/stage...origin/product-readiness-from-stage`: `origin/stage` полностью входит в `product-readiness-from-stage`; readiness ветка содержит 54 дополнительных коммита сверху.
-- В `origin/main`, которых нет в readiness ветке, есть 2 README-коммита: `c3af057`, `7239bf6`.
+## Already present in production
 
-Перед production rollout нужно решить, какая ветка является production source of truth:
+Do not re-port these changes:
 
-- рекомендуемый вариант: `main` или отдельная `production`;
-- `product-readiness-from-stage` остается веткой stage-проверки;
-- перенос в production делать через merge/rebase/PR, а не копированием файлов с сервера.
+- international phone support;
+- reusable mission templates (`0033_reusable_mission_templates`);
+- Langame session guest-ID matching and orphan-session preservation;
+- current club name in page titles;
+- per-auto-mailing send windows (`0046_auto_mailing_send_windows`).
 
-## Что изменилось на stage/readiness по сравнению с main
+Patch-equivalent commits can have different hashes. Compare final files and
+tests, not commit hashes alone.
 
-Крупно:
+## Production history that must survive
 
-- добавлены cases как бонусная механика для гостя и owner-настройки кейсов;
-- переработан guest dashboard, включая cases/wheel/CM bonuses/referrals;
-- переработан owner dashboard: блок кейсов, воронка, mission completions analytics, spacing;
-- добавлены product-readiness инфраструктура, health/ready endpoints, release metadata;
-- добавлены migrations и migration runner с dry-run;
-- добавлены environment preflight и smoke HTTP checks;
-- добавлены MySQL backup/restore scripts и fixes для restricted MySQL backup;
-- добавлен stage refresh script from production;
-- добавлены job runs, job locks, stale job markers;
-- добавлены operational alerts dashboard и Telegram alerts;
-- добавлены backup freshness monitoring и stage backup timer;
-- добавлены admin system readiness summary, sync health, sync observability;
-- добавлены admin service restart controls;
-- добавлена CSRF-защита для unsafe HTTP methods;
-- добавлены deploy templates для nginx/systemd;
-- добавлены runbooks/checklists для release, stage, backup, onboarding;
-- добавлен тестовый слой: pytest config, CI workflow и набор unit/script tests.
+The release must retain these migration modules and their exact revision IDs:
 
-По diff:
+- `0030_module_registration_capture`;
+- `0033_reusable_mission_templates`;
+- `0046_auto_mailing_send_windows`.
 
-- изменено/добавлено 122 файла;
-- около 12k строк добавлено;
-- основные новые области: `app/services/*`, `app/routes/owner/cases.py`, `migrations/`, `scripts/`, `deploy/`, `docs/`, `tests/`.
+Stage migration `0029_team` also creates `module_registrations` with
+`CREATE TABLE IF NOT EXISTS` and adds its trigger. It must be rehearsed on a
+production database copy where `0030_module_registration_capture` is already
+recorded as applied.
 
-## Что нельзя переносить из stage в production
+Two stage migrations start with `0031_`. This is supported because the runner
+stores the full revision string, but both revisions must appear separately in
+the dry-run output and in `schema_migrations`.
 
-Нельзя копировать напрямую:
-
-- `.env`;
-- токены Telegram;
-- пароли, proxy, API secrets;
-- stage database dump целиком;
-- stage backups;
-- stage uploads;
-- stage-only systemd units без адаптации;
-- ручные backup-файлы, patch-файлы, временные файлы.
-
-Production должен получить только:
-
-- проверенный код;
-- миграции;
-- production `.env`, заполненный отдельно;
-- production systemd/nginx конфигурацию, адаптированную под `/root/cm_v2/CM_V2`;
-- production database backup перед миграциями.
-
-## Production paths and services
-
-Production:
+Run the repository-only guard after every integration batch:
 
 ```bash
-/root/cm_v2/CM_V2
-clubmodule.service
-clubmodule-bot.service
-clubmodule-admin-bot.service
+python3 scripts/check_release_tree.py
 ```
 
-Stage:
+The database dry run remains authoritative for a target environment:
 
 ```bash
-/root/cm_stage/CM_V2
-clubmodule-stage.service
-clubmodule-stage-bot.service
-clubmodule-stage-admin-bot.service
-```
-
-Stage команды и stage units не применять к production без проверки путей, environment files, service names и домена.
-
-## Pre-rollout checks на stage
-
-Перед переносом в production stage должен быть зеленым:
-
-```bash
-cd /root/cm_stage/CM_V2
-git status -sb
-venv/bin/python scripts/check_environment.py --env-file .env
-venv/bin/python scripts/migrate.py --dry-run
-venv/bin/python -m compileall -q app bot scripts migrations tests
-venv/bin/python scripts/smoke_http.py --base-url <STAGE_URL>
-```
-
-Также вручную проверить:
-
-- `/login`;
-- owner dashboard;
-- owner settings: wheel/cases/missions;
-- guest login;
-- guest dashboard;
-- wheel spin;
-- case opening;
-- CM bonus redeem;
-- admin dashboard;
-- admin operational alerts;
-- admin restart controls;
-- backup freshness status.
-
-## Проверка production базы до релиза
-
-Безопасная проверка без изменения базы:
-
-```bash
-cd /root/cm_v2/CM_V2
-venv/bin/python scripts/check_environment.py --env-file .env
 venv/bin/python scripts/migrate.py --dry-run
 ```
 
-Если вывод:
+## Forbidden production runtime artifacts
+
+Never install or enable these on production:
+
+- `clubmodule-stage-data-mirror.service`;
+- `clubmodule-stage-data-mirror.timer`;
+- `.stage-no-outbound`;
+- `DISABLE_OUTBOUND_MESSAGES=1`;
+- `ALLOW_STAGE_GUEST_BOT=1`;
+- `ALLOW_STAGE_ADMIN_BOT=1`;
+- any unit containing `/root/cm_stage/CM_V2`;
+- stage database credentials, bot tokens, uploads, backups or Steam tokens.
+
+Stage mirror source files may remain in the repository only if production
+deployment instructions and service installation explicitly exclude them.
+
+## Integration batches
+
+Each batch is a separate reviewable commit series and production release. A
+batch advances only after migration rehearsal, automated checks, smoke tests
+and a monitored production cycle.
+
+| Batch | Product scope | Schema | Runtime dependencies | Initial state |
+| --- | --- | --- | --- | --- |
+| 0 | Release foundation and migration compatibility | Existing production anchors | None | Internal only |
+| 1 | Training video library and playlist modal | `0042_training_videos` | YouTube embeds | Admin/owner visible after smoke |
+| 2 | Private admin file drive | `0043_admin_drive` | Private persistent storage, backup, Nginx request limits | Admin only |
+| 3 | Team analytics, monthly reports, support tickets | `0029`, both `0031`, `0032`, `0034`, `0035` | Admin bot, PDF storage, report worker | Enable modules separately |
+| 4 | Guest Pulse and CRM P/C/V | `0028_guest_pulse` | MySQL triggers, pulse worker/timer | Pilot club first |
+| 5 | Steam profile and Dota history | `0036_guest_steam_accounts` | Steam Web API, OpenDota, `cryptography` | Pilot club first |
+| 6 | CS2 match history | `0037_guest_cs2_matches` | Node.js CS2 GC bridge, technical Steam account | Service disabled until healthy |
+| 7 | Contracts and contract refresh rewards | `0038`-`0041`, `0045` | Contract worker/timer, game match data | Off for every club |
+| 8 | Game preferences and contract CRM filters | `0044_game_preferences_and_contract_engagement` | Steam and contracts | Enable after source data exists |
+| 9 | Remaining UI polish | None expected | Existing web assets | After functional stabilization |
+
+Navigation refactoring is a later release. Do not combine route/menu
+reorganization with the stage-to-production transfer.
+
+## Migration inventory expected from stage
+
+The candidate migration list is:
+
+- `0028_guest_pulse`;
+- `0029_team`;
+- `0031_support_tickets`;
+- `0031_team_admin_settings`;
+- `0032_support_ticket_message_tracking`;
+- `0034_monthly_reports`;
+- `0035_monthly_report_async`;
+- `0036_guest_steam_accounts`;
+- `0037_guest_cs2_matches`;
+- `0038_game_contracts`;
+- `0039_game_contract_rewards`;
+- `0040_backfill_active_contract_rewards`;
+- `0041_contract_refreshes`;
+- `0042_training_videos`;
+- `0043_admin_drive`;
+- `0044_game_preferences_and_contract_engagement`;
+- `0045_game_contract_feature_toggle`.
+
+`0046_auto_mailing_send_windows` is already in production and must not be
+reapplied. The expected production dry run must be written into each release
+note before the migration is executed.
+
+## Infrastructure inventory
+
+### Python
+
+Stage adds:
+
+- `reportlab>=4.2,<5` for monthly PDFs;
+- `cryptography>=43,<47` for protected CS2 credentials.
+
+Install into the production virtual environment before restarting code that
+imports them.
+
+### Persistent storage
+
+Configure and back up these production paths separately:
+
+- public owner uploads (`CLUBMODULE_UPLOAD_ROOT`);
+- private admin drive (`ADMIN_FILES_ROOT`), outside the public upload root;
+- generated monthly reports (`MONTHLY_REPORT_ROOT`).
+
+The web service user needs only the required permissions. Nginx must not
+publish `ADMIN_FILES_ROOT`. Request body limits must cover the configured
+admin file maximum without exposing private files directly.
+
+### Guest Pulse
+
+Create production versions of the pulse service and timer. Do not copy stage
+unit files verbatim. Migration `0028_guest_pulse` creates multiple triggers,
+so the production database user needs `CREATE TRIGGER` and the rehearsal must
+measure ALTER/trigger installation time on a current database copy.
+
+### Steam and Dota
+
+Production requires its own:
+
+- `STEAM_API_KEY`;
+- `STEAM_PUBLIC_BASE_URL` using the production origin.
+
+OpenDota uses its public API and does not require a paid key. Keep the existing
+cache and request throttling.
+
+### CS2 bridge
+
+Before production:
+
+- provide a production unit with `/root/cm_v2/CM_V2` paths;
+- commit a dependency lock and install with `npm ci --omit=dev`;
+- review dependency audit findings instead of applying a forced upgrade;
+- issue a new `CS2_GC_BRIDGE_SECRET`;
+- issue a new refresh token for a dedicated production technical Steam account;
+- bind the bridge to `127.0.0.1` only;
+- require `/health` to report `ok=true`, `steam=true`, `gc=true` before enabling consumers.
+
+Never reuse a stage refresh token in production.
+
+### Contracts
+
+Create production versions of the contract service and 15-minute timer. The
+club feature toggle remains off until rewards are configured and a pilot guest
+has completed a reward end to end.
+
+### Monthly reports
+
+Stage currently starts PDF generation as a detached subprocess from the web
+request. Before production, make generation a supervised worker/job or prove
+that the current process survives web restarts and exposes durable failure
+status and logs.
+
+## Rehearsal on a production database copy
+
+For every batch:
+
+1. Restore a fresh production backup into an isolated database.
+2. Record the existing `schema_migrations` rows.
+3. Run `scripts/check_release_tree.py`.
+4. Run `scripts/migrate.py --dry-run` and save the exact pending list.
+5. Apply the migrations and record duration and lock impact.
+6. Run the migration dry run again; it must report no pending revisions.
+7. Run compile, unit and smoke checks.
+8. Compare club, guest, session, Telegram-link, balance and reward counts.
+9. Run the batch-specific rebuild/check command.
+10. Restore the backup once as a rollback drill before production approval.
+
+## Production gate for every batch
+
+Stop if any item is missing:
+
+- clean release worktree and reviewed diff;
+- known release commit and previous-good commit;
+- successful rehearsal on a current production copy;
+- verified production backup and restore command;
+- documented pending migration list;
+- environment preflight passes;
+- all new services installed but disabled before migration;
+- health and readiness checks pass;
+- one pilot club or admin-only rollout is available;
+- logs and database load can be observed for a full worker cycle.
+
+## Rollback
+
+Prefer disabling the feature and stopping its new workers before reverting
+application code. The migrations are intended to be additive, so unused
+tables can remain during an application rollback. Restore the database only
+for corruption or incompatible schema behavior, with affected services stopped.
+
+Record for each batch:
 
 ```text
-No pending migrations.
+Batch:
+Release commit:
+Previous-good commit:
+Backup:
+Expected pending migrations:
+Migration duration:
+Services enabled:
+Pilot club:
+Smoke checks:
+Observed errors/load:
+Rollback needed: no/yes
 ```
-
-схема production базы уже готова.
-
-Если есть pending migrations, перед запуском нового кода нужно сделать backup и применить миграции.
-
-## Recommended rollout flow
-
-### 1. Подготовить release ветку
-
-Локально или через GitHub:
-
-```bash
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-git merge --no-ff origin/product-readiness-from-stage
-```
-
-Если `main` содержит README-коммиты, которых нет в readiness ветке, merge должен сохранить их.
-
-После merge:
-
-```bash
-venv/bin/python -m pytest -q
-venv/bin/python -m compileall -q app bot scripts migrations tests
-git push origin main
-```
-
-Альтернатива: создать отдельную ветку `production-release-YYYYMMDD` и открыть PR в `main`.
-
-### 2. Сделать production backup
-
-На production:
-
-```bash
-cd /root/cm_v2/CM_V2
-./scripts/backup_mysql.sh
-```
-
-Если production еще не содержит новый backup script, использовать текущий production backup process или временно выполнить backup командой, описанной в `docs/BACKUP_RESTORE.md`.
-
-### 3. Подтянуть код на production
-
-```bash
-cd /root/cm_v2/CM_V2
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-```
-
-Если production использует отдельную ветку, заменить `main` на production branch.
-
-### 4. Проверить env
-
-```bash
-venv/bin/python scripts/check_environment.py --env-file .env
-```
-
-Перед первым включением новых возможностей проверить production `.env`:
-
-- `APP_ENV=production`;
-- `SECRET_KEY` уникальный и длинный;
-- `BOT_TOKEN` production бота;
-- `DB_*` production базы;
-- `TECH_ALERT_BOT_TOKEN` и `TECH_ALERT_CHAT_ID`, если включаем tech alerts;
-- `BACKUP_MONITOR_DIRS`;
-- `BACKUP_MAX_AGE_HOURS`;
-- `ADMIN_SERVICE_RESTART_ENABLED`;
-- `ADMIN_RESTART_SERVICES`.
-
-Не переносить значения из stage `.env`.
-
-### 5. Применить миграции
-
-Сначала dry-run:
-
-```bash
-venv/bin/python scripts/migrate.py --dry-run
-```
-
-Потом настоящий запуск:
-
-```bash
-venv/bin/python scripts/migrate.py
-```
-
-### 6. Проверить код и перезапустить сервисы
-
-```bash
-venv/bin/python -m compileall -q app bot scripts migrations tests
-systemctl restart clubmodule.service
-systemctl restart clubmodule-bot.service
-systemctl restart clubmodule-admin-bot.service
-```
-
-Если production использует отдельные worker/timer services, перезапустить их по production runbook.
-
-### 7. Post-rollout smoke
-
-```bash
-venv/bin/python scripts/smoke_http.py --base-url <PROD_URL>
-```
-
-Ручные проверки:
-
-- login;
-- owner dashboard;
-- guest login;
-- guest dashboard;
-- admin dashboard;
-- `/healthz`;
-- `/readyz`;
-- operational alerts;
-- backup freshness.
-
-## Rollback plan
-
-Если проблема только в коде:
-
-```bash
-cd /root/cm_v2/CM_V2
-git log --oneline -5
-git checkout <previous_good_commit>
-venv/bin/python -m compileall -q app bot scripts migrations tests
-systemctl restart clubmodule.service
-systemctl restart clubmodule-bot.service
-systemctl restart clubmodule-admin-bot.service
-```
-
-Если проблема в миграции/данных:
-
-1. Остановить affected services.
-2. Зафиксировать ошибку и текущий commit.
-3. Восстановить production DB из backup по `docs/BACKUP_RESTORE.md`.
-4. Откатить код на previous good commit.
-5. Запустить smoke checks.
-
-Важно: не делать `git reset --hard` на production без понимания локальных изменений и backup состояния.
-
-## Production readiness gate
-
-Перед нажатием на production rollout должны быть выполнены условия:
-
-- stage проверен вручную;
-- tests проходят локально/CI;
-- production backup создан;
-- `migrate.py --dry-run` понятен и ожидаем;
-- `.env` production проверен;
-- rollback commit известен;
-- есть доступ к journal/systemctl;
-- есть человек, который мониторит первые 30-60 минут после релиза.

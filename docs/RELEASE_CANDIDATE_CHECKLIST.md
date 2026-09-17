@@ -1,11 +1,16 @@
 # Release candidate checklist
 
-Use this checklist before pushing or deploying `product-readiness-from-stage`.
+Use this checklist before pushing or deploying a production release candidate.
+For the stage-to-production program, also follow
+`docs/STAGE_TO_PRODUCTION_ROLLOUT.md`.
 
 ## Local checks
 
 - Working tree is clean.
-- Branch is based on the latest `origin/stage`.
+- Branch is based on the current production release branch.
+- `python3 scripts/check_release_tree.py` passes.
+- Production migration anchors `0030`, `0033` and `0046` are present.
+- The batch contains no production unit with stage paths or stage secrets.
 - Python compile check passes:
 
 ```bash
