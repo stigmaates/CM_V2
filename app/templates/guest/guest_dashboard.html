@@ -489,6 +489,32 @@
             animation: steamAuthSpin .7s linear infinite;
         }
         @keyframes steamAuthSpin { to { transform: rotate(360deg); } }
+        .app-modal--steam-auth-notice {
+            width: min(520px, 96%);
+            text-align: center;
+            padding: 30px 26px 24px;
+        }
+        .steam-auth-notice-mark {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 18px;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-size: 29px;
+            font-weight: 900;
+            background: linear-gradient(145deg, #66c0f4, #1b2838);
+            box-shadow: 0 16px 34px rgba(27, 40, 56, .4);
+        }
+        .steam-auth-notice-copy {
+            margin: 0 0 22px;
+            color: var(--text-muted);
+            font-size: 16px;
+            line-height: 1.55;
+        }
+        .steam-auth-notice-copy strong { color: #fff; }
+        .steam-auth-notice-confirm { max-width: 260px; margin: 0 auto; }
         .app-modal--steam {
             width: min(720px, 96%);
             max-height: calc(100vh - 36px);
@@ -3051,6 +3077,19 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="steamAuthNoticeModal">
+        <div class="app-modal app-modal--steam-auth-notice" role="dialog" aria-modal="true" aria-labelledby="steamAuthNoticeTitle">
+            <button class="modal-close" type="button" onclick="closeSteamAuthNotice()" aria-label="Закрыть">×</button>
+            <div class="steam-auth-notice-mark" aria-hidden="true">S</div>
+            <h2 class="modal-title" id="steamAuthNoticeTitle">Переход в Steam</h2>
+            <p class="steam-auth-notice-copy">
+                Страница авторизации Steam обычно загружается дольше других страниц и может открываться некоторое время.
+                После нажатия «Окей» <strong>ничего не нажимайте и дождитесь её полной загрузки</strong>.
+            </p>
+            <button class="claim-btn steam-auth-notice-confirm" id="steamAuthNoticeConfirm" type="button">Окей</button>
+        </div>
+    </div>
+
     {% if steam %}
     <div class="modal-backdrop" id="steamProfileModal">
         <div class="app-modal app-modal--steam">
@@ -3119,6 +3158,7 @@
         const cmBonusTransferBtn = document.getElementById('cmBonusTransferBtn');
         const openCmBonusRedeemHistoryBtn = document.getElementById('openCmBonusRedeemHistoryBtn');
         const openSteamProfileBtn = document.getElementById('openSteamProfileBtn');
+        const steamAuthNoticeConfirm = document.getElementById('steamAuthNoticeConfirm');
         const steamProfileContent = document.getElementById('steamProfileContent');
         const steamDotaMatchesContent = document.getElementById('steamDotaMatchesContent');
         const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
@@ -3166,6 +3206,8 @@
         let activePrizeSegmentLabel = null;
         let steamProfileLoaded = false;
         let steamDotaMatchesLoaded = false;
+        let pendingSteamAuthUrl = '';
+        const warmedSteamAuthUrls = new Set();
         let modalScrollPosition = 0;
 
         function lockModalPageScroll() {
@@ -3205,6 +3247,30 @@
                 stopIdleCaseReel();
                 selectedCaseId = null;
             }
+        }
+
+        function warmSteamAuthPage(url) {
+            if (!url || warmedSteamAuthUrls.has(url)) return;
+            warmedSteamAuthUrls.add(url);
+            fetch('https://steamcommunity.com/openid/login', {
+                method: 'GET',
+                credentials: 'omit',
+                redirect: 'follow',
+                mode: 'no-cors',
+                cache: 'no-store',
+            }).catch(() => {
+                // Даже если Steam не разрешит прочитать ответ, браузер успеет прогреть соединение и загрузить ресурсы.
+            });
+        }
+
+        function closeSteamAuthNotice() {
+            pendingSteamAuthUrl = '';
+            closeModal('steamAuthNoticeModal');
+            document.querySelectorAll('[data-steam-auth-link]').forEach((link) => {
+                link.classList.remove('is-loading');
+                link.removeAttribute('aria-busy');
+                link.textContent = link.dataset.steamAuthOriginalText || link.textContent;
+            });
         }
 
         function formatSteamHours(value) {
@@ -4441,28 +4507,53 @@
         }
 
         document.querySelectorAll('[data-steam-auth-link]').forEach((link) => {
-            const originalText = link.textContent;
-            link.addEventListener('click', () => {
+            link.dataset.steamAuthOriginalText = link.textContent;
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+                pendingSteamAuthUrl = link.href;
+                warmSteamAuthPage(pendingSteamAuthUrl);
                 link.classList.add('is-loading');
                 link.setAttribute('aria-busy', 'true');
-                link.textContent = 'Открываем Steam…';
+                link.textContent = 'Готовим Steam…';
+                openModal('steamAuthNoticeModal');
             });
             window.addEventListener('pageshow', () => {
                 link.classList.remove('is-loading');
                 link.removeAttribute('aria-busy');
-                link.textContent = originalText;
+                link.textContent = link.dataset.steamAuthOriginalText;
             });
         });
 
+        if (steamAuthNoticeConfirm) {
+            steamAuthNoticeConfirm.addEventListener('click', () => {
+                if (!pendingSteamAuthUrl) return;
+                const target = pendingSteamAuthUrl;
+                steamAuthNoticeConfirm.disabled = true;
+                steamAuthNoticeConfirm.textContent = 'Открываем Steam…';
+                window.location.assign(target);
+            });
+            window.addEventListener('pageshow', () => {
+                pendingSteamAuthUrl = '';
+                steamAuthNoticeConfirm.disabled = false;
+                steamAuthNoticeConfirm.textContent = 'Окей';
+                closeModal('steamAuthNoticeModal');
+            });
+        }
+
         document.querySelectorAll('.modal-backdrop').forEach((modal) => {
             modal.addEventListener('click', (event) => {
-                if (event.target === modal) closeModal(modal.id);
+                if (event.target !== modal) return;
+                if (modal.id === 'steamAuthNoticeModal') closeSteamAuthNotice();
+                else closeModal(modal.id);
             });
         });
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
-                document.querySelectorAll('.modal-backdrop.show').forEach((modal) => closeModal(modal.id));
+                document.querySelectorAll('.modal-backdrop.show').forEach((modal) => {
+                    if (modal.id === 'steamAuthNoticeModal') closeSteamAuthNotice();
+                    else closeModal(modal.id);
+                });
             }
         });
 
