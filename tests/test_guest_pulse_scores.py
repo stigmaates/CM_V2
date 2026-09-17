@@ -235,6 +235,7 @@ def test_all_deviations_returns_every_matching_score_and_ignores_audience_filter
 
 def test_deviation_direction_and_numeric_boundaries_are_applied_together():
     r = row()
+    r["has_telegram"] = True
     r["health"].update(deviation_ratio=0.15, deviation_direction="UP")
     r["value"].update(deviation_ratio=0.30, deviation_direction="DOWN")
     r["engagement"].update(deviation_ratio=0.51, deviation_direction="UP")
@@ -244,6 +245,10 @@ def test_deviation_direction_and_numeric_boundaries_are_applied_together():
 
     assert [item["metric"] for item in positive] == ["health"]
     assert [item["metric"] for item in negative] == ["value"]
+
+    r["has_telegram"] = False
+    contactable = parse_filters({"deviation_telegram_only": "true"})
+    assert deviations(r, contactable) == []
 
 
 def test_replay_no_lookahead_excludes_no_visit_guests():
