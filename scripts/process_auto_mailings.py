@@ -217,9 +217,15 @@ def _get_auto_mailing_now(timezone_name: str | None = None) -> datetime:
     return get_club_local_now(timezone_name or AUTO_MAILING_TIMEZONE or "Europe/Moscow")
 
 
-def _is_auto_mailing_send_window(timezone_name: str | None, *, now: datetime | None = None) -> bool:
+def _is_auto_mailing_send_window(
+    timezone_name: str | None,
+    send_start_time=None,
+    send_end_time=None,
+    *,
+    now: datetime | None = None,
+) -> bool:
     local_now = now or _get_auto_mailing_now(timezone_name)
-    return is_auto_mailing_send_time(local_now)
+    return is_auto_mailing_send_time(local_now, send_start_time, send_end_time)
 
 
 def _format_streak_reminder_message(template: str, candidate: dict) -> str:
@@ -465,7 +471,7 @@ def process_streak_expiring_reminder(conn, setting: dict) -> int:
                 "streak_days": candidate.get("streak_days"),
                 "cycle_end": str(candidate.get("cycle_end")),
                 "next_reward": candidate.get("next_reward"),
-                "send_window": "10:00-22:30",
+                "send_window": f"{setting.get('send_start_time') or '10:00'}-{setting.get('send_end_time') or '22:30'}",
             },
         )
         mailing_id = mailing["mailing_id"]
@@ -537,7 +543,11 @@ def process_auto_mailings() -> dict:
         for setting in settings:
             code = setting.get("code")
             club_id = int(setting["club_id"])
-            if not _is_auto_mailing_send_window(setting.get("club_timezone")):
+            if not _is_auto_mailing_send_window(
+                setting.get("club_timezone"),
+                setting.get("send_start_time"),
+                setting.get("send_end_time"),
+            ):
                 continue
             lock = job_lock("process_auto_mailing", club_id=club_id, resource_id=code, ttl_minutes=60)
             acquired_lock = lock.__enter__()

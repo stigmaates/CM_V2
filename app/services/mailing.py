@@ -2026,6 +2026,8 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                 bonus_amount INT NOT NULL DEFAULT 200,
                 delay_minutes INT NULL,
                 repeat_after_days INT NOT NULL DEFAULT 30,
+                send_start_time TIME NOT NULL DEFAULT '10:00:00',
+                send_end_time TIME NOT NULL DEFAULT '22:30:00',
                 is_enabled TINYINT(1) NOT NULL DEFAULT 0,
                 last_run_at DATETIME NULL,
                 last_mailing_id INT NULL,
@@ -2040,6 +2042,8 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
         _ensure_auto_mailing_column(cur, "bonus_amount", "INT NOT NULL DEFAULT 200")
         _ensure_auto_mailing_column(cur, "delay_minutes", "INT NULL")
         _ensure_auto_mailing_column(cur, "repeat_after_days", "INT NOT NULL DEFAULT 30")
+        _ensure_auto_mailing_column(cur, "send_start_time", "TIME NOT NULL DEFAULT '10:00:00'")
+        _ensure_auto_mailing_column(cur, "send_end_time", "TIME NOT NULL DEFAULT '22:30:00'")
         _ensure_auto_mailing_column(cur, "last_run_at", "DATETIME NULL")
         _ensure_auto_mailing_column(cur, "last_mailing_id", "INT NULL")
 
@@ -2093,6 +2097,8 @@ def list_auto_mailings(conn, club_id: int):
                 bonus_amount,
                 delay_minutes,
                 repeat_after_days,
+                TIME_FORMAT(send_start_time, '%%H:%%i') AS send_start_time,
+                TIME_FORMAT(send_end_time, '%%H:%%i') AS send_end_time,
                 is_enabled,
                 last_run_at,
                 last_mailing_id,
@@ -2121,6 +2127,8 @@ def update_auto_mailing_settings(
     title: str | None = None,
     description: str | None = None,
     message_text: str | None = None,
+    send_start_time: str | None = None,
+    send_end_time: str | None = None,
 ) -> Dict[str, Any] | None:
     """Обновляет настройки авторассылки и возвращает актуальную запись."""
     ensure_auto_mailings(conn, club_id)
@@ -2159,6 +2167,14 @@ def update_auto_mailing_settings(
         fields.append("message_text = %s")
         params.append(message_text.strip())
 
+    if send_start_time is not None:
+        fields.append("send_start_time = %s")
+        params.append(send_start_time)
+
+    if send_end_time is not None:
+        fields.append("send_end_time = %s")
+        params.append(send_end_time)
+
     if not fields:
         fields.append("updated_at = NOW()")
     else:
@@ -2191,6 +2207,8 @@ def update_auto_mailing_settings(
                 bonus_amount,
                 delay_minutes,
                 repeat_after_days,
+                TIME_FORMAT(send_start_time, '%%H:%%i') AS send_start_time,
+                TIME_FORMAT(send_end_time, '%%H:%%i') AS send_end_time,
                 is_enabled,
                 last_run_at,
                 last_mailing_id,

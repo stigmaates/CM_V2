@@ -1,5 +1,6 @@
 import os
 import threading
+from datetime import datetime
 
 from flask import current_app, jsonify, render_template, request, session
 
@@ -22,6 +23,7 @@ from app.services.mailing import (
     save_uploaded_file,
     update_auto_mailing_settings,
 )
+from app.services.timezones import DEFAULT_CLUB_TIMEZONE, get_club_timezone_label
 from scripts.process_mailings import process_one_mailing
 
 from . import owner_bp
@@ -82,6 +84,10 @@ def mailing_page():
         crm_segments = get_crm_segment_options(conn, club_id)
         mailings = list_mailings(conn, club_id)
         auto_mailings = list_auto_mailings(conn, club_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT timezone FROM clubs WHERE club_id = %s LIMIT 1", (club_id,))
+            club_row = cur.fetchone() or {}
+        club_timezone_label = get_club_timezone_label(club_row.get("timezone") or DEFAULT_CLUB_TIMEZONE)
         bonus_giveaways = list_bonus_giveaways(conn, club_id)
         crm_interactions = list_crm_interactions(conn, club_id)
     finally:
@@ -95,6 +101,7 @@ def mailing_page():
         segments=segments,
         mailings=mailings,
         auto_mailings=auto_mailings,
+        club_timezone_label=club_timezone_label,
         bonus_giveaways=bonus_giveaways,
         crm_interactions=crm_interactions,
     )
@@ -215,6 +222,19 @@ def api_auto_mailing_toggle(code):
     if message_text is not None and not message_text:
         return jsonify({"ok": False, "error": "Сообщение пустое"}), 400
 
+    send_start_time = None
+    send_end_time = None
+    if "send_start_time" in data or "send_end_time" in data:
+        if "send_start_time" not in data or "send_end_time" not in data:
+            return jsonify({"ok": False, "error": "Укажите начало и конец окна отправки"}), 400
+        try:
+            send_start_time = datetime.strptime(str(data.get("send_start_time") or ""), "%H:%M").strftime("%H:%M")
+            send_end_time = datetime.strptime(str(data.get("send_end_time") or ""), "%H:%M").strftime("%H:%M")
+        except ValueError:
+            return jsonify({"ok": False, "error": "Время отправки указано неверно"}), 400
+        if send_start_time == send_end_time:
+            return jsonify({"ok": False, "error": "Начало и конец окна отправки должны отличаться"}), 400
+
     conn = get_db_connection()
     try:
         updated = update_auto_mailing_settings(
@@ -228,6 +248,8 @@ def api_auto_mailing_toggle(code):
             title=title,
             description=description,
             message_text=message_text,
+            send_start_time=send_start_time,
+            send_end_time=send_end_time,
         )
         conn.commit()
     finally:

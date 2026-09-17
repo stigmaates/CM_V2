@@ -134,6 +134,9 @@ def test_auto_mailings_support_editable_delay_and_message_templates():
     ]
 
     assert any("delay_minutes" in value for value in ensure_constants)
+    assert any("send_start_time" in value and "send_end_time" in value for value in ensure_constants)
     assert any("message_text = %s" in value for value in update_constants)
     assert any("title = %s" in value for value in update_constants)
     assert any("description = %s" in value for value in update_constants)
+    assert any("send_start_time = %s" in value for value in update_constants)
+    assert any("send_end_time = %s" in value for value in update_constants)

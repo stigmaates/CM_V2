@@ -1412,6 +1412,15 @@
         align-items: flex-start;
         flex-direction: column;
     }
+
+    .auto-mailing-card__main,
+    .auto-mailing-settings {
+        width: 100%;
+    }
+
+    .auto-mailing-settings {
+        grid-template-columns: 1fr;
+    }
 }
 /* Bonus giveaway block */
 .bonus-giveaway-box {

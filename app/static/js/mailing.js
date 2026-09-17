@@ -960,6 +960,8 @@ function getAutoMailingPayload(card) {
     const titleInput = card.querySelector(".auto-mailing-title-input");
     const descriptionInput = card.querySelector(".auto-mailing-description-input");
     const messageInput = card.querySelector(".auto-mailing-message-text");
+    const sendStartInput = card.querySelector(".auto-mailing-send-start");
+    const sendEndInput = card.querySelector(".auto-mailing-send-end");
 
     const code = card.dataset.autoMailingCode || "";
     const payload = {
@@ -969,6 +971,8 @@ function getAutoMailingPayload(card) {
         title: titleInput ? titleInput.value.trim() : "",
         description: descriptionInput ? descriptionInput.value.trim() : "",
         message_text: messageInput ? messageInput.value.trim() : "",
+        send_start_time: sendStartInput ? sendStartInput.value : "10:00",
+        send_end_time: sendEndInput ? sendEndInput.value : "22:30",
     };
     if (delayInput) {
         payload.delay_minutes = Number(delayInput.value);
@@ -1001,6 +1005,8 @@ async function saveAutoMailing(card, options = {}) {
     const titleInput = card.querySelector(".auto-mailing-title-input");
     const descriptionInput = card.querySelector(".auto-mailing-description-input");
     const messageInput = card.querySelector(".auto-mailing-message-text");
+    const sendStartInput = card.querySelector(".auto-mailing-send-start");
+    const sendEndInput = card.querySelector(".auto-mailing-send-end");
     const previousChecked = toggle ? !toggle.checked : false;
 
     if (!code) return;
@@ -1031,8 +1037,18 @@ async function saveAutoMailing(card, options = {}) {
         if (toggle && options.fromToggle) toggle.checked = previousChecked;
         return;
     }
+    if (!payload.send_start_time || !payload.send_end_time) {
+        setAutoMailingStatus(card, "Укажи начало и конец окна отправки", true);
+        if (toggle && options.fromToggle) toggle.checked = previousChecked;
+        return;
+    }
+    if (payload.send_start_time === payload.send_end_time) {
+        setAutoMailingStatus(card, "Начало и конец окна должны отличаться", true);
+        if (toggle && options.fromToggle) toggle.checked = previousChecked;
+        return;
+    }
 
-    [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput].forEach((el) => {
+    [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput, sendStartInput, sendEndInput].forEach((el) => {
         if (el) el.disabled = true;
     });
     setAutoMailingStatus(card, "Сохраняем...");
@@ -1058,13 +1074,15 @@ async function saveAutoMailing(card, options = {}) {
             if (titleInput) titleInput.value = data.auto_mailing.title || payload.title;
             if (descriptionInput) descriptionInput.value = data.auto_mailing.description || payload.description;
             if (messageInput) messageInput.value = data.auto_mailing.message_text || payload.message_text;
+            if (sendStartInput) sendStartInput.value = data.auto_mailing.send_start_time || payload.send_start_time;
+            if (sendEndInput) sendEndInput.value = data.auto_mailing.send_end_time || payload.send_end_time;
         }
         setAutoMailingStatus(card, "Сохранено");
     } catch (error) {
         if (toggle && options.fromToggle) toggle.checked = previousChecked;
         setAutoMailingStatus(card, "Не удалось сохранить", true);
     } finally {
-        [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput].forEach((el) => {
+        [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput, sendStartInput, sendEndInput].forEach((el) => {
             if (el) el.disabled = false;
         });
     }
