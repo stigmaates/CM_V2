@@ -36,11 +36,23 @@ SEGMENTS = {
     "new": "Новые",
     "activating": "Формируют привычку",
 }
+OVERALL_WEIGHTS = {"health": 0.35, "value": 0.40, "engagement": 0.25}
+OVERALL_LEVELS = ((80, "VERY_HIGH", "Очень высокий"), (65, "HIGH", "Высокий"), (45, "MEDIUM", "Средний"), (25, "LOW", "Низкий"), (0, "VERY_LOW", "Очень низкий"))
 
 
 def weighted(parts):
     available = [(v, w) for v, w in parts if v is not None]
     return round(sum(v * w for v, w in available) / sum(w for _, w in available), 2) if available else None
+
+
+def overall_score(row):
+    """Composite guest score; incomplete inputs stay visibly unscored."""
+    values = {key: row.get(key, {}).get("score") for key in OVERALL_WEIGHTS}
+    if any(value is None for value in values.values()):
+        return {"score": None, "level": None, "label": "Недостаточно данных", "weights": OVERALL_WEIGHTS}
+    score = round(sum(values[key] * weight for key, weight in OVERALL_WEIGHTS.items()), 2)
+    _, level, label = next(item for item in OVERALL_LEVELS if score >= item[0])
+    return {"score": score, "level": level, "label": label, "weights": OVERALL_WEIGHTS}
 
 
 def upper_score(value, bands):

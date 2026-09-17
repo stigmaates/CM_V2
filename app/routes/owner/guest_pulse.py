@@ -8,7 +8,7 @@ from app.config import GUEST_PULSE_CONFIG
 from app.core import get_db_connection, owner_required
 from app.services.guest_pulse import dumps, get_current, loads, rows
 from app.services.guest_pulse_filters import parse_filters, score_match, select
-from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS
+from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS, overall_score
 from app.services.mailing import get_message_variables
 from app.services.outbound_policy import outbound_blocked
 from app.services.timezones import utc_datetime_to_club_local
@@ -25,6 +25,7 @@ def current_club():
 
 
 def summary(row):
+    row["overall"] = overall_score(row)
     return {
         k: row[k]
         for k in (
@@ -36,6 +37,7 @@ def summary(row):
             "health",
             "value",
             "engagement",
+            "overall",
             "audience_type",
         )
     }
@@ -63,6 +65,12 @@ def guest_pulse_data():
         f = parse_filters(request.args)
         page = max(1, int(request.args.get("page", 1)))
         deviation_page = max(1, int(request.args.get("deviation_page", 1)))
+        sort_by = request.args.get("sort", "health")
+        sort_direction = request.args.get("sort_direction", "asc")
+        if sort_by not in ("name", "health", "value", "engagement", "overall"):
+            raise ValueError("Неизвестная сортировка")
+        if sort_direction not in ("asc", "desc"):
+            raise ValueError("Неизвестное направление сортировки")
     except (ValueError, TypeError) as exc:
         return jsonify(ok=False, error=str(exc)), 400
     conn = get_db_connection()
@@ -84,16 +92,23 @@ def guest_pulse_data():
     filtered = Counter(r["audience_type"] for r in filtered_rows)
     connected = Counter(r["audience_type"] for r in filtered_rows if r["has_telegram"])
     selected = select(current, f)
+    for row in current:
+        row["overall"] = overall_score(row)
     deviating = select(current, f, "deviations")
     deviating.sort(key=lambda r: max(d["deviation_ratio"] for d in r["deviations"]), reverse=True)
-    selected.sort(
-        key=lambda r: (
-            not r["has_telegram"],
-            r["health"]["score"] is None,
-            r["health"]["score"] or 0,
-            r["name"],
-            r["guest_id"],
+    def sort_group(group):
+        if sort_by == "name":
+            return sorted(group, key=lambda r: (r["name"].casefold(), r["guest_id"]), reverse=sort_direction == "desc")
+        scored = [r for r in group if r[sort_by]["score"] is not None]
+        unscored = [r for r in group if r[sort_by]["score"] is None]
+        scored.sort(
+            key=lambda r: (r[sort_by]["score"], r["name"].casefold(), r["guest_id"]),
+            reverse=sort_direction == "desc",
         )
+        return scored + sorted(unscored, key=lambda r: (r["name"].casefold(), r["guest_id"]))
+
+    selected = sort_group([r for r in selected if r["has_telegram"]]) + sort_group(
+        [r for r in selected if not r["has_telegram"]]
     )
     at = utc_datetime_to_club_local(state.get("calculated_at"), state.get("timezone"))
     return jsonify(
@@ -118,6 +133,8 @@ def guest_pulse_data():
         guests=[summary(r) for r in selected[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]],
         page=page,
         page_size=PAGE_SIZE,
+        sort=sort_by,
+        sort_direction=sort_direction,
         deviations=[
             {**summary(r), "deviations": r["deviations"]}
             for r in deviating[(deviation_page - 1) * PAGE_SIZE : deviation_page * PAGE_SIZE]
@@ -153,6 +170,7 @@ def guest_pulse_guest(guest_id):
         if not result:
             abort(404)
         row = loads(result[0]["detail_json"])
+        row["overall"] = overall_score(row)
         row["has_telegram"] = bool(result[0]["telegram_id"])
         row["games"] = {
             "favorite_game": result[0].get("favorite_game"),

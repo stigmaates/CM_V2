@@ -549,6 +549,34 @@ def test_audience_sorts_connected_before_pagination(pulse_client, database, mixe
     assert second[-1]["guest_id"] == 56 and not second[-1]["has_telegram"]
 
 
+def test_audience_can_sort_all_rows_by_overall_score(pulse_client, database, mixed_pulse_audience):
+    _, sql = database
+    for guest_id, score in ((44, 0), (45, 100)):
+        row = json.loads(
+            sql(
+                "SELECT detail_json FROM guest_pulse_current WHERE club_id=2 AND guest_id=%s",
+                (guest_id,),
+            )[0]["detail_json"]
+        )
+        for metric in ("health", "value", "engagement"):
+            row[metric]["score"] = score
+        sql(
+            "UPDATE guest_pulse_current SET detail_json=%s WHERE club_id=2 AND guest_id=%s",
+            (json.dumps(row), guest_id),
+        )
+
+    ascending = pulse_client.get(
+        "/owner/api/guest-pulse?audience_type=loyal&sort=overall&sort_direction=asc"
+    ).get_json()
+    descending = pulse_client.get(
+        "/owner/api/guest-pulse?audience_type=loyal&sort=overall&sort_direction=desc"
+    ).get_json()
+    assert ascending["guests"][0]["guest_id"] == 44
+    assert ascending["guests"][0]["overall"]["score"] == 0
+    assert descending["guests"][0]["guest_id"] == 45
+    assert descending["guests"][0]["overall"]["score"] == 100
+
+
 def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, database, monkeypatch):
     monkeypatch.setenv("DISABLE_OUTBOUND_MESSAGES", "1")
     response = pulse_client.get("/owner/guest-pulse")

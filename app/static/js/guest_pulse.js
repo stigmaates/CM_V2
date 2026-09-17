@@ -10,7 +10,7 @@
   };
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:false,metric:'all',audience_type:'',segment:''};
-  let page=1, deviationPage=1, responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
+  let page=1, deviationPage=1, sort='health', sortDirection='asc', responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
   let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null;
   const chartSectors=new Map(), circumference=2*Math.PI*91;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -83,6 +83,11 @@
     }
   }
   const person = (r) => `<button class="gp-person" type="button" data-guest="${r.guest_id}">${esc(r.name)}<span>${esc(r.lifecycle_label)} · ${r.has_telegram?'С Telegram':'Без Telegram'}</span></button>`;
+  const sortHeader = (key,label,title='') => {
+    const active=sort===key, direction=active?sortDirection:'none';
+    const arrow=active?(sortDirection==='asc'?'↑':'↓'):'↕';
+    return `<th aria-sort="${direction==='asc'?'ascending':direction==='desc'?'descending':'none'}"${title?` title="${esc(title)}"`:''}><button type="button" class="gp-sort ${active?'is-active':''}" data-sort="${key}">${esc(label)}<span aria-hidden="true">${arrow}</span></button></th>`;
+  };
   const metricLabel = {health:'П',value:'Ц',engagement:'В'};
   const signed = (value,suffix='') => `${value>0?'+':''}${num(value)}${suffix}`;
   const change = (d) => {
@@ -108,7 +113,7 @@
     document.querySelector('.gp-audiences').hidden=!$('gpGuestsPanel').hidden;
     $('gpGuestsTitle').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || $('gpSegment').selectedOptions[0].textContent;
     $('gpGuestsCount').textContent=`${num(data.selected_count)} гостей · с Telegram ${num(data.selected_telegram_count)} · без Telegram ${num(data.selected_without_telegram_count)}`;
-    $('gpGuests').innerHTML=data.guests.length?`<table class="gp-table"><thead><tr><th>Гость</th><th title="Посещения">П</th><th title="Ценность">Ц</th><th title="Вовлечённость">В</th></tr></thead><tbody>${data.guests.map(r=>`<tr><td>${person(r)}</td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет гостей с такими показателями. Попробуйте расширить диапазоны.</div>';
+    $('gpGuests').innerHTML=data.guests.length?`<table class="gp-table"><thead><tr>${sortHeader('name','Гость')}${sortHeader('health','П','Посещения')}${sortHeader('value','Ц','Ценность')}${sortHeader('engagement','В','Вовлечённость')}${sortHeader('overall','Общий балл','П 35% + Ц 40% + В 25%')}</tr></thead><tbody>${data.guests.map(r=>`<tr><td>${person(r)}</td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td><td class="gp-overall-cell">${score(r.overall?.score)}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет гостей с такими показателями. Попробуйте расширить диапазоны.</div>';
     pagination($('gpGuestPages'),page,data.selected_count,p=>{page=p;load({animate:false});});
     $('gpDeviationCount').textContent=`${num(data.deviation_count)} гостей с отклонениями · с Telegram ${num(data.deviation_telegram_count)} · без Telegram ${num(data.deviation_count-data.deviation_telegram_count)}`;
     renderDeviationRule();
@@ -118,7 +123,7 @@
   async function load({animate=true}={}){
     clearTimeout(timer);controller?.abort();controller=new AbortController();const own=controller;
     error('');setLoading(true,animate);
-    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams({...filters,page,deviation_page:deviationPage}),{signal:own.signal});if(own===controller){render(data,animate||ringPending);setLoading(false);}}
+    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams({...filters,page,deviation_page:deviationPage,sort,sort_direction:sortDirection}),{signal:own.signal});if(own===controller){render(data,animate||ringPending);setLoading(false);}}
     catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;ringAnimation?.cancel();setLoading(false);error(e.message);}}
   }
   function choose(key){filters.audience_type=filters.audience_type===key?'':key;page=1;load();}
@@ -210,11 +215,12 @@
     $('gpGuestName').textContent='Карточка гостя';$('gpGuestDetail').textContent='Загрузка…';$('gpGuestInteract').disabled=true;dialog.showModal();
     try{
       const data=await api(`/owner/api/guest-pulse/guests/${id}`,{signal:own.signal});if(own!==detailController)return;
-      const r=data.guest,h=r.health,v=r.value,e=r.engagement,f=r.visits,g=r.games||{}; $('gpGuestName').textContent=r.name;
+      const r=data.guest,h=r.health,v=r.value,e=r.engagement,o=r.overall||{},f=r.visits,g=r.games||{}; $('gpGuestName').textContent=r.name;
       const gameName=value=>value==='cs2'?'Counter-Strike 2':value==='dota2'?'Dota 2':'—';
       const gameValue=(slug,hours)=>slug?`${gameName(slug)}${hours==null?'':` · ${num(hours)} ч`}`:'—';
       const deviations=responseData?.deviations.find(x=>x.guest_id===Number(id))?.deviations||[];
       $('gpGuestDetail').innerHTML=`<div class="gp-detail-status">${esc(r.lifecycle_label)} · ${esc(r.phone||'Номер не указан')}</div>${deviations.length?`<div class="gp-detail-note">Причина попадания в отклонения:${deviations.map(change).join('')}</div>`:''}
+        <section class="gp-overall-card"><div><span>Общий балл гостя</span><strong>${num(o.score)}${o.score==null?'':'<small> / 100</small>'}</strong><b>${esc(o.label||'Недостаточно данных')}</b></div><p>${o.score==null?'Баллу нужны все три оценки: П, Ц и В.':`П ${num(h.score)} × 35% + Ц ${num(v.score)} × 40% + В ${num(e.score)} × 25%`}</p></section>
         <div class="gp-detail-scores"><section class="gp-detail-card"><h3>Посещения (П)</h3><strong>${num(h.score)} ${h.delta_14d==null?'':`<small>${h.delta_14d>=0?'↑':'↓'}${num(Math.abs(h.delta_14d))} за 14 дней</small>`}</strong><small>${h.score==null?'Недостаточно данных':h.preliminary?'Предварительная оценка':'Привычка посещений'}</small>${dl([['Давность',num(h.recency)+' / 100'],['Частота',num(h.frequency)+' / 100'],['Тренд',num(h.trend)+' / 100'],['Регулярность',num(h.consistency)+' / 100'],['7 дней назад',num(h.score_7d_ago)],['14 дней назад',num(h.score_14d_ago)],['30 дней назад',num(h.score_30d_ago)]])}</section>
         <section class="gp-detail-card"><h3>Ценность (Ц)</h3><strong>${num(v.score)}</strong><small>Относительная ценность в этом клубе</small>${dl([['Пополнения · 90 дней',num(v.revenue_90d)+' ₽'],['Игровые часы · 90 дней',num(v.played_hours_90d)],['Визиты · 90 дней',num(v.visits_90d)],['Пополнения на визит',num(v.avg_check_90d)+' ₽'],['Выше гостей по полнениям',num(v.percentiles.revenue_90d)+'%'],['Выше гостей по часам',num(v.percentiles.played_hours_90d)+'%'],['Выше гостей по визитам',num(v.percentiles.visits_90d)+'%'],['Выше гостей по среднему',num(v.percentiles.avg_check_90d)+'%'],['База сравнения',num(v.reference_count)]])}</section>
         <section class="gp-detail-card"><h3>Вовлечённость (В)</h3><strong>${num(e.score)}</strong><small>Активность в Кибер Бонус</small>${dl([['Telegram',r.has_telegram?'Подключён':'Не подключён'],['Задания · 30 дней',num(e.missions_completed_30d)],['Контракты выбраны · 30 дней',num(e.contracts_selected_30d)],['Контракты выполнены · 30 дней',num(e.contracts_completed_30d)],['Все действия · 30 дней',num(e.cb_actions_30d)],['Дней активности подряд',num(e.current_streak)],['Последняя активность',date(e.last_cb_activity_at)]])}</section>
@@ -228,7 +234,16 @@
       $('gpGuestInteract').textContent=r.has_telegram?'Взаимодействовать ↗':'Telegram не подключён';
     }catch(e){if(e.name!=='AbortError')$('gpGuestDetail').textContent=e.message;}
   }
-  $('guestPulse').addEventListener('click',e=>{const b=e.target.closest('[data-guest]');if(b)openGuest(b.dataset.guest);});
+  $('guestPulse').addEventListener('click',e=>{
+    const sorter=e.target.closest('[data-sort]');
+    if(sorter){
+      const next=sorter.dataset.sort;
+      if(sort===next)sortDirection=sortDirection==='asc'?'desc':'asc';
+      else{sort=next;sortDirection=next==='name'?'asc':'desc';}
+      page=1;load({animate:false});return;
+    }
+    const guest=e.target.closest('[data-guest]');if(guest)openGuest(guest.dataset.guest);
+  });
   $('gpClose').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>detailController?.abort());
   dialog.addEventListener('click',e=>{if(e.target===dialog){const rect=dialog.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)dialog.close();}});
   const help=$('gpHelpDialog');let helpMotion=null,helpClosing=false;
