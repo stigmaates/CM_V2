@@ -234,6 +234,17 @@ def test_cs2_share_code_accepts_mixed_case_and_full_game_link():
     ) == share_code
 
 
+def test_cs2_next_share_code_reads_steam_nested_response():
+    next_code = "CSGO-bbbbb-ccccc-ddddd-eeeee-fffff"
+
+    assert steam._next_cs2_share_code_from_payload(
+        {"result": {"nextcode": next_code}}
+    ) == next_code
+    assert steam._next_cs2_share_code_from_payload(
+        {"result": {"nextcode": "n/a"}}
+    ) is None
+
+
 def test_cs2_sync_imports_known_match_and_walks_forward(monkeypatch):
     imported_codes = []
     advanced_codes = []

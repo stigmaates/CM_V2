@@ -390,6 +390,18 @@ def normalize_cs2_share_code(value: str) -> str:
     raise CS2HistoryCodeError("Код матча после CSGO- должен содержать 25 символов")
 
 
+def _next_cs2_share_code_from_payload(payload: dict) -> str | None:
+    result = payload.get("result")
+    if result is None and isinstance(payload.get("response"), dict):
+        result = payload["response"].get("result")
+    if isinstance(result, dict):
+        result = result.get("nextcode") or result.get("next_code")
+    result = str(result or "").strip()
+    if not result or result.lower() in {"n/a", "none"}:
+        return None
+    return normalize_cs2_share_code(result)
+
+
 def fetch_next_cs2_share_code(*, steam_id: str, auth_code: str, known_code: str) -> str | None:
     """Ask Steam for the match sharing code immediately after ``known_code``."""
     if not STEAM_API_KEY:
@@ -414,13 +426,7 @@ def fetch_next_cs2_share_code(*, steam_id: str, auth_code: str, known_code: str)
     except (httpx.HTTPError, ValueError) as exc:
         raise SteamError("Steam временно не отвечает по истории матчей") from exc
 
-    result = payload.get("result")
-    if result is None and isinstance(payload.get("response"), dict):
-        result = payload["response"].get("result")
-    result = str(result or "").strip()
-    if not result or result.lower() in {"n/a", "none"}:
-        return None
-    return normalize_cs2_share_code(result)
+    return _next_cs2_share_code_from_payload(payload)
 
 
 def fetch_cs2_match_from_gc(*, steam_id: str, share_code: str) -> dict:

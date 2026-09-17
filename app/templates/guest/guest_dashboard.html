@@ -3260,6 +3260,8 @@
         const steamDotaMatchesContent = document.getElementById('steamDotaMatchesContent');
         const steamCS2MatchesContent = document.getElementById('steamCS2MatchesContent');
         const cs2MatchSetupForm = document.getElementById('cs2MatchSetupForm');
+        const cs2AuthCodeInput = document.getElementById('cs2AuthCodeInput');
+        const cs2ShareCodeInput = document.getElementById('cs2ShareCodeInput');
         const cs2MatchSetupSubmit = document.getElementById('cs2MatchSetupSubmit');
         const cs2MatchSetupMessage = document.getElementById('cs2MatchSetupMessage');
         const cmBonusModalTitle = document.getElementById('cmBonusModalTitle');
@@ -3657,7 +3659,8 @@
         async function connectCS2MatchHistory(event) {
             event.preventDefault();
             if (!cs2MatchSetupForm || !cs2MatchSetupSubmit) return;
-            const formData = new FormData(cs2MatchSetupForm);
+            const authCode = String(cs2AuthCodeInput?.value || '').trim();
+            const shareCode = String(cs2ShareCodeInput?.value || '').trim();
             cs2MatchSetupSubmit.disabled = true;
             cs2MatchSetupSubmit.textContent = 'Подключаем…';
             if (cs2MatchSetupMessage) cs2MatchSetupMessage.textContent = '';
@@ -3666,8 +3669,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({
-                        auth_code: String(formData.get('auth_code') || '').trim(),
-                        share_code: String(formData.get('share_code') || '').trim(),
+                        auth_code: authCode,
+                        share_code: shareCode,
                     }),
                 });
                 const data = await response.json();
