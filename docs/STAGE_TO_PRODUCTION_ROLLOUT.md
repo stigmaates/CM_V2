@@ -111,11 +111,12 @@ Current release branch progress:
   deviation and Telegram filters, P/Ц/В labels, overall guest score and production
   worker templates. Production migration rehearsal, pilot-club enablement and
   monitored worker cycle are still required; nothing from this batch is deployed.
-- batch 5 Team portion complete through `248ba2c`: owner team analytics,
-  registration history, manual working roster and a production-safe Langame sync.
-  The monthly-report portion remains a separate pending integration. Team migration
-  rehearsal, explicit local-to-Langame club mapping and a monitored timer cycle are
-  still required; nothing from this batch is deployed.
+- batch 5 code integration complete through `b2a7aeb`: owner team analytics,
+  registration history, manual working roster, production-safe Langame sync and
+  asynchronous monthly reports. Before any deployment, install the newly declared
+  `reportlab` dependency in the production virtual environment, create and back up
+  `MONTHLY_REPORT_ROOT`, rehearse migrations and confirm the local-to-Langame club
+  mapping. Nothing from this batch is deployed.
 
 No production deployment or production database migration has been performed.
 
@@ -164,6 +165,10 @@ Configure and back up these production paths separately:
 - public owner uploads (`CLUBMODULE_UPLOAD_ROOT`);
 - private admin drive (`ADMIN_FILES_ROOT`), outside the public upload root;
 - generated monthly reports (`MONTHLY_REPORT_ROOT`).
+
+Monthly reports also require `reportlab>=4.2,<5` from `requirements.txt` in the
+production virtual environment. The web process starts a short-lived isolated Python
+process per requested report; no always-on report service is installed.
 
 The web service user needs only the required permissions. Nginx must not
 publish `ADMIN_FILES_ROOT`. Request body limits must cover the configured
