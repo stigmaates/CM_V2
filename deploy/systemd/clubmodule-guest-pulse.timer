@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh production Guest Pulse scores and history
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=15s
+Unit=clubmodule-guest-pulse.service
+
+[Install]
+WantedBy=timers.target

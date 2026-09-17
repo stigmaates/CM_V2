@@ -2,6 +2,7 @@ import threading
 from datetime import datetime, timedelta
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import HTTPException
 
 from app.core import get_db_connection, owner_required
 from app.services.crm_analysis import get_crm_cohort_analysis
@@ -24,6 +25,7 @@ from app.services.pc_heatmap import get_pc_hours_heatmap_stats
 from scripts.process_mailings import process_one_mailing
 
 from . import owner_bp
+from .guest_pulse import load_selection, selection_group
 
 
 def _process_crm_mailing_in_background(mailing_id: int):
@@ -96,6 +98,8 @@ def crm_analytics():
         initial_analysis = get_crm_cohort_analysis(conn, int(club_id), [], funnel_period="all")
         manual_campaigns = list_manual_crm_campaigns(conn, int(club_id))
         crm_pulse_groups = get_crm_pulse_groups(conn, int(club_id))
+        if request.args.get("pulse_selection"):
+            crm_pulse_groups.append(selection_group(conn, request.args["pulse_selection"]))
     finally:
         conn.close()
 
@@ -283,7 +287,25 @@ def api_crm_pulse_interact():
         expires_after_seconds = expires_value * unit_seconds[expires_unit]
 
     conn = get_db_connection()
+    selection_lock = None
     try:
+        pulse_selection = None
+        if data.get("pulse_selection"):
+            # Legacy CRM helpers may execute lazy DDL, which releases row locks.
+            # A connection advisory lock survives those implicit commits.
+            key = data["pulse_selection"]
+            if not isinstance(key, str) or len(key) != 32:
+                return jsonify(ok=False, error="Неизвестная выборка"), 400
+            lock_key = "pulse-send:" + key
+            with conn.cursor() as cur:
+                cur.execute("SELECT GET_LOCK(%s,0) AS acquired", (lock_key,))
+                if not (cur.fetchone() or {}).get("acquired"):
+                    return jsonify(ok=False, error="Эта отправка уже выполняется"), 409
+            selection_lock = lock_key
+            pulse_selection = load_selection(conn, data["pulse_selection"], lock=True)
+            if pulse_selection.get("mailing_id"):
+                return jsonify(ok=True, started=True, mailing_id=pulse_selection["mailing_id"])
+            guest_ids = pulse_selection["selection"]["guest_ids"]
         recipients = get_recipient_rows_for_guest_ids(conn, int(club_id), guest_ids)
         if not recipients:
             return jsonify({"ok": False, "error": "У выбранных гостей нет привязанного Telegram"}), 400
@@ -294,6 +316,9 @@ def api_crm_pulse_interact():
             "requested_guest_ids": [int(guest_id) for guest_id in guest_ids if str(guest_id).strip().isdigit()],
             "transition": transition,
         }
+
+        if pulse_selection:
+            filters_json.update(type="guest_pulse", selection=pulse_selection["selection"])
 
         if bonus_amount > 0 or token_amount > 0:
             result = create_bonus_giveaway(
@@ -318,17 +343,27 @@ def api_crm_pulse_interact():
                 parse_mode="HTML",
                 filters_json=filters_json,
             )
-        mark_crm_pulse_handled(
-            conn,
-            club_id=int(club_id),
-            guest_ids=guest_ids,
-            old_status=transition.get("old_status"),
-            new_status=transition.get("new_status"),
-            reason="interaction",
-            mailing_id=int(result.get("mailing_id") or 0) or None,
-            giveaway_id=int(result.get("giveaway_id") or 0) or None,
-        )
+        if pulse_selection:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE guest_pulse_selections SET mailing_id=%s WHERE id=%s",
+                    (result["mailing_id"], data["pulse_selection"]),
+                )
+        else:
+            mark_crm_pulse_handled(
+                conn,
+                club_id=int(club_id),
+                guest_ids=guest_ids,
+                old_status=transition.get("old_status"),
+                new_status=transition.get("new_status"),
+                reason="interaction",
+                mailing_id=int(result.get("mailing_id") or 0) or None,
+                giveaway_id=int(result.get("giveaway_id") or 0) or None,
+            )
         conn.commit()
+    except HTTPException:
+        conn.rollback()
+        raise
     except ValueError as exc:
         conn.rollback()
         return jsonify({"ok": False, "error": str(exc)}), 400
@@ -336,6 +371,9 @@ def api_crm_pulse_interact():
         conn.rollback()
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
+        if selection_lock:
+            with conn.cursor() as cur:
+                cur.execute("SELECT RELEASE_LOCK(%s) AS released", (selection_lock,))
         conn.close()
 
     _start_crm_mailing_worker(int(result["mailing_id"]))

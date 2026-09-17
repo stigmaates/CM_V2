@@ -1,0 +1,11 @@
+[Unit]
+Description=Cyber Bonus production guest pulse scores and daily history
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/cm_v2/CM_V2
+EnvironmentFile=/root/cm_v2/CM_V2/.env
+ExecStart=/root/cm_v2/CM_V2/venv/bin/python scripts/rebuild_guest_pulse.py
+TimeoutStartSec=1800

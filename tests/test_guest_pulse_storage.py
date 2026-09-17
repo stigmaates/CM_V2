@@ -1,0 +1,421 @@
+"""End-to-end storage contract on isolated SQLite; optional native MySQL.
+
+GUEST_PULSE_TEST_SOCKET opts into a dedicated test server; each test creates a
+random database. Never reads application DB credentials. SQLite translates SQL
+syntax and advisory locks, so it cannot certify MySQL locking/trigger behavior.
+"""
+
+import importlib
+import json
+import os
+import re
+import sqlite3
+from datetime import date, datetime, timedelta
+from uuid import uuid4
+
+import pymysql
+import pytest
+from pymysql.cursors import DictCursor
+
+from app.services.guest_pulse import get_current, refresh_club
+
+NOW = datetime(2026, 9, 11, 8)
+
+
+class Cursor:
+    def __init__(self, conn):
+        self.conn = conn
+        self.result = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def execute(self, sql, params=()):
+        if "information_schema.COLUMNS" in sql:
+            columns = {r["name"] for r in self.conn.db.execute("PRAGMA table_info(user_portrait)")}
+            self.result = [{"cnt": int(params[0] in columns)}]
+            return
+        if "information_schema.TRIGGERS" in sql:
+            self.result = [
+                {"TRIGGER_NAME": r["name"]}
+                for r in self.conn.db.execute("SELECT name FROM sqlite_master WHERE type='trigger'")
+            ]
+            return
+        if "GET_LOCK(" in sql:
+            self.result = [{"acquired": 1}]
+            return
+        if "RELEASE_LOCK(" in sql:
+            self.result = [{"released": 1}]
+            return
+        sql = sql.replace("%s", "?").replace(" FOR UPDATE", "")
+        sql = sql.replace("BIGINT AUTO_INCREMENT PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+        sql = re.sub(r",\s*KEY \w+ \([^)]*\)", "", sql)
+        sql = re.sub(r"UNIQUE KEY \w+", "UNIQUE", sql)
+        sql = sql.split(" ENGINE=InnoDB")[0]
+        sql = re.sub(r"ON DUPLICATE KEY UPDATE", "ON CONFLICT DO UPDATE SET", sql)
+        sql = re.sub(r"VALUES\((\w+)\)", r"excluded.\1", sql)
+        if sql.startswith("CREATE TRIGGER"):
+            sql = sql.replace("FOR EACH ROW INSERT", "FOR EACH ROW BEGIN INSERT") + "; END"
+        if "UPDATE user_portrait up LEFT JOIN" in sql:
+            # Equivalent projection, not a MySQL syntax test.
+            sql = """UPDATE user_portrait SET
+                health_score=(SELECT health_score FROM guest_pulse_current p WHERE p.club_id=user_portrait.club_id AND p.guest_id=user_portrait.guest_id),
+                value_score=(SELECT value_score FROM guest_pulse_current p WHERE p.club_id=user_portrait.club_id AND p.guest_id=user_portrait.guest_id)
+                WHERE club_id=?"""
+        params = tuple(
+            p.isoformat(sep=" ") if isinstance(p, datetime) else p.isoformat() if isinstance(p, date) else p
+            for p in params
+        )
+        cursor = self.conn.db.execute(sql, params)
+        self.rowcount = cursor.rowcount
+        self.lastrowid = cursor.lastrowid
+        self.result = [dict(r) for r in cursor.fetchall()]
+        for r in self.result:
+            for key in (
+                "calculated_at",
+                "created_at",
+                "expires_at",
+                "backfilled_at",
+                "date_start",
+                "date_stop",
+                "topup_at",
+                "at",
+                "changed_at",
+            ):
+                if isinstance(r.get(key), str):
+                    r[key] = datetime.fromisoformat(r[key])
+            if isinstance(r.get("snapshot_date"), str):
+                r["snapshot_date"] = date.fromisoformat(r["snapshot_date"])
+
+    def executemany(self, sql, params):
+        for p in params:
+            self.execute(sql, p)
+
+    def fetchall(self):
+        return self.result
+
+    def fetchone(self):
+        return self.result[0] if self.result else None
+
+
+class Connection:
+    def __init__(self, path):
+        self.db = sqlite3.connect(path, timeout=10)
+        self.db.row_factory = sqlite3.Row
+
+    def cursor(self):
+        return Cursor(self)
+
+    def commit(self):
+        self.db.commit()
+
+    def rollback(self):
+        self.db.rollback()
+
+    def close(self):
+        self.db.close()
+
+
+@pytest.fixture
+def database(tmp_path):
+    socket = os.environ.get("GUEST_PULSE_TEST_SOCKET")
+    name = "guest_pulse_test_" + uuid4().hex
+    admin = None
+    if socket:
+        admin = pymysql.connect(unix_socket=socket, user="root", autocommit=True)
+        with admin.cursor() as cur:
+            cur.execute(f"CREATE DATABASE `{name}`")
+
+    def connect():
+        return (
+            pymysql.connect(unix_socket=socket, user="root", database=name, cursorclass=DictCursor)
+            if socket
+            else Connection(tmp_path / "pulse.sqlite")
+        )
+
+    def execute(sql, params=()):
+        conn = connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                result = cur.fetchall()
+            conn.commit()
+            return result
+        finally:
+            conn.close()
+
+    schema = [
+        "CREATE TABLE clubs (club_id INT PRIMARY KEY, timezone VARCHAR(64), service_enabled INT)",
+        "CREATE TABLE guests (club_id INT,guest_id BIGINT,fio VARCHAR(80),phone VARCHAR(32),telegram_id BIGINT,PRIMARY KEY(club_id,guest_id))",
+        "CREATE TABLE guest_sessions (id INT PRIMARY KEY,club_id INT,guest_id BIGINT,date_start DATETIME,date_stop DATETIME)",
+        "CREATE TABLE guest_balance_topups (club_id INT,guest_id BIGINT,amount DECIMAL(12,2),topup_at DATETIME)",
+        "CREATE TABLE guest_mission_completions (club_id INT,guest_id BIGINT,completed_at DATETIME)",
+        "CREATE TABLE guest_wheel_spins (club_id INT,guest_id BIGINT,created_at DATETIME)",
+        "CREATE TABLE guest_wheel_token_transactions (club_id INT,guest_id BIGINT,source_type VARCHAR(32),created_at DATETIME)",
+        "CREATE TABLE guest_case_openings (club_id INT,guest_id BIGINT,created_at DATETIME)",
+        "CREATE TABLE cm_bonus_transactions (club_id INT,guest_id BIGINT,source_type VARCHAR(32),status VARCHAR(32),created_at DATETIME)",
+        "CREATE TABLE cm_bonus_redeem_requests (club_id INT,guest_id BIGINT,status VARCHAR(32),processed_at DATETIME)",
+        "CREATE TABLE guest_prize_claims (club_id INT,guest_id BIGINT,status VARCHAR(32),issued_at DATETIME)",
+        "CREATE TABLE user_portrait (club_id INT,guest_id BIGINT,PRIMARY KEY(club_id,guest_id))",
+        "INSERT INTO clubs VALUES (2,'Asia/Yekaterinburg',1),(3,'Europe/Moscow',1)",
+        "INSERT INTO guests VALUES (2,42,'Тест',NULL,100),(3,42,'Другой клуб',NULL,NULL),(2,43,'Без визитов',NULL,NULL)",
+        "INSERT INTO user_portrait VALUES (2,42),(3,42)",
+    ]
+    try:
+        for sql in schema:
+            execute(sql)
+        conn = connect()
+        with conn.cursor() as cur:
+            migration = importlib.import_module("migrations.versions.0028_guest_pulse")
+            migration.upgrade(cur)
+            migration.upgrade(cur)
+        conn.commit()
+        conn.close()
+        for i, days in enumerate(range(0, 151, 5), 1):
+            execute(
+                "INSERT INTO guest_sessions VALUES (%s,2,42,%s,%s)",
+                (i, NOW - timedelta(days=days, hours=2), NOW - timedelta(days=days)),
+            )
+        yield connect, execute
+    finally:
+        if admin:
+            with admin.cursor() as cur:
+                cur.execute(f"DROP DATABASE `{name}`")
+            admin.close()
+
+
+def run(connect, **kwargs):
+    conn = connect()
+    try:
+        return refresh_club(conn, 2, now_utc=NOW, **kwargs)
+    finally:
+        conn.close()
+
+
+def test_backfill_idempotent_club_scoped_and_no_lookahead(database):
+    connect, sql = database
+    assert run(connect)["guests"] == 1
+    history = sql("SELECT * FROM guest_score_history WHERE club_id=2 ORDER BY snapshot_date")
+    assert len(history) == 31
+    assert len({r["snapshot_date"] for r in history}) == 31
+    assert all(r["engagement_score"] == 0 for r in history[:-1])
+    assert history[-1]["engagement_score"] == 20
+    assert sql("SELECT * FROM guest_pulse_current WHERE club_id=3") == []
+    before = [r["detail_json"] for r in history]
+    run(connect, backfill=True)
+    assert [
+        r["detail_json"] for r in sql("SELECT * FROM guest_score_history WHERE club_id=2 ORDER BY snapshot_date")
+    ] == before
+    conn = connect()
+    try:
+        current = get_current(conn, 2)
+        assert current[0]["health"]["baseline_days"] == 30
+        assert current[0]["engagement"]["baseline_days"] == 30
+        assert current[0]["engagement"]["baseline_estimated"]
+    finally:
+        conn.close()
+
+
+def test_source_change_queues_and_refreshes_current_but_not_daily_snapshot(database):
+    connect, sql = database
+    run(connect)
+    assert sql("SELECT * FROM guest_pulse_dirty WHERE club_id=2") == []
+    sql("INSERT INTO guest_case_openings VALUES (2,42,%s)", (NOW - timedelta(hours=1),))
+    assert sql("SELECT * FROM guest_pulse_dirty WHERE club_id=2")
+    assert run(connect)["status"] == "updated"
+    current = json.loads(sql("SELECT detail_json FROM guest_pulse_current WHERE club_id=2")[0]["detail_json"])
+    assert current["engagement"]["cb_actions_30d"] == 1
+    assert current["engagement"]["score"] == 48
+    assert (
+        sql("SELECT engagement_score FROM guest_score_history WHERE club_id=2 AND snapshot_date=%s", (NOW.date(),))[0][
+            "engagement_score"
+        ]
+        == 20
+    )
+
+
+def test_rolled_back_source_does_not_queue_or_score(database):
+    connect, sql = database
+    run(connect)
+    conn = connect()
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO guest_case_openings VALUES (2,42,%s)", (NOW,))
+    conn.rollback()
+    conn.close()
+    assert sql("SELECT * FROM guest_pulse_dirty") == []
+    assert run(connect)["status"] == "unchanged"
+
+
+def test_daily_refresh_without_new_visits_and_status_transition(database):
+    connect, sql = database
+    run(connect)
+    conn = connect()
+    try:
+        refresh_club(conn, 2, now_utc=NOW + timedelta(days=65))
+    finally:
+        conn.close()
+    current = sql("SELECT * FROM guest_pulse_current WHERE club_id=2")[0]
+    assert current["lifecycle_status"] == "CHURNED"
+    assert current["health_score"] <= 15
+    assert sql("SELECT * FROM guest_lifecycle_events WHERE club_id=2 AND to_status='CHURNED'")
+
+
+def test_failure_rolls_back_scores_history_events_and_retains_dirty(database, monkeypatch):
+    from app.services import guest_pulse
+
+    connect, sql = database
+    run(connect)
+    before = sql("SELECT * FROM guest_pulse_current")
+    sql("INSERT INTO guest_case_openings VALUES (2,42,%s)", (NOW,))
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("injected failure")
+
+    monkeypatch.setattr(guest_pulse, "add_history", fail)
+    with pytest.raises(RuntimeError):
+        run(connect)
+    assert sql("SELECT * FROM guest_pulse_current") == before
+    assert sql("SELECT * FROM guest_pulse_dirty")
+
+
+def test_deleted_guest_disappears_and_malformed_sessions_are_excluded(database):
+    connect, sql = database
+    sql("INSERT INTO guest_sessions VALUES (1000,2,43,%s,%s)", (NOW, NOW - timedelta(hours=1)))
+    assert run(connect)["guests"] == 1
+    sql("DELETE FROM guests WHERE club_id=2 AND guest_id=42")
+    assert run(connect)["guests"] == 0
+    assert sql("SELECT * FROM guest_pulse_current") == []
+
+
+def test_future_conversion_is_not_counted_before_actual_credit(database):
+    connect, sql = database
+    sql("INSERT INTO cm_bonus_redeem_requests VALUES (2,42,'credited',%s)", (NOW + timedelta(days=1),))
+    run(connect)
+    row = json.loads(sql("SELECT detail_json FROM guest_pulse_current")[0]["detail_json"])
+    assert row["engagement"]["cb_actions_30d"] == 0
+
+
+@pytest.fixture
+def pulse_client(database, monkeypatch):
+    import app.core as core
+    from app.main import app
+    from app.routes.owner import guest_pulse
+
+    connect, sql = database
+    run(connect)
+    monkeypatch.setattr(guest_pulse, "get_db_connection", connect)
+    monkeypatch.setattr(core, "is_club_service_enabled", lambda cid: True)
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["user_id"] = 10
+        sess["role"] = "owner"
+        sess["club_id"] = 2
+        sess["club_name"] = "Test"
+        sess[core.CSRF_SESSION_KEY] = "pulse-test-csrf"
+    return client
+
+
+def test_api_filters_counts_and_detail_club_scope(pulse_client):
+    data = pulse_client.get("/owner/api/guest-pulse").get_json()
+    assert data["ok"] and data["total"] == 1
+    assert sum(a["count"] for a in data["audiences"]) == data["total"]
+    assert all(a["count"] == a["total"] for a in data["audiences"])
+    assert pulse_client.get("/owner/api/guest-pulse?health_min=NaN").status_code == 400
+    assert pulse_client.get("/owner/api/guest-pulse?metric=invalid").status_code == 400
+    assert pulse_client.get("/owner/api/guest-pulse/guests/43").status_code == 404
+    with pulse_client.session_transaction() as sess:
+        sess["club_id"] = 3
+    assert pulse_client.get("/owner/api/guest-pulse/guests/42").status_code == 404
+
+
+def test_stage_navigation_and_role_gate(pulse_client):
+    response = pulse_client.get("/owner/guest-pulse")
+    assert response.status_code == 200
+    assert "Пульс гостя" in response.get_data(as_text=True)
+    with pulse_client.session_transaction() as sess:
+        sess["role"] = "reception"
+    assert pulse_client.get("/owner/api/guest-pulse").status_code == 302
+
+
+def test_selection_uses_entire_server_audience_and_requires_csrf(pulse_client, database):
+    assert pulse_client.post("/owner/api/guest-pulse/selection", json={}).status_code == 400
+    result = pulse_client.post(
+        "/owner/api/guest-pulse/selection",
+        json={"filters": {}, "guest_ids": [999]},
+        headers={"X-CSRFToken": "pulse-test-csrf"},
+    )
+    assert result.status_code == 200
+    assert result.get_json()["count"] == 1
+    _, sql = database
+    selection = json.loads(sql("SELECT selection_json FROM guest_pulse_selections")[0]["selection_json"])
+    assert selection["guest_ids"] == [42]
+
+
+def test_crm_handoff_idempotent_and_cannot_use_other_clubs_selection(pulse_client, database, monkeypatch):
+    from app.routes.owner import crm
+
+    connect, sql = database
+    monkeypatch.setattr(crm, "get_db_connection", connect)
+    calls = []
+    monkeypatch.setattr(
+        crm,
+        "get_recipient_rows_for_guest_ids",
+        lambda conn, cid, ids: [{"guest_id": i, "telegram_id": 100} for i in ids],
+    )
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return {"mailing_id": 123, "recipients_count": len(kwargs["recipients"])}
+
+    monkeypatch.setattr(crm, "create_mailing_for_recipients", create)
+    monkeypatch.setattr(crm, "_start_crm_mailing_worker", lambda mid: None)
+    headers = {"X-CSRFToken": "pulse-test-csrf"}
+    pulse_client.post("/owner/api/guest-pulse/selection", json={}, headers=headers)
+    key = sql("SELECT id FROM guest_pulse_selections")[0]["id"]
+    payload = {"pulse_selection": key, "guest_ids": [999], "message_text": "Тест без отправки"}
+    assert pulse_client.post("/owner/api/crm-pulse/interact", json=payload, headers=headers).status_code == 200
+    assert pulse_client.post("/owner/api/crm-pulse/interact", json=payload, headers=headers).status_code == 200
+    assert len(calls) == 1 and calls[0]["recipients"][0]["guest_id"] == 42
+    assert calls[0]["filters_json"]["type"] == "guest_pulse"
+    with pulse_client.session_transaction() as sess:
+        sess["club_id"] = 3
+    assert pulse_client.post("/owner/api/crm-pulse/interact", json=payload, headers=headers).status_code == 404
+
+
+def test_reconstructed_engagement_starts_at_first_known_authorization(database):
+    connect, sql = database
+    sql(
+        "INSERT INTO guest_wheel_token_transactions VALUES (2,42,'first_authorization',%s)", (NOW - timedelta(days=20),)
+    )
+    run(connect)
+    history = sql("SELECT * FROM guest_score_history WHERE club_id=2 ORDER BY snapshot_date")
+    before = [r for r in history if r["snapshot_date"] < NOW.date() - timedelta(days=20)]
+    after = [r for r in history if NOW.date() - timedelta(days=19) <= r["snapshot_date"] < NOW.date()]
+    assert all(r["engagement_score"] == 0 for r in before)
+    assert all(r["engagement_score"] == 20 for r in after)
+    assert all(json.loads(r["detail_json"])["engagement"]["estimated"] for r in after)
+
+
+def test_selection_preview_keeps_frozen_guests_even_if_visit_data_changes(pulse_client, database):
+    from flask import session
+
+    from app.main import app
+    from app.routes.owner.guest_pulse import selection_group
+
+    connect, sql = database
+    pulse_client.post("/owner/api/guest-pulse/selection", json={}, headers={"X-CSRFToken": "pulse-test-csrf"})
+    key = sql("SELECT id FROM guest_pulse_selections")[0]["id"]
+    sql("DELETE FROM guest_pulse_current WHERE club_id=2")
+    conn = connect()
+    try:
+        with app.test_request_context():
+            session.update(user_id=10, club_id=2)
+            group = selection_group(conn, key)
+        assert group["total_count"] == 1
+        assert group["guests"][0]["guest_id"] == 42
+        assert group["guests"][0]["has_telegram"]
+    finally:
+        conn.close()

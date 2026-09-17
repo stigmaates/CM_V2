@@ -14,6 +14,7 @@ from app.routes.owner import (  # noqa: F401
     club,
     crm,
     dashboard,
+    guest_pulse,
     mailing,
     missions,
     owner_bp,
