@@ -1,9 +1,11 @@
+import secrets
+import time
 from datetime import datetime
-from urllib.parse import quote_plus
+from urllib.parse import quote, quote_plus
 
 from flask import after_this_request, flash, redirect, render_template, request, session, url_for
 
-from app.config import BOT_USERNAME
+from app.config import BOT_USERNAME, STEAM_PUBLIC_BASE_URL
 from app.core import guest_required
 from app.services.audit import record_audit_event
 from app.services.cases import (
@@ -29,6 +31,17 @@ from app.services.guest_rewards import get_guest_reward_history
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.rate_limit import client_ip, is_rate_limited
+from app.services.steam import (
+    SteamAlreadyLinkedError,
+    SteamError,
+    SteamNotConfiguredError,
+    build_openid_redirect_url,
+    fetch_game_profile,
+    fetch_player_summary,
+    get_linked_steam_account,
+    link_steam_account,
+    verify_openid_response,
+)
 from app.services.wheel import (
     get_guest_profile_stats,
     get_guest_streak_info,
@@ -64,6 +77,14 @@ def _disable_login_cache():
         return response
 
 
+def _steam_public_origin() -> str:
+    if STEAM_PUBLIC_BASE_URL:
+        return STEAM_PUBLIC_BASE_URL
+    forwarded_proto = (request.headers.get("X-Forwarded-Proto") or "").split(",", 1)[0].strip()
+    scheme = forwarded_proto if forwarded_proto in {"http", "https"} else request.scheme
+    return f"{scheme}://{request.host}".rstrip("/")
+
+
 @guest_bp.route("/dashboard")
 @guest_required
 def dashboard():
@@ -93,6 +114,7 @@ def dashboard():
     cm_bonus_redeem_history = get_cm_bonus_redeem_history(
         guest_id=guest["guest_id"], club_id=guest["club_id"], limit=30
     )
+    steam_account = get_linked_steam_account(club_id=guest["club_id"], guest_id=guest["guest_id"])
 
     return render_template(
         "guest/guest_dashboard.html",
@@ -112,7 +134,114 @@ def dashboard():
         cm_bonus_balance=cm_bonus_balance,
         cm_bonus_history=cm_bonus_history,
         cm_bonus_redeem_history=cm_bonus_redeem_history,
+        steam_account=steam_account,
     )
+
+
+@guest_bp.route("/steam/link")
+@guest_required
+def steam_link():
+    guest_id = int(session["guest_id"])
+    club_id = int(session["guest_club_id"])
+    if is_rate_limited(f"guest.steam_link:{club_id}:{guest_id}", limit=10, window_seconds=60):
+        flash("Слишком много попыток входа через Steam. Подождите минуту.", "error")
+        return redirect(url_for("guest.dashboard"))
+    state = secrets.token_urlsafe(24)
+    origin = _steam_public_origin()
+    callback_path = url_for("guest.steam_callback")
+    return_to = f"{origin}{callback_path}?state={quote(state, safe='')}"
+    session["steam_link_state"] = {
+        "token": state,
+        "guest_id": guest_id,
+        "club_id": club_id,
+        "created_at": int(time.time()),
+        "return_to": return_to,
+    }
+    return redirect(build_openid_redirect_url(return_to=return_to, realm=f"{origin}/"))
+
+
+@guest_bp.route("/steam/callback")
+@guest_required
+def steam_callback():
+    expected = session.pop("steam_link_state", None) or {}
+    supplied_state = request.args.get("state", "")
+    state_age = int(time.time()) - int(expected.get("created_at") or 0)
+    state_is_valid = (
+        expected.get("token")
+        and secrets.compare_digest(str(expected["token"]), supplied_state)
+        and int(expected.get("guest_id") or 0) == int(session.get("guest_id") or 0)
+        and int(expected.get("club_id") or 0) == int(session.get("guest_club_id") or 0)
+        and 0 <= state_age <= 600
+    )
+    if not state_is_valid:
+        flash("Не удалось подтвердить запрос на привязку Steam. Попробуйте ещё раз.", "error")
+        return redirect(url_for("guest.dashboard"))
+    if request.args.get("openid.mode") == "cancel":
+        flash("Вход через Steam отменён", "error")
+        return redirect(url_for("guest.dashboard"))
+    if request.args.get("openid.return_to") != expected.get("return_to"):
+        flash("Steam вернул ответ для другого адреса. Попробуйте ещё раз.", "error")
+        return redirect(url_for("guest.dashboard"))
+
+    try:
+        steam_id = verify_openid_response(request.args.to_dict(flat=True))
+        try:
+            profile = fetch_player_summary(steam_id)
+        except SteamError:
+            profile = None
+        link_steam_account(
+            club_id=int(session["guest_club_id"]),
+            guest_id=int(session["guest_id"]),
+            steam_id=steam_id,
+            profile=profile,
+        )
+    except SteamAlreadyLinkedError as exc:
+        flash(str(exc), "error")
+    except SteamError as exc:
+        flash(str(exc), "error")
+    else:
+        flash("Steam-аккаунт успешно привязан", "success")
+    return redirect(url_for("guest.dashboard"))
+
+
+@guest_bp.route("/api/steam-profile")
+@guest_required
+def api_steam_profile():
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    if is_rate_limited(f"guest.steam_profile:{club_id}:{guest_id}", limit=10, window_seconds=60):
+        return {
+            "ok": False,
+            "error": "rate_limited",
+            "message": "Слишком много запросов. Подождите минуту.",
+        }, 429
+    account = get_linked_steam_account(
+        club_id=club_id,
+        guest_id=guest_id,
+    )
+    if not account:
+        return {"ok": False, "error": "steam_not_linked", "message": "Steam-аккаунт не привязан"}, 404
+    try:
+        profile = fetch_game_profile(account["steam_id"])
+        link_steam_account(
+            club_id=club_id,
+            guest_id=guest_id,
+            steam_id=account["steam_id"],
+            profile=profile,
+        )
+    except SteamNotConfiguredError:
+        return {
+            "ok": False,
+            "error": "steam_not_configured",
+            "message": "Статистика Steam пока не настроена на сервере",
+        }, 503
+    except SteamError:
+        return {
+            "ok": False,
+            "error": "steam_unavailable",
+            "message": "Steam временно не отвечает. Попробуйте позже.",
+        }, 502
+    return {"ok": True, "profile": profile}
 
 
 @guest_bp.route("/check-login")
