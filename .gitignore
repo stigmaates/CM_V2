@@ -14,3 +14,5 @@ __MACOSX/
 *.log
 .env.backup
 backups/
+output/
+tmp/

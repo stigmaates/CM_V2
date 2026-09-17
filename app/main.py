@@ -1,7 +1,7 @@
 from flask import session
 
 from app.core import app, get_db_connection
-from app.routes.admin import admin_bp, clubs, files, users  # noqa: F401
+from app.routes.admin import admin_bp, clubs, files, reports, users  # noqa: F401
 from app.routes.admin import dashboard as admin_dashboard  # noqa: F401
 from app.routes.admin import training as admin_training  # noqa: F401
 from app.routes.common import auth, auth_bp, public, public_bp  # noqa: F401

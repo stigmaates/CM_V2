@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin — Отчётность{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_reports.css') }}">{% endblock %}
+{% block content %}
+<section class="admin-page-head reports-head">
+    <div>
+        <span class="reports-eyebrow">CYBER BONUS</span>
+        <h1>Отчётность</h1>
+        <p>Ежемесячные бизнес-отчёты для клубов: база, удержание, CRM, механики и связанные пополнения.</p>
+    </div>
+</section>
+
+<section class="admin-card report-builder">
+    <div>
+        <h2>Сформировать ежемесячный отчёт</h2>
+        <p>Расчёт фиксируется в истории. Повторная генерация обновит версию v1 за выбранный месяц.</p>
+    </div>
+    <form method="post" action="{{ url_for('admin.generate_report') }}" class="report-form" data-page-loading-form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Клуб
+            <select name="club_id" required>
+                <option value="">Выберите клуб</option>
+                {% for club in clubs %}<option value="{{ club.club_id }}">{{ club.name }} · ID {{ club.club_id }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Месяц
+            <select name="month" required>
+                {% for value, label in month_options %}<option value="{{ value }}" {% if value == default_month %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Год
+            <select name="year" required>
+                {% for year in range(current_year, current_year - 5, -1) %}<option value="{{ year }}" {% if year == default_year %}selected{% endif %}>{{ year }}</option>{% endfor %}
+            </select>
+        </label>
+        <button class="admin-btn report-generate" type="submit">Сформировать отчёт</button>
+    </form>
+</section>
+
+{% if selected %}
+<section class="report-preview">
+    <div class="report-preview-head">
+        <div>
+            <span class="reports-eyebrow">ГОТОВЫЙ ОТЧЁТ</span>
+            <h2>{{ selected.view.club.name }}</h2>
+            <p>{{ selected.view.period.title }} · сформирован {{ selected.view.generated_label }}</p>
+        </div>
+        <a class="admin-btn report-download" href="{{ url_for('admin.download_report', report_id=selected.id) }}">Скачать PDF</a>
+    </div>
+    <div class="report-kpis">
+        {% for card in selected.view.metric_cards %}
+        <article class="report-kpi">
+            <span>{{ card.label }}</span>
+            <strong>{{ card.value }}</strong>
+            <small class="{{ card.trend }}">{{ card.change }}</small>
+        </article>
+        {% endfor %}
+    </div>
+    <div class="report-preview-grid">
+        <article class="admin-card report-mini-card">
+            <h3>Health Score</h3>
+            <strong>{{ selected.view.health.average_label }}</strong>
+            <span>Было {{ selected.view.health.previous_label }}{% if selected.view.health.change is not none %} · изменение {{ '%+.1f'|format(selected.view.health.change) }}{% endif %}</span>
+        </article>
+        <article class="admin-card report-mini-card">
+            <h3>Пополнения вовлечённых гостей</h3>
+            <strong>{{ selected.view.engaged_revenue.amount_label }}</strong>
+            <span>{{ selected.view.engaged_revenue.guests }} гостей · {{ selected.view.engaged_revenue.topped_up_guests }} с пополнением</span>
+        </article>
+        <article class="admin-card report-mini-card">
+            <h3>Удержание новой когорты</h3>
+            <strong>{{ selected.view.retention.new_guests.second_percent|default('—', true) }}{% if selected.view.retention.new_guests.second_percent is not none %}%{% endif %}</strong>
+            <span>{{ selected.view.retention.new_guests.second }} из {{ selected.view.retention.new_guests.first }} пришли второй раз</span>
+        </article>
+    </div>
+    {% if selected.view.data_quality %}
+    <div class="report-data-note"><strong>О данных</strong><span>{{ selected.view.data_quality|join(' ') }}</span></div>
+    {% endif %}
+</section>
+{% endif %}
+
+<section class="admin-card report-history">
+    <div class="admin-section-head"><div><h2>История отчётов</h2><p>Сохранённые снимки можно открыть и скачать повторно.</p></div></div>
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead><tr><th>Клуб</th><th>Период</th><th>Сформирован</th><th>Версия</th><th></th></tr></thead>
+            <tbody>
+            {% for report in reports %}
+                <tr>
+                    <td><strong>{{ report.club_name }}</strong><span class="admin-table-sub">ID {{ report.club_id }}</span></td>
+                    <td>{{ '%02d.%d'|format(report.report_month, report.report_year) }}</td>
+                    <td>{{ report.generated_at.strftime('%d.%m.%Y %H:%M') if report.generated_at else '—' }}</td>
+                    <td><span class="status-pill success">{{ report.version }}</span></td>
+                    <td class="report-actions"><a href="{{ url_for('admin.reports', report_id=report.id) }}">Открыть</a><a href="{{ url_for('admin.download_report', report_id=report.id) }}">PDF</a></td>
+                </tr>
+            {% else %}<tr><td colspan="5" class="empty-cell">Отчётов пока нет</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

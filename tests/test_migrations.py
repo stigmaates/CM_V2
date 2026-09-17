@@ -58,10 +58,20 @@ def test_guest_balance_topups_migration_exports_revision_and_upgrade():
     assert migration.revision == "0006_guest_balance_topups"
     assert callable(migration.upgrade)
     assert any(
-        isinstance(value, str) and "guest_balance_topups" in value for value in migration.upgrade.__code__.co_consts
+        isinstance(value, str) and "guest_balance_topups" in value
+        for value in migration.upgrade.__code__.co_consts
     )
 
 
+def test_monthly_reports_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0034_monthly_reports")
+
+    assert migration.revision == "0034_monthly_reports"
+    assert callable(migration.upgrade)
+    assert any(
+        isinstance(value, str) and "monthly_reports" in value
+        for value in migration.upgrade.__code__.co_consts
+    )
 def test_club_service_enabled_migration_exports_revision_and_upgrade():
     migration = importlib.import_module("migrations.versions.0007_club_service_enabled")
 
