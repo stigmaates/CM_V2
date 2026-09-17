@@ -155,10 +155,16 @@ def test_value_missing_money_normalizes_available_weights():
 def test_engagement_all_components_and_ignores_future():
     events = [{"kind": "mission", "at": NOW - timedelta(days=d)} for d in (0, 1, 2)]
     events += [{"kind": "case", "at": NOW - timedelta(days=d)} for d in (0, 1, 2, 3, 4)]
+    events += [
+        {"kind": "contract_selected", "at": NOW - timedelta(days=1)},
+        {"kind": "contract_completed", "at": NOW - timedelta(days=1)},
+    ]
     events.append({"kind": "case", "at": NOW + timedelta(days=1)})
     e = engagement(events, True, NOW)
     assert e["score"] == 100
-    assert e["missions_completed_30d"] == 3 and e["cb_actions_30d"] == 5 and e["current_streak"] == 5
+    assert e["missions_completed_30d"] == 3 and e["cb_actions_30d"] == 7 and e["current_streak"] == 5
+    assert e["contracts_selected_30d"] == 1
+    assert e["contracts_completed_30d"] == 1
     assert engagement(events, None, NOW)["score"] is None
 
 

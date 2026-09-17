@@ -70,6 +70,14 @@ def calc_favorite_period(day_count: int, evening_count: int, night_count: int) -
     return "night"
 
 
+def dominant_game(cs2_hours, dota2_hours) -> Tuple[Optional[str], Optional[float]]:
+    cs2 = float(cs2_hours or 0)
+    dota2 = float(dota2_hours or 0)
+    if cs2 <= 0 and dota2 <= 0:
+        return None, None
+    return ("cs2", cs2) if cs2 >= dota2 else ("dota2", dota2)
+
+
 def calc_crm_type(
     total_visits: int,
     visits_90d: int,
@@ -390,6 +398,30 @@ def fetch_missions_agg(conn, now_utc: datetime) -> Dict[Tuple[int, int], Dict[st
     return result
 
 
+def fetch_steam_games_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT club_id, guest_id,
+                   cs2_hours_total, cs2_hours_2weeks,
+                   dota2_hours_total, dota2_hours_2weeks,
+                   game_stats_updated_at
+            FROM guest_steam_accounts
+            """)
+        rows = cur.fetchall()
+    result = {}
+    for row in rows:
+        favorite_game, favorite_hours = dominant_game(row["cs2_hours_total"], row["dota2_hours_total"])
+        recent_game, recent_hours = dominant_game(row["cs2_hours_2weeks"], row["dota2_hours_2weeks"])
+        result[(int(row["club_id"]), int(row["guest_id"]))] = {
+            "favorite_game": favorite_game,
+            "favorite_game_hours": favorite_hours,
+            "recent_game_14d": recent_game,
+            "recent_game_14d_hours": recent_hours,
+            "steam_game_stats_updated_at": row["game_stats_updated_at"],
+        }
+    return result
+
+
 def build_records(conn) -> List[Dict[str, Any]]:
     now = datetime.now()
 
@@ -399,6 +431,7 @@ def build_records(conn) -> List[Dict[str, Any]]:
     spins = fetch_spins_agg(conn)
     cases = fetch_cases_agg(conn)
     missions = fetch_missions_agg(conn, datetime.now(UTC).replace(tzinfo=None))
+    steam_games = fetch_steam_games_agg(conn)
 
     records: List[Dict[str, Any]] = []
 
@@ -415,6 +448,7 @@ def build_records(conn) -> List[Dict[str, Any]]:
         spn = spins.get(key, {})
         case = cases.get(key, {})
         mission = missions.get(key, {})
+        games = steam_games.get(key, {})
 
         birth_date = g.get("birth_date")
         age = calc_age(birth_date, now)
@@ -471,6 +505,11 @@ def build_records(conn) -> List[Dict[str, Any]]:
             "is_active_30d": sess.get("is_active_30d", 0),
             "is_active_90d": sess.get("is_active_90d", 0),
             "has_telegram": 1 if g.get("telegram_id") is not None else 0,
+            "favorite_game": games.get("favorite_game"),
+            "favorite_game_hours": games.get("favorite_game_hours"),
+            "recent_game_14d": games.get("recent_game_14d"),
+            "recent_game_14d_hours": games.get("recent_game_14d_hours"),
+            "steam_game_stats_updated_at": games.get("steam_game_stats_updated_at"),
         }
         records.append(record)
 
@@ -521,7 +560,12 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             avg_days_between_visits,
             is_active_30d,
             is_active_90d,
-            has_telegram
+            has_telegram,
+            favorite_game,
+            favorite_game_hours,
+            recent_game_14d,
+            recent_game_14d_hours,
+            steam_game_stats_updated_at
         )
         VALUES (
             %(guest_id)s,
@@ -562,7 +606,12 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             %(avg_days_between_visits)s,
             %(is_active_30d)s,
             %(is_active_90d)s,
-            %(has_telegram)s
+            %(has_telegram)s,
+            %(favorite_game)s,
+            %(favorite_game_hours)s,
+            %(recent_game_14d)s,
+            %(recent_game_14d_hours)s,
+            %(steam_game_stats_updated_at)s
         )
         ON DUPLICATE KEY UPDATE
             club_id = VALUES(club_id),
@@ -603,6 +652,11 @@ def upsert_user_portrait(conn, records: List[Dict[str, Any]]) -> None:
             is_active_30d = VALUES(is_active_30d),
             is_active_90d = VALUES(is_active_90d),
             has_telegram = VALUES(has_telegram),
+            favorite_game = VALUES(favorite_game),
+            favorite_game_hours = VALUES(favorite_game_hours),
+            recent_game_14d = VALUES(recent_game_14d),
+            recent_game_14d_hours = VALUES(recent_game_14d_hours),
+            steam_game_stats_updated_at = VALUES(steam_game_stats_updated_at),
             updated_at = CURRENT_TIMESTAMP
     """
 

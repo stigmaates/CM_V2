@@ -156,6 +156,7 @@ def test_build_records_populates_engagement_and_empty_defaults(monkeypatch):
     monkeypatch.setattr(portrait, "fetch_sessions_agg", lambda *args: {})
     monkeypatch.setattr(portrait, "fetch_topups_agg", lambda *args: {})
     monkeypatch.setattr(portrait, "fetch_spins_agg", lambda *args: {})
+    monkeypatch.setattr(portrait, "fetch_steam_games_agg", lambda *args: {})
     monkeypatch.setattr(
         portrait,
         "fetch_cases_agg",

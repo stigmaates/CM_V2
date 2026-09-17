@@ -84,6 +84,8 @@ class Cursor:
                 "topup_at",
                 "at",
                 "changed_at",
+                "started_at",
+                "completed_at",
             ):
                 if isinstance(r.get(key), str):
                     r[key] = datetime.fromisoformat(r[key])
@@ -159,10 +161,11 @@ def database(tmp_path):
         "CREATE TABLE cm_bonus_transactions (club_id INT,guest_id BIGINT,source_type VARCHAR(32),status VARCHAR(32),created_at DATETIME)",
         "CREATE TABLE cm_bonus_redeem_requests (club_id INT,guest_id BIGINT,status VARCHAR(32),processed_at DATETIME)",
         "CREATE TABLE guest_prize_claims (club_id INT,guest_id BIGINT,status VARCHAR(32),issued_at DATETIME)",
-        "CREATE TABLE user_portrait (club_id INT,guest_id BIGINT,PRIMARY KEY(club_id,guest_id))",
+        "CREATE TABLE guest_game_contracts (club_id INT,guest_id BIGINT,status VARCHAR(32),started_at DATETIME,completed_at DATETIME)",
+        "CREATE TABLE user_portrait (club_id INT,guest_id BIGINT,favorite_game VARCHAR(16),favorite_game_hours DECIMAL(12,1),recent_game_14d VARCHAR(16),recent_game_14d_hours DECIMAL(12,1),steam_game_stats_updated_at DATETIME,PRIMARY KEY(club_id,guest_id))",
         "INSERT INTO clubs VALUES (2,'Asia/Yekaterinburg',1),(3,'Europe/Moscow',1)",
         "INSERT INTO guests VALUES (2,42,'Тест',NULL,100),(3,42,'Другой клуб',NULL,NULL),(2,43,'Без визитов',NULL,NULL)",
-        "INSERT INTO user_portrait VALUES (2,42),(3,42)",
+        "INSERT INTO user_portrait (club_id,guest_id) VALUES (2,42),(3,42)",
     ]
     try:
         for sql in schema:
@@ -296,6 +299,21 @@ def test_future_conversion_is_not_counted_before_actual_credit(database):
     run(connect)
     row = json.loads(sql("SELECT detail_json FROM guest_pulse_current")[0]["detail_json"])
     assert row["engagement"]["cb_actions_30d"] == 0
+
+
+def test_selected_and_completed_contracts_are_counted_in_engagement(database):
+    connect, sql = database
+    sql(
+        "INSERT INTO guest_game_contracts VALUES (2,42,'completed',%s,%s)",
+        (NOW - timedelta(days=2), NOW - timedelta(days=1)),
+    )
+
+    run(connect, force=True)
+
+    row = json.loads(sql("SELECT detail_json FROM guest_pulse_current")[0]["detail_json"])
+    assert row["engagement"]["contracts_selected_30d"] == 1
+    assert row["engagement"]["contracts_completed_30d"] == 1
+    assert row["engagement"]["cb_actions_30d"] == 2
 
 
 @pytest.fixture
@@ -518,26 +536,30 @@ def test_send_rechecks_telegram_and_cannot_expand_frozen_audience(
 def test_audience_sorts_connected_before_pagination(pulse_client, database, mixed_pulse_audience):
     _, sql = database
     # Put a disconnected guest ahead of connected guests by health/name.
-    row = json.loads(sql('SELECT detail_json FROM guest_pulse_current WHERE club_id=2 AND guest_id=56')[0]['detail_json'])
-    row['health']['score'] = 0
-    row['name'] = 'AAA'
-    sql('UPDATE guest_pulse_current SET detail_json=%s WHERE club_id=2 AND guest_id=56', (json.dumps(row),))
-    first = pulse_client.get('/owner/api/guest-pulse?audience_type=loyal').get_json()['guests']
-    second = pulse_client.get('/owner/api/guest-pulse?audience_type=loyal&page=2').get_json()['guests']
-    assert all(row['has_telegram'] for row in first)
-    assert all(row['has_telegram'] for row in second[:-1])
-    assert second[-1]['guest_id'] == 56 and not second[-1]['has_telegram']
+    row = json.loads(
+        sql("SELECT detail_json FROM guest_pulse_current WHERE club_id=2 AND guest_id=56")[0]["detail_json"]
+    )
+    row["health"]["score"] = 0
+    row["name"] = "AAA"
+    sql("UPDATE guest_pulse_current SET detail_json=%s WHERE club_id=2 AND guest_id=56", (json.dumps(row),))
+    first = pulse_client.get("/owner/api/guest-pulse?audience_type=loyal").get_json()["guests"]
+    second = pulse_client.get("/owner/api/guest-pulse?audience_type=loyal&page=2").get_json()["guests"]
+    assert all(row["has_telegram"] for row in first)
+    assert all(row["has_telegram"] for row in second[:-1])
+    assert second[-1]["guest_id"] == 56 and not second[-1]["has_telegram"]
 
 
 def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, database, monkeypatch):
-    monkeypatch.setenv('DISABLE_OUTBOUND_MESSAGES', '1')
-    response = pulse_client.get('/owner/guest-pulse')
+    monkeypatch.setenv("DISABLE_OUTBOUND_MESSAGES", "1")
+    response = pulse_client.get("/owner/guest-pulse")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
     assert 'id="crmPulseModal"' in html
-    assert 'window.CRM_OUTBOUND_DISABLED = true' in html
+    assert "window.CRM_OUTBOUND_DISABLED = true" in html
     assert 'id="crmAnalysisRulesContainer"' not in html
-    selection = pulse_client.post('/owner/api/guest-pulse/selection', json={}, headers={'X-CSRFToken': 'pulse-test-csrf'}).get_json()
-    assert selection['group']['guest_ids'] == [42]
-    assert all(guest['has_telegram'] for guest in selection['group']['guests'])
-    assert selection['group']['selection_id']
+    selection = pulse_client.post(
+        "/owner/api/guest-pulse/selection", json={}, headers={"X-CSRFToken": "pulse-test-csrf"}
+    ).get_json()
+    assert selection["group"]["guest_ids"] == [42]
+    assert all(guest["has_telegram"] for guest in selection["group"]["guests"])
+    assert selection["group"]["selection_id"]

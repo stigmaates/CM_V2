@@ -106,6 +106,24 @@ FILTER_FIELDS = {
             {"value": "night", "label": "Ночь"},
         ],
     },
+    "favorite_game": {
+        "type": "enum",
+        "column": "up.favorite_game",
+        "label": "Любимая игра · всё время",
+        "options": [
+            {"value": "cs2", "label": "Counter-Strike 2"},
+            {"value": "dota2", "label": "Dota 2"},
+        ],
+    },
+    "recent_game_14d": {
+        "type": "enum",
+        "column": "up.recent_game_14d",
+        "label": "Самая активная игра · 2 недели",
+        "options": [
+            {"value": "cs2", "label": "Counter-Strike 2"},
+            {"value": "dota2", "label": "Dota 2"},
+        ],
+    },
     "avg_check_all": {"type": "number", "column": "up.avg_check_all", "label": "Среднее пополнение за всё время"},
     "avg_check_30d": {"type": "number", "column": "up.avg_check_30d", "label": "Среднее пополнение за 30 дней"},
     "last_payment_date": {"type": "date", "column": "up.last_payment_date", "label": "Последнее пополнение"},

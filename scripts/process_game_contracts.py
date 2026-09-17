@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.services.game_contracts import process_active_contracts
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
+from app.services.steam import refresh_linked_steam_game_stats
 
 
 def main() -> None:
@@ -22,7 +23,9 @@ def main() -> None:
             print("SKIP: game contracts already running")
             return
         try:
+            steam_profiles = refresh_linked_steam_game_stats()
             result = process_active_contracts()
+            result["steam_profiles"] = steam_profiles
             status = "success" if not result["errors"] else "partial"
             finish_job_run(
                 job_run_id,
@@ -34,7 +37,8 @@ def main() -> None:
             print(
                 "OK: game contracts processed, "
                 f"targets={result['guests']}, matches={result['matches']}, "
-                f"completed={result['completed']}, errors={result['errors']}"
+                f"completed={result['completed']}, errors={result['errors']}, "
+                f"steam_profiles={steam_profiles['updated']}/{steam_profiles['attempted']}"
             )
         except Exception as exc:
             finish_job_run(job_run_id, "error", error_text=str(exc))

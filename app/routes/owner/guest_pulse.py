@@ -46,8 +46,12 @@ def summary(row):
 def guest_pulse():
     current_club()
     return render_template(
-        "owner/guest_pulse.html", audiences=AUDIENCES, segments=SEGMENTS, pulse_config=GUEST_PULSE_CONFIG,
-        message_variables=get_message_variables(), outbound_disabled=outbound_blocked()
+        "owner/guest_pulse.html",
+        audiences=AUDIENCES,
+        segments=SEGMENTS,
+        pulse_config=GUEST_PULSE_CONFIG,
+        message_variables=get_message_variables(),
+        outbound_disabled=outbound_blocked(),
     )
 
 
@@ -82,7 +86,15 @@ def guest_pulse_data():
     selected = select(current, f)
     deviating = select(current, f, "deviations")
     deviating.sort(key=lambda r: max(d["deviation_ratio"] for d in r["deviations"]), reverse=True)
-    selected.sort(key=lambda r: (not r["has_telegram"], r["health"]["score"] is None, r["health"]["score"] or 0, r["name"], r["guest_id"]))
+    selected.sort(
+        key=lambda r: (
+            not r["has_telegram"],
+            r["health"]["score"] is None,
+            r["health"]["score"] or 0,
+            r["name"],
+            r["guest_id"],
+        )
+    )
     at = utc_datetime_to_club_local(state.get("calculated_at"), state.get("timezone"))
     return jsonify(
         ok=True,
@@ -128,14 +140,37 @@ def guest_pulse_guest(guest_id):
     try:
         result = rows(
             conn,
-            """SELECT p.detail_json,g.telegram_id FROM guest_pulse_current p
-            JOIN guests g ON g.club_id=p.club_id AND g.guest_id=p.guest_id WHERE p.club_id=%s AND p.guest_id=%s""",
+            """SELECT p.detail_json,g.telegram_id,
+                   up.favorite_game,up.favorite_game_hours,
+                   up.recent_game_14d,up.recent_game_14d_hours,
+                   up.steam_game_stats_updated_at
+            FROM guest_pulse_current p
+            JOIN guests g ON g.club_id=p.club_id AND g.guest_id=p.guest_id
+            LEFT JOIN user_portrait up ON up.club_id=p.club_id AND up.guest_id=p.guest_id
+            WHERE p.club_id=%s AND p.guest_id=%s""",
             (cid, guest_id),
         )
         if not result:
             abort(404)
         row = loads(result[0]["detail_json"])
         row["has_telegram"] = bool(result[0]["telegram_id"])
+        row["games"] = {
+            "favorite_game": result[0].get("favorite_game"),
+            "favorite_game_hours": (
+                float(result[0]["favorite_game_hours"]) if result[0].get("favorite_game_hours") is not None else None
+            ),
+            "recent_game_14d": result[0].get("recent_game_14d"),
+            "recent_game_14d_hours": (
+                float(result[0]["recent_game_14d_hours"])
+                if result[0].get("recent_game_14d_hours") is not None
+                else None
+            ),
+            "updated_at": (
+                result[0]["steam_game_stats_updated_at"].isoformat()
+                if result[0].get("steam_game_stats_updated_at")
+                else None
+            ),
+        }
         history = rows(
             conn,
             """SELECT snapshot_date,health_score,value_score,engagement_score,reconstructed
@@ -205,8 +240,7 @@ def load_selection(conn, key, *, lock=False):
     result = rows(
         conn,
         """SELECT * FROM guest_pulse_selections WHERE id=%s AND club_id=%s AND user_id=%s
-        AND expires_at>%s"""
-        + (" FOR UPDATE" if lock else ""),
+        AND expires_at>%s""" + (" FOR UPDATE" if lock else ""),
         (key, current_club(), int(session["user_id"]), datetime.now(UTC).replace(tzinfo=None)),
     )
     if not result:

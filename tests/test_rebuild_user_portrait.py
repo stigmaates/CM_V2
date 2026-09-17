@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.services.crm_segments import calculate_crm_segment
-from scripts.rebuild_user_portrait import collapse_sessions_to_visits
+from scripts.rebuild_user_portrait import collapse_sessions_to_visits, dominant_game
 
 
 def test_sessions_are_collapsed_into_visits_by_two_hour_gap():
@@ -43,3 +43,13 @@ def test_crm_segment_marks_base_by_moderate_current_activity():
     segment = calculate_crm_segment(total_visits=5, visits_30d=3, visits_90d=5, days_since_last_visit=1)
 
     assert segment.crm_type == "base"
+
+
+def test_dominant_game_uses_largest_positive_playtime():
+    assert dominant_game(120.5, 80) == ("cs2", 120.5)
+    assert dominant_game(3, 14.2) == ("dota2", 14.2)
+    assert dominant_game(0, 0) == (None, None)
+
+
+def test_dominant_game_is_deterministic_on_tie():
+    assert dominant_game(10, 10) == ("cs2", 10.0)

@@ -50,8 +50,9 @@ def main():
             "SELECT COUNT(*) AS cnt FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE %s",
             ("guest_pulse_%",),
         )[0]["cnt"]
-        print(f"Guest Pulse source triggers: {triggers}/30")
-        if issues or triggers != 30:
+        expected_triggers = 33
+        print(f"Guest Pulse source triggers: {triggers}/{expected_triggers}")
+        if issues or triggers != expected_triggers:
             print("Guest Pulse check FAILED", file=sys.stderr)
             return 1
         print("Guest Pulse check OK")

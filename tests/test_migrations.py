@@ -246,6 +246,13 @@ def test_guest_cs2_matches_migration_exports_tables():
     assert any("guest_cs2_matches" in value for value in constants)
 
 
+def test_game_preferences_and_contract_engagement_migration_exports_revision():
+    migration = importlib.import_module("migrations.versions.0044_game_preferences_and_contract_engagement")
+
+    assert migration.revision == "0044_game_preferences_and_contract_engagement"
+    assert callable(migration.upgrade)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False
