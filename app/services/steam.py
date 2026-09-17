@@ -373,16 +373,21 @@ def normalize_cs2_share_code(value: str) -> str:
             }
         )
     )
-    clipboard_value = "".join(
-        char
-        for char in normalized_value
-        if not char.isspace() and unicodedata.category(char) != "Cf"
-    )
-    match = CS2_SHARE_CODE_RE.search(clipboard_value)
-    if not match:
-        raise CS2HistoryCodeError("Вставьте код матча CSGO-… или ссылку, скопированную из CS2")
-    code = match.group(0)
-    return f"CSGO-{code[5:]}"
+    prefixes = list(re.finditer(r"CSGO", normalized_value, re.IGNORECASE))
+    if not prefixes:
+        raise CS2HistoryCodeError("Не найден код CSGO-… в скопированной строке")
+
+    for prefix in reversed(prefixes):
+        code_chars = [
+            char
+            for char in normalized_value[prefix.end() :]
+            if char.isascii() and char.isalnum()
+        ][:25]
+        if len(code_chars) == 25:
+            compact_code = "".join(code_chars)
+            groups = [compact_code[index : index + 5] for index in range(0, 25, 5)]
+            return f"CSGO-{'-'.join(groups)}"
+    raise CS2HistoryCodeError("Код матча после CSGO- должен содержать 25 символов")
 
 
 def fetch_next_cs2_share_code(*, steam_id: str, auth_code: str, known_code: str) -> str | None:
