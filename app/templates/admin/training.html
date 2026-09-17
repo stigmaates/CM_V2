@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 
 {% block title %}Обучение — Cyber Bonus Admin{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/training.css', v='1') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/training.css', v='2') }}">{% endblock %}
 
 {% block content %}
 <div class="training-page training-page--admin">
@@ -62,7 +62,7 @@
                     <button class="training-drag-handle" type="button" aria-label="Перетащить карточку «{{ video.title }}»" title="Перетащить">⠿</button>
                     <span class="training-visibility">{{ 'Показывается' if video.is_active else 'Скрыто' }}</span>
                 </div>
-                <button class="training-player" type="button" data-training-player data-embed-url="{{ video.embed_url }}" aria-label="Воспроизвести «{{ video.title }}»">
+                <button class="training-player" type="button" data-training-player data-video-id="{{ video.id }}" aria-label="Воспроизвести «{{ video.title }}»">
                     <img src="{{ video.thumbnail_url }}" alt="Превью: {{ video.title }}" loading="lazy">
                     <span class="training-play" aria-hidden="true">▶</span>
                 </button>
@@ -96,10 +96,11 @@
         </div>
         {% endif %}
     </section>
+    {% include "_training_video_modal.html" %}
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/training.js', v='1') }}" defer></script>
+<script src="{{ url_for('static', filename='js/training.js', v='2') }}" defer></script>
 <script src="{{ url_for('static', filename='js/admin_training.js', v='1') }}" defer></script>
 {% endblock %}
