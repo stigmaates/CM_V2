@@ -111,6 +111,11 @@ Current release branch progress:
   deviation and Telegram filters, P/Ц/В labels, overall guest score and production
   worker templates. Production migration rehearsal, pilot-club enablement and
   monitored worker cycle are still required; nothing from this batch is deployed.
+- batch 5 Team portion complete through `248ba2c`: owner team analytics,
+  registration history, manual working roster and a production-safe Langame sync.
+  The monthly-report portion remains a separate pending integration. Team migration
+  rehearsal, explicit local-to-Langame club mapping and a monitored timer cycle are
+  still required; nothing from this batch is deployed.
 
 No production deployment or production database migration has been performed.
 
