@@ -1324,22 +1324,11 @@ def repair_missing_contract_rewards(club_id: int, guest_id: int) -> int:
                 FROM guest_game_contracts c
                 WHERE c.club_id=%s AND c.guest_id=%s AND c.status='completed'
                   AND (c.reward_tokens > 0 OR c.reward_bonus > 0)
-                  AND (
-                    (c.reward_tokens > 0 AND NOT EXISTS (
-                        SELECT 1 FROM guest_wheel_token_transactions t
-                        WHERE t.club_id=c.club_id AND t.guest_id=c.guest_id
-                          AND t.source_type='game_contract' AND t.source_id=CAST(c.id AS CHAR)
-                    ))
-                    OR
-                    (c.reward_bonus > 0 AND NOT EXISTS (
-                        SELECT 1 FROM cm_bonus_transactions b
-                        WHERE b.club_id=c.club_id AND b.guest_id=c.guest_id
-                          AND b.source_type='game_contract' AND b.source_id=CAST(c.id AS CHAR)
-                    ))
-                  )
+                  AND (c.reward_claimed_at IS NULL OR c.completed_at >= DATE_SUB(%s, INTERVAL 30 DAY))
+                ORDER BY c.completed_at DESC, c.id DESC
                 FOR UPDATE
                 """,
-                (club_id, guest_id),
+                (club_id, guest_id, now),
             )
             contracts = cursor.fetchall()
             for contract in contracts:
