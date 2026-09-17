@@ -294,10 +294,28 @@ def api_game_contracts_sync():
                     "is_waiting_for_sync": bool(contract["is_waiting_for_sync"]),
                 }
             )
+    reward_history = get_guest_reward_history(guest_id=guest_id, club_id=club_id, limit=12)
+    serialized_reward_history = [
+        {
+            "kind": item.get("kind"),
+            "title": item.get("title") or "Начисление",
+            "subtitle": item.get("subtitle") or "",
+            "amount_label": item.get("amount_label") or "",
+            "status_label": item.get("status_label") or "",
+            "status_class": item.get("status_class") or "pending",
+            "icon": item.get("icon") or "🎁",
+            "image_url": item.get("image_url"),
+            "created_at_label": (
+                item["created_at"].strftime("%d.%m %H:%M") if item.get("created_at") else ""
+            ),
+        }
+        for item in reward_history
+    ]
     return jsonify(
         {
             "ok": True,
             "contracts": contracts,
+            "reward_history": serialized_reward_history,
             "synced_games": synced_games,
             "errors": errors,
         }

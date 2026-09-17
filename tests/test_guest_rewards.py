@@ -49,6 +49,30 @@ def test_combined_reward_history_includes_mission_token_and_bonus_rewards():
     assert rewards[1]["title"] == "Задание выполнено: Летние каникулы"
 
 
+def test_combined_reward_history_includes_completed_game_contract_reward():
+    rewards = combine_guest_reward_history(
+        token_rows=[
+            {
+                "id": 12,
+                "amount": 5,
+                "balance_after": 13,
+                "source_type": "game_contract",
+                "source_id": "91",
+                "description": "Награда за игровой контракт «Победитель»",
+                "created_at": datetime(2026, 9, 17, 9, 0, 0),
+            }
+        ],
+        bonus_rows=[],
+        case_rows=[],
+        wheel_rows=[],
+        limit=10,
+    )
+
+    assert rewards[0]["title"] == "Награда за игровой контракт «Победитель»"
+    assert rewards[0]["amount_label"] == "+5 жет."
+    assert rewards[0]["source_type"] == "game_contract"
+
+
 def test_combined_reward_history_keeps_physical_case_prizes_without_double_counting_auto_rewards():
     now = datetime(2026, 8, 17, 12, 0, 0)
 

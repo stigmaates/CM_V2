@@ -525,6 +525,23 @@ def test_dashboard_contract_sync_updates_active_games(monkeypatch):
         "sync_contracts_for_guest",
         lambda club_id, guest_id, game: synced.append((club_id, guest_id, game)),
     )
+    monkeypatch.setattr(
+        guest_routes,
+        "get_guest_reward_history",
+        lambda **kwargs: [
+            {
+                "kind": "token",
+                "title": "Награда за игровой контракт «Победитель»",
+                "subtitle": "Баланс после: 8 жет.",
+                "amount_label": "+3 жет.",
+                "status_label": "начислено",
+                "status_class": "issued",
+                "icon": "🪙",
+                "image_url": None,
+                "created_at": None,
+            }
+        ],
+    )
 
     with flask_app.test_client() as client:
         with client.session_transaction() as sess:
@@ -533,6 +550,9 @@ def test_dashboard_contract_sync_updates_active_games(monkeypatch):
 
     assert response.status_code == 200
     assert response.get_json()["contracts"] == [contract]
+    assert response.get_json()["reward_history"][0]["title"] == (
+        "Награда за игровой контракт «Победитель»"
+    )
     assert response.get_json()["synced_games"] == ["dota2"]
     assert synced == [(3, 14, "dota2")]
 
