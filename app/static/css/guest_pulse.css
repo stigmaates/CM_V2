@@ -19,7 +19,7 @@
 .gp-dual-range input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid #eee1ff;outline-offset:3px}
 .gp-dual-range input[type=range]:focus-visible::-moz-range-thumb{outline:2px solid #eee1ff;outline-offset:3px}
 .gp-dual-range input[type=range]:focus-visible{z-index:2}
-/* HVE guide drawer. */
+/* Guest Pulse score guide drawer. */
 .gp button.gp-help-trigger{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:0;border:0;background:transparent;color:#cda7ff;font-size:12px;text-align:left}
 .gp-help-trigger>span{display:grid;place-items:center;width:19px;height:19px;border:1px solid #9771be;border-radius:50%;font-size:12px}.gp button.gp-help-trigger:hover{color:#eee1ff;background:transparent}
 .gp-help-dialog{box-sizing:border-box;inset:0 0 0 auto;margin:0;width:min(560px,100vw);max-width:100vw;height:100dvh;max-height:100dvh;padding:0;border-radius:20px 0 0 20px;overflow-x:hidden}
