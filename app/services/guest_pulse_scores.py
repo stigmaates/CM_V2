@@ -314,6 +314,14 @@ def add_history(row, history, today):
         row[key]["deviation_ratio"] = (
             abs(current - base) / max(base, 1) if current is not None and base is not None else None
         )
+        row[key]["deviation_points"] = (
+            round(current - base, 2) if current is not None and base is not None else None
+        )
+        row[key]["deviation_percent"] = (
+            round((current - base) / max(base, 1) * 100, 2)
+            if current is not None and base is not None
+            else None
+        )
         row[key]["deviation_direction"] = (
             None if current is None or base is None or current == base else "UP" if current > base else "DOWN"
         )
