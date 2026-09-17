@@ -90,7 +90,7 @@ and a monitored production cycle.
 | 3 | Support tickets | `0031_support_tickets`, `0032_support_ticket_message_tracking` | Production admin bot and support chat | Enable after bot smoke |
 | 4 | Guest Pulse and CRM P/C/V | `0028_guest_pulse` | MySQL triggers, pulse worker/timer | Pilot club first |
 | 5 | Team analytics and monthly reports | `0029`, `0031_team_admin_settings`, `0034`, `0035` | Production team sync, PDF storage, report worker | Enable modules separately |
-| 6 | Steam profile and Dota history | `0036_guest_steam_accounts` | Steam Web API, OpenDota, `cryptography` | Pilot club first |
+| 6 | Steam profile and Dota history | `0036_guest_steam_accounts` | Steam Web API and OpenDota | Pilot club first |
 | 7 | CS2 match history | `0037_guest_cs2_matches` | Node.js CS2 GC bridge, technical Steam account | Service disabled until healthy |
 | 8 | Contracts and contract refresh rewards | `0038`-`0041`, `0045` | Contract worker/timer, game match data | Off for every club |
 | 9 | Game preferences and contract CRM filters | `0044_game_preferences_and_contract_engagement` | Steam and contracts | Enable after source data exists |
@@ -117,6 +117,12 @@ Current release branch progress:
   `reportlab` dependency in the production virtual environment, create and back up
   `MONTHLY_REPORT_ROOT`, rehearse migrations and confirm the local-to-Langame club
   mapping. Nothing from this batch is deployed.
+- batch 6 code integration complete through `9042ed3`: Steam OpenID account
+  linking, profile playtime, Dota 2 recent-match modal and the Steam loading
+  notice. Before deployment, register a production Steam Web API key and its
+  exact HTTPS origin, rehearse `0036_guest_steam_accounts` and verify OpenDota
+  from the production host. No CS2 bridge, credentials or technical Steam
+  account is included in this batch. Nothing from this batch is deployed.
 
 No production deployment or production database migration has been performed.
 
@@ -153,7 +159,7 @@ note before the migration is executed.
 Stage adds:
 
 - `reportlab>=4.2,<5` for monthly PDFs;
-- `cryptography>=43,<47` for protected CS2 credentials.
+- `cryptography>=43,<47` for protected CS2 credentials in batch 7.
 
 Install into the production virtual environment before restarting code that
 imports them.
@@ -197,8 +203,9 @@ Production requires its own:
 - `STEAM_API_KEY`;
 - `STEAM_PUBLIC_BASE_URL` using the production origin.
 
-OpenDota uses its public API and does not require a paid key. Keep the existing
-cache and request throttling.
+OpenDota uses its public API and does not require a paid key. The guest endpoint
+is throttled; production rollout must also verify that the host can reach
+`api.opendota.com` reliably.
 
 ### CS2 bridge
 
