@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Рассылки{% endblock %}
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — Рассылки{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}">
