@@ -10,7 +10,6 @@ from app.services.guest_pulse import dumps, get_current, loads, rows
 from app.services.guest_pulse_filters import parse_filters, score_match, select
 from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS, overall_score
 from app.services.mailing import get_message_variables
-from app.services.outbound_policy import outbound_blocked
 from app.services.timezones import utc_datetime_to_club_local
 
 from . import owner_bp
@@ -49,7 +48,7 @@ def guest_pulse():
     current_club()
     return render_template(
         "owner/guest_pulse.html", audiences=AUDIENCES, segments=SEGMENTS, pulse_config=GUEST_PULSE_CONFIG,
-        message_variables=get_message_variables(), outbound_disabled=outbound_blocked()
+        message_variables=get_message_variables(), outbound_disabled=False
     )
 
 
