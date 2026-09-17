@@ -47,6 +47,16 @@ CLUBMODULE_UPLOAD_ROOT = os.getenv("CLUBMODULE_UPLOAD_ROOT", "/var/www/clubmodul
 CLUBMODULE_UPLOAD_URL_PREFIX = os.getenv("CLUBMODULE_UPLOAD_URL_PREFIX", "/uploads")
 CLUBMODULE_UPLOAD_QUOTA_MB = int(os.getenv("CLUBMODULE_UPLOAD_QUOTA_MB", "25"))
 CLUBMODULE_IMAGE_MAX_MB = int(os.getenv("CLUBMODULE_IMAGE_MAX_MB", "5"))
+ADMIN_FILES_ROOT = os.getenv(
+    "ADMIN_FILES_ROOT",
+    os.path.join(
+        os.path.dirname(CLUBMODULE_UPLOAD_ROOT.rstrip("/")),
+        os.path.basename(CLUBMODULE_UPLOAD_ROOT.rstrip("/")) + "_admin_drive",
+    ),
+)
+ADMIN_FILES_QUOTA_MB = int(os.getenv("ADMIN_FILES_QUOTA_MB", "2048"))
+ADMIN_FILES_MAX_MB = int(os.getenv("ADMIN_FILES_MAX_MB", "100"))
+ADMIN_FILES_REQUEST_MAX_MB = int(os.getenv("ADMIN_FILES_REQUEST_MAX_MB", "250"))
 
 if IS_PRODUCTION:
     missing = [
