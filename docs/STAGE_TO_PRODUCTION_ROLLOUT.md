@@ -219,6 +219,9 @@ Before production:
 - provide a production unit with `/root/cm_v2/CM_V2` paths;
 - generate, review and commit a dependency lock, then install with
   `npm ci --omit=dev`;
+- run `python3 scripts/check_cs2_bridge_release.py` before installing the
+  bridge; it verifies the committed lock against `package.json` without
+  starting Steam or reading a refresh token;
 - review dependency audit findings instead of applying a forced upgrade;
 - issue a new `CS2_GC_BRIDGE_SECRET`;
 - issue a new refresh token for a dedicated production technical Steam account;
