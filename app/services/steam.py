@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
+import unicodedata
 from functools import lru_cache
 from urllib.parse import unquote, urlencode
 
@@ -358,16 +359,26 @@ def normalize_cs2_auth_code(value: str) -> str:
 
 
 def normalize_cs2_share_code(value: str) -> str:
-    raw_value = unquote((value or "").strip())
-    normalized_value = (
-        raw_value.replace("\u2010", "-")
-        .replace("\u2011", "-")
-        .replace("\u2012", "-")
-        .replace("\u2013", "-")
-        .replace("\u2014", "-")
-        .replace("\u2212", "-")
+    raw_value = unicodedata.normalize("NFKC", unquote((value or "").strip()))
+    normalized_value = raw_value.translate(
+        str.maketrans(
+            {
+                "\u00ad": "-",
+                "\u2010": "-",
+                "\u2011": "-",
+                "\u2012": "-",
+                "\u2013": "-",
+                "\u2014": "-",
+                "\u2212": "-",
+            }
+        )
     )
-    match = CS2_SHARE_CODE_RE.search(normalized_value)
+    clipboard_value = "".join(
+        char
+        for char in normalized_value
+        if not char.isspace() and unicodedata.category(char) != "Cf"
+    )
+    match = CS2_SHARE_CODE_RE.search(clipboard_value)
     if not match:
         raise CS2HistoryCodeError("Вставьте код матча CSGO-… или ссылку, скопированную из CS2")
     code = match.group(0)
