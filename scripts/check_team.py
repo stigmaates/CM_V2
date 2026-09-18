@@ -1,4 +1,4 @@
-"""Read-only verification of stage team data without personal details."""
+"""Read-only verification of team data without personal details."""
 
 import sys
 from pathlib import Path
@@ -6,12 +6,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core import get_db_connection
 from app.services.guest_pulse import rows
-from app.services.stage_mirror import stage_mirror_enabled
 
 
 def main():
-    if not stage_mirror_enabled():
-        raise ValueError("Run only on the stage mirror")
     conn = get_db_connection()
     try:
         for club in rows(conn, "SELECT club_id FROM clubs WHERE service_enabled=1"):
@@ -33,7 +30,7 @@ def main():
             conn,
             "SELECT COUNT(*) AS cnt FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME='team_module_registration'",
         )[0]["cnt"]
-        print(f"Team registration trigger: {trigger}/1; outbound stop file present")
+        print(f"Team registration trigger: {trigger}/1")
         return int(trigger != 1)
     finally:
         conn.close()
