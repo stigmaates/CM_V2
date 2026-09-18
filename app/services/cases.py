@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.game_contracts import add_contract_refreshes
 from app.services.managed_drops import consume_managed_drop, reserve_managed_drop
 from app.services.prize_claims import (
     create_prize_claim,
@@ -108,6 +109,7 @@ def ensure_case_tables(cursor):
             image_url TEXT NULL,
             bonus_amount INT NOT NULL DEFAULT 0,
             token_amount INT NOT NULL DEFAULT 0,
+            contract_refresh_amount INT NOT NULL DEFAULT 0,
             probability DECIMAL(8,4) NOT NULL DEFAULT 0,
             rarity_label VARCHAR(40) NOT NULL DEFAULT 'Обычный',
             is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -116,6 +118,19 @@ def ensure_case_tables(cursor):
             KEY idx_case_items_club (club_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """)
+    cursor.execute("""
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'club_case_items'
+          AND COLUMN_NAME = 'contract_refresh_amount'
+        """)
+    if not cursor.fetchone():
+        cursor.execute("""
+            ALTER TABLE club_case_items
+            ADD COLUMN contract_refresh_amount INT NOT NULL DEFAULT 0
+            AFTER token_amount
+            """)
     cursor.execute("""
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
@@ -222,7 +237,7 @@ def get_cases_for_admin(club_id: int):
                 cursor.execute(
                     """
                     SELECT id, case_id, club_id, name, description, image_url,
-                           bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
+                           bonus_amount, token_amount, contract_refresh_amount, probability, rarity_label, is_active, sort_order
                     FROM club_case_items
                     WHERE case_id = %s
                     ORDER BY sort_order, id
@@ -251,7 +266,7 @@ def get_cases(club_id: int):
                 cursor.execute(
                     """
                     SELECT id, case_id, club_id, name, description, image_url,
-                           bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
+                           bonus_amount, token_amount, contract_refresh_amount, probability, rarity_label, is_active, sort_order
                     FROM club_case_items
                     WHERE case_id = %s AND is_active = 1
                     ORDER BY sort_order, id
@@ -450,7 +465,7 @@ def duplicate_case(case_id: int, club_id: int) -> int:
 
             cursor.execute(
                 """
-                SELECT id, name, description, image_url, bonus_amount, token_amount,
+                SELECT id, name, description, image_url, bonus_amount, token_amount, contract_refresh_amount,
                        probability, rarity_label, is_active, sort_order
                 FROM club_case_items
                 WHERE case_id = %s AND club_id = %s
@@ -517,10 +532,10 @@ def duplicate_case(case_id: int, club_id: int) -> int:
                     """
                     INSERT INTO club_case_items (
                         case_id, club_id, name, description, image_url,
-                        bonus_amount, token_amount, probability, rarity_label,
+                        bonus_amount, token_amount, contract_refresh_amount, probability, rarity_label,
                         is_active, sort_order
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         new_case_id,
@@ -530,6 +545,7 @@ def duplicate_case(case_id: int, club_id: int) -> int:
                         copied_image_url,
                         int(source_item.get("bonus_amount") or 0),
                         int(source_item.get("token_amount") or 0),
+                        int(source_item.get("contract_refresh_amount") or 0),
                         source_item.get("probability"),
                         source_item.get("rarity_label") or "Обычный",
                         int(source_item.get("is_active") or 0),
@@ -560,7 +576,7 @@ def get_case_item_by_id(item_id: int, club_id: int):
             cursor.execute(
                 """
                 SELECT id, case_id, club_id, name, description, image_url,
-                       bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
+                       bonus_amount, token_amount, contract_refresh_amount, probability, rarity_label, is_active, sort_order
                 FROM club_case_items
                 WHERE id = %s AND club_id = %s
                 LIMIT 1
@@ -580,6 +596,7 @@ def create_case_item(
     image_url: str | None,
     bonus_amount: int,
     token_amount: int,
+    contract_refresh_amount: int,
     probability: float,
     rarity_label: str = "Обычный",
     is_active: int = 1,
@@ -593,9 +610,9 @@ def create_case_item(
                 """
                 INSERT INTO club_case_items (
                     case_id, club_id, name, description, image_url,
-                    bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
+                    bonus_amount, token_amount, contract_refresh_amount, probability, rarity_label, is_active, sort_order
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     case_id,
@@ -605,6 +622,7 @@ def create_case_item(
                     image_url,
                     int(bonus_amount or 0),
                     int(token_amount or 0),
+                    int(contract_refresh_amount or 0),
                     probability,
                     rarity_label or "Обычный",
                     is_active,
@@ -627,6 +645,7 @@ def update_case_item(
     image_url: str | None,
     bonus_amount: int,
     token_amount: int,
+    contract_refresh_amount: int,
     probability: float,
     rarity_label: str,
     is_active: int,
@@ -640,7 +659,7 @@ def update_case_item(
                 """
                 UPDATE club_case_items
                 SET name = %s, description = %s, image_url = %s,
-                    bonus_amount = %s, token_amount = %s, probability = %s,
+                    bonus_amount = %s, token_amount = %s, contract_refresh_amount = %s, probability = %s,
                     rarity_label = %s, is_active = %s, sort_order = %s
                 WHERE id = %s AND club_id = %s AND case_id = %s
                 """,
@@ -650,6 +669,7 @@ def update_case_item(
                     image_url,
                     int(bonus_amount or 0),
                     int(token_amount or 0),
+                    int(contract_refresh_amount or 0),
                     probability,
                     rarity_label or "Обычный",
                     is_active,
@@ -690,6 +710,7 @@ def serialize_case_item(item):
         "image_url": item.get("image_url"),
         "bonus_amount": int(item.get("bonus_amount") or 0),
         "token_amount": int(item.get("token_amount") or 0),
+        "contract_refresh_amount": int(item.get("contract_refresh_amount") or 0),
         "probability": float(item.get("probability") or 0),
         "rarity_label": item.get("rarity_label") or "Обычный",
         "is_active": bool(item.get("is_active")),
@@ -867,7 +888,7 @@ def open_case(guest_id: int, club_id: int, case_id: int, *, test_mode: bool = Fa
             cursor.execute(
                 """
                 SELECT id, case_id, club_id, name, description, image_url,
-                       bonus_amount, token_amount, probability, rarity_label, is_active, sort_order
+                       bonus_amount, token_amount, contract_refresh_amount, probability, rarity_label, is_active, sort_order
                 FROM club_case_items
                 WHERE case_id = %s AND club_id = %s AND is_active = 1
                 """,
@@ -941,7 +962,16 @@ def open_case(guest_id: int, club_id: int, case_id: int, *, test_mode: bool = Fa
                     description=f"Приз кейса: {item.get('name') or 'приз'}",
                 )
 
-            if bonus_amount <= 0 and token_amount <= 0:
+            contract_refresh_amount = int(item.get("contract_refresh_amount") or 0)
+            if contract_refresh_amount > 0:
+                add_contract_refreshes(
+                    cursor,
+                    club_id=club_id,
+                    guest_id=guest_id,
+                    amount=contract_refresh_amount,
+                )
+
+            if bonus_amount <= 0 and token_amount <= 0 and contract_refresh_amount <= 0:
                 claim_id = create_prize_claim(
                     cursor=cursor,
                     guest_id=guest_id,
@@ -998,6 +1028,7 @@ def get_guest_case_history(guest_id: int, club_id: int, limit: int = 8):
                     i.image_url,
                     i.bonus_amount,
                     i.token_amount,
+                    i.contract_refresh_amount,
                     c.id AS claim_id,
                     c.status AS claim_status,
                     c.issued_at AS claim_issued_at,
@@ -1017,8 +1048,9 @@ def get_guest_case_history(guest_id: int, club_id: int, limit: int = 8):
             for row in rows:
                 bonus_amount = int(row.get("bonus_amount") or 0)
                 token_amount = int(row.get("token_amount") or 0)
+                contract_refresh_amount = int(row.get("contract_refresh_amount") or 0)
                 claim_status = row.get("claim_status")
-                if bonus_amount > 0 or token_amount > 0:
+                if bonus_amount > 0 or token_amount > 0 or contract_refresh_amount > 0:
                     row["prize_status_label"] = "начислено автоматически"
                 elif claim_status == "issued":
                     row["prize_status_label"] = "выдан"

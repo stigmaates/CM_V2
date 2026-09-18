@@ -1056,7 +1056,11 @@
             place-items: center;
             min-height: 220px;
         }
-        .game-contracts-panel { margin-top: 18px; }
+        .game-contracts-panel {
+            box-sizing: border-box;
+            margin-top: 18px;
+            padding: 22px 24px 24px;
+        }
         .game-contracts-head {
             display: flex;
             align-items: flex-start;
@@ -1092,6 +1096,19 @@
             letter-spacing: .04em;
         }
         .game-contract-next { color: var(--text-muted); font-size: 11px; font-weight: 800; text-align: right; }
+        .game-contract-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
+        .game-contract-refresh {
+            border: 1px solid rgba(165,114,255,.35);
+            border-radius: 9px;
+            padding: 7px 10px;
+            background: rgba(143,91,255,.12);
+            color: #dacbff;
+            font: inherit;
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+        .game-contract-refresh:hover { border-color: rgba(165,114,255,.65); background: rgba(143,91,255,.2); }
         .game-contract-list { display: grid; gap: 10px; }
         .game-contract-card {
             padding: 13px 14px;
@@ -1177,6 +1194,9 @@
         }
         .game-contract-accept:disabled { opacity: .45; cursor: default; }
         @media (max-width: 680px) {
+            .game-contracts-panel { padding: 18px 16px 20px; }
+            .game-contracts-head { align-items: stretch; flex-direction: column; gap: 9px; }
+            .game-contract-group-head { align-items: flex-start; }
             .game-contract-pool-options { grid-template-columns: 1fr; }
             .game-contract-choice-body { min-height: 112px; }
             .game-contract-pool-footer { align-items: stretch; flex-direction: column; }
@@ -3079,6 +3099,9 @@
                             <div class="section-title" style="margin:0;">Игровые контракты</div>
                             <div class="game-contracts-caption">Недельные задания по реальным матчам CS2 и Dota 2</div>
                         </div>
+                        {% if contracts_state.refresh_balance %}
+                            <div class="game-contract-next">Обновлений: {{ contracts_state.refresh_balance }}</div>
+                        {% endif %}
                     </div>
                     {% if not contracts_state.steam_linked %}
                         <div class="game-contract-empty">
@@ -3092,8 +3115,19 @@
                                 <div class="game-contract-group">
                                     <div class="game-contract-group-head">
                                         <div class="game-contract-game"><span class="game-contract-game-badge">{{ 'CS2' if game_key == 'cs2' else 'DOTA' }}</span>{{ contract_game.label }}</div>
-                                        {% if contract_game.next_label %}<div class="game-contract-next">Новые через {{ contract_game.next_label }}</div>{% endif %}
+                                        <div class="game-contract-head-actions">
+                                            {% if contract_game.next_label %}<div class="game-contract-next">Новые через {{ contract_game.next_label }}</div>{% endif %}
+                                            {% if contract_game.can_refresh %}
+                                                <button class="game-contract-refresh" type="button"
+                                                        data-contract-refresh
+                                                        data-refresh-url="{{ url_for('guest.refresh_game_contracts', game=game_key) }}"
+                                                        data-accept-url="{{ url_for('guest.accept_game_contracts', game=game_key) }}">
+                                                    Обновить набор · 1
+                                                </button>
+                                            {% endif %}
+                                        </div>
                                     </div>
+                                    <div class="game-contract-action-message" data-contract-refresh-message aria-live="polite"></div>
                                     {% if contract_game.sync and contract_game.sync.last_error %}
                                         <div class="game-contract-empty" style="margin-bottom:10px;">Не удалось проверить новые матчи. Попробуем снова автоматически.</div>
                                     {% endif %}
@@ -3654,6 +3688,38 @@
             gameContractPoolAccept.disabled = selected.length !== 3;
             if (gameContractPoolError) gameContractPoolError.textContent = '';
         }
+
+        document.querySelectorAll('[data-contract-refresh]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const group = button.closest('.game-contract-group');
+                const message = group?.querySelector('[data-contract-refresh-message]');
+                const confirmed = window.confirm(
+                    'Текущий набор и его прогресс будут заменены шестью новыми контрактами. Потратить одно обновление?'
+                );
+                if (!confirmed) return;
+                button.disabled = true;
+                const originalText = button.textContent;
+                button.textContent = 'Обновляем…';
+                if (message) message.textContent = '';
+                try {
+                    const response = await fetch(button.dataset.refreshUrl || '', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) {
+                        throw new Error(data.message || 'Не удалось обновить контракты');
+                    }
+                    if (!data.pool) throw new Error('Новый набор не сформирован');
+                    renderContractPool(data.pool, button.dataset.acceptUrl || '');
+                    button.remove();
+                } catch (error) {
+                    if (message) message.textContent = error.message || 'Не удалось обновить контракты';
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            });
+        });
 
         function renderContractPool(pool, acceptUrl) {
             if (!pool || !Array.isArray(pool.contracts) || !gameContractPoolGroups) return;
@@ -5096,7 +5162,7 @@
                     caseWinClaimStatus.style.display = 'inline-flex';
                     caseWinClaimStatus.className = `history-status ${claimStatusClass(claim.status)}`;
                     caseWinClaimStatus.textContent = `Заявка #${claim.id}: ${claim.status_label || 'ожидает выдачи'}`;
-                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0) {
+                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0 || Number(item.contract_refresh_amount || 0) > 0) {
                     caseWinClaimStatus.style.display = 'inline-flex';
                     caseWinClaimStatus.className = 'history-status history-status--issued';
                     caseWinClaimStatus.textContent = 'Начислено автоматически';
@@ -5132,7 +5198,7 @@
                     statusBadge.style.display = 'inline-flex';
                     statusBadge.className = `history-status ${claimStatusClass(claim.status)}`;
                     statusBadge.textContent = claim.status_label || 'ожидает выдачи';
-                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0) {
+                } else if (Number(item.bonus_amount || 0) > 0 || Number(item.token_amount || 0) > 0 || Number(item.contract_refresh_amount || 0) > 0) {
                     statusBadge.style.display = 'inline-flex';
                     statusBadge.className = 'history-status history-status--issued';
                     statusBadge.textContent = 'начислено автоматически';
