@@ -1559,12 +1559,19 @@ def process_active_contracts() -> dict:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT DISTINCT club_id, guest_id, game
-                FROM guest_game_contracts
-                WHERE status='active' AND expires_at >= DATE_SUB(%s, INTERVAL 24 HOUR)
-                ORDER BY club_id, guest_id, game
+                SELECT DISTINCT c.club_id, c.guest_id, c.game
+                FROM guest_game_contracts c
+                LEFT JOIN guest_game_sync_state s
+                  ON s.club_id=c.club_id AND s.guest_id=c.guest_id AND s.game=c.game
+                WHERE c.status='active' AND c.expires_at >= DATE_SUB(%s, INTERVAL 24 HOUR)
+                  AND (
+                    c.game <> 'dota2'
+                    OR s.last_attempt_at IS NULL
+                    OR s.last_attempt_at < DATE_SUB(%s, INTERVAL 1 HOUR)
+                  )
+                ORDER BY c.club_id, c.guest_id, c.game
                 """,
-                (now,),
+                (now, now),
             )
             targets = cursor.fetchall()
     finally:

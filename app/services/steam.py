@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import unicodedata
+from datetime import UTC, datetime
 from functools import lru_cache
 from urllib.parse import unquote, urlencode
 
@@ -88,6 +89,10 @@ DOTA_MODE_LABELS = {
 
 class SteamError(RuntimeError):
     """Base error for a Steam integration request."""
+
+
+class OpenDotaError(SteamError):
+    """OpenDota rejected a request or was temporarily unavailable."""
 
 
 class SteamNotConfiguredError(SteamError):
@@ -272,8 +277,16 @@ def _opendota_api_get(path: str):
             response = client.get(f"{OPENDOTA_API_ROOT}/{path.lstrip('/')}")
             response.raise_for_status()
             return response.json()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise OpenDotaError(
+                "OpenDota временно исчерпал лимит запросов. Покажем сохранённые матчи, если они есть."
+            ) from exc
+        raise OpenDotaError(
+            f"OpenDota временно не отвечает (HTTP {exc.response.status_code})"
+        ) from exc
     except (httpx.HTTPError, ValueError) as exc:
-        raise SteamError("Не удалось получить данные OpenDota") from exc
+        raise OpenDotaError("OpenDota временно не отвечает") from exc
 
 
 @lru_cache(maxsize=1)
@@ -353,6 +366,93 @@ def fetch_dota_recent_matches(steam_id: str, *, limit: int = DOTA_MATCH_LIMIT) -
                 normalized_match[output_key] = int(match.get(source_key) or 0)
         matches.append(normalized_match)
     return {"matches": matches, "is_private": False}
+
+
+def cache_dota_recent_matches(
+    *, club_id: int, guest_id: int, steam_id: str, matches: list[dict]
+) -> None:
+    """Persist normalized OpenDota rows for fast display and outage fallback."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            for match in matches:
+                try:
+                    started_at = datetime.fromtimestamp(
+                        int(match.get("started_at") or 0), UTC
+                    ).replace(tzinfo=None)
+                except (TypeError, ValueError, OSError):
+                    continue
+                match_id = str(match.get("match_id") or "").strip()
+                if not match_id:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO game_match_stats (
+                        club_id, guest_id, steam_id, game, match_id, match_started_at,
+                        hero_id, hero_name, kills, deaths, assists, damage, last_hits,
+                        gpm, xpm, won, raw_stats_json, source
+                    ) VALUES (%s,%s,%s,'dota2',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'opendota')
+                    ON DUPLICATE KEY UPDATE
+                        match_started_at=VALUES(match_started_at), hero_id=VALUES(hero_id),
+                        hero_name=VALUES(hero_name), kills=VALUES(kills), deaths=VALUES(deaths),
+                        assists=VALUES(assists), damage=VALUES(damage), last_hits=VALUES(last_hits),
+                        gpm=VALUES(gpm), xpm=VALUES(xpm), won=VALUES(won),
+                        raw_stats_json=VALUES(raw_stats_json), source=VALUES(source)
+                    """,
+                    (
+                        club_id,
+                        guest_id,
+                        steam_id,
+                        match_id,
+                        started_at,
+                        match.get("hero_id"),
+                        match.get("hero_name"),
+                        match.get("kills") or 0,
+                        match.get("deaths") or 0,
+                        match.get("assists") or 0,
+                        match.get("damage") or 0,
+                        match.get("last_hits") or 0,
+                        match.get("gpm") or 0,
+                        match.get("xpm") or 0,
+                        match.get("won"),
+                        json.dumps(match, ensure_ascii=False),
+                    ),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_cached_dota_recent_matches(
+    *, club_id: int, guest_id: int, limit: int = DOTA_MATCH_LIMIT
+) -> list[dict]:
+    """Return the latest normalized Dota rows previously saved for this guest."""
+    safe_limit = max(1, min(int(limit), DOTA_MATCH_SYNC_LIMIT))
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT raw_stats_json
+                FROM game_match_stats
+                WHERE club_id=%s AND guest_id=%s AND game='dota2'
+                ORDER BY match_started_at DESC, id DESC
+                LIMIT %s
+                """,
+                (club_id, guest_id, safe_limit),
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+    matches = []
+    for row in rows:
+        value = _safe_json_dict(row.get("raw_stats_json"))
+        if value:
+            matches.append(value)
+    return matches
 
 
 def _cs2_fernet() -> Fernet:

@@ -49,10 +49,12 @@ from app.services.steam import (
     SteamError,
     SteamNotConfiguredError,
     build_openid_redirect_url,
+    cache_dota_recent_matches,
     configure_cs2_match_history,
     fetch_dota_recent_matches,
     fetch_game_profile,
     fetch_player_summary,
+    get_cached_dota_recent_matches,
     get_cs2_match_access,
     get_cs2_recent_matches,
     get_linked_steam_account,
@@ -477,12 +479,47 @@ def api_steam_dota_matches():
             "error": "steam_not_configured",
             "message": "Статистика Steam пока не настроена на сервере",
         }, 503
-    except SteamError:
+    except SteamError as exc:
+        current_app.logger.warning(
+            "Dota match history unavailable for club=%s guest=%s: %s",
+            club_id,
+            guest_id,
+            exc,
+        )
+        try:
+            cached_matches = get_cached_dota_recent_matches(
+                club_id=club_id, guest_id=guest_id
+            )
+        except Exception:
+            current_app.logger.exception(
+                "Failed to read cached Dota matches for club=%s guest=%s",
+                club_id,
+                guest_id,
+            )
+            cached_matches = []
+        if cached_matches:
+            return {
+                "ok": True,
+                "matches": cached_matches,
+                "is_private": False,
+                "warning": "OpenDota сейчас не отвечает. Показаны последние сохранённые матчи.",
+            }
         return {
             "ok": False,
             "error": "steam_unavailable",
-            "message": "Не удалось получить матчи Dota 2. Попробуйте позже.",
+            "message": str(exc) or "Не удалось получить матчи Dota 2. Попробуйте позже.",
         }, 502
+    try:
+        cache_dota_recent_matches(
+            club_id=club_id,
+            guest_id=guest_id,
+            steam_id=account["steam_id"],
+            matches=result.get("matches", []),
+        )
+    except Exception:
+        current_app.logger.exception(
+            "Failed to cache Dota matches for club=%s guest=%s", club_id, guest_id
+        )
     return {"ok": True, **result}
 
 
