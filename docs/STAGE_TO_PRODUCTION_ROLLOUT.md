@@ -293,10 +293,12 @@ worker limits automatic Dota refreshes to once per guest per hour.
 
 ### Monthly reports
 
-Stage currently starts PDF generation as a detached subprocess from the web
-request. Before production, make generation a supervised worker/job or prove
-that the current process survives web restarts and exposes durable failure
-status and logs.
+Install `clubmodule-monthly-reports.service` and
+`clubmodule-monthly-reports.timer` during cutover. The web request only queues
+the report. The supervised worker processes up to two reports per run, records
+durable success or failure state and retries a `running` job after 30 minutes
+if its previous worker was interrupted. Run a PDF preview and one queued report
+against the rehearsal database before enabling the production timer.
 
 ## Rehearsal on a production database copy
 

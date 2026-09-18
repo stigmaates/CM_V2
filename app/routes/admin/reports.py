@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from datetime import datetime
-from pathlib import Path
 
 from flask import abort, flash, redirect, render_template, request, send_file, session, url_for
 
@@ -12,9 +9,6 @@ from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
 from app.services.monthly_report_view import build_monthly_report_view
 from app.services.monthly_reports import REPORT_VERSION, month_bounds, previous_month
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
 
 def _clubs(conn):
     with conn.cursor() as cursor:
@@ -128,31 +122,6 @@ def generate_report():
         raise
     finally:
         conn.close()
-
-    try:
-        subprocess.Popen(
-            [
-                sys.executable,
-                str(PROJECT_ROOT / "scripts" / "generate_monthly_report.py"),
-                "--report-id",
-                str(report_id),
-            ],
-            cwd=PROJECT_ROOT,
-            start_new_session=True,
-        )
-    except OSError as exc:
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE monthly_reports SET status='failed',error_message=%s WHERE id=%s",
-                    (f"Не удалось запустить сборку: {exc}"[:2000], report_id),
-                )
-            conn.commit()
-        finally:
-            conn.close()
-        flash("Не удалось запустить формирование отчёта", "error")
-        return redirect(url_for("admin.reports"))
 
     flash("Отчёт поставлен в очередь. Страница обновится автоматически.", "success")
     return redirect(url_for("admin.reports"))
