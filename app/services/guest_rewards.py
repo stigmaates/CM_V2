@@ -38,7 +38,7 @@ def _ledger_reward(
         return None
 
     description = (row.get("description") or "").strip()
-    title = description or default_title
+    title = "Рассылка" if row.get("source_type") == "auto_mailing" else (description or default_title)
     if len(title) > 95:
         title = title[:92].rstrip() + "..."
 
