@@ -1,6 +1,6 @@
 {% extends "owner/base.html" %}
 
-{% block title %}{{ header_club_name or 'Cyber Bonus' }} — Аналитика{% endblock %}
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — CRM-Аналитика{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260913-utilization-1') }}">
@@ -10,7 +10,7 @@
 <main class="content crm-page">
     {% include "owner/_audience_widget.html" %}
 
-    <section class="crm-analysis-section card" id="analytics-cohorts">
+    <section class="crm-analysis-section card">
         <div class="crm-analysis-head">
             <div>
                 <div class="section-title">Анализ</div>
@@ -136,7 +136,7 @@
         {% endif %}
     </section>
 
-    <section class="crm-campaigns-section card" id="analytics-communications">
+    <section class="crm-campaigns-section card">
         <div class="crm-campaigns-head">
             <div>
                 <div class="section-title">Аналитика коммуникаций</div>
@@ -251,7 +251,7 @@
 
     {% include "owner/_crm_pulse_interaction.html" %}
 
-    <section class="heatmap-section card" id="analytics-heatmaps">
+    <section class="heatmap-section card">
         <div class="heatmap-head">
             <div>
                 <div class="section-title">Тепловая карта посещений</div>
@@ -259,11 +259,11 @@
             </div>
 
             <div class="period-switcher heatmap-switcher">
-                <a href="{{ url_for('owner.crm_analytics', section='heatmaps', period=7, telegram_only=1 if telegram_only else 0) }}#analytics-heatmaps"
+                <a href="{{ url_for('owner.crm_analytics', period=7, telegram_only=1 if telegram_only else 0) }}"
                    class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', section='heatmaps', period=30, telegram_only=1 if telegram_only else 0) }}#analytics-heatmaps"
+                <a href="{{ url_for('owner.crm_analytics', period=30, telegram_only=1 if telegram_only else 0) }}"
                    class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', section='heatmaps', period=90, telegram_only=1 if telegram_only else 0) }}#analytics-heatmaps"
+                <a href="{{ url_for('owner.crm_analytics', period=90, telegram_only=1 if telegram_only else 0) }}"
                    class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
             </div>
         </div>

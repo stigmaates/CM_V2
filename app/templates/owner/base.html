@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260918-owner-nav-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     {% block head %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
@@ -22,27 +22,23 @@
     {% endif %}
     <div class="app-shell app-shell--topnav">
         <header class="owner-topbar">
-            <div class="owner-topbar__start">
-                <button
-                    type="button"
-                    class="owner-menu-trigger"
-                    data-owner-menu-open
-                    aria-label="Открыть меню"
-                    aria-controls="ownerNavigation"
-                    aria-expanded="false"
-                >
-                    <span></span><span></span><span></span>
-                </button>
-                <a class="brand-mark" href="{{ url_for('owner.dashboard') }}" aria-label="На главную">
+            <div class="owner-topbar__brand">
+                <a class="brand-mark" href="/" aria-label="На главную">
                     <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="Cyber Bonus">
                 </a>
-                <div class="owner-topbar__identity">
-                    <strong>{{ header_club_name or 'Cyber Bonus' }}</strong>
-                    <span>Панель управления</span>
-                </div>
             </div>
 
             <div class="owner-topbar__right">
+                <nav class="owner-topnav" aria-label="Основной раздел">
+                    <a href="{{ url_for('owner.dashboard') }}" class="owner-topnav__link {% if request.endpoint == 'owner.dashboard' %}is-active{% endif %}">Дашборд</a>
+                    <a href="{{ url_for('owner.crm_analytics') }}" class="owner-topnav__link {% if request.endpoint == 'owner.crm_analytics' %}is-active{% endif %}">CRM-Аналитика</a>
+                    <a href="{{ url_for('owner.guest_pulse') }}" class="owner-topnav__link {% if request.endpoint == 'owner.guest_pulse' %}is-active{% endif %}">Пульс гостя</a>
+                    <a href="{{ url_for('owner.training') }}" class="owner-topnav__link {% if request.endpoint == 'owner.training' %}is-active{% endif %}">Обучение</a>
+                    <a href="{{ url_for('owner.settings') }}" class="owner-topnav__link {% if request.endpoint in ['owner.settings', 'owner.missions', 'owner.missions_add', 'owner.missions_update', 'owner.missions_disable', 'owner.missions_delete', 'owner.wheel_settings', 'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete'] %}is-active{% endif %}">Настройки</a>
+                    <a href="{{ url_for('owner.team') }}" class="owner-topnav__link {% if request.endpoint == 'owner.team' %}is-active{% endif %}">Команда</a>
+                    <a href="{{ url_for('owner.mailing_page') }}" class="owner-topnav__link {% if request.endpoint == 'owner.mailing_page' %}is-active{% endif %}">Рассылка</a>
+                </nav>
+
                 <details class="owner-user-menu">
                     <summary class="owner-user-menu__trigger">
                         <span class="owner-user-menu__name">{{ header_user_name or 'Пользователь' }}</span>
@@ -58,8 +54,6 @@
                 </details>
             </div>
         </header>
-
-        {% include "owner/_navigation.html" %}
 
         <div class="owner-page">
             {% if is_owner_impersonation %}
@@ -84,13 +78,12 @@
     </div>
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='js/page_loading.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/owner_navigation.js', v='20260918-1') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 <script src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"></script>
 
 <script>
-    window.ownerLenis = new Lenis({
+    const lenis = new Lenis({
         duration: 1.15,
         wheelMultiplier: 0.75,
         touchMultiplier: 1.2,
@@ -99,7 +92,7 @@
     });
 
     function raf(time) {
-        window.ownerLenis.raf(time);
+        lenis.raf(time);
         requestAnimationFrame(raf);
     }
 
