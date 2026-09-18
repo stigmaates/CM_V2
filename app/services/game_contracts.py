@@ -24,6 +24,7 @@ DIFFICULTIES = {"easy": "Лёгкий", "medium": "Средний", "hard": "С�
 PERIOD_TYPES = {"week": "За неделю", "match": "За один матч"}
 CONTRACT_DURATION = timedelta(days=7)
 INGESTION_GRACE = timedelta(hours=24)
+POOL_SIZE_BY_DIFFICULTY = {"easy": 2, "medium": 2, "hard": 2}
 
 GAME_METRICS = {
     "cs2": {
@@ -289,34 +290,36 @@ def select_contract_templates(
     previous_ids = previous_ids or set()
     chosen: list[dict] = []
 
-    def pick(difficulties: set[str]) -> dict | None:
+    def pick(difficulty: str) -> dict | None:
         chosen_ids = {int(item["id"]) for item in chosen}
-        chosen_metrics = {item["metric_type"] for item in chosen}
+        metric_counts: dict[str, int] = {}
+        for item in chosen:
+            metric = str(item.get("metric_type") or "")
+            metric_counts[metric] = metric_counts.get(metric, 0) + 1
         candidates = [
             item for item in templates
-            if item.get("difficulty") in difficulties and int(item["id"]) not in chosen_ids
+            if item.get("difficulty") == difficulty and int(item["id"]) not in chosen_ids
         ]
         preferred = [
             item for item in candidates
-            if int(item["id"]) not in previous_ids and item.get("metric_type") not in chosen_metrics
+            if int(item["id"]) not in previous_ids and metric_counts.get(str(item.get("metric_type") or ""), 0) == 0
         ]
         if not preferred:
-            preferred = [item for item in candidates if item.get("metric_type") not in chosen_metrics]
+            preferred = [
+                item for item in candidates
+                if metric_counts.get(str(item.get("metric_type") or ""), 0) < 2
+                and int(item["id"]) not in previous_ids
+            ]
         if not preferred:
-            preferred = [item for item in candidates if int(item["id"]) not in previous_ids]
+            preferred = [item for item in candidates if metric_counts.get(str(item.get("metric_type") or ""), 0) < 2]
         return _weighted_pick(preferred or candidates, rng)
 
-    for required in ({"easy"}, {"medium"}):
-        item = pick(required)
-        if item:
-            chosen.append(item)
-
-    roll = rng.random()
-    third_difficulty = "easy" if roll < 0.30 else "medium" if roll < 0.80 else "hard"
-    third = pick({third_difficulty}) or pick({"easy", "medium", "hard"})
-    if third:
-        chosen.append(third)
-    return chosen[:3]
+    for difficulty, count in POOL_SIZE_BY_DIFFICULTY.items():
+        for _ in range(count):
+            item = pick(difficulty)
+            if item:
+                chosen.append(item)
+    return chosen
 
 
 def _available_games(cursor, club_id: int, guest_id: int) -> tuple[str | None, dict[str, bool]]:
@@ -355,14 +358,17 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
                 raise GameContractError(message)
             cursor.execute(
                 """
-                SELECT id, started_at, expires_at
+                SELECT id, status, started_at, expires_at
                 FROM guest_game_contract_sets
                 WHERE club_id=%s AND guest_id=%s AND game=%s
-                ORDER BY started_at DESC, id DESC LIMIT 1
+                ORDER BY id DESC LIMIT 1
                 """,
                 (club_id, guest_id, game),
             )
             last_set = cursor.fetchone()
+            if last_set and last_set.get("status") == "selecting":
+                conn.commit()
+                return get_guest_contract_pool(club_id, guest_id, game)["contracts"]
             if last_set and last_set["started_at"] + CONTRACT_DURATION > now:
                 raise GameContractError("Недельный набор этой игры уже получен")
 
@@ -375,17 +381,6 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
                 (club_id, game),
             )
             templates = cursor.fetchall()
-            cursor.execute(
-                """
-                SELECT COUNT(*) AS count FROM game_match_stats
-                WHERE club_id=%s AND guest_id=%s AND game=%s
-                  AND match_started_at >= DATE_SUB(%s, INTERVAL 30 DAY)
-                """,
-                (club_id, guest_id, game, now),
-            )
-            has_recent_matches = int((cursor.fetchone() or {}).get("count") or 0) > 0
-            if not has_recent_matches:
-                templates = [template for template in templates if template.get("difficulty") != "hard"]
             if not templates:
                 raise GameContractError("Владелец клуба ещё не настроил контракты для этой игры")
             previous_ids: set[int] = set()
@@ -393,15 +388,27 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
                 cursor.execute("SELECT template_id FROM guest_game_contracts WHERE set_id=%s", (last_set["id"],))
                 previous_ids = {int(row["template_id"]) for row in cursor.fetchall()}
             selected = select_contract_templates(templates, previous_ids)
-            if not selected:
-                raise GameContractError("Недостаточно активных шаблонов контрактов")
+            selected_counts = {
+                difficulty: sum(1 for item in selected if item.get("difficulty") == difficulty)
+                for difficulty in POOL_SIZE_BY_DIFFICULTY
+            }
+            missing = [
+                DIFFICULTIES[difficulty]
+                for difficulty, required in POOL_SIZE_BY_DIFFICULTY.items()
+                if selected_counts[difficulty] < required
+            ]
+            if missing:
+                raise GameContractError(
+                    "Для выбора нужно минимум по два активных шаблона каждой сложности. "
+                    f"Не хватает: {', '.join(missing)}"
+                )
 
             expires_at = now + CONTRACT_DURATION
             cursor.execute(
                 """
                 INSERT INTO guest_game_contract_sets
-                    (club_id, guest_id, steam_id, game, started_at, expires_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (club_id, guest_id, steam_id, game, status, started_at, expires_at)
+                VALUES (%s, %s, %s, %s, 'selecting', %s, %s)
                 """,
                 (club_id, guest_id, steam_id, game, now, expires_at),
             )
@@ -412,8 +419,8 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
                     INSERT INTO guest_game_contracts (
                         set_id, club_id, guest_id, steam_id, game, template_id, title, description,
                         metric_type, target_value, period_type, difficulty, reward_tokens,
-                        reward_bonus, conditions_json, started_at, expires_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        reward_bonus, conditions_json, status, started_at, expires_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'offered', %s, %s)
                     """,
                     (
                         set_id, club_id, guest_id, steam_id, game, template["id"], template["title"],
@@ -422,6 +429,125 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
                         template["reward_bonus"], template.get("conditions_json"), now, expires_at,
                     ),
                 )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return get_guest_contract_pool(club_id, guest_id, game)["contracts"]
+
+
+def _serialize_pool_contract(row: dict) -> dict:
+    return {
+        "id": int(row["id"]),
+        "title": str(row.get("title") or ""),
+        "description": str(row.get("description") or ""),
+        "difficulty": str(row.get("difficulty") or ""),
+        "difficulty_label": DIFFICULTIES.get(row.get("difficulty"), row.get("difficulty")),
+        "target_display": _format_number(row.get("target_value")),
+        "reward_tokens": int(row.get("reward_tokens") or 0),
+        "reward_bonus": int(row.get("reward_bonus") or 0),
+    }
+
+
+def get_guest_contract_pool(club_id: int, guest_id: int, game: str) -> dict | None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT * FROM guest_game_contract_sets
+                WHERE club_id=%s AND guest_id=%s AND game=%s AND status='selecting'
+                ORDER BY id DESC LIMIT 1
+                """,
+                (club_id, guest_id, game),
+            )
+            contract_set = cursor.fetchone()
+            if not contract_set:
+                return None
+            cursor.execute(
+                """
+                SELECT * FROM guest_game_contracts
+                WHERE set_id=%s AND status='offered'
+                ORDER BY FIELD(difficulty, 'easy', 'medium', 'hard'), id
+                """,
+                (contract_set["id"],),
+            )
+            contracts = cursor.fetchall()
+    finally:
+        conn.close()
+    return {
+        "set_id": int(contract_set["id"]),
+        "game": game,
+        "game_label": GAMES[game],
+        "contracts": [_serialize_pool_contract(row) for row in contracts],
+    }
+
+
+def accept_weekly_contracts(club_id: int, guest_id: int, game: str, contract_ids: list[int]) -> list[dict]:
+    game = str(game or "").lower()
+    if game not in GAMES:
+        raise GameContractError("Неизвестная игра")
+    try:
+        selected_ids = {int(value) for value in contract_ids}
+    except (TypeError, ValueError) as exc:
+        raise GameContractError("Выберите по одному контракту каждой сложности") from exc
+    if len(selected_ids) != 3:
+        raise GameContractError("Выберите ровно три контракта")
+
+    now = _utcnow()
+    expires_at = now + CONTRACT_DURATION
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
+                (club_id, guest_id),
+            )
+            if not cursor.fetchone():
+                raise GameContractError("Сначала подключите Steam")
+            cursor.execute(
+                """
+                SELECT * FROM guest_game_contract_sets
+                WHERE club_id=%s AND guest_id=%s AND game=%s AND status='selecting'
+                ORDER BY id DESC LIMIT 1 FOR UPDATE
+                """,
+                (club_id, guest_id, game),
+            )
+            contract_set = cursor.fetchone()
+            if not contract_set:
+                raise GameContractError("Пул контрактов уже выбран или недоступен")
+            cursor.execute(
+                "SELECT id, difficulty FROM guest_game_contracts WHERE set_id=%s AND status='offered' FOR UPDATE",
+                (contract_set["id"],),
+            )
+            offered = cursor.fetchall()
+            offered_by_id = {int(row["id"]): row for row in offered}
+            if not selected_ids.issubset(offered_by_id):
+                raise GameContractError("Один из выбранных контрактов больше недоступен")
+            difficulties = {offered_by_id[contract_id]["difficulty"] for contract_id in selected_ids}
+            if difficulties != set(POOL_SIZE_BY_DIFFICULTY):
+                raise GameContractError("Выберите по одному лёгкому, среднему и сложному контракту")
+
+            placeholders = ",".join(["%s"] * len(selected_ids))
+            cursor.execute(
+                f"""
+                UPDATE guest_game_contracts
+                SET status=IF(id IN ({placeholders}), 'active', 'declined'),
+                    started_at=%s, expires_at=%s, updated_at=%s
+                WHERE set_id=%s AND status='offered'
+                """,
+                (*sorted(selected_ids), now, expires_at, now, contract_set["id"]),
+            )
+            cursor.execute(
+                """
+                UPDATE guest_game_contract_sets
+                SET status='active', started_at=%s, expires_at=%s, updated_at=%s
+                WHERE id=%s
+                """,
+                (now, expires_at, now, contract_set["id"]),
+            )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -534,22 +660,33 @@ def get_guest_contracts_state(club_id: int, guest_id: int) -> dict:
     finally:
         conn.close()
     contracts = get_guest_contracts(club_id, guest_id)
+    offers = {game: get_guest_contract_pool(club_id, guest_id, game) for game in GAMES}
     by_game = {game: [] for game in GAMES}
     for contract in contracts:
         by_game[contract["game"]].append(contract)
     games = {}
     for game, label in GAMES.items():
         last_set = sets.get(game)
-        next_at = last_set["started_at"] + CONTRACT_DURATION if last_set else now
+        offer = offers.get(game)
+        next_at = (
+            last_set["started_at"] + CONTRACT_DURATION
+            if last_set and last_set.get("status") != "selecting"
+            else now
+        )
         games[game] = {
             "key": game,
             "label": label,
             "available": bool(availability.get(game)),
             "templates_count": pools.get(game, 0),
             "contracts": by_game[game],
-            "can_generate": bool(steam_id and availability.get(game) and pools.get(game, 0) and next_at <= now),
+            "offer": offer,
+            "can_generate": bool(
+                steam_id
+                and availability.get(game)
+                and (offer or (pools.get(game, 0) and next_at <= now))
+            ),
             "next_at": next_at,
-            "next_label": _remaining_label(next_at, now) if next_at > now else None,
+            "next_label": _remaining_label(next_at, now) if next_at > now and not offer else None,
             "sync": sync_states.get(game) or {},
         }
     return {"steam_linked": bool(steam_id), "games": games}

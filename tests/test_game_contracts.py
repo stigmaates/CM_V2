@@ -48,22 +48,24 @@ def test_weapon_contract_requires_weapon_condition():
         )
 
 
-def test_weekly_selection_starts_with_easy_and_medium_and_has_no_duplicates():
+def test_weekly_pool_contains_two_contracts_of_each_difficulty_without_duplicates():
     templates = [
         {"id": 1, "difficulty": "easy", "metric_type": "matches_played", "weight": 100},
         {"id": 2, "difficulty": "easy", "metric_type": "kills", "weight": 100},
         {"id": 3, "difficulty": "medium", "metric_type": "wins", "weight": 100},
         {"id": 4, "difficulty": "medium", "metric_type": "assists", "weight": 100},
         {"id": 5, "difficulty": "hard", "metric_type": "headshots", "weight": 100},
+        {"id": 6, "difficulty": "hard", "metric_type": "weapon_kills", "weight": 100},
     ]
 
     selected = select_contract_templates(templates, {1, 3}, rng=random.Random(7))
 
-    assert len(selected) == 3
-    assert selected[0]["difficulty"] == "easy"
-    assert selected[1]["difficulty"] == "medium"
-    assert len({item["id"] for item in selected}) == 3
-    assert len({item["metric_type"] for item in selected}) == 3
+    assert len(selected) == 6
+    assert [item["difficulty"] for item in selected].count("easy") == 2
+    assert [item["difficulty"] for item in selected].count("medium") == 2
+    assert [item["difficulty"] for item in selected].count("hard") == 2
+    assert len({item["id"] for item in selected}) == 6
+    assert len({item["metric_type"] for item in selected}) == 6
 
 
 def test_progress_uses_match_facts_and_contract_conditions():

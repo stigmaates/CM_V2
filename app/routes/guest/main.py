@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from urllib.parse import quote, quote_plus
 
-from flask import after_this_request, current_app, flash, redirect, render_template, request, session, url_for
+from flask import after_this_request, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 
 from app.config import BOT_USERNAME, STEAM_PUBLIC_BASE_URL
 from app.core import guest_required
@@ -28,7 +28,13 @@ from app.services.guest_auth import (
     get_guest_login_token,
 )
 from app.services.guest_rewards import get_guest_reward_history
-from app.services.game_contracts import GameContractError, generate_weekly_contracts, get_guest_contracts_state
+from app.services.game_contracts import (
+    GameContractError,
+    accept_weekly_contracts,
+    generate_weekly_contracts,
+    get_guest_contract_pool,
+    get_guest_contracts_state,
+)
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.rate_limit import client_ip, is_rate_limited
@@ -165,10 +171,10 @@ def generate_game_contracts(game: str):
     club_id = int(session["guest_club_id"])
     guest_id = int(session["guest_id"])
     if is_rate_limited(f"guest.game_contracts:{club_id}:{guest_id}:{game}", limit=4, window_seconds=60):
-        flash("Слишком много попыток. Подождите минуту.", "error")
-        return redirect(url_for("guest.dashboard") + "#game-contracts")
+        return jsonify({"ok": False, "message": "Слишком много попыток. Подождите минуту."}), 429
     try:
         contracts = generate_weekly_contracts(club_id, guest_id, game)
+        pool = get_guest_contract_pool(club_id, guest_id, game)
         record_audit_event(
             action="guest.game_contracts.generate",
             club_id=club_id,
@@ -176,13 +182,36 @@ def generate_game_contracts(game: str):
             entity_id=guest_id,
             details={"game": game, "contracts_count": len(contracts)},
         )
-        flash("Недельные игровые контракты получены", "success")
+        return jsonify({"ok": True, "pool": pool})
     except GameContractError as exc:
-        flash(str(exc), "error")
+        return jsonify({"ok": False, "message": str(exc)}), 400
     except Exception:
         current_app.logger.exception("Failed to generate game contracts")
-        flash("Не удалось получить контракты. Попробуйте позже.", "error")
-    return redirect(url_for("guest.dashboard") + "#game-contracts")
+        return jsonify({"ok": False, "message": "Не удалось получить контракты. Попробуйте позже."}), 500
+
+
+@guest_bp.route("/contracts/<game>/accept", methods=["POST"])
+@guest_required
+def accept_game_contracts(game: str):
+    club_id = int(session["guest_club_id"])
+    guest_id = int(session["guest_id"])
+    payload = request.get_json(silent=True) or {}
+    contract_ids = payload.get("contract_ids") or []
+    try:
+        contracts = accept_weekly_contracts(club_id, guest_id, game, contract_ids)
+        record_audit_event(
+            action="guest.game_contracts.accept",
+            club_id=club_id,
+            entity_type="guest",
+            entity_id=guest_id,
+            details={"game": game, "contract_ids": [int(item["id"]) for item in contracts]},
+        )
+        return jsonify({"ok": True, "contracts_count": len(contracts)})
+    except GameContractError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("Failed to accept game contracts")
+        return jsonify({"ok": False, "message": "Не удалось сохранить выбор. Попробуйте позже."}), 500
 
 
 @guest_bp.route("/steam/link")
