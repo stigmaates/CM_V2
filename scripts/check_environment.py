@@ -5,6 +5,7 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Mapping
+from urllib.parse import urlparse
 
 from dotenv import dotenv_values
 
@@ -17,9 +18,30 @@ RECOMMENDED = (
     "TECH_ALERT_BOT_TOKEN",
     "TECH_ALERT_CHAT_ID",
 )
+RELEASE_REQUIRED = (
+    "APP_VERSION",
+    "GIT_COMMIT",
+    "ADMIN_FILES_ROOT",
+    "MONTHLY_REPORT_ROOT",
+    "STEAM_API_KEY",
+    "STEAM_PUBLIC_BASE_URL",
+    "CS2_GC_BRIDGE_URL",
+    "CS2_GC_BRIDGE_SECRET",
+    "CS2_GC_REFRESH_TOKEN",
+)
 
 
-def validate_env(values: Mapping[str, str | None]) -> tuple[list[str], list[str]]:
+def _path_is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(parent.resolve(strict=False))
+    except ValueError:
+        return False
+    return True
+
+
+def validate_env(
+    values: Mapping[str, str | None], *, release_features: bool = False
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -52,6 +74,61 @@ def validate_env(values: Mapping[str, str | None]) -> tuple[list[str], list[str]
     else:
         warnings.append("CLUBMODULE_UPLOAD_ROOT is empty; uploads will use code default")
 
+    if release_features:
+        if not is_production:
+            errors.append("Release feature preflight requires APP_ENV=production")
+
+        for name in RELEASE_REQUIRED:
+            if not values.get(name):
+                errors.append(f"Missing required release variable: {name}")
+
+        public_origin = (values.get("STEAM_PUBLIC_BASE_URL") or "").strip()
+        if public_origin:
+            parsed = urlparse(public_origin)
+            if parsed.scheme != "https" or not parsed.netloc:
+                errors.append("STEAM_PUBLIC_BASE_URL must be an absolute HTTPS origin")
+
+        bridge_url = (values.get("CS2_GC_BRIDGE_URL") or "").strip()
+        if bridge_url:
+            parsed = urlparse(bridge_url)
+            if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
+                errors.append("CS2_GC_BRIDGE_URL must use HTTP on localhost")
+
+        bridge_secret = values.get("CS2_GC_BRIDGE_SECRET") or ""
+        if bridge_secret and len(bridge_secret) < 32:
+            errors.append("CS2_GC_BRIDGE_SECRET must contain at least 32 characters")
+
+        public_path = Path(upload_root).expanduser() if upload_root else None
+        private_paths: dict[str, Path] = {}
+        for name in ("ADMIN_FILES_ROOT", "MONTHLY_REPORT_ROOT"):
+            raw_path = values.get(name)
+            if not raw_path:
+                continue
+            path = Path(raw_path).expanduser()
+            private_paths[name] = path
+            if not path.is_absolute():
+                errors.append(f"{name} must be an absolute path")
+            if public_path and _path_is_within(path, public_path):
+                errors.append(f"{name} must be outside CLUBMODULE_UPLOAD_ROOT")
+
+        if len(set(private_paths.values())) != len(private_paths):
+            errors.append("ADMIN_FILES_ROOT and MONTHLY_REPORT_ROOT must be different paths")
+
+        for name in ("CLUBMODULE_UPLOAD_ROOT", "ADMIN_FILES_ROOT", "MONTHLY_REPORT_ROOT"):
+            raw_path = (values.get(name) or "").lower()
+            if "/stage" in raw_path or "cm_stage" in raw_path:
+                errors.append(f"{name} contains a stage path")
+
+        try:
+            max_file_mb = int(values.get("ADMIN_FILES_MAX_MB") or "100")
+            request_max_mb = int(values.get("ADMIN_FILES_REQUEST_MAX_MB") or "250")
+            if max_file_mb <= 0 or request_max_mb <= 0:
+                raise ValueError
+            if request_max_mb < max_file_mb:
+                errors.append("ADMIN_FILES_REQUEST_MAX_MB must be at least ADMIN_FILES_MAX_MB")
+        except ValueError:
+            errors.append("Admin file size limits must be positive integers")
+
     for command in ("mysql", "mysqldump"):
         if shutil.which(command) is None:
             warnings.append(f"Command not found in PATH: {command}")
@@ -62,6 +139,11 @@ def validate_env(values: Mapping[str, str | None]) -> tuple[list[str], list[str]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate Cyber Bonus environment file.")
     parser.add_argument("--env-file", default=".env", help="Path to .env file")
+    parser.add_argument(
+        "--release-features",
+        action="store_true",
+        help="Require configuration for every feature in the stage-to-production release",
+    )
     args = parser.parse_args(argv)
 
     env_path = Path(args.env_file)
@@ -70,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     values = dotenv_values(env_path)
-    errors, warnings = validate_env(values)
+    errors, warnings = validate_env(values, release_features=args.release_features)
 
     for warning in warnings:
         print(f"WARNING: {warning}")

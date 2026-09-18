@@ -177,6 +177,18 @@ note before the migration is executed.
 
 ## Infrastructure inventory
 
+Start from `deploy/production.env.example`, place real values only in the
+server-side `.env`, then run the full release preflight without printing any
+secret values:
+
+```bash
+venv/bin/python scripts/check_environment.py --env-file .env --release-features
+```
+
+The full preflight rejects stage paths, public placement of the admin drive or
+monthly reports, non-HTTPS Steam return origins, remote CS2 bridge URLs and
+incomplete release credentials.
+
 ### Python
 
 Stage adds:
