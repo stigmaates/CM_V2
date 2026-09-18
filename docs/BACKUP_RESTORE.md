@@ -10,7 +10,7 @@ Default command:
 scripts/backup_mysql.sh
 ```
 
-The script reads `.env`, validates `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`, then creates a compressed dump in `backups/`.
+The script reads `.env`, validates `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`, then creates a compressed dump in `backups/`. The dump includes the complete schema, including MySQL triggers, so it can be used for a migration rehearsal as well as recovery.
 
 To use another environment file or backup directory:
 

@@ -299,6 +299,9 @@ For every batch:
 9. Run the batch-specific rebuild/check command.
 10. Restore the backup once as a rollback drill before production approval.
 
+Use `scripts/backup_mysql.sh` from this release for the rehearsal dump. It
+includes MySQL triggers; a dump that omits them is not a valid rehearsal copy.
+
 ## Production gate for every batch
 
 Stop if any item is missing:

@@ -60,7 +60,7 @@ MYSQL_PWD="$DB_PASSWORD" mysqldump \
   --create-options \
   --extended-insert \
   --set-charset \
-  --skip-triggers \
+  --triggers \
   --default-character-set=utf8mb4 \
   "$DB_NAME" | gzip -c > "$backup_file"
 

@@ -105,4 +105,5 @@ def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
     assert "--skip-opt" in args
     assert "--skip-lock-tables" in args
     assert "--no-tablespaces" in args
-    assert "--skip-triggers" in args
+    assert "--triggers" in args
+    assert "--skip-triggers" not in args
