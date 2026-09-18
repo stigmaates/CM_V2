@@ -126,8 +126,8 @@ Current release branch progress:
 - batch 7 code integration is complete: CS2 codes and copied match links,
   one-match-at-a-time loading progress, Game Coordinator reconnection, demo
   metadata parsing and local map images are included. The committed lock file
-  installs reproducibly under Node 20, all bridge tests pass and the production
-  audit reports zero vulnerabilities. Production activation remains disabled
+  installs reproducibly under Node 18+ with npm 10.8.2, all bridge tests pass
+  and the production audit reports zero vulnerabilities. Production activation remains disabled
   until fresh production credentials are issued and an isolated bridge smoke
   test reaches `steam=true` and `gc=true`. Nothing from this batch is deployed.
 - batch 8 code integration is complete: personal weekly contract pools,
@@ -247,7 +247,9 @@ is throttled; production rollout must also verify that the host can reach
 Before production:
 
 - provide a production unit with `/root/cm_v2/CM_V2` paths;
-- install the committed dependency lock with `npm ci --omit=dev`;
+- install the committed dependency lock with
+  `npx --yes npm@10.8.2 ci --omit=dev --no-audit --no-fund`; the host's npm 9
+  cannot reliably read this lockfile;
 - run `python3 scripts/check_cs2_bridge_release.py` before installing the
   bridge; it verifies the committed lock against `package.json` without
   starting Steam or reading a refresh token;
@@ -255,6 +257,9 @@ Before production:
 - issue a new `CS2_GC_BRIDGE_SECRET`;
 - issue a new refresh token for a dedicated production technical Steam account;
 - bind the bridge to `127.0.0.1` only;
+- when stage and production share a host, use a different local port (stage
+  currently uses `32173`; production should use `32174` in both
+  `CS2_GC_PORT` and `CS2_GC_BRIDGE_URL`);
 - require `/health` to report `ok=true`, `steam=true`, `gc=true` before enabling consumers.
 
 Never reuse a stage refresh token in production.
