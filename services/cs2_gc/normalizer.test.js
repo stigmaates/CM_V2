@@ -55,7 +55,7 @@ test('uses watchable map metadata instead of the demo URL and detects Wingman', 
     roundstatsall: [{
       map: 'http://replay.example/730/987654322_123.dem.bz2',
       reservation: {
-        account_ids: [accountId, 2, 3, 4],
+        account_ids: [accountId, 2, 3, 4, 0, 0, 0, 0, 0, 0],
         game_type: 1048584,
       },
       team_scores: [9, 7],

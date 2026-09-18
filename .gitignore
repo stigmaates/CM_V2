@@ -16,3 +16,4 @@ __MACOSX/
 backups/
 output/
 tmp/
+node_modules/
