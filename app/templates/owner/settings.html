@@ -9,6 +9,63 @@
     max-width: 1320px;
 }
 
+.settings-context {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    min-height: 86px;
+    margin-bottom: 24px;
+    padding: 20px 24px;
+}
+
+.settings-context__copy {
+    min-width: 0;
+}
+
+.settings-context__eyebrow {
+    margin-bottom: 5px;
+    color: #a572ff;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.settings-context__title {
+    color: var(--text-main);
+    font-size: 25px;
+    font-weight: 900;
+    line-height: 1.15;
+}
+
+.settings-context__tabs {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+}
+
+.settings-context__tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 15px;
+    border: 1px solid rgba(165, 114, 255, .22);
+    border-radius: 13px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.settings-context__tab:hover,
+.settings-context__tab.active {
+    border-color: rgba(165, 114, 255, .48);
+    background: rgba(143, 91, 255, .18);
+    color: #fff;
+}
+
 .settings-page--wide .settings-grid--club-centered {
     width: 100%;
     max-width: none;
@@ -627,6 +684,17 @@
 }
 
 @media (max-width: 720px) {
+    .settings-context {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 18px;
+    }
+    .settings-context__tabs {
+        width: 100%;
+    }
+    .settings-context__tab {
+        flex: 1;
+    }
     .settings-guest-link-control {
         grid-template-columns: 1fr;
     }
@@ -665,17 +733,28 @@
 {% block content %}
 <div class="settings-page settings-page--wide">
     <div class="settings-shell">
-        <div class="settings-tabs card">
-            <a href="{{ url_for('owner.settings', tab='club') }}" class="settings-tab {% if active_tab == 'club' %}active{% endif %}">Клуб</a>
-            <a href="{{ url_for('owner.settings', tab='missions') }}" class="settings-tab {% if active_tab == 'missions' %}active{% endif %}">Задания</a>
-            <a href="{{ url_for('owner.settings', tab='contracts') }}" class="settings-tab {% if active_tab == 'contracts' %}active{% endif %}">Игровые контракты</a>
-            <a href="{{ url_for('owner.settings', tab='wheel') }}" class="settings-tab {% if active_tab == 'wheel' %}active{% endif %}">Бонусная механика</a>
-            {% if session.get('role') in ['owner', 'co-owner'] %}
-                <a href="{{ url_for('owner.settings', tab='profile') }}" class="settings-tab {% if active_tab == 'profile' %}active{% endif %}">Профиль</a>
-            {% endif %}
-            {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
-                <a href="{{ url_for('owner.settings', tab='guests') }}" class="settings-tab {% if active_tab == 'guests' %}active{% endif %}">Управление гостями</a>
-                <a href="{{ url_for('owner.settings', tab='managed-drops') }}" class="settings-tab {% if active_tab == 'managed-drops' %}active{% endif %}">Управляемое выпадение</a>
+        {% set settings_titles = {
+            'club': ('Управление', 'Настройки клуба'),
+            'profile': ('Управление', 'Профиль владельца'),
+            'guests': ('Управление', 'Управление гостями'),
+            'missions': ('Геймификация', 'Задания'),
+            'contracts': ('Геймификация', 'Контракты'),
+            'wheel': ('Геймификация', 'Кейсы, колесо и бонусы'),
+            'managed-drops': ('Геймификация', 'Управляемое выпадение')
+        } %}
+        {% set settings_context = settings_titles.get(active_tab, ('Управление', 'Настройки')) %}
+        <div class="settings-context card">
+            <div class="settings-context__copy">
+                <div class="settings-context__eyebrow">{{ settings_context[0] }}</div>
+                <div class="settings-context__title">{{ settings_context[1] }}</div>
+            </div>
+            {% if active_tab in ['club', 'profile'] %}
+                <div class="settings-context__tabs" aria-label="Разделы настроек">
+                    <a href="{{ url_for('owner.settings', tab='club') }}" class="settings-context__tab {% if active_tab == 'club' %}active{% endif %}">Клуб</a>
+                    {% if session.get('role') in ['owner', 'co-owner'] %}
+                        <a href="{{ url_for('owner.settings', tab='profile') }}" class="settings-context__tab {% if active_tab == 'profile' %}active{% endif %}">Профиль</a>
+                    {% endif %}
+                </div>
             {% endif %}
         </div>
 
