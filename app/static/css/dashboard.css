@@ -5610,3 +5610,303 @@ body.modal-open { overflow: hidden; }
         padding-inline: 10px;
     }
 }
+
+/* Owner dashboard layout for the docked navigation. Uses only existing blocks. */
+.cb-dashboard {
+    width: 100%;
+    max-width: 1680px;
+    margin-inline: auto;
+    gap: 14px;
+}
+
+.cb-dashboard-head {
+    min-height: 54px;
+    margin-bottom: 0;
+}
+
+.stage-badge + .app-shell .cb-dashboard-head {
+    padding-right: 176px;
+}
+
+.cb-club-title {
+    font-size: clamp(28px, 2.25vw, 38px);
+}
+
+.cb-period-option {
+    min-width: 88px;
+    padding: 11px 16px;
+    font-size: 14px;
+}
+
+.cb-kpi-grid,
+.cb-main-grid {
+    gap: 14px;
+}
+
+.cb-kpi-card {
+    min-height: 142px;
+    padding: 17px 18px;
+    grid-template-columns: 50px minmax(0, 1fr) minmax(72px, 92px);
+    gap: 13px;
+    border-radius: 20px;
+}
+
+.cb-kpi-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 15px;
+}
+
+.cb-kpi-icon svg {
+    width: 26px;
+    height: 26px;
+}
+
+.cb-kpi-title {
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.cb-kpi-value {
+    margin-bottom: 8px;
+    font-size: 34px;
+}
+
+.cb-kpi-diff,
+.cb-kpi-percent {
+    font-size: 12px;
+}
+
+.cb-sparkline {
+    width: 88px;
+    height: 48px;
+}
+
+.cb-main-grid {
+    grid-template-columns: minmax(0, 1.38fr) minmax(190px, .62fr) minmax(190px, .62fr);
+}
+
+.cb-panel {
+    padding: 20px;
+    border-radius: 20px;
+}
+
+.cb-survey-panel {
+    min-width: 0;
+}
+
+.cb-survey-summary,
+.cb-feedback-grid {
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.cb-survey-stat {
+    min-height: 108px;
+    padding: 16px;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 12px;
+    border-radius: 16px;
+}
+
+.cb-survey-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+}
+
+.cb-survey-value {
+    font-size: 31px;
+}
+
+.cb-stars {
+    margin-top: 10px;
+    gap: 5px;
+    font-size: 18px;
+}
+
+.cb-feedback-card {
+    min-height: 136px;
+    padding: 15px;
+    border-radius: 16px;
+}
+
+.cb-main-grid .cb-side-card {
+    min-height: 176px;
+    padding: 18px;
+    gap: 18px;
+}
+
+.cb-main-grid .cb-side-body {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.cb-main-grid .cb-side-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+}
+
+.cb-main-grid .cb-side-value {
+    font-size: 31px;
+}
+
+.cb-main-grid .cb-side-sub {
+    padding-top: 8px;
+    font-size: 12px;
+}
+
+.cb-funnel-chart {
+    min-height: 205px;
+    gap: clamp(6px, .75vw, 12px);
+    padding-top: 14px;
+}
+
+.cb-funnel-bar-item {
+    grid-template-rows: minmax(205px, 1fr) 22px;
+}
+
+.cb-funnel-bar-wrap {
+    min-height: 205px;
+    padding-top: 28px;
+}
+
+.cb-engagement-panel {
+    min-height: 244px;
+    padding: 20px;
+    grid-template-columns: minmax(170px, 210px) minmax(0, 1fr);
+    gap: 20px;
+}
+
+.cb-engagement-visual {
+    min-height: 195px;
+}
+
+.cb-wheel-art__disc {
+    width: 154px;
+    height: 154px;
+}
+
+.cb-wheel-art__disc b {
+    inset: 58px;
+}
+
+.cb-engagement-top {
+    gap: 12px;
+}
+
+.cb-engagement-tabs {
+    min-width: min(410px, 100%);
+}
+
+.cb-engagement-tab {
+    min-height: 42px;
+    padding-inline: 16px;
+    font-size: 14px;
+}
+
+.cb-metric-grid {
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.cb-metric-card {
+    min-width: 0;
+    min-height: 88px;
+    padding: 12px;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+    border-radius: 15px;
+}
+
+.cb-metric-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 19px;
+}
+
+.cb-metric-card > div:last-child {
+    gap: 5px;
+}
+
+.cb-metric-card span {
+    min-height: 30px;
+    font-size: 11px;
+}
+
+.cb-metric-card b {
+    font-size: 26px;
+}
+
+@media (max-width: 1260px) {
+    .cb-kpi-card {
+        grid-template-columns: 46px minmax(0, 1fr);
+    }
+
+    .cb-sparkline {
+        display: none;
+    }
+
+    .cb-engagement-panel {
+        grid-template-columns: minmax(145px, 175px) minmax(0, 1fr);
+    }
+
+    .cb-metric-card {
+        grid-template-columns: 1fr;
+    }
+
+    .cb-metric-icon {
+        display: none;
+    }
+}
+
+@media (max-width: 1080px) {
+    .stage-badge + .app-shell .cb-dashboard-head {
+        padding-right: 0;
+    }
+
+    .cb-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cb-main-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "survey survey"
+            "csi mailing"
+            "funnel funnel";
+    }
+
+    .cb-engagement-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .cb-engagement-visual {
+        display: none;
+    }
+
+    .cb-metric-card {
+        grid-template-columns: 40px minmax(0, 1fr);
+    }
+
+    .cb-metric-icon {
+        display: inline-flex;
+    }
+}
+
+@media (max-width: 700px) {
+    .cb-dashboard-head {
+        padding-left: 48px;
+    }
+
+    .cb-main-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "survey"
+            "csi"
+            "mailing"
+            "funnel";
+    }
+}

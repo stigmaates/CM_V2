@@ -39,6 +39,10 @@ def test_owner_navigation_groups_existing_owner_pages():
     assert "/owner/analytics/heatmaps" in html
     assert "/owner/promotions" in html
     assert "#prize-editor" in html
+    assert "owner-navigation__account" in html
+    assert html.index("owner-navigation__account") < html.index("owner-navigation__overview")
+    assert "Тестовый клуб" in html
+    assert "Владелец" in html
 
 
 def test_owner_base_uses_burger_navigation_assets():
@@ -54,4 +58,5 @@ def test_owner_base_uses_burger_navigation_assets():
     assert "owner-menu-trigger__arrow" in html
     assert 'id="ownerNavigation"' in html
     assert "owner_navigation.js" in html
+    assert "owner-topbar" not in html
     assert 'class="owner-topnav"' not in html

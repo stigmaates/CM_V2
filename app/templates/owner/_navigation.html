@@ -11,8 +11,23 @@
 {% set management_active = current_endpoint == 'owner.team' or (current_endpoint == 'owner.settings' and settings_tab in ['club', 'guests']) %}
 {% set profile_active = current_endpoint == 'owner.settings' and settings_tab == 'profile' %}
 {% set training_active = current_endpoint == 'owner.training' %}
+{% set account_role = 'Владелец' if session.get('role') == 'owner' else ('Совладелец' if session.get('role') == 'co-owner' else ('Администратор' if session.get('impersonating_owner') else 'Пользователь')) %}
 
 <button class="owner-navigation-backdrop" type="button" data-owner-menu-close tabindex="-1" aria-label="Закрыть меню"></button>
+<button
+    type="button"
+    class="owner-menu-trigger"
+    data-owner-menu-open
+    aria-label="Свернуть боковую панель"
+    aria-controls="ownerNavigation"
+    aria-expanded="true"
+>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2.5"></rect>
+        <path d="M9 4v16"></path>
+        <path class="owner-menu-trigger__arrow" d="m15 9-3 3 3 3"></path>
+    </svg>
+</button>
 
 <aside class="owner-navigation is-open" id="ownerNavigation" aria-hidden="false" aria-label="Навигация владельца">
     <div class="owner-navigation__head">
@@ -25,14 +40,25 @@
         </a>
     </div>
 
-    <nav class="owner-navigation__body" aria-label="Разделы модуля">
-        {% if session.get('role') in ['owner', 'co-owner'] %}
-            <a class="owner-navigation__profile {% if profile_active %}is-active{% endif %}" href="{{ url_for('owner.settings', tab='profile') }}" {% if profile_active %}aria-current="page"{% endif %}>
-                <span class="owner-navigation__profile-avatar" aria-hidden="true">●</span>
-                <span><strong>Профиль</strong><small>Аккаунт и доступ владельца</small></span>
-            </a>
-        {% endif %}
+    {% if session.get('role') in ['owner', 'co-owner'] %}
+        <a class="owner-navigation__account {% if profile_active %}is-active{% endif %}" href="{{ url_for('owner.settings', tab='profile') }}" {% if profile_active %}aria-current="page"{% endif %}>
+    {% else %}
+        <div class="owner-navigation__account">
+    {% endif %}
+            <span class="owner-navigation__account-avatar" aria-hidden="true">{{ (header_user_name or 'П')[0]|upper }}</span>
+            <span class="owner-navigation__account-copy">
+                <strong>{{ header_club_name or 'Клуб' }}</strong>
+                <small>{{ header_user_name or 'Пользователь' }}</small>
+                <em>{{ account_role }}</em>
+            </span>
+            {% if session.get('role') in ['owner', 'co-owner'] %}<i aria-hidden="true">›</i>{% endif %}
+    {% if session.get('role') in ['owner', 'co-owner'] %}
+        </a>
+    {% else %}
+        </div>
+    {% endif %}
 
+    <nav class="owner-navigation__body" aria-label="Разделы модуля">
         <a class="owner-navigation__overview {% if current_endpoint == 'owner.dashboard' %}is-active{% endif %}" href="{{ url_for('owner.dashboard') }}" {% if current_endpoint == 'owner.dashboard' %}aria-current="page"{% endif %}>
             <span class="owner-navigation__overview-icon" aria-hidden="true">⌂</span>
             <span><strong>Обзор</strong><small>Главные показатели клуба</small></span>
@@ -97,7 +123,6 @@
     </nav>
 
     <div class="owner-navigation__footer">
-        <span>{{ header_user_name or 'Пользователь' }}</span>
         <a href="{{ url_for('auth.logout') }}">Выйти</a>
     </div>
 </aside>
