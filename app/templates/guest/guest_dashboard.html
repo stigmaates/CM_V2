@@ -3676,6 +3676,9 @@
                 link.classList.remove('is-loading');
                 link.removeAttribute('aria-busy');
                 link.textContent = link.dataset.steamAuthOriginalText || link.textContent;
+            });
+        }
+
         const gameContractPoolTitle = document.getElementById('gameContractPoolTitle');
         const gameContractPoolGroups = document.getElementById('gameContractPoolGroups');
         const gameContractPoolError = document.getElementById('gameContractPoolError');
