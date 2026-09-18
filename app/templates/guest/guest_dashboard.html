@@ -3868,6 +3868,67 @@
             return completed;
         }
 
+        function renderRewardHistoryList(list, emptyState, rewards) {
+            if (!list) return;
+            list.innerHTML = '';
+            if (!(rewards || []).length) {
+                if (emptyState) emptyState.style.display = '';
+                return;
+            }
+            if (emptyState) emptyState.style.display = 'none';
+            rewards.forEach((reward) => {
+                const row = document.createElement('div');
+                row.className = 'history-item';
+
+                const thumb = document.createElement('div');
+                thumb.className = 'history-thumb';
+                thumb.setAttribute('aria-hidden', 'true');
+                if (reward.image_url) {
+                    const image = document.createElement('img');
+                    image.className = 'history-thumb-img';
+                    image.src = reward.image_url;
+                    image.alt = reward.title || '';
+                    thumb.appendChild(image);
+                } else {
+                    const placeholder = document.createElement('span');
+                    placeholder.className = 'history-thumb-placeholder';
+                    placeholder.textContent = reward.icon || '🎁';
+                    thumb.appendChild(placeholder);
+                }
+
+                const description = document.createElement('div');
+                const title = document.createElement('div');
+                title.className = 'history-title';
+                title.textContent = reward.title || 'Начисление';
+                const subtitle = document.createElement('div');
+                subtitle.className = 'history-date';
+                subtitle.textContent = reward.subtitle || '';
+                description.append(title, subtitle);
+                if (reward.status_label) {
+                    const status = document.createElement('div');
+                    status.className = `history-status history-status--${reward.status_class || 'pending'}`;
+                    status.textContent = reward.status_label;
+                    description.appendChild(status);
+                }
+
+                const amount = document.createElement('div');
+                const amountLabel = document.createElement('div');
+                amountLabel.className = 'history-amount';
+                amountLabel.textContent = reward.amount_label || '';
+                const createdAt = document.createElement('div');
+                createdAt.className = 'history-date';
+                createdAt.textContent = reward.created_at_label || '';
+                amount.append(amountLabel, createdAt);
+                row.append(thumb, description, amount);
+                list.appendChild(row);
+            });
+        }
+
+        function renderRewardHistory(rewards) {
+            renderRewardHistoryList(historyList, historyEmpty, rewards);
+            renderRewardHistoryList(caseHistoryList, caseHistoryEmpty, rewards);
+        }
+
         async function syncDashboardGameContracts() {
             if (!document.querySelector('[data-contract-id]')) return;
             try {
@@ -3877,6 +3938,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.ok) return;
+                renderRewardHistory(data.reward_history || []);
                 if (applyGameContractUpdates(data.contracts)) {
                     await Promise.allSettled([loadTokens(), loadCmBonuses()]);
                 }
