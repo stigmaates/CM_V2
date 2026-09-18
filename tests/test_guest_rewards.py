@@ -73,6 +73,30 @@ def test_combined_reward_history_includes_completed_game_contract_reward():
     assert rewards[0]["source_type"] == "game_contract"
 
 
+def test_auto_mailing_reward_uses_short_public_title():
+    rewards = combine_guest_reward_history(
+        token_rows=[],
+        bonus_rows=[
+            {
+                "id": 13,
+                "amount": 200,
+                "balance_after": 400,
+                "source_type": "auto_mailing",
+                "source_id": "inactive_14_bonus:63253",
+                "description": "Авторассылка: Вернуть гостей после неактива (сгорает через 7 дней)",
+                "status": "active",
+                "created_at": datetime(2026, 9, 13, 6, 0, 0),
+            }
+        ],
+        case_rows=[],
+        wheel_rows=[],
+        limit=10,
+    )
+
+    assert rewards[0]["title"] == "Рассылка"
+    assert rewards[0]["amount_label"] == "+200 КБ"
+
+
 def test_combined_reward_history_keeps_physical_case_prizes_without_double_counting_auto_rewards():
     now = datetime(2026, 8, 17, 12, 0, 0)
 
