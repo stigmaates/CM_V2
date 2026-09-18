@@ -11,6 +11,7 @@ from . import owner_bp
 @owner_required
 def contract_rewards_save():
     club_id = int(session["club_id"])
+    is_enabled = request.form.get("contracts_enabled") == "1"
     values = {
         difficulty: {
             "reward_tokens": request.form.get(f"{difficulty}_reward_tokens", "0"),
@@ -19,14 +20,14 @@ def contract_rewards_save():
         for difficulty in ("easy", "medium", "hard")
     }
     try:
-        save_contract_reward_settings(club_id, values)
+        save_contract_reward_settings(club_id, values, is_enabled=is_enabled)
         record_audit_event(
-            action="owner.game_contract_rewards.update",
+            action="owner.game_contract_settings.update",
             club_id=club_id,
-            entity_type="game_contract_reward_settings",
-            details=values,
+            entity_type="game_contract_settings",
+            details={"is_enabled": is_enabled, "rewards": values},
         )
-        flash("Награды за игровые контракты сохранены", "success")
+        flash("Настройки игровых контрактов сохранены", "success")
     except GameContractError as exc:
         flash(str(exc), "error")
     except Exception:

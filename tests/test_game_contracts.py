@@ -109,6 +109,41 @@ def test_dota_hero_contracts_use_full_catalog_and_scale_matches_by_difficulty():
     assert hero_ids <= {hero_id for hero_id, _hero_name in DOTA_HEROES}
 
 
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [
+        (None, False),
+        ({"is_enabled": 0}, False),
+        ({"is_enabled": 1}, True),
+    ],
+)
+def test_contract_feature_is_disabled_until_club_enables_it(monkeypatch, row, expected):
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params):
+            assert "FROM game_contract_settings" in sql
+            assert params == (7,)
+
+        def fetchone(self):
+            return row
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(game_contracts, "get_db_connection", Connection)
+
+    assert game_contracts.is_game_contracts_enabled(7) is expected
+
+
 @pytest.mark.parametrize("game", ["cs2", "dota2"])
 def test_refreshed_pool_does_not_repeat_previous_contracts(game):
     first = generate_system_contract_pool(game, rng=random.Random(17))

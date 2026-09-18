@@ -249,7 +249,34 @@ def get_contract_reward_settings(club_id: int) -> dict[str, dict]:
     return result
 
 
-def save_contract_reward_settings(club_id: int, values: dict[str, dict]) -> None:
+def get_contract_feature_settings(club_id: int) -> dict[str, bool]:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT is_enabled
+                FROM game_contract_settings
+                WHERE club_id=%s
+                """,
+                (club_id,),
+            )
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+    return {"is_enabled": bool(row and int(row.get("is_enabled") or 0))}
+
+
+def is_game_contracts_enabled(club_id: int) -> bool:
+    return get_contract_feature_settings(club_id)["is_enabled"]
+
+
+def save_contract_reward_settings(
+    club_id: int,
+    values: dict[str, dict],
+    *,
+    is_enabled: bool | None = None,
+) -> None:
     rows = []
     for difficulty in DIFFICULTIES:
         raw = values.get(difficulty) or {}
@@ -267,6 +294,15 @@ def save_contract_reward_settings(club_id: int, values: dict[str, dict]) -> None
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            if is_enabled is not None:
+                cursor.execute(
+                    """
+                    INSERT INTO game_contract_settings (club_id, is_enabled)
+                    VALUES (%s, %s)
+                    ON DUPLICATE KEY UPDATE is_enabled=VALUES(is_enabled)
+                    """,
+                    (club_id, 1 if is_enabled else 0),
+                )
             cursor.executemany(
                 """
                 INSERT INTO game_contract_reward_settings

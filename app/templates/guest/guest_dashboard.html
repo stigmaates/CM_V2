@@ -3092,6 +3092,7 @@
                     {% endif %}
                 </section>
 
+                {% if game_contracts_enabled %}
                 {% set contracts_state = game_contracts_state|default({}) %}
                 <section class="panel game-contracts-panel" id="game-contracts">
                     <div class="game-contracts-head">
@@ -3181,6 +3182,7 @@
                         </div>
                     {% endif %}
                 </section>
+                {% endif %}
 
 
             </div>
@@ -3316,6 +3318,7 @@
     </div>
 
 
+    {% if game_contracts_enabled %}
     <div class="modal-backdrop" id="gameContractPoolModal">
         <div class="app-modal app-modal--contracts">
             <button class="modal-close" onclick="closeModal('gameContractPoolModal')" aria-label="Закрыть">×</button>
@@ -3328,6 +3331,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
 
     <div class="modal-backdrop" id="winModal">
