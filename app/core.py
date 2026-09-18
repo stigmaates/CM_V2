@@ -139,6 +139,35 @@ def register_club_service_gate(flask_app: Flask) -> None:
         return render_template("service_unavailable.html", club_name=session.get("club_name")), 403
 
 
+def register_maintenance_gate(flask_app: Flask) -> None:
+    @flask_app.before_request
+    def maintenance_gate():
+        endpoint = request.endpoint or ""
+        if endpoint.startswith("static") or endpoint.startswith("admin."):
+            return None
+        if endpoint in {"auth.login", "auth.logout", "guest.logout"}:
+            return None
+
+        is_guest = bool(session.get("guest_logged_in"))
+        is_owner = session.get("role") in OWNER_ACCESS_ROLES
+        if not (is_guest or is_owner):
+            return None
+
+        club_id = session.get("guest_club_id") if is_guest else session.get("club_id")
+        if club_id is None:
+            return None
+
+        from app.services.maintenance import is_maintenance_enabled
+
+        if not is_maintenance_enabled(club_id):
+            return None
+
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"ok": False, "error": "maintenance_mode"}), 503
+        club_name = session.get("guest_club_name") if is_guest else session.get("club_name")
+        return render_template("maintenance.html", club_name=club_name), 503
+
+
 def create_flask_app():
     app = Flask(__name__)
     app.secret_key = SECRET_KEY
@@ -149,6 +178,7 @@ def create_flask_app():
     app.config["MAX_CONTENT_LENGTH"] = int(CLUBMODULE_IMAGE_MAX_MB or 5) * 1024 * 1024 + 1024 * 1024
     register_csrf_protection(app)
     register_club_service_gate(app)
+    register_maintenance_gate(app)
     return app
 
 

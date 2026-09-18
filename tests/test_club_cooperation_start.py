@@ -146,4 +146,4 @@ def test_admin_date_uses_club_timezone_and_renders_sortable_column(monkeypatch):
     assert 'data-sort-value="2026-09-02"' in html
     assert "02.09.2026" in html
     assert "Нет данных об успешной initial-загрузке гостей" in html
-    assert 'colspan="7"' in empty_html
+    assert 'colspan="8"' in empty_html

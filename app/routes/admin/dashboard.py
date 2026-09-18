@@ -8,6 +8,11 @@ from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
 from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_runs
+from app.services.maintenance import (
+    get_maintenance_overview,
+    set_club_maintenance,
+    set_global_maintenance,
+)
 from app.services.operational_alerts import get_operational_alerts, summarize_alerts
 from app.services.service_control import get_restart_controls, restart_allowed_service
 from app.services.support_health import build_admin_readiness, get_admin_system_health
@@ -99,7 +104,11 @@ def get_club_by_id(club_id: int):
                 """,
                 (club_id,),
             )
-            return cur.fetchone()
+            club = cur.fetchone()
+    if club:
+        overview = get_maintenance_overview()
+        club["maintenance_enabled"] = bool(overview["clubs"].get(int(club_id), False))
+    return club
 
 
 def create_impersonation_log(club_id: int, club_name: str | None):
@@ -195,10 +204,12 @@ def get_clubs_for_admin():
                 ORDER BY c.club_id DESC
                 """)
             clubs = cur.fetchall()
+    maintenance = get_maintenance_overview()
     for club in clubs:
         local_start = utc_datetime_to_club_local(club.get("cooperation_started_at"), club.get("timezone"))
         club["cooperation_started_date"] = local_start.strftime("%d.%m.%Y") if local_start else None
         club["cooperation_started_sort"] = local_start.strftime("%Y-%m-%d") if local_start else ""
+        club["maintenance_enabled"] = bool(maintenance["clubs"].get(int(club["club_id"]), False))
     return clubs
 
 
@@ -617,9 +628,11 @@ def restart_service(service_name: str):
 @admin_bp.route("/clubs")
 @admin_required
 def clubs_list():
+    maintenance = get_maintenance_overview()
     return render_template(
         "admin/clubs.html",
         clubs=get_clubs_for_admin(),
+        global_maintenance_enabled=maintenance["global_enabled"],
         active_page="clubs",
     )
 
@@ -684,6 +697,53 @@ def club_service_toggle(club_id: int):
             "status": True,
             "message": "Обслуживание включено" if enabled else "Обслуживание выключено",
             "service_enabled": enabled,
+        }
+    )
+
+
+@admin_bp.route("/clubs/maintenance", methods=["POST"])
+@admin_required
+def global_maintenance_toggle():
+    payload = request.get_json(silent=True) or {}
+    enabled = bool(payload.get("enabled")) if request.is_json else request.form.get("enabled") == "1"
+    set_global_maintenance(enabled)
+    record_audit_event(
+        action="admin.maintenance.global_toggle",
+        entity_type="maintenance_mode",
+        entity_id="global",
+        details={"is_enabled": enabled},
+    )
+    return jsonify(
+        {
+            "status": True,
+            "message": "Техработы включены для всех клубов" if enabled else "Глобальные техработы выключены",
+            "maintenance_enabled": enabled,
+        }
+    )
+
+
+@admin_bp.route("/clubs/<int:club_id>/maintenance", methods=["POST"])
+@admin_required
+def club_maintenance_toggle(club_id: int):
+    payload = request.get_json(silent=True) or {}
+    enabled = bool(payload.get("enabled")) if request.is_json else request.form.get("enabled") == "1"
+    club = get_club_by_id(club_id)
+    if not club:
+        return jsonify({"status": False, "message": "Клуб не найден"}), 404
+
+    set_club_maintenance(club_id, enabled)
+    record_audit_event(
+        action="admin.maintenance.club_toggle",
+        club_id=club_id,
+        entity_type="maintenance_mode",
+        entity_id=club_id,
+        details={"is_enabled": enabled},
+    )
+    return jsonify(
+        {
+            "status": True,
+            "message": "Техработы включены для клуба" if enabled else "Техработы для клуба выключены",
+            "maintenance_enabled": enabled,
         }
     )
 
