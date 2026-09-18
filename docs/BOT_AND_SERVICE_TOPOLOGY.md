@@ -45,7 +45,7 @@ systemctl status clubmodule-stage-admin-bot.service --no-pager -l
 | `clubmodule-bot.service` | Production guest Telegram bot, uses `BOT_TOKEN`. |
 | `clubmodule-admin-bot.service` | Production admin Telegram bot, uses `CM_BONUS_BOT_TOKEN`. |
 | `clubmodule-operational-alerts.timer` | Production technical alerts schedule, if installed. |
-| `clubmodule-backup.timer` | Production MySQL backup schedule. |
+| `clubmodule-backup.timer` | Production MySQL and private file storage backup schedule. |
 
 Install the production admin bot only during an approved production rollout:
 

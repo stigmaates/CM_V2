@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -141,3 +142,45 @@ def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
     assert "--no-tablespaces" in args
     assert "--triggers" in args
     assert "--skip-triggers" not in args
+
+
+def test_private_storage_backup_contains_both_private_roots(tmp_path):
+    admin_root = tmp_path / "admin-drive"
+    report_root = tmp_path / "monthly-reports"
+    admin_root.mkdir()
+    report_root.mkdir()
+    (admin_root / "reference.png").write_bytes(b"image")
+    (report_root / "report.pdf").write_bytes(b"pdf")
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                f"ADMIN_FILES_ROOT={admin_root}",
+                f"MONTHLY_REPORT_ROOT={report_root}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    backup_dir = tmp_path / "backups"
+
+    result = subprocess.run(
+        [sys.executable, "scripts/backup_private_storage.py"],
+        cwd=ROOT,
+        env={
+            "ENV_FILE": str(env_file),
+            "BACKUP_DIR": str(backup_dir),
+            "PATH": os.environ["PATH"],
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    backup_path = Path(result.stdout.strip())
+    assert backup_path.exists()
+    assert backup_path.stat().st_mode & 0o777 == 0o600
+    with tarfile.open(backup_path, "r:gz") as archive:
+        names = set(archive.getnames())
+    assert "admin-drive/reference.png" in names
+    assert "monthly-reports/report.pdf" in names

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Cyber Bonus production backups daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=clubmodule-backup.service
+
+[Install]
+WantedBy=timers.target

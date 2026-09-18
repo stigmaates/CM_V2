@@ -207,6 +207,11 @@ Configure and back up these production paths separately:
 - private admin drive (`ADMIN_FILES_ROOT`), outside the public upload root;
 - generated monthly reports (`MONTHLY_REPORT_ROOT`).
 
+Install `clubmodule-backup.service` and `clubmodule-backup.timer` during the
+production cutover. The service writes both a MySQL dump and a private archive
+containing the admin drive and monthly reports. Verify one manual run before
+enabling the daily timer.
+
 Monthly reports also require `reportlab>=4.2,<5` from `requirements.txt` in the
 production virtual environment. The web process starts a short-lived isolated Python
 process per requested report; no always-on report service is installed.

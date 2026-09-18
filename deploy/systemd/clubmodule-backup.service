@@ -1,0 +1,14 @@
+[Unit]
+Description=Cyber Bonus production database and private storage backup
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/cm_v2/CM_V2
+Environment=ENV_FILE=/root/cm_v2/CM_V2/.env
+Environment=BACKUP_DIR=/root/cm_v2/CM_V2/backups
+Environment=PYTHON_BIN=/root/cm_v2/CM_V2/venv/bin/python
+ExecStart=/usr/bin/bash /root/cm_v2/CM_V2/scripts/backup_mysql.sh
+ExecStart=/root/cm_v2/CM_V2/venv/bin/python /root/cm_v2/CM_V2/scripts/backup_private_storage.py
+TimeoutStartSec=3600
