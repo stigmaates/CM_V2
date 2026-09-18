@@ -19,6 +19,40 @@ def test_restore_script_requires_backup_path():
     assert "Usage:" in result.stderr
 
 
+def test_restore_script_requires_matching_database(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "DB_HOST=127.0.0.1",
+                "DB_PORT=3306",
+                "DB_USER=club",
+                "DB_PASSWORD=password",
+                "DB_NAME=default_db",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    backup_file = tmp_path / "backup.sql"
+    backup_file.write_text("SELECT 1;\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["bash", "scripts/restore_mysql.sh", "--expected-db", "test", str(backup_file)],
+        cwd=ROOT,
+        env={
+            "ENV_FILE": str(env_file),
+            "PYTHON_BIN": sys.executable,
+            "PATH": os.environ["PATH"],
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "environment points to 'default_db', expected 'test'" in result.stderr
+
+
 def test_stage_refresh_script_requires_stage_root(tmp_path):
     result = subprocess.run(
         ["bash", "scripts/refresh_stage_from_production.sh"],

@@ -25,10 +25,13 @@ The command prints the created backup path. Save that path in the deploy notes.
 Restore is intentionally interactive:
 
 ```bash
-ENV_FILE=/etc/cyber-bonus/staging.env scripts/restore_mysql.sh /path/to/backup.sql.gz
+ENV_FILE=/etc/cyber-bonus/staging.env \
+  scripts/restore_mysql.sh --expected-db cyber_bonus_staging /path/to/backup.sql.gz
 ```
 
 You must type `RESTORE` to continue. This protects against accidental restores into the wrong database.
+The expected database is checked before that confirmation, so an environment file
+that still points at production cannot restore by mistake.
 
 ## Restore drill
 

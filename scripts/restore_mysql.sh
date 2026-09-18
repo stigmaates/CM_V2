@@ -9,12 +9,13 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
   PYTHON_BIN="python3"
 fi
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 /path/to/backup.sql.gz" >&2
+if [[ $# -ne 3 || "$1" != "--expected-db" ]]; then
+  echo "Usage: $0 --expected-db DATABASE /path/to/backup.sql.gz" >&2
   exit 1
 fi
 
-BACKUP_FILE="$1"
+EXPECTED_DB="$2"
+BACKUP_FILE="$3"
 if [[ ! -f "$BACKUP_FILE" ]]; then
   echo "Backup file not found: $BACKUP_FILE" >&2
   exit 1
@@ -50,6 +51,11 @@ for name in "${required[@]}"; do
     exit 1
   fi
 done
+
+if [[ "$DB_NAME" != "$EXPECTED_DB" ]]; then
+  echo "Refusing to restore: environment points to '$DB_NAME', expected '$EXPECTED_DB'." >&2
+  exit 1
+fi
 
 echo "About to restore $BACKUP_FILE into database '$DB_NAME' on '$DB_HOST:$DB_PORT'."
 echo "Type RESTORE to continue:"
