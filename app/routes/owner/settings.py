@@ -12,7 +12,7 @@ from app.services.guest_management import (
     get_owner_guest_lookup,
     set_guest_module_ban,
 )
-from app.services.game_contracts import GAME_METRICS, get_contract_templates
+from app.services.game_contracts import get_contract_reward_settings
 from app.services.managed_drops import cancel_managed_drop, create_managed_drop, get_managed_drop_page
 from app.services.missions import get_club_missions_all, get_mission_templates
 from app.services.owner_profile import get_owner_profile, update_owner_profile
@@ -514,8 +514,7 @@ def settings():
     elif active_tab == "contracts":
         context.update(
             {
-                "contract_templates": get_contract_templates(club_id_int),
-                "contract_metrics": GAME_METRICS,
+                "contract_reward_settings": get_contract_reward_settings(club_id_int),
             }
         )
     elif active_tab == "wheel":
