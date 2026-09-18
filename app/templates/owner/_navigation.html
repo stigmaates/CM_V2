@@ -61,12 +61,12 @@
     <nav class="owner-navigation__body" aria-label="Разделы модуля">
         <a class="owner-navigation__overview {% if current_endpoint == 'owner.dashboard' %}is-active{% endif %}" href="{{ url_for('owner.dashboard') }}" {% if current_endpoint == 'owner.dashboard' %}aria-current="page"{% endif %}>
             <span class="owner-navigation__overview-icon" aria-hidden="true">⌂</span>
-            <span><strong>Обзор</strong><small>Главные показатели клуба</small></span>
+            <span><strong>Обзор</strong></span>
         </a>
 
         <details class="owner-navigation__group {% if gamification_active %}is-active{% endif %}" {% if gamification_active %}open{% endif %}>
             <summary>
-                <span><strong>Геймификация</strong><small>Механики и награды</small></span>
+                <span><strong>Геймификация</strong></span>
                 <i aria-hidden="true"></i>
             </summary>
             <div class="owner-navigation__links">
@@ -82,7 +82,7 @@
 
         <details class="owner-navigation__group {% if crm_active %}is-active{% endif %}" {% if crm_active %}open{% endif %}>
             <summary>
-                <span><strong>CRM</strong><small>Коммуникации и состояние базы</small></span>
+                <span><strong>CRM</strong></span>
                 <i aria-hidden="true"></i>
             </summary>
             <div class="owner-navigation__links">
@@ -93,7 +93,7 @@
 
         <details class="owner-navigation__group {% if analytics_active %}is-active{% endif %}" {% if analytics_active %}open{% endif %}>
             <summary>
-                <span><strong>Аналитика</strong><small>Когорты, коммуникации и загрузка</small></span>
+                <span><strong>Аналитика</strong></span>
                 <i aria-hidden="true"></i>
             </summary>
             <div class="owner-navigation__links">
@@ -105,7 +105,7 @@
 
         <details class="owner-navigation__group {% if management_active %}is-active{% endif %}" {% if management_active %}open{% endif %}>
             <summary>
-                <span><strong>Управление</strong><small>Команда, клуб и гости</small></span>
+                <span><strong>Управление</strong></span>
                 <i aria-hidden="true"></i>
             </summary>
             <div class="owner-navigation__links">
@@ -118,7 +118,7 @@
         </details>
 
         <a class="owner-navigation__standalone {% if training_active %}is-active{% endif %}" href="{{ url_for('owner.training') }}" {% if training_active %}aria-current="page"{% endif %}>
-            <span><strong>Обучение</strong><small>Короткие инструкции по системе</small></span>
+            <span><strong>Обучение</strong></span>
         </a>
     </nav>
 
