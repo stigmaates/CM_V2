@@ -9,6 +9,7 @@ production candidate host.
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 from pathlib import Path
 
@@ -18,6 +19,7 @@ BRIDGE_DIR = ROOT / "services" / "cs2_gc"
 PACKAGE_FILE = BRIDGE_DIR / "package.json"
 LOCK_FILE = BRIDGE_DIR / "package-lock.json"
 DISABLED_ZIP_PACKAGE = BRIDGE_DIR / "vendor" / "adm-zip-disabled" / "package.json"
+AUDITED_LOCK_SHA256 = "ecea558d4491d05ca280e5d4d5dc1ba777e319a85e7f31647f3186e407d0eaac"
 
 
 def fail(message: str) -> int:
@@ -31,6 +33,13 @@ def main() -> int:
     if not LOCK_FILE.is_file():
         return fail(
             "services/cs2_gc/package-lock.json is missing; generate and review it with Node 18+ before release"
+        )
+
+    lock_sha256 = hashlib.sha256(LOCK_FILE.read_bytes()).hexdigest()
+    if lock_sha256 != AUDITED_LOCK_SHA256:
+        return fail(
+            "package-lock.json differs from the audited release graph; "
+            "run a fresh dependency audit and update AUDITED_LOCK_SHA256"
         )
 
     try:
@@ -80,7 +89,7 @@ def main() -> int:
     print(
         "CS2 bridge release check passed: "
         f"{len(dependencies)} direct dependencies are locked, security overrides are pinned, "
-        f"and Node requirement is {engine}."
+        f"the audited lock checksum matches, and Node requirement is {engine}."
     )
     return 0
 

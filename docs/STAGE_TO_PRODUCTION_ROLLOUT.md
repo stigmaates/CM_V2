@@ -251,9 +251,13 @@ Before production:
   `npx --yes npm@10.8.2 ci --omit=dev --no-audit --no-fund`; the host's npm 9
   cannot reliably read this lockfile;
 - run `python3 scripts/check_cs2_bridge_release.py` before installing the
-  bridge; it verifies the committed lock against `package.json` without
-  starting Steam or reading a refresh token;
-- require `npm audit --omit=dev --audit-level=low` to report zero findings;
+  bridge; it verifies the committed lock against `package.json` and the
+  reviewed zero-vulnerability audit checksum without starting Steam or reading
+  a refresh token;
+- run all bridge tests after installation. The production host must not repeat
+  `npm audit`: npm fails while evaluating the intentional local fail-closed
+  `adm-zip` override. Any lock-file change requires a fresh audit on a
+  compatible Node/npm environment and a reviewed checksum update;
 - issue a new `CS2_GC_BRIDGE_SECRET`;
 - issue a new refresh token for a dedicated production technical Steam account;
 - bind the bridge to `127.0.0.1` only;
