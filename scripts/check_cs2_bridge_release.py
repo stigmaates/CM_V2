@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BRIDGE_DIR = ROOT / "services" / "cs2_gc"
 PACKAGE_FILE = BRIDGE_DIR / "package.json"
 LOCK_FILE = BRIDGE_DIR / "package-lock.json"
+DISABLED_ZIP_PACKAGE = BRIDGE_DIR / "vendor" / "adm-zip-disabled" / "package.json"
 
 
 def fail(message: str) -> int:
@@ -54,13 +55,32 @@ def main() -> int:
     if mismatches:
         return fail("lock root dependencies differ from package.json: " + ", ".join(mismatches))
 
+    overrides = package.get("overrides") or {}
+    if (overrides.get("steam-user") or {}).get("adm-zip") != "$adm-zip":
+        return fail("steam-user must use the fail-closed adm-zip replacement")
+    if (overrides.get("steam-appticket@1.0.2") or {}).get("protobufjs") != "7.6.6":
+        return fail("steam-appticket protobufjs override must remain pinned to 7.6.6")
+    if dependencies.get("adm-zip") != "file:vendor/adm-zip-disabled":
+        return fail("adm-zip must resolve to vendor/adm-zip-disabled")
+    if not DISABLED_ZIP_PACKAGE.is_file():
+        return fail("fail-closed adm-zip replacement is missing")
+
+    lock_packages = lock.get("packages") or {}
+    adm_zip_lock = lock_packages.get("node_modules/adm-zip") or {}
+    if adm_zip_lock.get("resolved") != "vendor/adm-zip-disabled":
+        return fail("lock file does not resolve adm-zip to the local replacement")
+    protobuf_lock = lock_packages.get("node_modules/protobufjs") or {}
+    if protobuf_lock.get("version") != "7.6.6":
+        return fail("lock file must pin protobufjs 7.6.6")
+
     engine = str((package.get("engines") or {}).get("node") or "")
     if ">=18" not in engine:
         return fail("package.json must require Node.js 18 or newer")
 
     print(
         "CS2 bridge release check passed: "
-        f"{len(dependencies)} direct dependencies are locked and Node requirement is {engine}."
+        f"{len(dependencies)} direct dependencies are locked, security overrides are pinned, "
+        f"and Node requirement is {engine}."
     )
     return 0
 

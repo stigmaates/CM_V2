@@ -1,31 +1,28 @@
 # CS2 bridge dependency audit
 
-Audit performed on 2026-09-18 using Node.js 20.20.2 and npm 10.8.2 against
-the stage bridge manifest. A clean temporary `npm ci --omit=dev` installation
-completed and all 11 bridge tests passed.
+Audit performed on 2026-09-18 using Node.js 20.20.2 and npm 10.8.2. A clean
+`npm ci --omit=dev` installation completed, all 10 bridge tests passed and
+`npm audit --omit=dev --audit-level=low` reported **0 vulnerabilities**.
 
-The candidate dependency graph is **not approved for production release**.
-`npm audit --omit=dev` reported five vulnerabilities:
+The original graph contained one critical vulnerability in `protobufjs` and
+high-severity findings through `adm-zip`, `globaloffensive`, `steam-appticket`
+and `steam-user`. They were removed without downgrading the Game Coordinator
+libraries:
 
-- one critical vulnerability in `protobufjs`;
-- high vulnerabilities in `adm-zip`, `globaloffensive`, `steam-appticket` and
-  `steam-user`.
+- `steam-appticket@1.0.2` is forced to the patched `protobufjs@7.6.6`;
+- the unused Steam CDN ZIP extraction dependency is replaced by a local
+  fail-closed `adm-zip` package;
+- `steam-user@5.3.0` and `globaloffensive@3.3.0` remain pinned and were tested
+  with the final dependency graph.
 
-The audit's only proposed remediation downgrades `steam-user` and
-`globaloffensive` across major versions. That can break the Game Coordinator
-protocol and is not an acceptable automatic production change.
-
-`globaloffensive` 3.3.0 and `steam-user` 5.3.0 are currently the latest
-published versions, so a normal compatible upgrade is not available.
+The ZIP replacement deliberately throws if Steam CDN ZIP extraction is ever
+invoked. The bridge only uses Steam login and CS2 Game Coordinator match data,
+so that path is outside its runtime flow. Failing closed prevents an unnoticed
+return of the vulnerable extraction code.
 
 ## Release decision
 
-Do not commit or deploy the CS2 bridge, its lock file, systemd unit, refresh
-token or related migrations until one of these paths is completed:
-
-1. replace or patch the vulnerable transitive dependencies and validate Steam
-   Game Coordinator behaviour with a dedicated non-production account; or
-2. choose a maintained match-data provider that does not require this bridge.
-
-The Steam OpenID, public playtime and Dota/OpenDota package is independent of
-the bridge and remains suitable for its own production release batch.
+The bridge dependency gate is complete. Production activation still requires
+an isolated smoke test with a dedicated production technical Steam account,
+fresh production-only secrets and `/health` returning
+`{"ok":true,"steam":true,"gc":true}`. No stage refresh token may be reused.

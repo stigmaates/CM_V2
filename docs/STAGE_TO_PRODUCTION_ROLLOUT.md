@@ -123,11 +123,13 @@ Current release branch progress:
   exact HTTPS origin, rehearse `0036_guest_steam_accounts` and verify OpenDota
   from the production host. No CS2 bridge, credentials or technical Steam
   account is included in this batch. Nothing from this batch is deployed.
-- batch 7 has not been integrated. A reproducible Node 20 installation and all
-  bridge tests succeeded, but the resulting dependency audit reports four high
-  and one critical vulnerability with no safe compatible automatic upgrade.
-  The bridge, its lock file, production unit and Steam credentials remain out of
-  the release branch. See `docs/CS2_BRIDGE_AUDIT.md`.
+- batch 7 code integration is complete: CS2 codes and copied match links,
+  one-match-at-a-time loading progress, Game Coordinator reconnection, demo
+  metadata parsing and local map images are included. The committed lock file
+  installs reproducibly under Node 20, all bridge tests pass and the production
+  audit reports zero vulnerabilities. Production activation remains disabled
+  until fresh production credentials are issued and an isolated bridge smoke
+  test reaches `steam=true` and `gc=true`. Nothing from this batch is deployed.
 
 No production deployment or production database migration has been performed.
 
@@ -217,12 +219,11 @@ is throttled; production rollout must also verify that the host can reach
 Before production:
 
 - provide a production unit with `/root/cm_v2/CM_V2` paths;
-- generate, review and commit a dependency lock, then install with
-  `npm ci --omit=dev`;
+- install the committed dependency lock with `npm ci --omit=dev`;
 - run `python3 scripts/check_cs2_bridge_release.py` before installing the
   bridge; it verifies the committed lock against `package.json` without
   starting Steam or reading a refresh token;
-- review dependency audit findings instead of applying a forced upgrade;
+- require `npm audit --omit=dev --audit-level=low` to report zero findings;
 - issue a new `CS2_GC_BRIDGE_SECRET`;
 - issue a new refresh token for a dedicated production technical Steam account;
 - bind the bridge to `127.0.0.1` only;
