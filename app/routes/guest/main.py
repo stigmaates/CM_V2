@@ -254,7 +254,16 @@ def api_game_contracts_sync():
     cooldown = timedelta(minutes=15)
     synced_games = []
     errors = {}
-    repaired_rewards = repair_missing_contract_rewards(club_id, guest_id)
+    try:
+        repaired_rewards = repair_missing_contract_rewards(club_id, guest_id)
+    except Exception as exc:
+        current_app.logger.exception(
+            "Completed contract reward repair failed for club=%s guest=%s",
+            club_id,
+            guest_id,
+        )
+        repaired_rewards = 0
+        errors["reward_repair"] = str(exc)
     state = get_guest_contracts_state(club_id, guest_id)
     for game, game_state in state.get("games", {}).items():
         active_contracts = [

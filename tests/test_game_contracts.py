@@ -223,6 +223,7 @@ def test_repair_missing_contract_rewards_issues_completed_reward_once(monkeypatc
     class Cursor:
         def __init__(self):
             self.updated = False
+            self.select_sql = ""
 
         def __enter__(self):
             return self
@@ -233,6 +234,8 @@ def test_repair_missing_contract_rewards_issues_completed_reward_once(monkeypatc
         def execute(self, sql, params=None):
             if sql.strip().startswith("UPDATE guest_game_contracts"):
                 self.updated = True
+            elif sql.strip().startswith("SELECT c.*"):
+                self.select_sql = sql
 
         def fetchall(self):
             return [contract]
@@ -269,4 +272,5 @@ def test_repair_missing_contract_rewards_issues_completed_reward_once(monkeypatc
     assert len(awarded) == 1
     assert awarded[0][4:] == ("game_contract", "91", "Награда за игровой контракт «Охота началась»")
     assert connection.cursor_instance.updated is True
+    assert "source_id=CAST" not in connection.cursor_instance.select_sql
     assert connection.committed is True
