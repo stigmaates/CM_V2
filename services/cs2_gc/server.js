@@ -22,6 +22,7 @@ const cs2 = new GlobalOffensive(steam);
 let ready = false;
 let queue = Promise.resolve();
 let reconnectTimer = null;
+let shuttingDown = false;
 
 function launchCS2Coordinator() {
   steam.gamesPlayed([730]);
@@ -130,6 +131,25 @@ const server = http.createServer(async (request, response) => {
     respond(response, ready ? 422 : 503, {ok: false, error: ready ? 'match_unavailable' : 'gc_unavailable'});
   }
 });
+
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  ready = false;
+  clearTimeout(reconnectTimer);
+  console.log(`Received ${signal}; closing CS2 GC bridge`);
+  try {
+    steam.gamesPlayed([]);
+    steam.logOff();
+  } catch (error) {
+    console.warn(`Steam shutdown warning: ${error.message}`);
+  }
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 3000);
+}
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
 
 steam.on('loggedOn', () => {
   console.log('Steam connected; launching CS2 Game Coordinator session');

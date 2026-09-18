@@ -499,20 +499,31 @@ def get_cs2_match_access(*, club_id: int, guest_id: int) -> dict | None:
         conn.close()
 
 
-def _cs2_match_exists(*, club_id: int, guest_id: int, share_code: str) -> bool:
+def _cs2_match_metadata_stale(row: dict | None) -> bool:
+    if row is None:
+        return True
+    map_name = str(row.get("map_name") or "").strip().lower()
+    mode_label = str(row.get("mode_label") or "").strip()
+    return map_name in {"", "http", "https", "unknown"} or mode_label in {
+        "",
+        "Официальный матч",
+    }
+
+
+def _cs2_match_needs_refresh(*, club_id: int, guest_id: int, share_code: str) -> bool:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT 1
+                SELECT map_name, mode_label
                 FROM guest_cs2_matches
                 WHERE club_id = %s AND guest_id = %s AND share_code = %s
                 LIMIT 1
                 """,
                 (club_id, guest_id, share_code),
             )
-            return cursor.fetchone() is not None
+            return _cs2_match_metadata_stale(cursor.fetchone())
     finally:
         conn.close()
 
@@ -591,7 +602,7 @@ def sync_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str) -> int
     share_code = normalize_cs2_share_code(access["last_share_code"])
     imported = 0
     for _ in range(CS2_SYNC_LIMIT):
-        if not _cs2_match_exists(club_id=club_id, guest_id=guest_id, share_code=share_code):
+        if _cs2_match_needs_refresh(club_id=club_id, guest_id=guest_id, share_code=share_code):
             match = fetch_cs2_match_from_gc(steam_id=steam_id, share_code=share_code)
             _store_cs2_match(
                 club_id=club_id,
