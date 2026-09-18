@@ -639,8 +639,7 @@ label {
 }
 
 .app-shell--topnav {
-    --owner-navigation-width: 352px;
-    --owner-navigation-fixed-width: 352px;
+    --owner-navigation-fixed-width: 286px;
     background: radial-gradient(circle at 12% 0%, rgba(143, 91, 255, 0.14), transparent 42%),
         var(--bg-deep, #0f0818);
 }
@@ -667,19 +666,28 @@ label {
     min-width: 0;
 }
 
+.owner-menu-trigger-slot {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+}
+
 .owner-menu-trigger {
-    width: 46px;
-    height: 46px;
+    position: fixed;
+    top: 17px;
+    left: 28px;
+    z-index: 830;
+    width: 42px;
+    height: 42px;
     flex: 0 0 auto;
     display: inline-flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
     padding: 0;
-    border-radius: 14px;
+    border-radius: 12px;
     border: 1px solid rgba(165, 114, 255, 0.36);
-    background: rgba(143, 91, 255, 0.13);
+    background: rgba(22, 12, 39, 0.94);
+    box-shadow: 0 10px 24px rgba(5, 2, 12, .28);
     color: var(--text-main);
     cursor: pointer;
     transition: background 0.28s ease, border-color 0.28s ease, transform 0.32s cubic-bezier(.2, .8, .2, 1);
@@ -699,12 +707,23 @@ label {
     outline-offset: 3px;
 }
 
-.owner-menu-trigger span {
-    display: block;
-    width: 21px;
-    height: 2px;
-    border-radius: 999px;
-    background: currentColor;
+.owner-menu-trigger svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.owner-menu-trigger__arrow {
+    transform-origin: 13.5px 12px;
+    transition: transform .32s cubic-bezier(.2, .8, .2, 1);
+}
+
+.owner-menu-trigger[aria-expanded="true"] .owner-menu-trigger__arrow {
+    transform: rotate(180deg);
 }
 
 .owner-topbar__identity {
@@ -771,8 +790,8 @@ label {
         radial-gradient(circle at 10% 0%, rgba(143, 91, 255, 0.22), transparent 35%),
         #12091f;
     box-shadow: 30px 0 70px rgba(4, 1, 10, 0.58);
-    transform: translateX(0);
-    visibility: visible;
+    transform: translateX(-104%);
+    visibility: hidden;
     transition: transform 0.46s cubic-bezier(.22, 1, .36, 1), visibility 0.46s ease;
 }
 
@@ -781,23 +800,13 @@ label {
     visibility: visible;
 }
 
-body.owner-navigation-open {
-    overflow: hidden;
-}
-
-body.owner-navigation-open .owner-navigation-backdrop {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-}
-
 .owner-navigation__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    min-height: 86px;
-    padding: 17px 18px 16px 22px;
+    min-height: 76px;
+    padding: 12px 14px 12px 82px;
     border-bottom: 1px solid rgba(165, 114, 255, 0.18);
 }
 
@@ -811,8 +820,8 @@ body.owner-navigation-open .owner-navigation-backdrop {
 }
 
 .owner-navigation__brand img {
-    width: 42px;
-    height: 48px;
+    width: 34px;
+    height: 40px;
     flex: 0 0 auto;
     object-fit: contain;
 }
@@ -824,7 +833,7 @@ body.owner-navigation-open .owner-navigation-backdrop {
 }
 
 .owner-navigation__brand strong {
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 900;
 }
 
@@ -838,28 +847,12 @@ body.owner-navigation-open .owner-navigation-backdrop {
     text-overflow: ellipsis;
 }
 
-.owner-navigation__close {
-    width: 40px;
-    height: 40px;
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 0 3px;
-    border-radius: 12px;
-    border: 1px solid rgba(165, 114, 255, 0.25);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-main);
-    font-size: 27px;
-    cursor: pointer;
-}
-
 .owner-navigation__body {
     min-height: 0;
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 16px 14px 24px;
+    padding: 10px 10px 18px;
     scrollbar-width: thin;
     scrollbar-color: rgba(165, 114, 255, 0.5) transparent;
 }
@@ -869,10 +862,10 @@ body.owner-navigation-open .owner-navigation-backdrop {
 .owner-navigation__profile {
     display: flex;
     align-items: center;
-    gap: 13px;
-    min-height: 62px;
-    padding: 12px 14px;
-    border-radius: 15px;
+    gap: 11px;
+    min-height: 54px;
+    padding: 9px 11px;
+    border-radius: 13px;
     border: 1px solid transparent;
     color: var(--text-main);
     text-decoration: none;
@@ -880,52 +873,29 @@ body.owner-navigation-open .owner-navigation-backdrop {
 }
 
 @media (min-width: 901px) {
-    .app-shell--topnav {
-        display: grid;
-        grid-template-columns: var(--owner-navigation-width) minmax(0, 1fr);
-        grid-template-rows: auto minmax(0, 1fr);
-        transition: grid-template-columns .46s cubic-bezier(.22, 1, .36, 1);
-    }
-
-    .app-shell--topnav .owner-topbar,
-    .app-shell--topnav .owner-page {
-        grid-column: 2;
-    }
-
-    .app-shell--topnav .owner-topbar {
-        grid-row: 1;
-    }
-
-    .app-shell--topnav .owner-page {
-        grid-row: 2;
-        width: 100%;
-        max-width: 1480px;
-    }
-
     .app-shell--topnav .owner-navigation-backdrop {
         display: none;
-    }
-
-    body.owner-navigation-collapsed .app-shell--topnav {
-        --owner-navigation-width: 0px;
-    }
-
-    body.owner-navigation-collapsed .owner-navigation {
-        transform: translateX(-104%);
-        visibility: hidden;
     }
 }
 
 @media (max-width: 900px) {
     .owner-navigation {
-        width: min(370px, calc(100vw - 28px));
-        transform: translateX(-104%);
-        visibility: hidden;
+        width: min(var(--owner-navigation-fixed-width), calc(100vw - 20px));
     }
 
-    .owner-navigation.is-open {
-        transform: translateX(0);
+    body.owner-navigation-open {
+        overflow: hidden;
+    }
+
+    body.owner-navigation-open .owner-navigation-backdrop {
+        opacity: 1;
         visibility: visible;
+        pointer-events: auto;
+    }
+
+    .owner-menu-trigger {
+        top: 17px;
+        left: 18px;
     }
 }
 
@@ -995,7 +965,7 @@ body.owner-navigation-open .owner-navigation-backdrop {
 }
 
 .owner-navigation__group {
-    margin-top: 8px;
+    margin-top: 5px;
     border: 1px solid transparent;
     border-radius: 16px;
     overflow: clip;
@@ -1009,12 +979,12 @@ body.owner-navigation-open .owner-navigation-backdrop {
 }
 
 .owner-navigation__group summary {
-    min-height: 64px;
+    min-height: 54px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
-    padding: 12px 14px;
+    gap: 11px;
+    padding: 9px 11px;
     list-style: none;
     color: var(--text-main);
     cursor: pointer;
@@ -1084,8 +1054,8 @@ body.owner-navigation-open .owner-navigation-backdrop {
     position: relative;
     display: flex;
     align-items: center;
-    min-height: 42px;
-    padding: 8px 12px 8px 18px;
+    min-height: 38px;
+    padding: 7px 10px 7px 17px;
     border-radius: 11px;
     color: #c7b6df;
     text-decoration: none;
@@ -1135,8 +1105,8 @@ body.owner-navigation-open .owner-navigation-backdrop {
     align-items: center;
     justify-content: space-between;
     gap: 15px;
-    min-height: 66px;
-    padding: 14px 20px;
+    min-height: 58px;
+    padding: 11px 14px;
     border-top: 1px solid rgba(165, 114, 255, 0.18);
     background: rgba(5, 2, 12, 0.22);
 }

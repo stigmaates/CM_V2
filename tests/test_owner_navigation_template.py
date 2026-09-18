@@ -33,6 +33,7 @@ def test_owner_navigation_groups_existing_owner_pages():
         assert item in html
 
     assert 'id="ownerNavigation"' in html
+    assert "owner-navigation__close" not in html
     assert "/owner/analytics/cohorts" in html
     assert "/owner/analytics/communications" in html
     assert "/owner/analytics/heatmaps" in html
@@ -49,6 +50,8 @@ def test_owner_base_uses_burger_navigation_assets():
         )
 
     assert "data-owner-menu-open" in html
+    assert html.count("data-owner-menu-open") == 1
+    assert "owner-menu-trigger__arrow" in html
     assert 'id="ownerNavigation"' in html
     assert "owner_navigation.js" in html
     assert 'class="owner-topnav"' not in html
