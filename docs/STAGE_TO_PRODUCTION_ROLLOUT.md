@@ -130,6 +130,14 @@ Current release branch progress:
   audit reports zero vulnerabilities. Production activation remains disabled
   until fresh production credentials are issued and an isolated bridge smoke
   test reaches `steam=true` and `gc=true`. Nothing from this batch is deployed.
+- batch 8 code integration is complete: personal weekly contract pools,
+  difficulty rewards, case prizes that refresh a contract pool, background and
+  dashboard progress synchronization, reward-history repair, the full Dota hero
+  roster and a per-club feature toggle are included. Production service and
+  timer units use `/root/cm_v2/CM_V2`; keep the timer disabled until migrations
+  are rehearsed, Steam/CS2 dependencies are healthy and a pilot club has opted
+  in. Verify that `game_contract_settings` contains no unexpectedly enabled
+  production clubs before starting the timer. Nothing from this batch is deployed.
 
 No production deployment or production database migration has been performed.
 
@@ -233,9 +241,21 @@ Never reuse a stage refresh token in production.
 
 ### Contracts
 
-Create production versions of the contract service and 15-minute timer. The
-club feature toggle remains off until rewards are configured and a pilot guest
-has completed a reward end to end.
+Install `clubmodule-game-contracts.service` and
+`clubmodule-game-contracts.timer` from `deploy/systemd`, but leave the timer
+disabled during migration and smoke testing. The club feature toggle remains
+off until rewards are configured and a pilot guest has completed a reward end
+to end. Before enabling the timer, verify the rollout state explicitly:
+
+```sql
+SELECT club_id, is_enabled
+FROM game_contract_settings
+WHERE is_enabled = 1;
+```
+
+An empty result is expected before the first pilot club is enabled. Dota match
+history is cached in `game_match_stats` for outage fallback; the scheduled
+worker limits automatic Dota refreshes to once per guest per hour.
 
 ### Monthly reports
 
