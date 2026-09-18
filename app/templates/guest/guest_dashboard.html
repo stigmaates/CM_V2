@@ -3629,8 +3629,8 @@
                     image.alt = '';
                     image.loading = 'lazy';
                     image.addEventListener('error', () => {
-                        image.src = 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg';
-                        image.addEventListener('error', () => image.remove(), {once: true});
+                        image.remove();
+                        picture.textContent = 'CS2';
                     }, {once: true});
                     picture.appendChild(image);
                 } else {

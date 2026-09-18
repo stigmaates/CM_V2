@@ -29,9 +29,8 @@ STEAM_ID_ACCOUNT_OFFSET = 76561197960265728
 DOTA_MATCH_LIMIT = 5
 CS2_MATCH_LIMIT = 5
 CS2_SYNC_LIMIT = 5
-CS2_SHARE_CODE_RE = re.compile(r"CSGO-(?:[A-Za-z0-9]{5}-){4}[A-Za-z0-9]{5}", re.IGNORECASE)
 CS2_AUTH_CODE_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
-CS2_MAP_IMAGE_ROOT = "https://raw.githubusercontent.com/MurkyYT/cs2-map-icons/main/images/thumbs"
+CS2_MAP_IMAGE_ROOT = "/static/images/cs2/maps"
 CS2_MAP_LABELS = {
     "de_ancient": "Ancient",
     "de_anubis": "Anubis",
@@ -704,7 +703,11 @@ def get_cs2_recent_matches(*, club_id: int, guest_id: int, limit: int = CS2_MATC
             if unresolved_map
             else CS2_MAP_LABELS.get(map_name, map_name.removeprefix("de_").removeprefix("cs_").title())
         )
-        row["map_image_url"] = f"{CS2_MAP_IMAGE_ROOT}/{safe_map}_1_png.png" if not unresolved_map else None
+        row["map_image_url"] = (
+            f"{CS2_MAP_IMAGE_ROOT}/{safe_map}.jpg"
+            if not unresolved_map
+            else None
+        )
         row["won"] = None if row.get("won") is None else bool(row["won"])
     return rows
 
