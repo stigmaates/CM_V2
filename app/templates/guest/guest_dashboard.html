@@ -622,6 +622,39 @@
             text-align: center;
             line-height: 1.45;
         }
+        .cs2-load-progress {
+            margin: 0 0 14px;
+            padding: 13px 15px;
+            border: 1px solid rgba(102, 192, 244, .24);
+            border-radius: 13px;
+            background: rgba(102, 192, 244, .07);
+        }
+        .cs2-load-progress[hidden] { display: none; }
+        .cs2-load-progress-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 9px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .cs2-load-progress-value { color: #8ed4ff; white-space: nowrap; }
+        .cs2-load-progress-track {
+            height: 8px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255,255,255,.09);
+        }
+        .cs2-load-progress-fill {
+            width: 0;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #2a75a4, #66c0f4, #9b6dff);
+            box-shadow: 0 0 16px rgba(102, 192, 244, .4);
+            transition: width .35s ease;
+        }
         .app-modal--dota-matches {
             width: min(980px, 96%);
             max-height: calc(100vh - 36px);
@@ -3182,6 +3215,15 @@
             <button class="modal-close" onclick="closeModal('steamCS2MatchesModal')" aria-label="Закрыть">×</button>
             <h2 class="modal-title">Последние матчи Counter-Strike 2</h2>
             <div class="dota-matches-caption">Пять последних матчей из официальной истории Steam</div>
+            <div class="cs2-load-progress" id="steamCS2LoadProgress" hidden>
+                <div class="cs2-load-progress-head">
+                    <span id="steamCS2LoadProgressLabel">Подготавливаем загрузку…</span>
+                    <span class="cs2-load-progress-value" id="steamCS2LoadProgressValue">0%</span>
+                </div>
+                <div class="cs2-load-progress-track" aria-hidden="true">
+                    <div class="cs2-load-progress-fill" id="steamCS2LoadProgressFill"></div>
+                </div>
+            </div>
             <form class="cs2-setup" id="cs2MatchSetupForm">
                 <div class="cs2-setup-title">Подключите историю матчей</div>
                 <div class="cs2-setup-copy">Steam выдаёт эти коды специально для чтения истории CS2. Пароль Steam вводить не нужно.</div>
@@ -3259,6 +3301,10 @@
         const steamProfileContent = document.getElementById('steamProfileContent');
         const steamDotaMatchesContent = document.getElementById('steamDotaMatchesContent');
         const steamCS2MatchesContent = document.getElementById('steamCS2MatchesContent');
+        const steamCS2LoadProgress = document.getElementById('steamCS2LoadProgress');
+        const steamCS2LoadProgressLabel = document.getElementById('steamCS2LoadProgressLabel');
+        const steamCS2LoadProgressValue = document.getElementById('steamCS2LoadProgressValue');
+        const steamCS2LoadProgressFill = document.getElementById('steamCS2LoadProgressFill');
         const cs2MatchSetupForm = document.getElementById('cs2MatchSetupForm');
         const cs2AuthCodeInput = document.getElementById('cs2AuthCodeInput');
         const cs2ShareCodeInput = document.getElementById('cs2ShareCodeInput');
@@ -3312,7 +3358,7 @@
         let pendingSteamAuthUrl = '';
         const warmedSteamAuthUrls = new Set();
         let steamCS2MatchesLoaded = false;
-        let steamCS2MetadataRetryTimer = null;
+        let steamCS2ProgressHideTimer = null;
         let modalScrollPosition = 0;
 
         function lockModalPageScroll() {
@@ -3641,36 +3687,62 @@
             });
         }
 
-        function scheduleCS2MetadataRetry(matches, retryCount) {
-            clearTimeout(steamCS2MetadataRetryTimer);
-            if (!cs2MetadataPending(matches) || retryCount >= 2) return;
-            steamCS2MetadataRetryTimer = setTimeout(() => {
-                loadCS2Matches(true, retryCount + 1);
-            }, 2500);
+        function updateCS2LoadProgress(percent, label) {
+            if (!steamCS2LoadProgress) return;
+            clearTimeout(steamCS2ProgressHideTimer);
+            const safePercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+            steamCS2LoadProgress.hidden = false;
+            if (steamCS2LoadProgressLabel) steamCS2LoadProgressLabel.textContent = label;
+            if (steamCS2LoadProgressValue) steamCS2LoadProgressValue.textContent = `${safePercent}%`;
+            if (steamCS2LoadProgressFill) steamCS2LoadProgressFill.style.width = `${safePercent}%`;
         }
 
-        async function loadCS2Matches(force = false, retryCount = 0) {
+        function finishCS2LoadProgress() {
+            updateCS2LoadProgress(100, 'Матчи загружены');
+            steamCS2ProgressHideTimer = setTimeout(() => {
+                if (steamCS2LoadProgress) steamCS2LoadProgress.hidden = true;
+            }, 900);
+        }
+
+        async function loadCS2Matches(force = false) {
             if (!steamCS2MatchesContent || (steamCS2MatchesLoaded && !force)) return;
             if (cs2MatchSetupForm) cs2MatchSetupForm.classList.remove('show');
             if (!force) {
                 steamCS2MatchesContent.innerHTML = '<div class="steam-profile-status">Загружаем матчи…</div>';
             }
+            updateCS2LoadProgress(0, 'Проверяем историю матчей…');
             try {
-                const response = await fetch({{ url_for('guest.api_steam_cs2_matches')|tojson }}, {
-                    headers: { 'Accept': 'application/json' },
-                });
-                const data = await response.json();
-                if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось загрузить матчи CS2');
-                if (!data.configured) {
-                    showCS2Setup();
-                    return;
+                const endpoint = new URL(
+                    {{ url_for('guest.api_steam_cs2_matches')|tojson }},
+                    window.location.origin,
+                );
+                endpoint.searchParams.set('batch', '1');
+                let matches = [];
+                for (let step = 0; step < 5; step += 1) {
+                    updateCS2LoadProgress(step * 20, `Загружаем матч ${step + 1} из 5…`);
+                    const response = await fetch(endpoint.toString(), {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось загрузить матчи CS2');
+                    if (!data.configured) {
+                        if (steamCS2LoadProgress) steamCS2LoadProgress.hidden = true;
+                        showCS2Setup();
+                        return;
+                    }
+                    matches = data.matches || [];
+                    renderCS2Matches(matches, data.warning || '');
+                    const hasMore = Boolean(data.sync && data.sync.has_more);
+                    updateCS2LoadProgress(
+                        hasMore ? (step + 1) * 20 : 100,
+                        hasMore ? `Загружено матчей: ${step + 1} из 5` : 'Матчи загружены',
+                    );
+                    if (!hasMore) break;
                 }
-                const matches = data.matches || [];
-                renderCS2Matches(matches, data.warning || '');
                 steamCS2MatchesLoaded = !cs2MetadataPending(matches);
-                scheduleCS2MetadataRetry(matches, retryCount);
+                finishCS2LoadProgress();
             } catch (error) {
-                if (force) return;
+                if (steamCS2LoadProgress) steamCS2LoadProgress.hidden = true;
                 steamCS2MatchesContent.innerHTML = '';
                 const notice = document.createElement('div');
                 notice.className = 'steam-profile-status';
@@ -3699,10 +3771,8 @@
                 const data = await response.json();
                 if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось подключить историю CS2');
                 cs2MatchSetupForm.reset();
-                const matches = data.matches || [];
-                renderCS2Matches(matches);
-                steamCS2MatchesLoaded = !cs2MetadataPending(matches);
-                scheduleCS2MetadataRetry(matches, 0);
+                steamCS2MatchesLoaded = false;
+                await loadCS2Matches(true);
             } catch (error) {
                 if (cs2MatchSetupMessage) {
                     cs2MatchSetupMessage.textContent = error.message || 'Не удалось подключить историю CS2';

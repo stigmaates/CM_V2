@@ -595,15 +595,21 @@ def _advance_cs2_match_cursor(*, club_id: int, guest_id: int, share_code: str) -
         conn.close()
 
 
-def sync_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str) -> int:
-    """Import the known CS2 match and move Steam's match-code cursor forward."""
+def sync_cs2_match_history_batch(
+    *, club_id: int, guest_id: int, steam_id: str, limit: int = 1
+) -> dict:
+    """Import a bounded batch and report progress through Steam's code chain."""
     access = get_cs2_match_access(club_id=club_id, guest_id=guest_id)
     if not access:
-        return 0
+        return {"processed": 0, "imported": 0, "has_more": False}
     auth_code = access["auth_code"]
     share_code = normalize_cs2_share_code(access["last_share_code"])
+    safe_limit = max(1, min(int(limit), CS2_SYNC_LIMIT))
     imported = 0
-    for _ in range(CS2_SYNC_LIMIT):
+    processed = 0
+    has_more = False
+    for _ in range(safe_limit):
+        processed += 1
         if _cs2_match_needs_refresh(club_id=club_id, guest_id=guest_id, share_code=share_code):
             match = fetch_cs2_match_from_gc(steam_id=steam_id, share_code=share_code)
             _store_cs2_match(
@@ -619,13 +625,35 @@ def sync_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str) -> int
             known_code=share_code,
         )
         if not next_code or next_code == share_code:
+            has_more = False
             break
+        has_more = True
         share_code = next_code
         _advance_cs2_match_cursor(club_id=club_id, guest_id=guest_id, share_code=share_code)
-    return imported
+    return {"processed": processed, "imported": imported, "has_more": has_more}
 
 
-def configure_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str, auth_code: str, share_code: str) -> int:
+def sync_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str) -> int:
+    """Import up to five matches for non-progressive callers."""
+    return int(
+        sync_cs2_match_history_batch(
+            club_id=club_id,
+            guest_id=guest_id,
+            steam_id=steam_id,
+            limit=CS2_SYNC_LIMIT,
+        )["imported"]
+    )
+
+
+def configure_cs2_match_history(
+    *,
+    club_id: int,
+    guest_id: int,
+    steam_id: str,
+    auth_code: str,
+    share_code: str,
+    sync_limit: int = CS2_SYNC_LIMIT,
+) -> int:
     auth_code = normalize_cs2_auth_code(auth_code)
     share_code = normalize_cs2_share_code(share_code)
     # This call validates that the two user-provided codes belong to the linked Steam account.
@@ -636,7 +664,16 @@ def configure_cs2_match_history(*, club_id: int, guest_id: int, steam_id: str, a
         auth_code=auth_code,
         share_code=share_code,
     )
-    return sync_cs2_match_history(club_id=club_id, guest_id=guest_id, steam_id=steam_id)
+    if int(sync_limit) <= 0:
+        return 0
+    return int(
+        sync_cs2_match_history_batch(
+            club_id=club_id,
+            guest_id=guest_id,
+            steam_id=steam_id,
+            limit=sync_limit,
+        )["imported"]
+    )
 
 
 def get_cs2_recent_matches(*, club_id: int, guest_id: int, limit: int = CS2_MATCH_LIMIT) -> list[dict]:

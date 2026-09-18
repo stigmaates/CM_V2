@@ -47,6 +47,7 @@ from app.services.steam import (
     get_linked_steam_account,
     link_steam_account,
     sync_cs2_match_history,
+    sync_cs2_match_history_batch,
     verify_openid_response,
 )
 from app.services.wheel import (
@@ -287,7 +288,7 @@ def api_steam_dota_matches():
 def api_steam_cs2_matches():
     club_id = int(session["guest_club_id"])
     guest_id = int(session["guest_id"])
-    if is_rate_limited(f"guest.steam_cs2_matches:{club_id}:{guest_id}", limit=6, window_seconds=60):
+    if is_rate_limited(f"guest.steam_cs2_matches:{club_id}:{guest_id}", limit=10, window_seconds=60):
         return {
             "ok": False,
             "error": "rate_limited",
@@ -305,16 +306,31 @@ def api_steam_cs2_matches():
         return {"ok": True, "configured": False, "matches": []}
 
     warning = None
+    sync_state = None
     try:
-        sync_cs2_match_history(
-            club_id=club_id,
-            guest_id=guest_id,
-            steam_id=account["steam_id"],
-        )
+        if request.args.get("batch") == "1":
+            sync_state = sync_cs2_match_history_batch(
+                club_id=club_id,
+                guest_id=guest_id,
+                steam_id=account["steam_id"],
+                limit=1,
+            )
+        else:
+            sync_cs2_match_history(
+                club_id=club_id,
+                guest_id=guest_id,
+                steam_id=account["steam_id"],
+            )
     except (SteamError, CS2HistoryNotConfiguredError, CS2HistoryCodeError) as exc:
         warning = str(exc)
     matches = get_cs2_recent_matches(club_id=club_id, guest_id=guest_id)
-    return {"ok": True, "configured": True, "matches": matches, "warning": warning}
+    return {
+        "ok": True,
+        "configured": True,
+        "matches": matches,
+        "warning": warning,
+        "sync": sync_state,
+    }
 
 
 @guest_bp.route("/api/steam-cs2-matches/connect", methods=["POST"])
@@ -343,6 +359,7 @@ def api_steam_cs2_matches_connect():
             steam_id=account["steam_id"],
             auth_code=str(payload.get("auth_code") or ""),
             share_code=str(payload.get("share_code") or ""),
+            sync_limit=0,
         )
     except CS2HistoryCodeError as exc:
         return {"ok": False, "error": "invalid_codes", "message": str(exc)}, 400
