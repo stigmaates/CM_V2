@@ -668,6 +668,7 @@
         <div class="settings-tabs card">
             <a href="{{ url_for('owner.settings', tab='club') }}" class="settings-tab {% if active_tab == 'club' %}active{% endif %}">Клуб</a>
             <a href="{{ url_for('owner.settings', tab='missions') }}" class="settings-tab {% if active_tab == 'missions' %}active{% endif %}">Задания</a>
+            <a href="{{ url_for('owner.settings', tab='contracts') }}" class="settings-tab {% if active_tab == 'contracts' %}active{% endif %}">Игровые контракты</a>
             <a href="{{ url_for('owner.settings', tab='wheel') }}" class="settings-tab {% if active_tab == 'wheel' %}active{% endif %}">Бонусная механика</a>
             {% if session.get('role') in ['owner', 'co-owner'] %}
                 <a href="{{ url_for('owner.settings', tab='profile') }}" class="settings-tab {% if active_tab == 'profile' %}active{% endif %}">Профиль</a>
@@ -845,6 +846,8 @@
             </div>
         {% elif active_tab == 'missions' %}
             {% include "owner/_settings_missions.html" %}
+        {% elif active_tab == 'contracts' %}
+            {% include "owner/_settings_contracts.html" %}
         {% elif active_tab == 'wheel' %}
             {% include "owner/_settings_wheel.html" %}
         {% elif active_tab == 'profile' %}

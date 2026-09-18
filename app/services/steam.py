@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import re
 import unicodedata
 from functools import lru_cache
@@ -27,6 +28,7 @@ OPENDOTA_API_ROOT = "https://api.opendota.com/api"
 STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d{17})/?$")
 STEAM_ID_ACCOUNT_OFFSET = 76561197960265728
 DOTA_MATCH_LIMIT = 5
+DOTA_MATCH_SYNC_LIMIT = 20
 CS2_MATCH_LIMIT = 5
 CS2_SYNC_LIMIT = 5
 CS2_AUTH_CODE_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
@@ -102,6 +104,18 @@ class CS2HistoryNotConfiguredError(SteamError):
 
 class CS2HistoryCodeError(SteamError):
     """A guest supplied an invalid CS2 history code."""
+
+
+def _safe_json_dict(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    if not value:
+        return {}
+    try:
+        result = json.loads(value)
+        return result if isinstance(result, dict) else {}
+    except (TypeError, ValueError):
+        return {}
 
 
 def build_openid_redirect_url(*, return_to: str, realm: str) -> str:
@@ -287,7 +301,7 @@ def _dota_hero_catalog() -> dict[int, dict]:
 def fetch_dota_recent_matches(steam_id: str, *, limit: int = DOTA_MATCH_LIMIT) -> dict:
     """Return a guest's latest public Dota matches with player-level results."""
     account_id = steam_id_to_account_id(steam_id)
-    safe_limit = max(1, min(int(limit), DOTA_MATCH_LIMIT))
+    safe_limit = max(1, min(int(limit), DOTA_MATCH_SYNC_LIMIT))
     history = _opendota_api_get(f"players/{account_id}/recentMatches")
     history_matches = history[:safe_limit] if isinstance(history, list) else []
     if not history_matches:
@@ -313,8 +327,7 @@ def fetch_dota_recent_matches(steam_id: str, *, limit: int = DOTA_MATCH_LIMIT) -
         won = None if not isinstance(radiant_win, bool) else radiant_win == player_is_radiant
         lobby_type = int(match.get("lobby_type") or 0)
         game_mode = int(match.get("game_mode") or 0)
-        matches.append(
-            {
+        normalized_match = {
                 "match_id": str(match_id),
                 "hero_id": hero_id,
                 "hero_name": hero["name"],
@@ -330,7 +343,15 @@ def fetch_dota_recent_matches(steam_id: str, *, limit: int = DOTA_MATCH_LIMIT) -
                 "assists": int(match.get("assists") or 0) if "assists" in match else None,
                 "party_size": int(match.get("party_size") or 1),
             }
-        )
+        for source_key, output_key in (
+            ("hero_damage", "damage"),
+            ("last_hits", "last_hits"),
+            ("gold_per_min", "gpm"),
+            ("xp_per_min", "xpm"),
+        ):
+            if source_key in match:
+                normalized_match[output_key] = int(match.get(source_key) or 0)
+        matches.append(normalized_match)
     return {"matches": matches, "is_private": False}
 
 
@@ -505,7 +526,8 @@ def _cs2_match_metadata_stale(row: dict | None) -> bool:
         return True
     map_name = str(row.get("map_name") or "").strip().lower()
     mode_label = str(row.get("mode_label") or "").strip()
-    return map_name in {"", "http", "https", "unknown"} or mode_label in {
+    detailed_stats_missing = "weapon_kills_json" in row and row.get("weapon_kills_json") is None
+    return detailed_stats_missing or map_name in {"", "http", "https", "unknown"} or mode_label in {
         "",
         "Официальный матч",
     }
@@ -517,7 +539,7 @@ def _cs2_match_needs_refresh(*, club_id: int, guest_id: int, share_code: str) ->
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT map_name, mode_label
+                SELECT map_name, mode_label, weapon_kills_json
                 FROM guest_cs2_matches
                 WHERE club_id = %s AND guest_id = %s AND share_code = %s
                 LIMIT 1
@@ -543,6 +565,9 @@ def _store_cs2_match(*, club_id: int, guest_id: int, share_code: str, match: dic
         "kills",
         "deaths",
         "assists",
+        "headshots",
+        "mvp",
+        "weapon_kills",
     )
     conn = get_db_connection()
     try:
@@ -551,8 +576,9 @@ def _store_cs2_match(*, club_id: int, guest_id: int, share_code: str, match: dic
                 """
                 INSERT INTO guest_cs2_matches (
                     club_id, guest_id, share_code, match_id, played_at, map_name, mode_label,
-                    result_label, won, team_score, opponent_score, duration_seconds, kills, deaths, assists
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    result_label, won, team_score, opponent_score, duration_seconds, kills, deaths, assists,
+                    headshots, mvp, weapon_kills_json
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     match_id = VALUES(match_id),
                     played_at = VALUES(played_at),
@@ -566,8 +592,21 @@ def _store_cs2_match(*, club_id: int, guest_id: int, share_code: str, match: dic
                     kills = VALUES(kills),
                     deaths = VALUES(deaths),
                     assists = VALUES(assists)
+                    , headshots = IF(VALUES(weapon_kills_json) IS NULL, headshots, VALUES(headshots))
+                    , mvp = IF(VALUES(weapon_kills_json) IS NULL, mvp, VALUES(mvp))
+                    , weapon_kills_json = COALESCE(VALUES(weapon_kills_json), weapon_kills_json)
                 """,
-                (club_id, guest_id, share_code, *(match.get(field) for field in fields)),
+                (
+                    club_id, guest_id, share_code,
+                    *(
+                        json.dumps(match.get(field), ensure_ascii=False)
+                        if field == "weapon_kills" and isinstance(match.get(field), dict)
+                        else None if field == "weapon_kills"
+                        else int(match.get(field) or 0) if field in {"headshots", "mvp"}
+                        else match.get(field)
+                        for field in fields
+                    ),
+                ),
             )
         conn.commit()
     except Exception:
@@ -683,7 +722,8 @@ def get_cs2_recent_matches(*, club_id: int, guest_id: int, limit: int = CS2_MATC
             cursor.execute(
                 """
                 SELECT share_code, match_id, played_at, map_name, mode_label, result_label, won,
-                       team_score, opponent_score, duration_seconds, kills, deaths, assists
+                       team_score, opponent_score, duration_seconds, kills, deaths, assists,
+                       headshots, mvp, weapon_kills_json
                 FROM guest_cs2_matches
                 WHERE club_id = %s AND guest_id = %s
                 ORDER BY COALESCE(played_at, 0) DESC, id DESC
@@ -695,6 +735,7 @@ def get_cs2_recent_matches(*, club_id: int, guest_id: int, limit: int = CS2_MATC
     finally:
         conn.close()
     for row in rows:
+        row["weapon_kills"] = _safe_json_dict(row.pop("weapon_kills_json", None))
         map_name = str(row.get("map_name") or "unknown")
         safe_map = map_name if re.fullmatch(r"[a-z0-9_]+", map_name) else "unknown"
         unresolved_map = safe_map in {"http", "https", "unknown"}

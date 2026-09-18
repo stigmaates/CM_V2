@@ -1056,6 +1056,87 @@
             place-items: center;
             min-height: 220px;
         }
+        .game-contracts-panel { margin-top: 18px; }
+        .game-contracts-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .game-contracts-caption { margin-top: 5px; color: var(--text-muted); font-size: 12px; line-height: 1.4; }
+        .game-contracts-games { display: grid; gap: 14px; }
+        .game-contract-group {
+            padding: 14px;
+            border: 1px solid rgba(165, 114, 255, .24);
+            border-radius: 16px;
+            background: rgba(12, 6, 24, .22);
+        }
+        .game-contract-group-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .game-contract-game { display: flex; align-items: center; gap: 9px; color: #fff; font-size: 16px; font-weight: 900; }
+        .game-contract-game-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 50px;
+            padding: 6px 9px;
+            border-radius: 9px;
+            background: linear-gradient(135deg, #8f5bff, #6934cc);
+            font-size: 11px;
+            letter-spacing: .04em;
+        }
+        .game-contract-next { color: var(--text-muted); font-size: 11px; font-weight: 800; text-align: right; }
+        .game-contract-list { display: grid; gap: 10px; }
+        .game-contract-card {
+            padding: 13px 14px;
+            border: 1px solid rgba(165, 114, 255, .20);
+            border-radius: 14px;
+            background: rgba(255,255,255,.035);
+        }
+        .game-contract-card--completed { border-color: rgba(71, 219, 157, .34); background: rgba(71, 219, 157, .07); }
+        .game-contract-card-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+        .game-contract-title { color: #fff; font-size: 14px; font-weight: 900; line-height: 1.25; }
+        .game-contract-description { margin-top: 3px; color: var(--text-muted); font-size: 12px; line-height: 1.35; }
+        .game-contract-difficulty {
+            flex: 0 0 auto;
+            padding: 5px 8px;
+            border-radius: 999px;
+            color: #dacbff;
+            background: rgba(143,91,255,.16);
+            font-size: 10px;
+            font-weight: 900;
+        }
+        .game-contract-progress-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 11px; }
+        .game-contract-progress {
+            height: 8px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255,255,255,.09);
+        }
+        .game-contract-progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8f5bff, #bd75ff); }
+        .game-contract-progress-value { color: #fff; font-size: 12px; font-weight: 900; white-space: nowrap; }
+        .game-contract-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; color: var(--text-muted); font-size: 11px; }
+        .game-contract-reward { color: #ffd469; font-weight: 900; }
+        .game-contract-empty { padding: 14px; border: 1px dashed rgba(165,114,255,.24); border-radius: 13px; color: var(--text-muted); font-size: 12px; line-height: 1.45; text-align: center; }
+        .game-contract-generate {
+            margin-top: 10px;
+            border: 0;
+            border-radius: 11px;
+            padding: 10px 13px;
+            background: linear-gradient(135deg, #8f5bff, #6934cc);
+            color: #fff;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+        .game-contract-generate:hover { filter: brightness(1.1); }
 
         .wheel-panel {
             grid-area: wheel;
@@ -2944,6 +3025,75 @@
                         </div>
                     {% else %}
                         <div class="empty">Для твоего клуба пока нет активных заданий.</div>
+                    {% endif %}
+                </section>
+
+                {% set contracts_state = game_contracts_state|default({}) %}
+                <section class="panel game-contracts-panel" id="game-contracts">
+                    <div class="game-contracts-head">
+                        <div>
+                            <div class="section-title" style="margin:0;">Игровые контракты</div>
+                            <div class="game-contracts-caption">Недельные задания по реальным матчам CS2 и Dota 2</div>
+                        </div>
+                    </div>
+                    {% if not contracts_state.steam_linked %}
+                        <div class="game-contract-empty">
+                            Подключи Steam, чтобы получать игровые контракты.
+                            <div><a class="steam-connect-btn" style="display:inline-flex;margin-top:10px;" data-steam-auth-link href="{{ url_for('guest.steam_link') }}">Подключить Steam</a></div>
+                        </div>
+                    {% else %}
+                        <div class="game-contracts-games">
+                            {% for game_key in ['cs2', 'dota2'] %}
+                                {% set contract_game = contracts_state.games.get(game_key, {}) %}
+                                <div class="game-contract-group">
+                                    <div class="game-contract-group-head">
+                                        <div class="game-contract-game"><span class="game-contract-game-badge">{{ 'CS2' if game_key == 'cs2' else 'DOTA' }}</span>{{ contract_game.label }}</div>
+                                        {% if contract_game.next_label %}<div class="game-contract-next">Новые через {{ contract_game.next_label }}</div>{% endif %}
+                                    </div>
+                                    {% if contract_game.sync and contract_game.sync.last_error %}
+                                        <div class="game-contract-empty" style="margin-bottom:10px;">Не удалось проверить новые матчи. Попробуем снова автоматически.</div>
+                                    {% endif %}
+                                    {% if contract_game.contracts %}
+                                        <div class="game-contract-list">
+                                            {% for contract in contract_game.contracts %}
+                                                <article class="game-contract-card{% if contract.status == 'completed' %} game-contract-card--completed{% endif %}">
+                                                    <div class="game-contract-card-top">
+                                                        <div><div class="game-contract-title">{{ contract.title }}</div><div class="game-contract-description">{{ contract.description }}</div></div>
+                                                        <span class="game-contract-difficulty">{{ contract.difficulty_label }}</span>
+                                                    </div>
+                                                    <div class="game-contract-progress-row">
+                                                        <div class="game-contract-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ contract.progress_percent }}"><span style="width:{{ contract.progress_percent }}%"></span></div>
+                                                        <div class="game-contract-progress-value">{{ contract.current_display }} / {{ contract.target_display }}</div>
+                                                    </div>
+                                                    <div class="game-contract-meta">
+                                                        <span class="game-contract-reward">{% if contract.reward_tokens %}+{{ contract.reward_tokens }} жет.{% endif %}{% if contract.reward_tokens and contract.reward_bonus %} · {% endif %}{% if contract.reward_bonus %}+{{ contract.reward_bonus }} КБ{% endif %}{% if not contract.reward_tokens and not contract.reward_bonus %}Без награды{% endif %}</span>
+                                                        <span>{% if contract.status == 'completed' %}Выполнено{% elif contract.is_waiting_for_sync %}Проверяем последние матчи{% else %}Ещё {{ contract.remaining_label }}{% endif %}</span>
+                                                    </div>
+                                                </article>
+                                            {% endfor %}
+                                        </div>
+                                        {% if contract_game.can_generate %}
+                                            <form method="POST" action="{{ url_for('guest.generate_game_contracts', game=game_key) }}">
+                                                <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                                                <button class="game-contract-generate" type="submit">Получить новые контракты</button>
+                                            </form>
+                                        {% endif %}
+                                    {% elif not contract_game.available %}
+                                        <div class="game-contract-empty">{% if game_key == 'cs2' %}Подключи историю матчей CS2 в игровом профиле, чтобы получать контракты.{% else %}История матчей этой игры пока недоступна.{% endif %}</div>
+                                    {% elif not contract_game.templates_count %}
+                                        <div class="game-contract-empty">Владелец клуба ещё не настроил контракты для этой игры.</div>
+                                    {% elif contract_game.can_generate %}
+                                        <div class="game-contract-empty">Получи готовый недельный набор из трёх контрактов.</div>
+                                        <form method="POST" action="{{ url_for('guest.generate_game_contracts', game=game_key) }}">
+                                            <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                                            <button class="game-contract-generate" type="submit">Получить контракты</button>
+                                        </form>
+                                    {% else %}
+                                        <div class="game-contract-empty">Новый недельный набор пока недоступен.</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
                     {% endif %}
                 </section>
 
