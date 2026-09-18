@@ -1,6 +1,12 @@
 {% extends "owner/base.html" %}
 
-{% block title %}{{ header_club_name or 'Cyber Bonus' }} — Аналитика{% endblock %}
+{% set analytics_section = analytics_section|default('cohorts') %}
+{% set analytics_titles = {
+    'cohorts': 'Анализ по когортам',
+    'communications': 'Анализ коммуникаций',
+    'heatmaps': 'Тепловые карты'
+} %}
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — {{ analytics_titles.get(analytics_section, 'Аналитика') }}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260913-utilization-1') }}">
@@ -8,12 +14,11 @@
 
 {% block content %}
 <main class="content crm-page">
-    {% include "owner/_audience_widget.html" %}
-
+    {% if analytics_section == 'cohorts' %}
     <section class="crm-analysis-section card" id="analytics-cohorts">
         <div class="crm-analysis-head">
             <div>
-                <div class="section-title">Анализ</div>
+                <div class="section-title">Анализ по когортам</div>
             </div>
         </div>
 
@@ -70,72 +75,9 @@
             </div>
         </div>
     </section>
+    {% endif %}
 
-    <section class="crm-pulse-section card">
-        <div class="crm-campaigns-head">
-            <div>
-                <div class="section-title">Пульс базы</div>
-                <div class="muted crm-hero-text">Гости, у которых на этой неделе изменилась CRM-группа.</div>
-            </div>
-        </div>
-
-        {% if crm_pulse_groups %}
-            <div class="crm-pulse-board">
-                {% for group in crm_pulse_groups %}
-                    <article class="crm-pulse-card crm-pulse-card--{{ group.direction }}">
-                        <div class="crm-pulse-card__top">
-                            <div>
-                                <div class="crm-pulse-transition">
-                                    <span>{{ group.old_label }}</span>
-                                    <b>→</b>
-                                    <span>{{ group.new_label }}</span>
-                                </div>
-                                <div class="crm-pulse-count">
-                                    {{ group.total_count }} гостей с Telegram
-                                </div>
-                            </div>
-                            {% if group.recent_auto_count %}
-                                <span class="crm-pulse-warning" tabindex="0" aria-label="{{ group.recent_auto_count }} гостям недавно уже уходила авторассылка">
-                                    !
-                                    <span class="crm-pulse-tooltip">
-                                        {{ group.recent_auto_count }} гостям недавно уже уходила авторассылка. Проверь сообщение перед повторным контактом.
-                                    </span>
-                                </span>
-                            {% endif %}
-                        </div>
-                        <div class="crm-pulse-guests">
-                            {% for guest in group.guests[:3] %}
-                                <div class="crm-pulse-guest">
-                                    <span>{{ guest.card_label or guest.first_name or guest.fio or ("#" ~ guest.guest_id) }}</span>
-                                    {% if guest.recent_auto_mailing_title %}
-                                        <i class="crm-pulse-warning" tabindex="0" aria-label='Недавно была авторассылка "{{ guest.recent_auto_mailing_title }}"'>
-                                            !
-                                            <span class="crm-pulse-tooltip">
-                                                Недавно была авторассылка «{{ guest.recent_auto_mailing_title }}».
-                                            </span>
-                                        </i>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                            {% if group.total_count > 3 %}
-                                <div class="crm-pulse-more">+ ещё {{ group.total_count - 3 }}</div>
-                            {% endif %}
-                        </div>
-                        <button
-                            type="button"
-                            class="crm-analysis-button crm-analysis-button--primary crm-pulse-action"
-                            data-pulse-key="{{ group.key }}"
-                        >
-                            Взаимодействовать
-                        </button>
-                    </article>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="empty-state">На этой неделе переходов между CRM-группами пока нет.</div>
-        {% endif %}
-    </section>
-
+    {% if analytics_section == 'communications' %}
     <section class="crm-campaigns-section card" id="analytics-communications">
         <div class="crm-campaigns-head">
             <div>
@@ -248,9 +190,9 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
-    {% include "owner/_crm_pulse_interaction.html" %}
-
+    {% if analytics_section == 'heatmaps' %}
     <section class="heatmap-section card" id="analytics-heatmaps">
         <div class="heatmap-head">
             <div>
@@ -259,11 +201,11 @@
             </div>
 
             <div class="period-switcher heatmap-switcher">
-                <a href="{{ url_for('owner.crm_analytics', section='heatmaps', period=7, telegram_only=1 if telegram_only else 0) }}#analytics-heatmaps"
+                <a href="{{ url_for('owner.analytics_heatmaps', period=7) }}"
                    class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', section='heatmaps', period=30, telegram_only=1 if telegram_only else 0) }}#analytics-heatmaps"
+                <a href="{{ url_for('owner.analytics_heatmaps', period=30) }}"
                    class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', section='heatmaps', period=90, telegram_only=1 if telegram_only else 0) }}#analytics-heatmaps"
+                <a href="{{ url_for('owner.analytics_heatmaps', period=90) }}"
                    class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
             </div>
         </div>
@@ -369,16 +311,17 @@
             <span>Выше загрузка</span>
         </div>
     </section>
+    {% endif %}
 
 </main>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    window.CRM_ANALYSIS_FIELDS = {{ filter_fields | tojson | safe }};
-    window.CRM_INITIAL_ANALYSIS = {{ initial_analysis | tojson | safe }};
-    window.CRM_MESSAGE_VARIABLES = {{ message_variables | tojson | safe }};
-    window.CRM_PULSE_GROUPS = {{ crm_pulse_groups | tojson | safe }};
+    window.CRM_ANALYSIS_FIELDS = {{ filter_fields|default([]) | tojson | safe }};
+    window.CRM_INITIAL_ANALYSIS = {{ initial_analysis|default({}) | tojson | safe }};
+    window.CRM_MESSAGE_VARIABLES = [];
+    window.CRM_PULSE_GROUPS = [];
 </script>
 <script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260911-pulse-direct-1') }}"></script>
 {% endblock %}

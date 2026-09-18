@@ -33,6 +33,7 @@ def test_crm_analytics_renders_cohort_analysis_block():
         html = render_template(
             "owner/crm_analytics.html",
             **_base_template_context(),
+            analytics_section="cohorts",
             audience={
                 "top": 2,
                 "top_telegram": 1,
@@ -80,22 +81,20 @@ def test_crm_analytics_renders_cohort_analysis_block():
         )
 
     assert "Анализ" in html
-    assert "<title>Тестовый клуб — Аналитика</title>" in html
+    assert "<title>Тестовый клуб — Анализ по когортам</title>" in html
     assert 'id="analytics-cohorts"' in html
-    assert 'id="analytics-communications"' in html
-    assert 'id="analytics-heatmaps"' in html
+    assert 'id="analytics-communications"' not in html
+    assert 'id="analytics-heatmaps"' not in html
     assert "WALLZ" not in html
     assert "Период воронки" in html
     assert 'data-period="all"' in html
     assert "Сохранить когорту" in html
     assert "Тестовая когорта" in html
-    assert "Пульс базы" in html
-    assert "Редкие" in html
-    assert "Взаимодействовать" in html
+    assert "Пульс базы" not in html
+    assert "Типы аудитории" not in html
     assert "crm-cohort-delete" in html
     assert "crm_analytics.js" in html
-    assert "1</span><small>/2" in html
-    assert "Средняя загрузка" in html
+    assert "Средняя загрузка" not in html
     assert "Сессий в пике" not in html
 
 
@@ -124,6 +123,7 @@ def test_crm_analytics_renders_manual_campaign_passports():
         html = render_template(
             "owner/crm_analytics.html",
             **_base_template_context(),
+            analytics_section="communications",
             audience={},
             cohorts=[],
             crm_pulse_groups=[],
@@ -136,6 +136,8 @@ def test_crm_analytics_renders_manual_campaign_passports():
         )
 
     assert "Аналитика коммуникаций" in html
+    assert 'id="analytics-cohorts"' not in html
+    assert 'id="analytics-heatmaps"' not in html
     assert "Рассылка #12" in html
     assert "Рассылка #17" in html
     assert "is-campaign-hidden" in html
@@ -145,3 +147,19 @@ def test_crm_analytics_renders_manual_campaign_passports():
     assert "Авторассылки" in html
     assert 'id="crmAutoCampaignsPanel"' in html
     assert "Уникальных получателей" not in html
+
+
+def test_crm_analytics_renders_heatmaps_as_a_separate_page():
+    with app.test_request_context("/owner/analytics/heatmaps"):
+        html = render_template(
+            "owner/crm_analytics.html",
+            **_base_template_context(),
+            analytics_section="heatmaps",
+        )
+
+    assert "Тепловая карта посещений" in html
+    assert "Тепловая карта по ПК" in html
+    assert 'id="analytics-cohorts"' not in html
+    assert 'id="analytics-communications"' not in html
+    assert "Пульс базы" not in html
+    assert "Типы аудитории" not in html

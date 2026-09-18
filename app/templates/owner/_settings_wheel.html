@@ -1,5 +1,5 @@
 {% set prize_icon_choices = prize_icon_choices|default(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']) %}
-{% set prob_ok = (wheel_active_prob_sum|float - 100)|abs < 0.06 %}
+{% set prob_ok = (wheel_active_prob_sum|default(0)|float - 100)|abs < 0.06 %}
 {% set active_bonus_editor = bonus_editor|default('wheel') %}
 {% set topup_bonus_settings = topup_bonus_settings|default({'is_enabled': 0, 'rules': [], 'message_template': ''}) %}
 {% set welcome_reward_settings = welcome_reward_settings|default({'welcome_reward_enabled': 1, 'welcome_cm_bonus_amount': 0, 'welcome_token_amount': 1}) %}
@@ -1017,6 +1017,7 @@
 
 <div class="wheel-page">
 <div class="wheel-layout">
+    {% if not promotions_only|default(false) %}
     <div class="bonus-settings-shell">
         <div class="bonus-settings-main">
             <section class="card wheel-section">
@@ -1129,20 +1130,6 @@
                     <strong>{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%d.%m.%Y') }}{% else %}не задан{% endif %}</strong>
                 </div>
                 <div class="token-summary-row">
-                    <span>Приветственная награда</span>
-                    <strong>
-                        {% if not welcome_reward_settings.welcome_reward_enabled %}
-                            выключена
-                        {% elif welcome_reward_settings.welcome_cm_bonus_amount and welcome_reward_settings.welcome_token_amount %}
-                            +{{ welcome_reward_settings.welcome_cm_bonus_amount }} КБ · +{{ welcome_reward_settings.welcome_token_amount }} жет.
-                        {% elif welcome_reward_settings.welcome_cm_bonus_amount %}
-                            +{{ welcome_reward_settings.welcome_cm_bonus_amount }} КБ
-                        {% else %}
-                            +{{ welcome_reward_settings.welcome_token_amount }} жет.
-                        {% endif %}
-                    </strong>
-                </div>
-                <div class="token-summary-row">
                     <span>Начисление</span>
                     <strong class="token-summary-status {% if not wheel_settings.is_enabled %}is-off{% endif %}">
                         {% if wheel_settings.is_enabled %}Активно{% else %}Выключено{% endif %}
@@ -1156,7 +1143,9 @@
             </aside>
         </aside>
     </div>
+    {% endif %}
 
+    {% if promotions_only|default(false) %}
     <section class="card wheel-section topup-bonus-section" id="topup-bonuses">
         <form method="POST" action="{{ url_for('owner.settings_topup_bonuses_save') }}" id="topupBonusForm">
             <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
@@ -1303,7 +1292,9 @@
             </div>
         </form>
     </section>
+    {% endif %}
 
+    {% if not promotions_only|default(false) %}
     <section class="card wheel-section bonus-editor-section" id="prize-editor">
         <div class="section-title">Редактор механики</div>
         <p class="wheel-subtitle">
@@ -1449,9 +1440,11 @@
     {% if active_bonus_editor == 'cases' %}
         {% include "owner/_settings_cases.html" %}
     {% endif %}
+    {% endif %}
 </div>
 </div>
 
+{% if not promotions_only|default(false) %}
 <div class="modal-overlay" id="prizeAddModal" aria-hidden="true">
     <div class="modal-panel modal-panel--prize" role="dialog" aria-modal="true" aria-labelledby="prizeAddModalTitle">
         <div class="modal-header">
@@ -1514,6 +1507,7 @@
         </form>
     </div>
 </div>
+{% endif %}
 
 <script>
     (function () {

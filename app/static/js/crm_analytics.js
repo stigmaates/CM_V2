@@ -668,7 +668,7 @@ function crmOpenPulseInteraction(key) {
     if (!group) return;
     crmActivePulseGroup = group;
     crmPulseTitle.textContent = `${group.old_label} → ${group.new_label}`;
-    crmPulseSubtitle.textContent = group.source === "guest_pulse" ? "Пульс гостя · выбранная аудитория" : "Пульс базы";
+    crmPulseSubtitle.textContent = group.source === "guest_pulse" ? "Пульс гостя · выбранная аудитория" : "Пульс гостя";
     if (crmPulseDismiss) crmPulseDismiss.hidden = group.source === "guest_pulse";
     crmPulseMessage.value = "";
     crmPulseBonusAmount.value = "0";

@@ -1,19 +1,20 @@
 {% set current_endpoint = request.endpoint or '' %}
 {% set settings_tab = request.args.get('tab', 'club') if current_endpoint == 'owner.settings' else '' %}
-{% set analytics_section = request.args.get('section', 'cohorts') %}
 {% set gamification_active = current_endpoint in [
     'owner.missions', 'owner.missions_add', 'owner.missions_update',
     'owner.missions_disable', 'owner.missions_delete', 'owner.wheel_settings',
-    'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete'
+    'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete',
+    'owner.promotions'
 ] or (current_endpoint == 'owner.settings' and settings_tab in ['missions', 'contracts', 'wheel', 'managed-drops']) %}
 {% set crm_active = current_endpoint in ['owner.mailing_page', 'owner.guest_pulse'] %}
-{% set analytics_active = current_endpoint == 'owner.crm_analytics' %}
-{% set management_active = current_endpoint == 'owner.team' or (current_endpoint == 'owner.settings' and settings_tab in ['club', 'profile', 'guests']) %}
+{% set analytics_active = current_endpoint in ['owner.analytics_cohorts', 'owner.analytics_communications', 'owner.analytics_heatmaps'] %}
+{% set management_active = current_endpoint == 'owner.team' or (current_endpoint == 'owner.settings' and settings_tab in ['club', 'guests']) %}
+{% set profile_active = current_endpoint == 'owner.settings' and settings_tab == 'profile' %}
 {% set training_active = current_endpoint == 'owner.training' %}
 
 <button class="owner-navigation-backdrop" type="button" data-owner-menu-close tabindex="-1" aria-label="Закрыть меню"></button>
 
-<aside class="owner-navigation" id="ownerNavigation" aria-hidden="true" aria-label="Навигация владельца">
+<aside class="owner-navigation is-open" id="ownerNavigation" aria-hidden="false" aria-label="Навигация владельца">
     <div class="owner-navigation__head">
         <a class="owner-navigation__brand" href="{{ url_for('owner.dashboard') }}">
             <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="">
@@ -22,10 +23,17 @@
                 <small>{{ header_club_name or 'Панель клуба' }}</small>
             </span>
         </a>
-        <button class="owner-navigation__close" type="button" data-owner-menu-close aria-label="Закрыть меню">×</button>
+        <button class="owner-navigation__close" type="button" data-owner-menu-close aria-label="Свернуть меню">×</button>
     </div>
 
     <nav class="owner-navigation__body" aria-label="Разделы модуля">
+        {% if session.get('role') in ['owner', 'co-owner'] %}
+            <a class="owner-navigation__profile {% if profile_active %}is-active{% endif %}" href="{{ url_for('owner.settings', tab='profile') }}" {% if profile_active %}aria-current="page"{% endif %}>
+                <span class="owner-navigation__profile-avatar" aria-hidden="true">●</span>
+                <span><strong>Профиль</strong><small>Аккаунт и доступ владельца</small></span>
+            </a>
+        {% endif %}
+
         <a class="owner-navigation__overview {% if current_endpoint == 'owner.dashboard' %}is-active{% endif %}" href="{{ url_for('owner.dashboard') }}" {% if current_endpoint == 'owner.dashboard' %}aria-current="page"{% endif %}>
             <span class="owner-navigation__overview-icon" aria-hidden="true">⌂</span>
             <span><strong>Обзор</strong><small>Главные показатели клуба</small></span>
@@ -40,7 +48,7 @@
                 <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}#prize-editor" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'wheel' and request.args.get('section') != 'bonuses' %}is-active{% endif %}">Настройки кейсов и колеса фортуны</a>
                 <a href="{{ url_for('owner.settings', tab='missions') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'missions' %}is-active{% endif %}">Задания</a>
                 <a href="{{ url_for('owner.settings', tab='contracts') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'contracts' %}is-active{% endif %}">Контракты</a>
-                <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel', section='bonuses') }}#topup-bonuses" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'wheel' and request.args.get('section') == 'bonuses' %}is-active{% endif %}">Бонусы за пополнение и приветственный бонус</a>
+                <a href="{{ url_for('owner.promotions') }}" class="{% if current_endpoint == 'owner.promotions' %}is-active{% endif %}">Акции</a>
                 {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
                     <a href="{{ url_for('owner.settings', tab='managed-drops') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'managed-drops' %}is-active{% endif %}">Управляемое выпадение</a>
                 {% endif %}
@@ -54,7 +62,7 @@
             </summary>
             <div class="owner-navigation__links">
                 <a href="{{ url_for('owner.mailing_page') }}" class="{% if current_endpoint == 'owner.mailing_page' %}is-active{% endif %}">Рассылки и авторассылки</a>
-                <a href="{{ url_for('owner.guest_pulse') }}" class="{% if current_endpoint == 'owner.guest_pulse' %}is-active{% endif %}">Health-состояние базы</a>
+                <a href="{{ url_for('owner.guest_pulse') }}" class="{% if current_endpoint == 'owner.guest_pulse' %}is-active{% endif %}">Пульс гостя</a>
             </div>
         </details>
 
@@ -64,9 +72,9 @@
                 <i aria-hidden="true"></i>
             </summary>
             <div class="owner-navigation__links">
-                <a href="{{ url_for('owner.crm_analytics', section='cohorts') }}#analytics-cohorts" class="{% if analytics_active and analytics_section == 'cohorts' %}is-active{% endif %}">Анализ по когортам</a>
-                <a href="{{ url_for('owner.crm_analytics', section='communications') }}#analytics-communications" class="{% if analytics_active and analytics_section == 'communications' %}is-active{% endif %}">Анализ коммуникаций</a>
-                <a href="{{ url_for('owner.crm_analytics', section='heatmaps') }}#analytics-heatmaps" class="{% if analytics_active and analytics_section == 'heatmaps' %}is-active{% endif %}">Тепловые карты</a>
+                <a href="{{ url_for('owner.analytics_cohorts') }}" class="{% if current_endpoint == 'owner.analytics_cohorts' %}is-active{% endif %}">Анализ по когортам</a>
+                <a href="{{ url_for('owner.analytics_communications') }}" class="{% if current_endpoint == 'owner.analytics_communications' %}is-active{% endif %}">Анализ коммуникаций</a>
+                <a href="{{ url_for('owner.analytics_heatmaps') }}" class="{% if current_endpoint == 'owner.analytics_heatmaps' %}is-active{% endif %}">Тепловые карты</a>
             </div>
         </details>
 

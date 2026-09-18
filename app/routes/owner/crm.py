@@ -6,15 +6,14 @@ from werkzeug.exceptions import HTTPException
 
 from app.core import get_db_connection, owner_required
 from app.services.crm_analysis import get_crm_cohort_analysis
-from app.services.crm_pulse import get_crm_pulse_groups, mark_crm_pulse_handled
-from app.services.dashboard import get_dashboard_audience_stats, get_visit_heatmap_stats
+from app.services.crm_pulse import mark_crm_pulse_handled
+from app.services.dashboard import get_visit_heatmap_stats
 from app.services.mailing import (
     create_bonus_giveaway,
     create_mailing_for_recipients,
     delete_segment,
     get_filter_fields,
     get_manual_crm_campaign_passport,
-    get_message_variables,
     get_recipient_rows_for_guest_ids,
     list_auto_crm_campaigns,
     list_manual_crm_campaigns,
@@ -25,7 +24,7 @@ from app.services.pc_heatmap import get_pc_hours_heatmap_stats
 from scripts.process_mailings import process_one_mailing
 
 from . import owner_bp
-from .guest_pulse import load_selection, selection_group
+from .guest_pulse import load_selection
 
 
 def _process_crm_mailing_in_background(mailing_id: int):
@@ -72,9 +71,71 @@ def _start_crm_mailing_worker(mailing_id: int):
 @owner_bp.route("/crm-analytics")
 @owner_required
 def crm_analytics():
+    endpoints = {
+        "cohorts": "owner.analytics_cohorts",
+        "communications": "owner.analytics_communications",
+        "heatmaps": "owner.analytics_heatmaps",
+    }
+    section = request.args.get("section", "cohorts")
+    return redirect(url_for(endpoints.get(section, "owner.analytics_cohorts")))
+
+
+def _analytics_club_id():
     club_id = session.get("club_id")
     if not club_id:
         flash("Сначала создайте клуб", "error")
+        return None
+    return int(club_id)
+
+
+@owner_bp.get("/analytics/cohorts")
+@owner_required
+def analytics_cohorts():
+    club_id = _analytics_club_id()
+    if club_id is None:
+        return redirect(url_for("owner.club_create"))
+
+    conn = get_db_connection()
+    try:
+        cohorts = list_segments(conn, club_id)
+        initial_analysis = get_crm_cohort_analysis(conn, club_id, [], funnel_period="all")
+    finally:
+        conn.close()
+
+    return render_template(
+        "owner/crm_analytics.html",
+        analytics_section="cohorts",
+        filter_fields=get_filter_fields(),
+        cohorts=cohorts,
+        initial_analysis=initial_analysis,
+    )
+
+
+@owner_bp.get("/analytics/communications")
+@owner_required
+def analytics_communications():
+    club_id = _analytics_club_id()
+    if club_id is None:
+        return redirect(url_for("owner.club_create"))
+
+    conn = get_db_connection()
+    try:
+        manual_campaigns = list_manual_crm_campaigns(conn, club_id)
+    finally:
+        conn.close()
+
+    return render_template(
+        "owner/crm_analytics.html",
+        analytics_section="communications",
+        manual_campaigns=manual_campaigns,
+    )
+
+
+@owner_bp.get("/analytics/heatmaps")
+@owner_required
+def analytics_heatmaps():
+    club_id = _analytics_club_id()
+    if club_id is None:
         return redirect(url_for("owner.club_create"))
 
     try:
@@ -85,37 +146,17 @@ def crm_analytics():
     if selected_period not in (7, 30, 90):
         selected_period = 30
 
-    telegram_only = False
-
-    audience = get_dashboard_audience_stats(int(club_id), telegram_only=telegram_only)
-    pc_heatmap = get_pc_hours_heatmap_stats(int(club_id), selected_period)
+    pc_heatmap = get_pc_hours_heatmap_stats(club_id, selected_period)
     heatmap = get_visit_heatmap_stats(
-        int(club_id), selected_period, pc_count=len(pc_heatmap.get("pcs") or [])
+        club_id, selected_period, pc_count=len(pc_heatmap.get("pcs") or [])
     )
-    conn = get_db_connection()
-    try:
-        cohorts = list_segments(conn, int(club_id))
-        initial_analysis = get_crm_cohort_analysis(conn, int(club_id), [], funnel_period="all")
-        manual_campaigns = list_manual_crm_campaigns(conn, int(club_id))
-        crm_pulse_groups = get_crm_pulse_groups(conn, int(club_id))
-        if request.args.get("pulse_selection"):
-            crm_pulse_groups.append(selection_group(conn, request.args["pulse_selection"]))
-    finally:
-        conn.close()
 
     return render_template(
         "owner/crm_analytics.html",
-        audience=audience,
+        analytics_section="heatmaps",
         heatmap=heatmap,
         pc_heatmap=pc_heatmap,
-        filter_fields=get_filter_fields(),
-        message_variables=get_message_variables(),
-        cohorts=cohorts,
-        initial_analysis=initial_analysis,
-        manual_campaigns=manual_campaigns,
-        crm_pulse_groups=crm_pulse_groups,
         selected_period=selected_period,
-        telegram_only=telegram_only,
     )
 
 

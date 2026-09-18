@@ -19,10 +19,10 @@ def test_owner_navigation_groups_existing_owner_pages():
         "Настройки кейсов и колеса фортуны",
         "Задания",
         "Контракты",
-        "Бонусы за пополнение и приветственный бонус",
+        "Акции",
         "Управляемое выпадение",
         "Рассылки и авторассылки",
-        "Health-состояние базы",
+        "Пульс гостя",
         "Анализ по когортам",
         "Анализ коммуникаций",
         "Тепловые карты",
@@ -33,11 +33,11 @@ def test_owner_navigation_groups_existing_owner_pages():
         assert item in html
 
     assert 'id="ownerNavigation"' in html
-    assert "#analytics-cohorts" in html
-    assert "#analytics-communications" in html
-    assert "#analytics-heatmaps" in html
+    assert "/owner/analytics/cohorts" in html
+    assert "/owner/analytics/communications" in html
+    assert "/owner/analytics/heatmaps" in html
+    assert "/owner/promotions" in html
     assert "#prize-editor" in html
-    assert "#topup-bonuses" in html
 
 
 def test_owner_base_uses_burger_navigation_assets():

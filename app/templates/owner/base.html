@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260918-owner-nav-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260918-owner-nav-2') }}">
     {% block head %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
@@ -27,9 +27,9 @@
                     type="button"
                     class="owner-menu-trigger"
                     data-owner-menu-open
-                    aria-label="Открыть меню"
+                    aria-label="Свернуть меню"
                     aria-controls="ownerNavigation"
-                    aria-expanded="false"
+                    aria-expanded="true"
                 >
                     <span></span><span></span><span></span>
                 </button>

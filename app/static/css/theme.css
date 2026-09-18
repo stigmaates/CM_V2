@@ -639,6 +639,8 @@ label {
 }
 
 .app-shell--topnav {
+    --owner-navigation-width: 352px;
+    --owner-navigation-fixed-width: 352px;
     background: radial-gradient(circle at 12% 0%, rgba(143, 91, 255, 0.14), transparent 42%),
         var(--bg-deep, #0f0818);
 }
@@ -680,7 +682,7 @@ label {
     background: rgba(143, 91, 255, 0.13);
     color: var(--text-main);
     cursor: pointer;
-    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    transition: background 0.28s ease, border-color 0.28s ease, transform 0.32s cubic-bezier(.2, .8, .2, 1);
 }
 
 .owner-menu-trigger:hover {
@@ -754,14 +756,14 @@ label {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.24s ease, visibility 0.24s ease;
+    transition: opacity 0.38s ease, visibility 0.38s ease;
 }
 
 .owner-navigation {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 810;
-    width: min(370px, calc(100vw - 28px));
+    width: var(--owner-navigation-fixed-width);
     display: flex;
     flex-direction: column;
     border-right: 1px solid rgba(165, 114, 255, 0.34);
@@ -769,9 +771,9 @@ label {
         radial-gradient(circle at 10% 0%, rgba(143, 91, 255, 0.22), transparent 35%),
         #12091f;
     box-shadow: 30px 0 70px rgba(4, 1, 10, 0.58);
-    transform: translateX(-104%);
-    visibility: hidden;
-    transition: transform 0.26s ease, visibility 0.26s ease;
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.46s cubic-bezier(.22, 1, .36, 1), visibility 0.46s ease;
 }
 
 .owner-navigation.is-open {
@@ -857,13 +859,14 @@ body.owner-navigation-open .owner-navigation-backdrop {
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 18px 14px 24px;
+    padding: 16px 14px 24px;
     scrollbar-width: thin;
     scrollbar-color: rgba(165, 114, 255, 0.5) transparent;
 }
 
 .owner-navigation__overview,
-.owner-navigation__standalone {
+.owner-navigation__standalone,
+.owner-navigation__profile {
     display: flex;
     align-items: center;
     gap: 13px;
@@ -873,15 +876,73 @@ body.owner-navigation-open .owner-navigation-backdrop {
     border: 1px solid transparent;
     color: var(--text-main);
     text-decoration: none;
-    transition: background 0.18s ease, border-color 0.18s ease;
+    transition: background 0.26s ease, border-color 0.26s ease, transform 0.26s cubic-bezier(.2, .8, .2, 1);
+}
+
+@media (min-width: 901px) {
+    .app-shell--topnav {
+        display: grid;
+        grid-template-columns: var(--owner-navigation-width) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        transition: grid-template-columns .46s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    .app-shell--topnav .owner-topbar,
+    .app-shell--topnav .owner-page {
+        grid-column: 2;
+    }
+
+    .app-shell--topnav .owner-topbar {
+        grid-row: 1;
+    }
+
+    .app-shell--topnav .owner-page {
+        grid-row: 2;
+        width: 100%;
+        max-width: 1480px;
+    }
+
+    .app-shell--topnav .owner-navigation-backdrop {
+        display: none;
+    }
+
+    body.owner-navigation-collapsed .app-shell--topnav {
+        --owner-navigation-width: 0px;
+    }
+
+    body.owner-navigation-collapsed .owner-navigation {
+        transform: translateX(-104%);
+        visibility: hidden;
+    }
+}
+
+@media (max-width: 900px) {
+    .owner-navigation {
+        width: min(370px, calc(100vw - 28px));
+        transform: translateX(-104%);
+        visibility: hidden;
+    }
+
+    .owner-navigation.is-open {
+        transform: translateX(0);
+        visibility: visible;
+    }
 }
 
 .owner-navigation__overview:hover,
 .owner-navigation__standalone:hover,
+.owner-navigation__profile:hover,
 .owner-navigation__overview.is-active,
-.owner-navigation__standalone.is-active {
+.owner-navigation__standalone.is-active,
+.owner-navigation__profile.is-active {
     background: rgba(143, 91, 255, 0.14);
     border-color: rgba(165, 114, 255, 0.3);
+}
+
+.owner-navigation__overview:hover,
+.owner-navigation__standalone:hover,
+.owner-navigation__profile:hover {
+    transform: translateX(3px);
 }
 
 .owner-navigation__overview-icon {
@@ -897,20 +958,37 @@ body.owner-navigation-open .owner-navigation-backdrop {
     font-size: 20px;
 }
 
+.owner-navigation__profile-avatar {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a572ff, #6f42d8);
+    box-shadow: 0 7px 18px rgba(143, 91, 255, .3);
+    color: rgba(255, 255, 255, .94);
+    font-size: 18px;
+}
+
 .owner-navigation__overview > span:last-child,
-.owner-navigation__standalone > span {
+.owner-navigation__standalone > span,
+.owner-navigation__profile > span:last-child {
     display: flex;
     flex-direction: column;
 }
 
 .owner-navigation__overview strong,
-.owner-navigation__standalone strong {
+.owner-navigation__standalone strong,
+.owner-navigation__profile strong {
     font-size: 15px;
     font-weight: 850;
 }
 
 .owner-navigation__overview small,
-.owner-navigation__standalone small {
+.owner-navigation__standalone small,
+.owner-navigation__profile small {
     margin-top: 2px;
     color: var(--text-muted);
     font-size: 12px;
@@ -921,7 +999,7 @@ body.owner-navigation-open .owner-navigation-backdrop {
     border: 1px solid transparent;
     border-radius: 16px;
     overflow: clip;
-    transition: background 0.18s ease, border-color 0.18s ease;
+    transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s cubic-bezier(.2, .8, .2, 1);
 }
 
 .owner-navigation__group.is-active,
@@ -941,6 +1019,11 @@ body.owner-navigation-open .owner-navigation-backdrop {
     color: var(--text-main);
     cursor: pointer;
     user-select: none;
+    transition: background 0.28s ease;
+}
+
+.owner-navigation__group summary:hover {
+    background: rgba(143, 91, 255, .08);
 }
 
 .owner-navigation__group summary::-webkit-details-marker {
@@ -972,7 +1055,7 @@ body.owner-navigation-open .owner-navigation-backdrop {
     border-right: 2px solid #bfa7e8;
     border-bottom: 2px solid #bfa7e8;
     transform: rotate(45deg) translate(-2px, -2px);
-    transition: transform 0.18s ease;
+    transition: transform 0.32s cubic-bezier(.2, .8, .2, 1);
 }
 
 .owner-navigation__group[open] summary i {
@@ -982,7 +1065,19 @@ body.owner-navigation-open .owner-navigation-backdrop {
 .owner-navigation__links {
     display: grid;
     gap: 3px;
-    padding: 0 8px 9px 18px;
+    max-height: 0;
+    padding: 0 8px 0 18px;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-7px);
+    transition: max-height .42s cubic-bezier(.22, 1, .36, 1), padding .32s ease, opacity .22s ease, transform .36s cubic-bezier(.22, 1, .36, 1);
+}
+
+.owner-navigation__group[open] .owner-navigation__links {
+    max-height: 340px;
+    padding-bottom: 9px;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .owner-navigation__links a {
@@ -997,7 +1092,7 @@ body.owner-navigation-open .owner-navigation-backdrop {
     font-size: 13px;
     font-weight: 700;
     line-height: 1.35;
-    transition: color 0.16s ease, background 0.16s ease;
+    transition: color 0.22s ease, background 0.22s ease, transform 0.22s cubic-bezier(.2, .8, .2, 1);
 }
 
 .owner-navigation__links a::before {
@@ -1016,6 +1111,10 @@ body.owner-navigation-open .owner-navigation-backdrop {
     background: rgba(143, 91, 255, 0.16);
 }
 
+.owner-navigation__links a:hover {
+    transform: translateX(3px);
+}
+
 .owner-navigation__links a.is-active::before {
     background: #a572ff;
     box-shadow: 0 0 10px rgba(165, 114, 255, 0.8);
@@ -1023,6 +1122,11 @@ body.owner-navigation-open .owner-navigation-backdrop {
 
 .owner-navigation__standalone {
     margin-top: 8px;
+    padding-left: 16px;
+}
+
+.owner-navigation__profile {
+    margin-bottom: 8px;
     padding-left: 16px;
 }
 

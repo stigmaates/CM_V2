@@ -72,6 +72,7 @@ def test_bonus_settings_shows_configurable_topup_rewards():
             topup_bonus_variables=[("first_name", "Имя"), ("bonus_amount", "Начислено КБ")],
             topup_bonus_exclude_from_amount=30000,
             topup_bonus_max_rule_amount=29999.99,
+            promotions_only=True,
         )
 
     assert "Бонусы за пополнения" in html
@@ -85,8 +86,8 @@ def test_bonus_settings_shows_configurable_topup_rewards():
     assert 'value="2"' in html
     assert "Приветственная награда" in html
     assert html.index("Бонусы за пополнения") < html.index('id="welcome-reward"')
-    assert html.index('id="welcome-reward"') < html.index("Редактор механики")
-    assert html.index("Редактор механики") < html.index("Призы колеса")
+    assert "Редактор механики" not in html
+    assert "Призы колеса" not in html
     assert html.count('class="settings-toggle') >= 3
     assert "Добавить правило" in html
     assert "{first_name}" in html
@@ -97,7 +98,29 @@ def test_bonus_settings_shows_configurable_topup_rewards():
     assert "Пополнения от 30000 ₽ не участвуют" in html
 
 
-def test_bonus_settings_token_summary_uses_shared_token_language():
+def test_promotions_page_contains_only_promotion_settings():
+    with app.test_request_context("/owner/promotions"):
+        html = render_template(
+            "owner/promotions.html",
+            topup_bonus_settings={"is_enabled": 0, "message_template": "Текст", "rules": []},
+            welcome_reward_settings={
+                "welcome_reward_enabled": 1,
+                "welcome_cm_bonus_amount": 0,
+                "welcome_token_amount": 1,
+            },
+            topup_bonus_variables=[],
+            topup_bonus_exclude_from_amount=30000,
+            topup_bonus_max_rule_amount=29999.99,
+        )
+
+    assert "<h1>Акции</h1>" in html
+    assert "Бонусы за пополнения" in html
+    assert "Приветственная награда" in html
+    assert "Редактор механики" not in html
+    assert "Призы колеса" not in html
+
+
+def test_bonus_settings_summary_only_contains_case_and_wheel_configuration():
     with app.test_request_context("/owner/settings?tab=wheel"):
         html = render_template(
             "owner/_settings_wheel.html",
@@ -118,15 +141,13 @@ def test_bonus_settings_token_summary_uses_shared_token_language():
 
     assert "Активный режим" in html
     assert "Старт жетонов" in html
-    assert "Приветственная награда" in html
+    assert "Приветственная награда" not in html
     assert "Показывать призы только моего клуба" in html
     assert "Лента призов" in html
     assert "Только клуб" in html
-    assert "+1 жет." in html
     assert "Начислять жетоны за посещения" in html
     assert "Стоимость прокрута колеса" not in html
     assert "Колесо включено" not in html
-    assert html.index("Приветственная награда") < html.index("Редактор механики")
 
 
 def test_case_settings_use_guest_style_cards_with_config_modals():

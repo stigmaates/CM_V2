@@ -249,7 +249,7 @@ def guest_pulse_selection():
         group = selection_group(conn, key)
     finally:
         conn.close()
-    return jsonify(ok=True, count=len(selected), group=group, url=url_for("owner.crm_analytics", pulse_selection=key))
+    return jsonify(ok=True, count=len(selected), group=group, url=url_for("owner.guest_pulse"))
 
 
 def load_selection(conn, key, *, lock=False):
