@@ -330,14 +330,19 @@ def build_report_from_sources(
     }
     new_funnel["second_percent"] = _percent(new_funnel["second"], new_funnel["first"])
     new_funnel["third_percent"] = _percent(new_funnel["third"], new_funnel["first"])
-    all_funnel = [
-        {
-            "visits": number,
-            "count": sum(count >= number for count in current_counts.values()),
-            "percent": _percent(sum(count >= number for count in current_counts.values()), len(active)),
-        }
-        for number in range(1, 6)
-    ]
+    all_funnel = []
+    previous_step_count = len(active)
+    for number in range(1, 6):
+        step_count = sum(count >= number for count in current_counts.values())
+        all_funnel.append(
+            {
+                "visits": number,
+                "count": step_count,
+                "percent": _percent(step_count, len(active)),
+                "step_percent": _percent(step_count, previous_step_count),
+            }
+        )
+        previous_step_count = step_count
 
     cases = _mechanic_stats(
         [row for row in sources.get("case_openings", []) if _in_period(row.get("created_at"), start, end)], len(active)

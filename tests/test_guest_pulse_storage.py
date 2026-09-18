@@ -557,13 +557,13 @@ def test_audience_can_sort_all_rows_by_overall_score(pulse_client, database, mix
     assert descending["guests"][0]["overall"]["score"] == 100
 
 
-def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, database, monkeypatch):
+def test_selection_returns_inline_form_audience_without_stage_block(pulse_client, database, monkeypatch):
     monkeypatch.setenv('DISABLE_OUTBOUND_MESSAGES', '1')
     response = pulse_client.get('/owner/guest-pulse')
     assert response.status_code == 200
     html = response.get_data(as_text=True)
     assert 'id="crmPulseModal"' in html
-    assert 'window.CRM_OUTBOUND_DISABLED = true' in html
+    assert 'window.CRM_OUTBOUND_DISABLED = false' in html
     assert 'id="crmAnalysisRulesContainer"' not in html
     selection = pulse_client.post('/owner/api/guest-pulse/selection', json={}, headers={'X-CSRFToken': 'pulse-test-csrf'}).get_json()
     assert selection['group']['guest_ids'] == [42]
