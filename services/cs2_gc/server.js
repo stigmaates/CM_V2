@@ -40,6 +40,9 @@ function cachedDemoEnrichment(match, normalized) {
   if (!demoMetadataCache.has(cacheKey)) {
     const task = enrichMatchWithDemo(match, normalized)
       .then((result) => {
+        console.log(
+          `CS2 demo parsed for match ${cacheKey}: map=${result.map_name}, mode=${result.mode_label}`,
+        );
         demoMetadataCache.set(cacheKey, Promise.resolve(result));
         return result;
       })
