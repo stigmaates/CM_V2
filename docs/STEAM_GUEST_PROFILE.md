@@ -52,13 +52,15 @@ Steam Web API выдаёт последовательность кодов ма�
 серверный Steam-аккаунт. Гостевой пароль и пароль серверного аккаунта приложение
 не хранит.
 
-1. Установить Node.js 20 и зависимости строго по lock-файлу:
+1. Использовать Node.js 18+ и установить зависимости строго по lock-файлу
+   через npm 10.8.2 (системный npm 9 на production-хосте этот lock-файл не
+   устанавливает):
 
    ```bash
    cd /root/cm_v2/CM_V2/services/cs2_gc
-   npm ci --omit=dev
+   npx --yes npm@10.8.2 ci --omit=dev --no-audit --no-fund
    npm test
-   npm audit --omit=dev
+   python3 ../../scripts/check_cs2_bridge_release.py
    ```
 
 2. На отдельном Steam-аккаунте добавить бесплатную Counter-Strike 2 в
@@ -75,10 +77,10 @@ Steam Web API выдаёт последовательность кодов ма�
    `.env`. Stage-секрет и stage refresh token повторно не используются:
 
    ```dotenv
-   CS2_GC_BRIDGE_URL=http://127.0.0.1:32173
+   CS2_GC_BRIDGE_URL=http://127.0.0.1:32174
    CS2_GC_BRIDGE_SECRET=<new production secret>
    CS2_GC_REFRESH_TOKEN=<new production refresh token>
-   CS2_GC_PORT=32173
+   CS2_GC_PORT=32174
    ```
 
 4. Установить Python-зависимости, отрепетировать миграцию
@@ -92,7 +94,7 @@ Steam Web API выдаёт последовательность кодов ма�
    install -m 0644 deploy/systemd/clubmodule-cs2-gc.service /etc/systemd/system/
    systemctl daemon-reload
    systemctl start clubmodule-cs2-gc.service
-   curl -sS http://127.0.0.1:32173/health
+   curl -sS http://127.0.0.1:32174/health
    ```
 
    Готовый bridge отвечает `{"ok":true,"steam":true,"gc":true}`. Его порт
