@@ -21,6 +21,20 @@ const steam = new SteamUser({renewRefreshTokens: false});
 const cs2 = new GlobalOffensive(steam);
 let ready = false;
 let queue = Promise.resolve();
+let reconnectTimer = null;
+
+function launchCS2Coordinator() {
+  steam.gamesPlayed([730]);
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    if (!steam.steamID || cs2.haveGCSession) return;
+    console.warn('CS2 Game Coordinator did not connect; restarting app session');
+    steam.gamesPlayed([]);
+    setTimeout(() => {
+      if (steam.steamID && !cs2.haveGCSession) steam.gamesPlayed([730]);
+    }, 1000);
+  }, 15000);
+}
 
 function requestMatch(shareCode, steamId) {
   return new Promise((resolve, reject) => {
@@ -120,7 +134,17 @@ const server = http.createServer(async (request, response) => {
 steam.on('loggedOn', () => {
   console.log('Steam connected; launching CS2 Game Coordinator session');
   steam.setPersona(SteamUser.EPersonaState.Invisible);
-  steam.gamesPlayed([730]);
+  launchCS2Coordinator();
+  steam.requestFreeLicense([730], (error, grantedPackageIds, grantedAppIds) => {
+    if (error) {
+      console.warn(`Could not request the free CS2 license: ${error.message}`);
+      return;
+    }
+    if ((grantedPackageIds || []).length || (grantedAppIds || []).length) {
+      console.log('Free CS2 license granted to the service account');
+    }
+    if (!cs2.haveGCSession) launchCS2Coordinator();
+  });
 });
 steam.on('error', (error) => {
   ready = false;
@@ -128,11 +152,13 @@ steam.on('error', (error) => {
 });
 cs2.on('connectedToGC', () => {
   ready = true;
+  clearTimeout(reconnectTimer);
   console.log('CS2 Game Coordinator connected');
 });
 cs2.on('disconnectedFromGC', () => {
   ready = false;
   console.warn('CS2 Game Coordinator disconnected');
+  if (steam.steamID) launchCS2Coordinator();
 });
 
 server.listen(PORT, HOST, () => console.log(`CS2 GC bridge listening on ${HOST}:${PORT}`));
