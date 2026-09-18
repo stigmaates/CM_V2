@@ -469,6 +469,7 @@ def test_dashboard_contract_sync_updates_active_games(monkeypatch):
         }
     }
     monkeypatch.setattr(guest_routes, "get_guest_contracts_state", lambda *args: state)
+    monkeypatch.setattr(guest_routes, "repair_missing_contract_rewards", lambda *args: 1)
     synced = []
     monkeypatch.setattr(
         guest_routes,
@@ -503,6 +504,7 @@ def test_dashboard_contract_sync_updates_active_games(monkeypatch):
     assert response.get_json()["reward_history"][0]["title"] == (
         "Награда за игровой контракт «Победитель»"
     )
+    assert response.get_json()["repaired_rewards"] == 1
     assert response.get_json()["synced_games"] == ["dota2"]
     assert synced == [(3, 14, "dota2")]
 

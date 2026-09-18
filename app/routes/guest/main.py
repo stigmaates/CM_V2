@@ -34,6 +34,7 @@ from app.services.game_contracts import (
     generate_weekly_contracts,
     get_guest_contract_pool,
     get_guest_contracts_state,
+    repair_missing_contract_rewards,
     reroll_guest_contracts,
     sync_contracts_for_guest,
 )
@@ -253,6 +254,7 @@ def api_game_contracts_sync():
     cooldown = timedelta(minutes=15)
     synced_games = []
     errors = {}
+    repaired_rewards = repair_missing_contract_rewards(club_id, guest_id)
     state = get_guest_contracts_state(club_id, guest_id)
     for game, game_state in state.get("games", {}).items():
         active_contracts = [
@@ -314,6 +316,7 @@ def api_game_contracts_sync():
             "ok": True,
             "contracts": contracts,
             "reward_history": serialized_reward_history,
+            "repaired_rewards": repaired_rewards,
             "synced_games": synced_games,
             "errors": errors,
         }

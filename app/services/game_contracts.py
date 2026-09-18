@@ -1290,19 +1290,76 @@ def _match_contribution(contract: dict, match: dict) -> Decimal:
     return Decimal(0)
 
 
-def _award_completed_contract(cursor, contract: dict) -> None:
+def _award_completed_contract(cursor, contract: dict) -> int:
     source_id = str(contract["id"])
     description = f"Награда за игровой контракт «{contract['title']}»"
+    awarded = 0
     if int(contract.get("reward_tokens") or 0) > 0:
-        add_guest_token_transaction(
-            cursor, int(contract["guest_id"]), int(contract["club_id"]),
-            int(contract["reward_tokens"]), "game_contract", source_id, description,
+        awarded += int(
+            add_guest_token_transaction(
+                cursor, int(contract["guest_id"]), int(contract["club_id"]),
+                int(contract["reward_tokens"]), "game_contract", source_id, description,
+            )
         )
     if int(contract.get("reward_bonus") or 0) > 0:
-        add_cm_bonus_transaction(
-            cursor, int(contract["guest_id"]), int(contract["club_id"]),
-            int(contract["reward_bonus"]), "game_contract", source_id, description,
+        awarded += int(
+            add_cm_bonus_transaction(
+                cursor, int(contract["guest_id"]), int(contract["club_id"]),
+                int(contract["reward_bonus"]), "game_contract", source_id, description,
+            )
         )
+    return awarded
+
+
+def repair_missing_contract_rewards(club_id: int, guest_id: int) -> int:
+    """Issue completed contract rewards missing from the ledgers, without duplicates."""
+    now = _utcnow()
+    repaired = 0
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.*
+                FROM guest_game_contracts c
+                WHERE c.club_id=%s AND c.guest_id=%s AND c.status='completed'
+                  AND (c.reward_tokens > 0 OR c.reward_bonus > 0)
+                  AND (
+                    (c.reward_tokens > 0 AND NOT EXISTS (
+                        SELECT 1 FROM guest_wheel_token_transactions t
+                        WHERE t.club_id=c.club_id AND t.guest_id=c.guest_id
+                          AND t.source_type='game_contract' AND t.source_id=CAST(c.id AS CHAR)
+                    ))
+                    OR
+                    (c.reward_bonus > 0 AND NOT EXISTS (
+                        SELECT 1 FROM cm_bonus_transactions b
+                        WHERE b.club_id=c.club_id AND b.guest_id=c.guest_id
+                          AND b.source_type='game_contract' AND b.source_id=CAST(c.id AS CHAR)
+                    ))
+                  )
+                FOR UPDATE
+                """,
+                (club_id, guest_id),
+            )
+            contracts = cursor.fetchall()
+            for contract in contracts:
+                if _award_completed_contract(cursor, contract) > 0:
+                    repaired += 1
+                cursor.execute(
+                    """
+                    UPDATE guest_game_contracts
+                    SET reward_claimed_at=COALESCE(reward_claimed_at, %s), updated_at=%s
+                    WHERE id=%s
+                    """,
+                    (now, now, contract["id"]),
+                )
+        conn.commit()
+        return repaired
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def evaluate_contracts_for_guest(club_id: int, guest_id: int, game: str) -> int:
