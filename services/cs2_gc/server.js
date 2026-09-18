@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const http = require('http');
 const SteamUser = require('steam-user');
 const GlobalOffensive = require('globaloffensive');
-const {normalizeMatch} = require('./normalizer');
+const {matchMetadataDiagnostic, normalizeMatch} = require('./normalizer');
 
 const PORT = Number(process.env.CS2_GC_PORT || 32173);
 const HOST = '127.0.0.1';
@@ -57,7 +57,11 @@ function requestMatch(shareCode, steamId) {
         return;
       }
       try {
-        finish(null, normalizeMatch(matches[0], steamId, shareCode));
+        const normalized = normalizeMatch(matches[0], steamId, shareCode);
+        if (normalized.map_name === 'unknown' || normalized.mode_label === 'Официальный матч') {
+          console.warn(`CS2 unresolved match metadata: ${JSON.stringify(matchMetadataDiagnostic(matches[0]))}`);
+        }
+        finish(null, normalized);
       } catch (error) {
         finish(error);
       }
