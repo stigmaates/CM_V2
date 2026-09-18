@@ -55,6 +55,18 @@ def load_sources(conn, club_id, timezone_name):
         ("guest_case_openings", "created_at", "case", "1=1"),
         ("guest_wheel_spins", "created_at", "wheel", "1=1"),
         (
+            "guest_game_contracts",
+            "started_at",
+            "contract_selected",
+            "status IN ('active','completed','expired')",
+        ),
+        (
+            "guest_game_contracts",
+            "completed_at",
+            "contract_completed",
+            "status='completed' AND completed_at IS NOT NULL",
+        ),
+        (
             "cm_bonus_redeem_requests",
             "processed_at",
             "conversion",

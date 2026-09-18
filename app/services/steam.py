@@ -7,7 +7,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from urllib.parse import unquote, urlencode
 
@@ -874,8 +874,28 @@ def get_linked_steam_account(*, club_id: int, guest_id: int) -> dict | None:
         conn.close()
 
 
+def _profile_game_hours(profile: dict) -> dict | None:
+    if not profile.get("stats_available"):
+        return None
+    games = {str(game.get("slug")): game for game in profile.get("games") or []}
+    return {
+        "cs2_hours_total": float(games.get("cs2", {}).get("hours_total") or 0),
+        "cs2_hours_2weeks": float(games.get("cs2", {}).get("hours_2weeks") or 0),
+        "dota2_hours_total": float(games.get("dota2", {}).get("hours_total") or 0),
+        "dota2_hours_2weeks": float(games.get("dota2", {}).get("hours_2weeks") or 0),
+    }
+
+
+def _dominant_game_slug(cs2_hours: float, dota2_hours: float) -> tuple[str | None, float | None]:
+    if cs2_hours <= 0 and dota2_hours <= 0:
+        return None, None
+    return ("cs2", cs2_hours) if cs2_hours >= dota2_hours else ("dota2", dota2_hours)
+
+
 def link_steam_account(*, club_id: int, guest_id: int, steam_id: str, profile: dict | None = None) -> None:
     profile = profile or {}
+    game_hours = _profile_game_hours(profile)
+    stats_at = datetime.now(UTC).replace(tzinfo=None) if game_hours else None
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -896,13 +916,21 @@ def link_steam_account(*, club_id: int, guest_id: int, steam_id: str, profile: d
                 cursor.execute(
                     """
                     INSERT INTO guest_steam_accounts (
-                        club_id, guest_id, steam_id, persona_name, profile_url, avatar_url
-                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                        club_id, guest_id, steam_id, persona_name, profile_url, avatar_url,
+                        cs2_hours_total, cs2_hours_2weeks, dota2_hours_total, dota2_hours_2weeks,
+                        game_stats_updated_at, game_stats_attempted_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         steam_id = VALUES(steam_id),
                         persona_name = VALUES(persona_name),
                         profile_url = VALUES(profile_url),
-                        avatar_url = VALUES(avatar_url)
+                        avatar_url = VALUES(avatar_url),
+                        cs2_hours_total = COALESCE(VALUES(cs2_hours_total), cs2_hours_total),
+                        cs2_hours_2weeks = COALESCE(VALUES(cs2_hours_2weeks), cs2_hours_2weeks),
+                        dota2_hours_total = COALESCE(VALUES(dota2_hours_total), dota2_hours_total),
+                        dota2_hours_2weeks = COALESCE(VALUES(dota2_hours_2weeks), dota2_hours_2weeks),
+                        game_stats_updated_at = COALESCE(VALUES(game_stats_updated_at), game_stats_updated_at),
+                        game_stats_attempted_at = COALESCE(VALUES(game_stats_attempted_at), game_stats_attempted_at)
                     """,
                     (
                         club_id,
@@ -911,8 +939,37 @@ def link_steam_account(*, club_id: int, guest_id: int, steam_id: str, profile: d
                         profile.get("persona_name"),
                         profile.get("profile_url"),
                         profile.get("avatar_url"),
+                        game_hours.get("cs2_hours_total") if game_hours else None,
+                        game_hours.get("cs2_hours_2weeks") if game_hours else None,
+                        game_hours.get("dota2_hours_total") if game_hours else None,
+                        game_hours.get("dota2_hours_2weeks") if game_hours else None,
+                        stats_at,
+                        stats_at,
                     ),
                 )
+                if game_hours:
+                    favorite_game, favorite_hours = _dominant_game_slug(
+                        game_hours["cs2_hours_total"], game_hours["dota2_hours_total"]
+                    )
+                    recent_game, recent_hours = _dominant_game_slug(
+                        game_hours["cs2_hours_2weeks"], game_hours["dota2_hours_2weeks"]
+                    )
+                    cursor.execute(
+                        """UPDATE user_portrait
+                        SET favorite_game=%s, favorite_game_hours=%s,
+                            recent_game_14d=%s, recent_game_14d_hours=%s,
+                            steam_game_stats_updated_at=%s
+                        WHERE club_id=%s AND guest_id=%s""",
+                        (
+                            favorite_game,
+                            favorite_hours,
+                            recent_game,
+                            recent_hours,
+                            stats_at,
+                            club_id,
+                            guest_id,
+                        ),
+                    )
             except pymysql.IntegrityError as exc:
                 raise SteamAlreadyLinkedError("Этот Steam уже привязан к другому гостю клуба") from exc
         conn.commit()
@@ -921,3 +978,51 @@ def link_steam_account(*, club_id: int, guest_id: int, steam_id: str, profile: d
         raise
     finally:
         conn.close()
+
+
+def refresh_linked_steam_game_stats(*, limit: int = 5, stale_hours: int = 12, retry_hours: int = 1) -> dict:
+    """Refresh a small stale batch so CRM game preferences stay current without slowing page loads."""
+    now = datetime.now(UTC).replace(tzinfo=None)
+    stale_before = now - timedelta(hours=max(1, int(stale_hours)))
+    retry_before = now - timedelta(hours=max(1, int(retry_hours)))
+    safe_limit = max(1, min(int(limit), 50))
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT club_id, guest_id, steam_id
+                FROM guest_steam_accounts
+                WHERE (game_stats_updated_at IS NULL OR game_stats_updated_at < %s)
+                  AND (game_stats_attempted_at IS NULL OR game_stats_attempted_at < %s)
+                ORDER BY COALESCE(game_stats_updated_at, '1970-01-01'), id
+                LIMIT %s
+                """,
+                (stale_before, retry_before, safe_limit),
+            )
+            accounts = list(cursor.fetchall())
+            if accounts:
+                cursor.executemany(
+                    """UPDATE guest_steam_accounts SET game_stats_attempted_at=%s
+                    WHERE club_id=%s AND guest_id=%s""",
+                    [(now, int(row["club_id"]), int(row["guest_id"])) for row in accounts],
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = {"attempted": len(accounts), "updated": 0, "errors": 0}
+    for account in accounts:
+        try:
+            profile = fetch_game_profile(str(account["steam_id"]))
+            link_steam_account(
+                club_id=int(account["club_id"]),
+                guest_id=int(account["guest_id"]),
+                steam_id=str(account["steam_id"]),
+                profile=profile,
+            )
+            if _profile_game_hours(profile) is not None:
+                result["updated"] += 1
+        except SteamError:
+            result["errors"] += 1
+    return result

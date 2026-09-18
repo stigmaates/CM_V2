@@ -698,3 +698,22 @@ def test_linked_steam_controls_render_in_guest_profile():
     assert "warmSteamAuthPage" in html
     assert "event.preventDefault()" in html
     assert "steam-game-cover" in html
+
+def test_profile_game_hours_and_dominant_game_are_normalized():
+    profile = {
+        "stats_available": True,
+        "games": [
+            {"slug": "cs2", "hours_total": 120.5, "hours_2weeks": 2},
+            {"slug": "dota2", "hours_total": 80, "hours_2weeks": 14.5},
+        ],
+    }
+
+    assert steam._profile_game_hours(profile) == {
+        "cs2_hours_total": 120.5,
+        "cs2_hours_2weeks": 2.0,
+        "dota2_hours_total": 80.0,
+        "dota2_hours_2weeks": 14.5,
+    }
+    assert steam._dominant_game_slug(120.5, 80) == ("cs2", 120.5)
+    assert steam._dominant_game_slug(2, 14.5) == ("dota2", 14.5)
+    assert steam._dominant_game_slug(0, 0) == (None, None)

@@ -8,7 +8,7 @@ import pytest
 from scripts import check_guest_pulse
 
 
-@pytest.mark.parametrize("trigger_count, expected_exit", [(30, 0), (29, 1)])
+@pytest.mark.parametrize("trigger_count, expected_exit", [(33, 0), (32, 1)])
 def test_check_formats_queries_and_validates_trigger_count(monkeypatch, capsys, trigger_count, expected_exit):
     offline_connection = pymysql.connections.Connection(defer_connect=True)
     offline_connection.server_status = 0
@@ -35,6 +35,6 @@ def test_check_formats_queries_and_validates_trigger_count(monkeypatch, capsys, 
     assert check_guest_pulse.main() == expected_exit
     assert "LIKE 'guest_pulse_%'" in queries[-1]
     output = capsys.readouterr()
-    assert f"Guest Pulse source triggers: {trigger_count}/30" in output.out
+    assert f"Guest Pulse source triggers: {trigger_count}/33" in output.out
     assert "Guest Pulse check OK" in output.out if expected_exit == 0 else "Guest Pulse check FAILED" in output.err
     conn.close.assert_called_once()

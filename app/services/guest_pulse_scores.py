@@ -259,7 +259,11 @@ def engagement(events, telegram_connected, now):
     past = [e for e in events if e["at"] <= now]
     recent = [e for e in past if e["at"] >= now - timedelta(days=30)]
     missions = sum(e["kind"] == "mission" for e in recent)
-    actions = sum(e["kind"] in ("case", "wheel", "conversion", "code") for e in recent)
+    contracts_selected = sum(e["kind"] == "contract_selected" for e in recent)
+    contracts_completed = sum(e["kind"] == "contract_completed" for e in recent)
+    actions = sum(
+        e["kind"] in ("case", "wheel", "conversion", "code", "contract_selected", "contract_completed") for e in recent
+    )
     days = {e["at"].date() for e in past}
     streak = 0
     day = now.date() if now.date() in days else now.date() - timedelta(days=1)
@@ -281,6 +285,8 @@ def engagement(events, telegram_connected, now):
         "level": None if score is None else "HIGH" if score >= 70 else "MEDIUM" if score >= 35 else "LOW",
         "telegram_connected": telegram_connected,
         "missions_completed_30d": missions,
+        "contracts_selected_30d": contracts_selected,
+        "contracts_completed_30d": contracts_completed,
         "cb_actions_30d": actions,
         "current_streak": streak,
         "last_cb_activity_at": last,

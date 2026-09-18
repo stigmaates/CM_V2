@@ -71,6 +71,31 @@ def test_case_openings_count_is_available_as_number_filter():
     assert "guest_case_openings" in field["column"]
 
 
+def test_steam_game_preferences_are_available_as_enum_filters():
+    assert mailing_service.FILTER_FIELDS["favorite_game"] == {
+        "type": "enum",
+        "column": "up.favorite_game",
+        "label": "Любимая игра · всё время",
+        "options": [
+            {"value": "cs2", "label": "Counter-Strike 2"},
+            {"value": "dota2", "label": "Dota 2"},
+        ],
+    }
+    assert mailing_service.FILTER_FIELDS["recent_game_14d"]["column"] == "up.recent_game_14d"
+
+    where_sql, params = build_where_clause(
+        7,
+        [
+            {"field": "favorite_game", "op": "=", "value": "dota2"},
+            {"field": "recent_game_14d", "op": "in", "value": ["cs2", "dota2"]},
+        ],
+    )
+
+    assert "up.favorite_game = %s" in where_sql
+    assert "up.recent_game_14d IN (%s, %s)" in where_sql
+    assert params == [7, "dota2", "cs2", "dota2"]
+
+
 def test_bonus_giveaway_recipient_insert_has_placeholder_for_token_error_text():
     source = mailing_service.create_bonus_giveaway.__code__.co_consts
     sql = next(value for value in source if isinstance(value, str) and "INSERT INTO bonus_giveaway_recipients" in value)
