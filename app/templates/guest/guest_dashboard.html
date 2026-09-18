@@ -10,6 +10,8 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
     <link rel="preconnect" href="https://steamcommunity.com">
     <link rel="dns-prefetch" href="https://steamcommunity.com">
+    <link rel="preconnect" href="https://community.fastly.steamstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://community.fastly.steamstatic.com">
     <link rel="preconnect" href="https://cdn.cloudflare.steamstatic.com">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
@@ -5256,7 +5258,7 @@
 
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    caseReelTrack.style.transition = 'transform 3.6s cubic-bezier(0.12, 0.78, 0.15, 1)';
+                    caseReelTrack.style.transition = 'transform 8s cubic-bezier(0.12, 0.78, 0.15, 1)';
                     caseReelTrack.style.transform = `translateX(-${targetOffset}px)`;
                 });
             });
@@ -5265,7 +5267,7 @@
                 const winnerCell = caseReelTrack.querySelector('.js-case-winner');
                 if (winnerCell) winnerCell.classList.add('is-winner');
                 onDone();
-            }, 3700);
+            }, 8100);
         }
 
         function showCaseResult(item, claim = null) {

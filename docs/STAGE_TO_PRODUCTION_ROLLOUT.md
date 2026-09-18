@@ -138,6 +138,14 @@ Current release branch progress:
   are rehearsed, Steam/CS2 dependencies are healthy and a pilot club has opted
   in. Verify that `game_contract_settings` contains no unexpectedly enabled
   production clubs before starting the timer. Nothing from this batch is deployed.
+- batch 9 code integration is complete: favorite Steam game, most played game
+  over the last two weeks, contract engagement and the corresponding centralized
+  mailing filters are included. Populate the Steam and contract source data,
+  rebuild user portraits on the rehearsal copy and verify filter counts before
+  enabling these filters for a pilot club. Nothing from this batch is deployed.
+- batch 10 code integration is complete: the case reel runs for eight seconds
+  and the guest dashboard preconnects to Steam's current asset CDN before OpenID
+  navigation. Nothing from this batch is deployed.
 
 No production deployment or production database migration has been performed.
 
