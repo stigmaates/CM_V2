@@ -80,7 +80,10 @@ def test_crm_analytics_renders_cohort_analysis_block():
         )
 
     assert "Анализ" in html
-    assert "<title>Тестовый клуб — CRM-Аналитика</title>" in html
+    assert "<title>Тестовый клуб — Аналитика</title>" in html
+    assert 'id="analytics-cohorts"' in html
+    assert 'id="analytics-communications"' in html
+    assert 'id="analytics-heatmaps"' in html
     assert "WALLZ" not in html
     assert "Период воронки" in html
     assert 'data-period="all"' in html
