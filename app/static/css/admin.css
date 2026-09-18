@@ -601,6 +601,61 @@
     border: 1px solid rgba(239, 68, 68, 0.30);
 }
 
+.club-maintenance-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.club-maintenance-badge.enabled {
+    color: #ffe5ae;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.34);
+}
+
+.club-maintenance-badge.disabled {
+    color: #c7b9dc;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.maintenance-global-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 20px;
+    border-color: rgba(245, 158, 11, 0.28);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.09), rgba(78, 42, 128, 0.18));
+}
+
+.maintenance-global-card h2 {
+    margin: 4px 0 8px;
+    font-size: 21px;
+}
+
+.maintenance-global-card p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.maintenance-global-card__eyebrow {
+    color: #ffc760;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.club-maintenance-control {
+    border-color: rgba(245, 158, 11, 0.23);
+    background: rgba(245, 158, 11, 0.055);
+}
+
 .club-service-control {
     display: flex;
     align-items: center;
@@ -655,6 +710,11 @@
     border-color: rgba(119, 217, 157, 0.55);
 }
 
+.admin-switch--maintenance input:checked + span {
+    background: linear-gradient(135deg, #f59e0b, #ffcf70);
+    border-color: rgba(255, 207, 112, 0.62);
+}
+
 .admin-switch input:checked + span::before {
     transform: translateX(30px);
 }
@@ -662,6 +722,12 @@
 .admin-switch input:disabled + span {
     cursor: wait;
     opacity: 0.65;
+}
+
+@media (max-width: 720px) {
+    .maintenance-global-card {
+        align-items: flex-start;
+    }
 }
 
 .modal-actions {

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ведутся технические работы</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}?v=20260729">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <style>
+        .maintenance-card { text-align: center; overflow: hidden; }
+        .maintenance-card__logo { width: 72px; height: 72px; margin: 0 auto 18px; }
+        .maintenance-card__logo img { width: 100%; height: 100%; object-fit: contain; }
+        .maintenance-card__status {
+            width: 62px; height: 62px; margin: 0 auto 18px; display: grid; place-items: center;
+            border: 1px solid rgba(165, 114, 255, .42); border-radius: 20px;
+            background: rgba(143, 91, 255, .15); color: #caa8ff; font-size: 30px;
+            box-shadow: 0 14px 32px rgba(80, 35, 145, .24);
+        }
+        .maintenance-card__text { max-width: 580px; margin-inline: auto; font-size: 17px; line-height: 1.6; }
+        .maintenance-card__club {
+            display: inline-flex; margin: 18px 0 0; padding: 8px 14px; border-radius: 999px;
+            background: rgba(255, 255, 255, .06); color: var(--text-muted); font-weight: 800;
+        }
+    </style>
+</head>
+<body>
+    <main class="center-wrap">
+        <section class="card center-card maintenance-card">
+            <div class="maintenance-card__logo">
+                <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="Cyber Bonus">
+            </div>
+            <div class="maintenance-card__status" aria-hidden="true">⚙</div>
+            <h1 class="auth-title">Ведутся технические работы</h1>
+            <p class="auth-text maintenance-card__text">
+                Приносим извинения за предоставленные неудобства, скоро все заработает, как раньше =)
+            </p>
+            {% if club_name %}<p class="maintenance-card__club">{{ club_name }}</p>{% endif %}
+        </section>
+    </main>
+</body>
+</html>

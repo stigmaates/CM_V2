@@ -39,6 +39,7 @@ from app.services.game_contracts import (
     reroll_guest_contracts,
     sync_contracts_for_guest,
 )
+from app.services.maintenance import is_maintenance_enabled
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
 from app.services.rate_limit import client_ip, is_rate_limited
@@ -674,6 +675,8 @@ def login():
     club = get_guest_login_club(requested_club_id)
     if not club:
         return render_template("guest/guest_login_error.html"), 400
+    if is_maintenance_enabled(club["club_id"]):
+        return render_template("maintenance.html", club_name=club.get("name")), 503
 
     current_guest_club_id = session.get("guest_club_id")
     if current_guest_club_id is not None and int(current_guest_club_id) != int(club["club_id"]):

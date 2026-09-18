@@ -9,6 +9,20 @@
     <a class="admin-btn" href="{{ url_for('admin.create_club') }}">Создать клуб</a>
 </section>
 
+<section class="admin-card maintenance-global-card">
+    <div>
+        <div class="maintenance-global-card__eyebrow">Системный режим</div>
+        <h2>Технические работы во всех клубах</h2>
+        <p id="globalMaintenanceText">
+            {{ 'Гости и владельцы всех клубов видят экран технических работ.' if global_maintenance_enabled else 'Глобальный режим выключен. Можно включить техработы отдельно в карточке клуба.' }}
+        </p>
+    </div>
+    <label class="admin-switch admin-switch--maintenance" title="Переключить технические работы для всех клубов">
+        <input type="checkbox" id="globalMaintenanceToggle" {% if global_maintenance_enabled %}checked{% endif %}>
+        <span></span>
+    </label>
+</section>
+
 <section class="admin-card">
     <div class="admin-table-wrap">
         <table class="admin-table clubs-table" id="clubsTable">
@@ -20,7 +34,8 @@
                     <th><button type="button" class="clubs-sort-btn" data-column="3" data-type="number">Гостей <span class="clubs-sort-indicator">↕</span></button></th>
                     <th><button type="button" class="clubs-sort-btn" data-column="4" data-type="number">С Telegram <span class="clubs-sort-indicator">↕</span></button></th>
                     <th><button type="button" class="clubs-sort-btn" data-column="5" data-type="text">Обслуживание <span class="clubs-sort-indicator">↕</span></button></th>
-                    <th><button type="button" class="clubs-sort-btn" data-column="6" data-type="text" title="Дата запуска первой успешной initial-загрузки гостей, в часовом поясе клуба">Начало сотрудничества <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="6" data-type="text">Техработы <span class="clubs-sort-indicator">↕</span></button></th>
+                    <th><button type="button" class="clubs-sort-btn" data-column="7" data-type="text" title="Дата запуска первой успешной initial-загрузки гостей, в часовом поясе клуба">Начало сотрудничества <span class="clubs-sort-indicator">↕</span></button></th>
                 </tr>
             </thead>
             <tbody>
@@ -36,10 +51,15 @@
                                 {{ 'Включено' if club.service_enabled else 'Выключено' }}
                             </span>
                         </td>
+                        <td>
+                            <span class="club-maintenance-badge {{ 'enabled' if club.maintenance_enabled else 'disabled' }}">
+                                {{ 'Включены' if club.maintenance_enabled else 'Выключены' }}
+                            </span>
+                        </td>
                         <td data-sort-value="{{ club.cooperation_started_sort or '' }}" title="{{ 'Первая успешная initial-загрузка гостей' if club.cooperation_started_date else 'Нет данных об успешной initial-загрузке гостей' }}">{{ club.cooperation_started_date or '—' }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="7" class="empty-cell">Клубов пока нет</td></tr>
+                    <tr><td colspan="8" class="empty-cell">Клубов пока нет</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -89,6 +109,17 @@
             </label>
         </div>
 
+        <div class="club-service-control club-maintenance-control">
+            <div>
+                <div class="modal-owner-access__title">Технические работы</div>
+                <div class="modal-owner-access__text" id="clubMaintenanceText">—</div>
+            </div>
+            <label class="admin-switch admin-switch--maintenance">
+                <input type="checkbox" id="clubMaintenanceToggle">
+                <span></span>
+            </label>
+        </div>
+
         <div class="modal-actions sync-groups">
             <div class="sync-group">
                 <div class="sync-group-title">Гости</div>
@@ -131,6 +162,10 @@ const closeBtn = document.getElementById('clubModalClose');
 const resultBox = document.getElementById('syncResult');
 const serviceToggle = document.getElementById('clubServiceToggle');
 const serviceText = document.getElementById('clubServiceText');
+const globalMaintenanceToggle = document.getElementById('globalMaintenanceToggle');
+const globalMaintenanceText = document.getElementById('globalMaintenanceText');
+const clubMaintenanceToggle = document.getElementById('clubMaintenanceToggle');
+const clubMaintenanceText = document.getElementById('clubMaintenanceText');
 const clubsTableBody = document.querySelector('#clubsTable tbody');
 const clubsSortButtons = document.querySelectorAll('.clubs-sort-btn');
 const clubsSortState = {
@@ -229,6 +264,24 @@ function updateServiceUi(enabled) {
         : 'Клиенты и сотрудники увидят экран “Пожалуйста, свяжитесь с нами”.';
 }
 
+function maintenanceEnabledValue(value) {
+    return value === true || value === 1 || value === '1';
+}
+
+function updateGlobalMaintenanceUi(enabled) {
+    globalMaintenanceToggle.checked = enabled;
+    globalMaintenanceText.textContent = enabled
+        ? 'Гости и владельцы всех клубов видят экран технических работ.'
+        : 'Глобальный режим выключен. Можно включить техработы отдельно в карточке клуба.';
+}
+
+function updateClubMaintenanceUi(enabled) {
+    clubMaintenanceToggle.checked = enabled;
+    clubMaintenanceText.textContent = enabled
+        ? 'Гости и владельцы этого клуба видят экран технических работ.'
+        : 'Для этого клуба обычный вход доступен.';
+}
+
 function renderLogs(logs) {
     const box = document.getElementById('modalLogs');
     if (!logs || logs.length === 0) {
@@ -319,6 +372,7 @@ async function openClubModal(clubId) {
     document.getElementById('impersonateForm').action = `/admin/clubs/${club.club_id}/impersonate`;
     document.getElementById('guestTestForm').action = `/admin/clubs/${club.club_id}/guest-test`;
     updateServiceUi(serviceEnabledValue(club.service_enabled));
+    updateClubMaintenanceUi(maintenanceEnabledValue(club.maintenance_enabled));
     renderLogs(data.logs);
     modal.hidden = false;
 }
@@ -373,6 +427,59 @@ serviceToggle.addEventListener('change', async () => {
         resultBox.textContent = e.message || 'Ошибка запроса';
     } finally {
         serviceToggle.disabled = false;
+    }
+});
+
+globalMaintenanceToggle.addEventListener('change', async () => {
+    const enabled = globalMaintenanceToggle.checked;
+    globalMaintenanceToggle.disabled = true;
+    try {
+        const resp = await fetch('/admin/clubs/maintenance', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+            body: JSON.stringify({enabled}),
+        });
+        const data = await readJsonResponse(resp);
+        if (!data.status) throw new Error(data.message || 'Не удалось изменить режим техработ');
+        updateGlobalMaintenanceUi(Boolean(data.maintenance_enabled));
+    } catch (e) {
+        globalMaintenanceToggle.checked = !enabled;
+        alert(e.message || 'Не удалось изменить режим техработ');
+    } finally {
+        globalMaintenanceToggle.disabled = false;
+    }
+});
+
+clubMaintenanceToggle.addEventListener('change', async () => {
+    if (!currentClubId) return;
+    const enabled = clubMaintenanceToggle.checked;
+    clubMaintenanceToggle.disabled = true;
+    resultBox.hidden = false;
+    resultBox.className = 'sync-result';
+    resultBox.textContent = enabled ? 'Включаем технические работы...' : 'Выключаем технические работы...';
+    try {
+        const resp = await fetch(`/admin/clubs/${currentClubId}/maintenance`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+            body: JSON.stringify({enabled}),
+        });
+        const data = await readJsonResponse(resp);
+        if (!data.status) throw new Error(data.message || 'Не удалось изменить режим техработ');
+        updateClubMaintenanceUi(Boolean(data.maintenance_enabled));
+        resultBox.className = 'sync-result success';
+        resultBox.textContent = data.message || 'Готово';
+
+        const badge = document.querySelector(`.club-row[data-club-id="${currentClubId}"] .club-maintenance-badge`);
+        if (badge) {
+            badge.className = `club-maintenance-badge ${data.maintenance_enabled ? 'enabled' : 'disabled'}`;
+            badge.textContent = data.maintenance_enabled ? 'Включены' : 'Выключены';
+        }
+    } catch (e) {
+        clubMaintenanceToggle.checked = !enabled;
+        resultBox.className = 'sync-result error';
+        resultBox.textContent = e.message || 'Ошибка запроса';
+    } finally {
+        clubMaintenanceToggle.disabled = false;
     }
 });
 
