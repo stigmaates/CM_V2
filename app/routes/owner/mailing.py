@@ -23,6 +23,7 @@ from app.services.mailing import (
     save_uploaded_file,
     update_auto_mailing_settings,
 )
+from app.services.outbound_policy import allow_manual_mailing_outbound, manual_mailings_only
 from app.services.timezones import DEFAULT_CLUB_TIMEZONE, get_club_timezone_label
 from scripts.process_mailings import process_one_mailing
 
@@ -36,7 +37,8 @@ def get_current_club_id():
 def _process_mailing_in_background(mailing_id: int):
     conn = get_db_connection()
     try:
-        process_one_mailing(conn, mailing_id)
+        with allow_manual_mailing_outbound():
+            process_one_mailing(conn, mailing_id)
     except Exception as exc:
         try:
             with conn.cursor() as cur:
@@ -178,6 +180,8 @@ def api_auto_mailing_toggle(code):
     data = request.get_json(force=True)
 
     is_enabled = bool(data.get("is_enabled"))
+    if is_enabled and manual_mailings_only():
+        return jsonify({"ok": False, "error": "На тестовом стенде разрешены только ручные рассылки"}), 400
 
     days_inactive = None
     if "days_inactive" in data:
@@ -299,16 +303,17 @@ def api_mailings_create():
 
     conn = get_db_connection()
     try:
-        result = create_mailing(
-            conn=conn,
-            club_id=club_id,
-            segment_id=segment_id,
-            rules=rules,
-            message_text=message_text,
-            parse_mode=parse_mode,
-            attachments=attachments,
-            logic="and",
-        )
+        with allow_manual_mailing_outbound():
+            result = create_mailing(
+                conn=conn,
+                club_id=club_id,
+                segment_id=segment_id,
+                rules=rules,
+                message_text=message_text,
+                parse_mode=parse_mode,
+                attachments=attachments,
+                logic="and",
+            )
         conn.commit()
     except ValueError as exc:
         conn.rollback()
@@ -380,19 +385,20 @@ def api_bonus_giveaways_create():
 
     conn = get_db_connection()
     try:
-        result = create_bonus_giveaway(
-            conn=conn,
-            club_id=club_id,
-            rules=rules,
-            bonus_amount=bonus_amount,
-            token_amount=token_amount,
-            is_expiring=is_expiring,
-            expires_after_seconds=expires_after_seconds,
-            message_text=message_text,
-            parse_mode="HTML",
-            attachments=attachments,
-            logic="and",
-        )
+        with allow_manual_mailing_outbound():
+            result = create_bonus_giveaway(
+                conn=conn,
+                club_id=club_id,
+                rules=rules,
+                bonus_amount=bonus_amount,
+                token_amount=token_amount,
+                is_expiring=is_expiring,
+                expires_after_seconds=expires_after_seconds,
+                message_text=message_text,
+                parse_mode="HTML",
+                attachments=attachments,
+                logic="and",
+            )
         conn.commit()
     except ValueError as exc:
         conn.rollback()

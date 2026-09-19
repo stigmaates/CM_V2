@@ -109,9 +109,11 @@ def send_single_message(telegram_id: int, text: str, parse_mode: str, attachment
 
 
 def process_one_mailing(conn, mailing_id: int):
-    from app.services.outbound_policy import outbound_blocked
+    from app.services.outbound_policy import ensure_outbound_allowed
 
-    if outbound_blocked():
+    try:
+        ensure_outbound_allowed()
+    except ValueError:
         return
 
     job_run_id = None

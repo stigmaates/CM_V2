@@ -74,3 +74,25 @@ def test_guest_bot_override_does_not_unblock_other_outbound(blocked, monkeypatch
     policy.ensure_guest_bot_allowed()
     with pytest.raises(ValueError, match='отключены'):
         policy.ensure_outbound_allowed()
+
+
+def test_manual_mailing_override_is_scoped_and_does_not_remove_stage_stop(blocked, monkeypatch):
+    monkeypatch.setenv(policy.MANUAL_MAILING_OVERRIDE_ENV, "1")
+
+    assert policy.manual_mailings_only() is True
+    with pytest.raises(ValueError, match="отключены"):
+        policy.ensure_outbound_allowed()
+
+    with policy.allow_manual_mailing_outbound():
+        policy.ensure_outbound_allowed()
+
+    with pytest.raises(ValueError, match="отключены"):
+        policy.ensure_outbound_allowed()
+
+
+def test_auto_workers_remain_blocked_when_manual_mailings_are_allowed(blocked, monkeypatch):
+    from scripts import process_auto_mailings
+
+    monkeypatch.setenv(policy.MANUAL_MAILING_OVERRIDE_ENV, "1")
+
+    assert process_auto_mailings.process_auto_mailings()["skipped"] == "outbound_disabled"

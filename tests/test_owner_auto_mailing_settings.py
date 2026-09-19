@@ -67,6 +67,24 @@ def test_owner_cannot_save_empty_auto_mailing_window():
     assert "должны отличаться" in response.get_json()["error"]
 
 
+def test_stage_manual_mode_rejects_enabling_auto_mailing(monkeypatch):
+    monkeypatch.setattr(owner_mailing, "manual_mailings_only", lambda: True)
+
+    with app.test_request_context(
+        "/owner/api/auto-mailings/inactive_14_bonus/toggle",
+        method="POST",
+        json={"is_enabled": True},
+    ):
+        session.update(user_id=1, role="owner", club_id=7)
+        response, status = owner_mailing.api_auto_mailing_toggle("inactive_14_bonus")
+
+    assert status == 400
+    assert response.get_json() == {
+        "ok": False,
+        "error": "На тестовом стенде разрешены только ручные рассылки",
+    }
+
+
 def test_unified_reward_mailing_forwards_attachments(monkeypatch):
     conn = _Connection()
     calls = []
