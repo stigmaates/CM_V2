@@ -3,7 +3,7 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Рассылки{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-unified-1">
 {% endblock %}
 
 {% block content %}
@@ -464,5 +464,5 @@
     window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
     window.MAILING_VARIABLES = {{ message_variables | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/mailing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-unified-1"></script>
 {% endblock %}
