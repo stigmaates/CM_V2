@@ -538,6 +538,7 @@ label {
     }
 }
 
+
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1747,5 +1748,155 @@ body.owner-navigation-visible .owner-menu-trigger {
 
     body.owner-navigation-visible .owner-menu-trigger {
         left: min(calc(var(--owner-navigation-fixed-width) - 50px), calc(100vw - 60px));
+    }
+}
+
+/* Owner navigation v5: icon-led groups and animated submenus. */
+.owner-navigation__overview,
+.owner-navigation__standalone {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 11px;
+}
+
+.owner-navigation__section-icon {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 11px;
+    color: #b994ff;
+    transition: color .24s ease, background .24s ease, box-shadow .24s ease;
+}
+
+.owner-navigation__section-icon svg {
+    width: 23px;
+    height: 23px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.owner-navigation__overview.is-active .owner-navigation__section-icon,
+.owner-navigation__overview:hover .owner-navigation__section-icon,
+.owner-navigation__standalone.is-active .owner-navigation__section-icon,
+.owner-navigation__standalone:hover .owner-navigation__section-icon {
+    color: #eadfff;
+    background: rgba(143, 91, 255, 0.25);
+    box-shadow: inset 0 0 14px rgba(165, 114, 255, 0.12);
+}
+
+.owner-navigation__group {
+    overflow: hidden;
+}
+
+.owner-navigation__group.is-active,
+.owner-navigation__group.is-open {
+    border-color: rgba(165, 114, 255, 0.26);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.owner-navigation__group-toggle {
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 10px;
+    align-items: center;
+    gap: 11px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-main);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background .24s ease;
+}
+
+.owner-navigation__group-toggle:hover {
+    background: rgba(143, 91, 255, .08);
+}
+
+.owner-navigation__group-toggle:hover .owner-navigation__section-icon,
+.owner-navigation__group.is-active .owner-navigation__section-icon,
+.owner-navigation__group.is-open .owner-navigation__section-icon {
+    color: #d8c2ff;
+}
+
+.owner-navigation__section-label {
+    min-width: 0;
+}
+
+.owner-navigation__section-label strong {
+    color: inherit;
+    font-size: 15px;
+    font-weight: 850;
+}
+
+.owner-navigation__group-toggle > i {
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid #bfa7e8;
+    border-bottom: 2px solid #bfa7e8;
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform .38s cubic-bezier(.22, 1, .36, 1);
+}
+
+.owner-navigation__group.is-open .owner-navigation__group-toggle > i {
+    transform: rotate(225deg) translate(-2px, -2px);
+}
+
+.owner-navigation__links-shell {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        grid-template-rows .44s cubic-bezier(.22, 1, .36, 1),
+        opacity .24s ease,
+        visibility 0s linear .44s;
+}
+
+.owner-navigation__group.is-open .owner-navigation__links-shell {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    visibility: visible;
+    transition:
+        grid-template-rows .44s cubic-bezier(.22, 1, .36, 1),
+        opacity .28s ease .06s,
+        visibility 0s linear 0s;
+}
+
+.owner-navigation__group .owner-navigation__links-shell > .owner-navigation__links {
+    min-height: 0;
+    max-height: none;
+    padding: 0 8px 0 48px;
+    overflow: hidden;
+    opacity: 1;
+    transform: none;
+    transition: padding .36s cubic-bezier(.22, 1, .36, 1);
+}
+
+.owner-navigation__group.is-open .owner-navigation__links-shell > .owner-navigation__links {
+    max-height: none;
+    padding-bottom: 9px;
+    opacity: 1;
+    transform: none;
+}
+
+.owner-navigation__standalone {
+    margin-top: 5px;
+    padding-left: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .owner-navigation__links-shell,
+    .owner-navigation__group-toggle > i {
+        transition-duration: .01ms !important;
     }
 }

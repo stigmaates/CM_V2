@@ -43,6 +43,12 @@ def test_owner_navigation_groups_existing_owner_pages():
     assert html.index("owner-navigation__account") < html.index("owner-navigation__overview")
     assert "Тестовый клуб" in html
     assert "Владелец" in html
+    assert html.count("owner-navigation__section-icon") == 6
+    assert html.count("data-owner-nav-group") == 4
+    assert html.count("owner-navigation__links-shell") == 4
+    assert "Главные показатели клуба" not in html
+    assert "Механики и награды" not in html
+    assert "Коммуникации и состояние базы" not in html
 
 
 def test_owner_base_uses_burger_navigation_assets():
