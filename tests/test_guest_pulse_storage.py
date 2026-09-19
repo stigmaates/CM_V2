@@ -364,6 +364,10 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpChartLabels"' in html
     assert 'id="gpChartIncludeWithout"' in html
     assert 'id="gpSegments"' in html
+    assert 'id="gpAudienceDialog"' in html
+    assert 'id="gpAudienceSearch"' in html
+    assert 'id="gpAudienceAverage"' in html
+    assert 'id="gpGuestsPanel"' not in html
     assert 'id="gpSegment"' not in html
     assert 'id="gpWithTelegram"' not in html
     assert 'data-slider="health"' not in html
@@ -486,6 +490,10 @@ def test_telegram_counts_and_selection_cover_full_filtered_audience(pulse_client
     assert all(a["telegram_count"] + a["without_telegram_count"] == a["count"] for a in data["audiences"])
     loyal = next(a for a in data["audiences"] if a["key"] == "loyal")
     assert loyal["telegram_count"] == 13 and loyal["without_telegram_count"] == 1
+    assert data["selected_average_score"] is not None
+    assert isinstance(data["guests"][0]["segments"], list)
+    assert "last_visit_date" in data["guests"][0]
+    assert "phone" in data["guests"][0]
     headers = {"X-CSRFToken": "pulse-test-csrf"}
     response = pulse_client.post(
         "/owner/api/guest-pulse/selection",
@@ -495,6 +503,28 @@ def test_telegram_counts_and_selection_cover_full_filtered_audience(pulse_client
     assert response.status_code == 200 and response.get_json()["count"] == 13
     saved = json.loads(sql("SELECT selection_json FROM guest_pulse_selections")[0]["selection_json"])
     assert sorted(saved["guest_ids"]) == mixed_pulse_audience
+
+
+def test_audience_drawer_search_and_contact_filters(pulse_client, mixed_pulse_audience):
+    searched = pulse_client.get("/owner/api/guest-pulse?audience_type=loyal&search=Гость+45").get_json()
+    assert searched["selected_count"] == 1
+    assert searched["guests"][0]["guest_id"] == 45
+    without = pulse_client.get("/owner/api/guest-pulse?audience_type=loyal&contact=without").get_json()
+    assert without["selected_count"] == 1
+    assert without["selected_telegram_count"] == 0
+    assert without["guests"][0]["guest_id"] == 56
+
+
+def test_audience_drawer_handoff_keeps_search_filter(pulse_client, database, mixed_pulse_audience):
+    response = pulse_client.post(
+        "/owner/api/guest-pulse/selection",
+        headers={"X-CSRFToken": "pulse-test-csrf"},
+        json={"filters": {"audience_type": "loyal", "search": "Гость 45"}},
+    )
+    assert response.status_code == 200
+    _, sql = database
+    saved = json.loads(sql("SELECT selection_json FROM guest_pulse_selections")[0]["selection_json"])
+    assert saved["guest_ids"] == [45]
 
 
 @pytest.mark.parametrize("mode", ["audience", "guest", "deviations"])

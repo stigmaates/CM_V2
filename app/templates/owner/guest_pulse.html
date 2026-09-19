@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Пульс гостя{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260919-audience-cards-6') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260919-audience-drawer-1') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
   <header class="gp-heading"><div><span class="gp-eyebrow">ГОСТИ И ОТНОШЕНИЯ</span><h1>Пульс гостя</h1><p>Найдите нужную аудиторию или изменения в привычках гостей.</p><button type="button" class="gp-help-trigger" id="gpHelpOpen" aria-haspopup="dialog" aria-controls="gpHelpDialog" aria-expanded="false"><span aria-hidden="true">?</span> Подробнее о системе показателей</button></div><div class="gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
@@ -10,7 +10,6 @@
     <div class="gp-audience-layout">
       <div class="gp-audiences"><div class="gp-audience-panel-head"><h3>Аудитории гостей</h3><span>По текущим фильтрам</span></div><div id="gpAudienceList" class="gp-audience-cards"></div><div class="gp-segment-label"><span>Быстрый сегмент</span><div class="gp-segment-chips" id="gpSegments"><button type="button" data-segment="" class="is-active" aria-pressed="true">Все гости</button>{% for key,label in segments.items() %}<button type="button" data-segment="{{ key }}" aria-pressed="false">{{ label }}</button>{% endfor %}</div></div></div>
       <aside class="gp-chart-block" aria-labelledby="gpDistributionTitle"><div class="gp-distribution-head"><div><h3 id="gpDistributionTitle">Распределение групп</h3><p>По текущим фильтрам</p></div><label class="gp-chart-toggle"><input type="checkbox" id="gpChartIncludeWithout"><span aria-hidden="true"></span><b>Показывать гостей без Telegram</b></label></div><div class="gp-donut"><svg viewBox="-55 -55 350 350" id="gpChart" aria-label="Распределение гостей по группам"><circle class="gp-chart-halo" cx="120" cy="120" r="101"/><circle class="gp-chart-track" cx="120" cy="120" r="70"/><g id="gpChartSectors"></g><g id="gpChartLabels" aria-hidden="true"></g></svg><div class="gp-pie-center"><strong id="gpDistributionTotal">—</strong><span id="gpDistributionTotalLabel">с Telegram</span></div></div><p id="gpChartTip" class="gp-sr-only" aria-live="polite">Выберите сектор или карточку группы</p><div class="gp-distribution-legend" id="gpDistributionLegend"></div><span class="gp-selection-count" id="gpSelectionCount">Выбрано гостей: —</span><button type="button" class="gp-primary" id="gpMail" disabled>Отправить рассылку <span aria-hidden="true">↗</span></button></aside>
-    <section class="gp-guests" id="gpGuestsPanel" hidden><button type="button" class="gp-quiet" id="gpAllTypes">← Типы аудитории</button><div class="gp-section-head"><div><h3 id="gpGuestsTitle">Гости аудитории</h3><p id="gpGuestsCount"></p></div></div><div id="gpGuests"></div><div class="gp-pagination" id="gpGuestPages"></div><button type="button" class="gp-primary" id="gpInteract">Взаимодействовать ↗</button></section>
     </div>
   </section>
   <section class="gp-card" aria-labelledby="gpDeviationTitle"><div class="gp-section-head"><div><h2 id="gpDeviationTitle">Отклонения от нормы</h2><p>Изменения относительно личной медианы за предыдущие 30 дней.</p></div><button type="button" id="gpDeviationInteract" disabled>Взаимодействовать ↗</button></div>
@@ -24,6 +23,16 @@
     <p class="gp-hint">Нужны минимум 7 ежедневных оценок. Фильтры типов аудитории на этот блок не влияют. История за прошлые дни восстановлена по событиям. Вовлечённость в ней приблизительная.</p>
     <div class="gp-list-caption"><span id="gpDeviationCount">Загрузка…</span><span>Норма → сейчас</span></div><div id="gpDeviations"></div><div class="gp-pagination" id="gpDeviationPages"></div>
   </section>
+  <dialog class="gp-audience-dialog" id="gpAudienceDialog" aria-labelledby="gpGuestsTitle" data-lenis-prevent>
+    <div class="gp-audience-dialog-shell">
+      <header class="gp-audience-dialog-head"><span class="gp-audience-dialog-icon" id="gpGuestsIcon" aria-hidden="true"></span><div><h2 id="gpGuestsTitle">Гости аудитории</h2><p id="gpGuestsCount">Загрузка…</p></div><button type="button" id="gpAudienceClose" aria-label="Закрыть аудиторию">×</button></header>
+      <div class="gp-audience-stats"><article><span>Гостей в группе</span><strong id="gpAudienceTotal">—</strong></article><article><span>С Telegram</span><strong id="gpAudienceTelegram">—</strong></article><article><span>Без Telegram</span><strong id="gpAudienceWithout">—</strong></article><article><span>Средний балл</span><strong id="gpAudienceAverage">—</strong></article></div>
+      <div class="gp-audience-dialog-body">
+        <section class="gp-audience-results"><div class="gp-audience-toolbar"><label><span class="gp-sr-only">Поиск гостя</span><input type="search" id="gpAudienceSearch" placeholder="Поиск по имени, телефону или ID"></label><label><span class="gp-sr-only">Наличие Telegram</span><select id="gpAudienceContact"><option value="all">Все гости</option><option value="with">С Telegram</option><option value="without">Без Telegram</option></select></label></div><div id="gpGuests" class="gp-audience-table-wrap"></div><footer><span id="gpAudienceFooterCount">—</span><div class="gp-pagination" id="gpGuestPages"></div><button type="button" class="gp-primary" id="gpInteract">Взаимодействовать ↗</button></footer></section>
+        <aside class="gp-audience-dialog-filters"><div><h3>Фильтры</h3><button type="button" id="gpAudienceFilterReset">Сбросить</button></div>{% for key,label in [('health','Посещения (П)'),('value','Ценность (Ц)'),('engagement','Вовлечённость (В)')] %}<fieldset><legend>{{ label }}</legend><label>От <input type="number" id="gpAudience{{ key|capitalize }}Min" min="0" max="100" value="0"></label><label>До <input type="number" id="gpAudience{{ key|capitalize }}Max" min="0" max="100" value="100"></label></fieldset>{% endfor %}<button type="button" class="gp-primary" id="gpAudienceFilterApply">Применить фильтры</button></aside>
+      </div>
+    </div>
+  </dialog>
 </main>
 <dialog class="gp-dialog" id="gpGuestDialog" aria-labelledby="gpGuestName" data-lenis-prevent><header><h2 id="gpGuestName">Карточка гостя</h2><button type="button" id="gpClose" aria-label="Закрыть карточку">×</button></header><div id="gpGuestDetail"></div><footer><button type="button" id="gpGuestInteract" class="gp-primary">Взаимодействовать ↗</button></footer></dialog>
 {% include 'owner/_guest_pulse_help.html' %}
@@ -33,4 +42,4 @@
 window.CRM_MESSAGE_VARIABLES = {{ message_variables | tojson }};
 window.CRM_PULSE_GROUPS = [];
 window.CRM_OUTBOUND_DISABLED = {{ outbound_disabled | tojson }};
-</script><script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260911-pulse-inline-1') }}" defer></script><script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260919-audience-cards-6') }}" defer></script>{% endblock %}
+</script><script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260911-pulse-inline-1') }}" defer></script><script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260919-audience-drawer-1') }}" defer></script>{% endblock %}

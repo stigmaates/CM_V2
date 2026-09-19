@@ -26,7 +26,7 @@ def current_club():
 
 def summary(row):
     row["overall"] = overall_score(row)
-    return {
+    result = {
         k: row[k]
         for k in (
             "guest_id",
@@ -41,6 +41,10 @@ def summary(row):
             "audience_type",
         )
     }
+    result["phone"] = row.get("phone")
+    result["last_visit_date"] = row.get("visits", {}).get("last_visit_date")
+    result["segments"] = [label for key, label in SEGMENTS.items() if segment_match(row, key)]
+    return result
 
 
 @owner_bp.get("/guest-pulse")
@@ -67,10 +71,14 @@ def guest_pulse_data():
         deviation_page = max(1, int(request.args.get("deviation_page", 1)))
         sort_by = request.args.get("sort", "health")
         sort_direction = request.args.get("sort_direction", "asc")
+        search = str(request.args.get("search", "")).strip()[:100]
+        contact = request.args.get("contact", "all")
         if sort_by not in ("name", "health", "value", "engagement", "overall"):
             raise ValueError("Неизвестная сортировка")
         if sort_direction not in ("asc", "desc"):
             raise ValueError("Неизвестное направление сортировки")
+        if contact not in ("all", "with", "without"):
+            raise ValueError("Неизвестный фильтр Telegram")
     except (ValueError, TypeError) as exc:
         return jsonify(ok=False, error=str(exc)), 400
     conn = get_db_connection()
@@ -94,6 +102,19 @@ def guest_pulse_data():
     selected = select(current, f)
     for row in current:
         row["overall"] = overall_score(row)
+    if search:
+        needle = search.casefold()
+        selected = [
+            row
+            for row in selected
+            if needle in row["name"].casefold()
+            or needle in str(row.get("phone") or "").casefold()
+            or needle in str(row["guest_id"])
+        ]
+    if contact == "with":
+        selected = [row for row in selected if row["has_telegram"]]
+    elif contact == "without":
+        selected = [row for row in selected if not row["has_telegram"]]
     deviating = select(current, f, "deviations")
     deviating.sort(key=lambda r: max(d["deviation_ratio"] for d in r["deviations"]), reverse=True)
     def sort_group(group):
@@ -110,6 +131,7 @@ def guest_pulse_data():
     selected = sort_group([r for r in selected if r["has_telegram"]]) + sort_group(
         [r for r in selected if not r["has_telegram"]]
     )
+    scored_selected = [r["overall"]["score"] for r in selected if r["overall"]["score"] is not None]
     at = utc_datetime_to_club_local(state.get("calculated_at"), state.get("timezone"))
     return jsonify(
         ok=True,
@@ -118,6 +140,7 @@ def guest_pulse_data():
         selected_count=len(selected),
         selected_telegram_count=sum(r["has_telegram"] for r in selected),
         selected_without_telegram_count=sum(not r["has_telegram"] for r in selected),
+        selected_average_score=round(sum(scored_selected) / len(scored_selected), 1) if scored_selected else None,
         audiences=[
             dict(
                 key=k,
@@ -221,7 +244,12 @@ def guest_pulse_selection():
     try:
         if not isinstance(body, dict):
             raise ValueError("Некорректная выборка")
-        f = parse_filters(body.get("filters", {}))
+        raw_filters = body.get("filters", {})
+        f = parse_filters(raw_filters)
+        search = str(raw_filters.get("search", "")).strip()[:100]
+        contact = raw_filters.get("contact", "all")
+        if contact not in ("all", "with", "without"):
+            raise ValueError("Неизвестный фильтр Telegram")
         mode = body.get("mode", "audience")
         if mode not in ("audience", "deviations", "guest"):
             raise ValueError("Неизвестная выборка")
@@ -232,6 +260,17 @@ def guest_pulse_selection():
     try:
         current = get_current(conn, cid)
         selected = [r for r in current if r["guest_id"] == gid] if mode == "guest" else select(current, f, mode)
+        if mode == "audience" and search:
+            needle = search.casefold()
+            selected = [
+                row
+                for row in selected
+                if needle in row["name"].casefold()
+                or needle in str(row.get("phone") or "").casefold()
+                or needle in str(row["guest_id"])
+            ]
+        if mode == "audience" and contact == "without":
+            selected = []
         selected = [r for r in selected if r["has_telegram"]]
         if not selected:
             return jsonify(ok=False, error="В выбранной аудитории нет гостей с Telegram"), 400
