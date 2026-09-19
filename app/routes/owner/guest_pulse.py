@@ -42,7 +42,10 @@ def summary(row):
         )
     }
     result["phone"] = row.get("phone")
-    result["last_visit_date"] = row.get("visits", {}).get("last_visit_date")
+    visits = row.get("visits", {})
+    result["last_visit_date"] = visits.get("last_visit_date")
+    result["days_since_last_visit"] = visits.get("days_since_last_visit")
+    result["typical_gap_days"] = visits.get("typical_gap_days")
     result["segments"] = [label for key, label in SEGMENTS.items() if segment_match(row, key)]
     return result
 

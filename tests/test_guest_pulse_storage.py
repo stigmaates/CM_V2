@@ -339,6 +339,8 @@ def pulse_client(database, monkeypatch):
 def test_api_filters_counts_and_detail_club_scope(pulse_client):
     data = pulse_client.get("/owner/api/guest-pulse").get_json()
     assert data["ok"] and data["total"] == 1
+    assert "days_since_last_visit" in data["guests"][0]
+    assert "typical_gap_days" in data["guests"][0]
     assert sum(a["count"] for a in data["audiences"]) == data["total"]
     assert all(a["count"] == a["total"] for a in data["audiences"])
     assert pulse_client.get("/owner/api/guest-pulse?health_min=NaN").status_code == 400
@@ -371,6 +373,9 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpAudienceAverage"' in html
     assert 'id="gpAudienceTelegramPercent"' in html
     assert 'id="gpAudienceTelegramOnly" checked' in html
+    assert 'id="gpDeviationTelegram" checked' in html
+    assert 'id="gpDeviationDetail"' in html
+    assert 'class="gp-deviation-layout"' in html
     assert 'id="gpAudienceContact"' not in html
     assert 'data-stat="telegram"' in html
     assert 'id="gpGuestsPanel"' not in html

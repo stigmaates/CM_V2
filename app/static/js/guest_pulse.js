@@ -9,8 +9,8 @@
     return match ? `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}` : String(s);
   };
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
-  const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:false,metric:'all',audience_type:'',segment:''};
-  let page=1, deviationPage=1, sort='health', sortDirection='asc', responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
+  const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:true,metric:'all',audience_type:'',segment:''};
+  let page=1, deviationPage=1, sort='health', sortDirection='asc', responseData=null, timer=null, controller=null, selectedGuest=null, selectedDeviationGuest=null, detailController=null;
   let modalAudience='', audienceData=null, audienceController=null, audienceTimer=null, audienceMotion=null, audienceClosing=false;
   const audienceFilters={search:'',contact:'with',health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100};
   let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null, chartIncludeWithoutTelegram=false;
@@ -149,13 +149,13 @@
       container.append(el);
     }
   }
-  const person = (r) => `<button class="gp-person" type="button" data-guest="${r.guest_id}">${esc(r.name)}<span>${esc(r.lifecycle_label)} · ${r.has_telegram?'С Telegram':'Без Telegram'}</span></button>`;
   const sortHeader = (key,label,title='') => {
     const active=sort===key, direction=active?sortDirection:'none';
     const arrow=active?(sortDirection==='asc'?'↑':'↓'):'↕';
     return `<th aria-sort="${direction==='asc'?'ascending':direction==='desc'?'descending':'none'}"${title?` title="${esc(title)}"`:''}><button type="button" class="gp-sort ${active?'is-active':''}" data-sort="${key}">${esc(label)}<span aria-hidden="true">${arrow}</span></button></th>`;
   };
   const metricLabel = {health:'П',value:'Ц',engagement:'В'};
+  const metricName = {health:'Посещения',value:'Ценность',engagement:'Вовлечённость'};
   const signed = (value,suffix='') => `${value>0?'+':''}${num(value)}${suffix}`;
   const change = (d) => {
     const points=d.deviation_points??(d.score-d.baseline_30d);
@@ -166,6 +166,35 @@
     const direction={all:'рост и снижение',up:'только рост',down:'только снижение'}[filters.deviation_direction];
     const contact=filters.deviation_telegram_only?' Только гости с Telegram.':'';
     $('gpDeviationRule').textContent=`Показаны ${direction} от ${num(filters.deviation_min*100)}% до ${num(filters.deviation_max*100)}% от личной нормы.${contact}`;
+  }
+  const deviationTags = (items) => items.map(d=>{
+    const percent=d.deviation_percent??((d.deviation_direction==='UP'?1:-1)*d.deviation_ratio*100);
+    return `<span class="${d.deviation_direction==='UP'?'is-up':'is-down'}">${esc(metricName[d.metric]||d.metric)} ${signed(percent,'%')}</span>`;
+  }).join('');
+  function visitContext(row){
+    if(row.typical_gap_days==null||row.days_since_last_visit==null)return esc(row.health?.reason_text||'Изменение рассчитано относительно личной нормы гостя.');
+    return `Обычно посещает клуб раз в <b>${num(row.typical_gap_days)} дн.</b> Сейчас не был <b>${num(row.days_since_last_visit)} дн.</b>`;
+  }
+  function renderDeviationDetail(row){
+    const target=$('gpDeviationDetail');
+    if(!row){
+      target.innerHTML='<div class="gp-deviation-detail-empty"><span aria-hidden="true">↗</span><strong>Выберите гостя</strong><p>Справа появятся его баллы и причина отклонения.</p></div>';
+      return;
+    }
+    target.innerHTML=`<header><div><button type="button" class="gp-deviation-detail-name" data-guest="${row.guest_id}">${esc(row.name)}</button><span>${row.has_telegram?'С Telegram · можно взаимодействовать':'Без Telegram'}</span></div><span class="gp-deviation-contact ${row.has_telegram?'is-connected':''}">${row.has_telegram?'Telegram':'Нет связи'}</span></header>
+      <div class="gp-deviation-score-grid"><article><span>Посещения</span><strong>${num(row.health.score)}</strong><small>П</small></article><article><span>Ценность</span><strong>${num(row.value.score)}</strong><small>Ц</small></article><article><span>Вовлечённость</span><strong>${num(row.engagement.score)}</strong><small>В</small></article></div>
+      <section class="gp-deviation-reasons"><h3>Почему попал в отклонения</h3>${row.deviations.map(d=>{const points=d.deviation_points??(d.score-d.baseline_30d);const percent=d.deviation_percent??((d.deviation_direction==='UP'?1:-1)*d.deviation_ratio*100);return `<article class="${d.deviation_direction==='UP'?'is-up':'is-down'}"><div><span>${esc(metricName[d.metric]||d.metric)}</span><strong>${signed(percent,'%')}</strong></div><p>Обычно ${num(d.baseline_30d)} → сейчас ${num(d.score)} · ${signed(points,' п.')}</p></article>`;}).join('')}</section>
+      ${row.deviations.some(d=>d.metric==='health')?`<section class="gp-deviation-visit-context"><span>Ритм посещений</span><p>${visitContext(row)}</p></section>`:''}
+      <button type="button" class="gp-deviation-open" data-guest="${row.guest_id}">Открыть полную карточку ПЦВ →</button>`;
+  }
+  function selectDeviation(id,{focus=false}={}){
+    selectedDeviationGuest=Number(id);
+    document.querySelectorAll('#gpDeviations [data-deviation-guest]').forEach(row=>{
+      const active=Number(row.dataset.deviationGuest)===selectedDeviationGuest;
+      row.classList.toggle('is-selected',active);row.setAttribute('aria-selected',String(active));
+      if(active&&focus)row.focus({preventScroll:true});
+    });
+    renderDeviationDetail(responseData?.deviations.find(row=>row.guest_id===selectedDeviationGuest));
   }
   function render(data,refill=false){
     responseData=data;
@@ -179,7 +208,9 @@
     document.querySelectorAll('#gpSegments [data-segment]').forEach(button=>{const active=button.dataset.segment===filters.segment;button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));});
     $('gpDeviationCount').textContent=`${num(data.deviation_count)} гостей с отклонениями · с Telegram ${num(data.deviation_telegram_count)} · без Telegram ${num(data.deviation_count-data.deviation_telegram_count)}`;
     renderDeviationRule();
-    $('gpDeviations').innerHTML=data.deviations.length?data.deviations.map(r=>`<article class="gp-deviation-row">${person(r)}<div class="gp-triple"><span>П <b>${num(r.health.score)}</b></span><span>Ц <b>${num(r.value.score)}</b></span><span>В <b>${num(r.engagement.score)}</b></span></div><div class="gp-deviation-change">${r.deviations.map(change).join('')}</div></article>`).join(''):'<div class="gp-empty">Нет подходящих отклонений или пока недостаточно истории оценок.</div>';
+    $('gpDeviations').innerHTML=data.deviations.length?`<table class="gp-table gp-audience-table gp-deviation-table"><thead><tr><th>Гость</th><th>Отклонение</th><th title="Посещения">П</th><th title="Ценность">Ц</th><th title="Вовлечённость">В</th><th>Общий балл</th><th>Последний визит</th></tr></thead><tbody>${data.deviations.map(r=>`<tr role="button" tabindex="0" data-deviation-guest="${r.guest_id}" aria-selected="false"><td><button class="gp-person" type="button" data-guest="${r.guest_id}">${esc(r.name)}<span>${esc(r.phone||`ID ${r.guest_id}`)} · ${r.has_telegram?'С Telegram':'Без Telegram'}</span></button></td><td><div class="gp-deviation-tags">${deviationTags(r.deviations)}</div></td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td><td class="gp-overall-cell">${score(r.overall?.score)}</td><td class="gp-last-visit">${esc(date(r.last_visit_date))}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет подходящих отклонений или пока недостаточно истории оценок.</div>';
+    const selectedOnPage=data.deviations.find(r=>r.guest_id===selectedDeviationGuest)||data.deviations[0];
+    if(selectedOnPage)selectDeviation(selectedOnPage.guest_id);else{selectedDeviationGuest=null;renderDeviationDetail(null);}
     pagination($('gpDeviationPages'),deviationPage,data.deviation_count,p=>{deviationPage=p;load({animate:false});});
   }
   async function load({animate=true}={}){
@@ -373,8 +404,10 @@
       else{sort=next;sortDirection=next==='name'?'asc':'desc';}
       page=1;if(audienceDialog.open)loadAudience();else load({animate:false});return;
     }
-    const guest=e.target.closest('[data-guest]');if(guest)openGuest(guest.dataset.guest);
+    const guest=e.target.closest('[data-guest]');if(guest){openGuest(guest.dataset.guest);return;}
+    const deviation=e.target.closest('[data-deviation-guest]');if(deviation)selectDeviation(deviation.dataset.deviationGuest);
   });
+  $('gpDeviations').addEventListener('keydown',e=>{const row=e.target.closest('[data-deviation-guest]');if(row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();selectDeviation(row.dataset.deviationGuest,{focus:true});}});
   $('gpClose').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>detailController?.abort());
   dialog.addEventListener('click',e=>{if(e.target===dialog){const rect=dialog.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)dialog.close();}});
   const help=$('gpHelpDialog');let helpMotion=null,helpClosing=false;
