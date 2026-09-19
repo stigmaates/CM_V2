@@ -467,25 +467,33 @@ def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
 
 
 def build_where_clause(
-    club_id: int, rules: List[Dict[str, Any]], require_telegram: bool = True
+    club_id: int,
+    rules: List[Dict[str, Any]],
+    require_telegram: bool = True,
+    logic: str = "and",
 ) -> Tuple[str, List[Any]]:
     where_parts = ["up.club_id = %s"]
     if require_telegram:
         where_parts.append("g.telegram_id IS NOT NULL")
     params: List[Any] = [club_id]
 
+    rule_parts = []
     for rule in rules:
         if not rule.get("field") or not rule.get("op"):
             continue
         sql_part, sql_params = _build_single_rule(rule)
-        where_parts.append(sql_part)
+        rule_parts.append(sql_part)
         params.extend(sql_params)
+
+    if rule_parts:
+        connector = " OR " if str(logic or "").lower() == "or" else " AND "
+        where_parts.append(f"({connector.join(rule_parts)})")
 
     return " WHERE " + " AND ".join(where_parts), params
 
 
-def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]]) -> int:
-    where_sql, params = build_where_clause(club_id, rules)
+def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]], logic: str = "and") -> int:
+    where_sql, params = build_where_clause(club_id, rules, logic=logic)
     sql = f"""
         SELECT COUNT(DISTINCT up.guest_id) AS cnt
         FROM user_portrait up
@@ -510,12 +518,14 @@ def _dedupe_recipient_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return list(by_guest.values())
 
 
-def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def get_recipient_rows(
+    conn, club_id: int, rules: List[Dict[str, Any]], logic: str = "and"
+) -> List[Dict[str, Any]]:
     with conn.cursor() as cur:
         ensure_cm_bonus_tables(cur)
         ensure_token_tables(cur)
 
-    where_sql, params = build_where_clause(club_id, rules)
+    where_sql, params = build_where_clause(club_id, rules, logic=logic)
     sql = f"""
         SELECT
             up.guest_id,
@@ -735,13 +745,13 @@ def list_segments(conn, club_id: int) -> List[Dict[str, Any]]:
     return rows
 
 
-def save_segment(conn, club_id: int, name: str, rules: List[Dict[str, Any]]) -> int:
+def save_segment(conn, club_id: int, name: str, rules: List[Dict[str, Any]], logic: str = "and") -> int:
     sql = """
         INSERT INTO saved_segments (club_id, name, rules_json)
         VALUES (%s, %s, %s)
     """
     with conn.cursor() as cur:
-        cur.execute(sql, (club_id, name, json.dumps({"rules": rules}, ensure_ascii=False)))
+        cur.execute(sql, (club_id, name, json.dumps({"rules": rules, "logic": logic}, ensure_ascii=False)))
         return cur.lastrowid
 
 
@@ -784,12 +794,13 @@ def create_mailing(
     message_text: str,
     parse_mode: str,
     attachments: List[Dict[str, str]],
+    logic: str = "and",
 ) -> Dict[str, Any]:
     from app.services.outbound_policy import ensure_outbound_allowed
 
     ensure_outbound_allowed()
 
-    recipients = get_recipient_rows(conn, club_id, rules)
+    recipients = get_recipient_rows(conn, club_id, rules, logic=logic)
     recipients_count = len(recipients)
 
     with conn.cursor() as cur:
@@ -810,7 +821,7 @@ def create_mailing(
             (
                 club_id,
                 segment_id,
-                json.dumps({"rules": rules}, ensure_ascii=False),
+                json.dumps({"rules": rules, "logic": logic}, ensure_ascii=False),
                 message_text,
                 parse_mode,
                 recipients_count,
@@ -2300,6 +2311,7 @@ def create_mailing_for_recipients(
     message_text: str,
     parse_mode: str = "HTML",
     filters_json: Dict[str, Any] | None = None,
+    attachments: List[Dict[str, str]] | None = None,
 ) -> Dict[str, Any]:
     from app.services.outbound_policy import ensure_outbound_allowed
 
@@ -2331,6 +2343,28 @@ def create_mailing_for_recipients(
             ),
         )
         mailing_id = cur.lastrowid
+
+        if attachments:
+            cur.executemany(
+                """
+                INSERT INTO mailing_attachments (
+                    mailing_id,
+                    file_type,
+                    file_path,
+                    original_name
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                [
+                    (
+                        mailing_id,
+                        item["file_type"],
+                        item["file_path"],
+                        item["original_name"],
+                    )
+                    for item in attachments
+                ],
+            )
 
         if recipients:
             cur.executemany(
@@ -2489,6 +2523,8 @@ def create_bonus_giveaway(
     parse_mode: str = "HTML",
     recipient_rows: List[Dict[str, Any]] | None = None,
     filters_json_extra: Dict[str, Any] | None = None,
+    attachments: List[Dict[str, str]] | None = None,
+    logic: str = "and",
 ) -> Dict[str, Any]:
     """Начисляет КБ/жетоны выбранной аудитории и создаёт Telegram-рассылку.
 
@@ -2519,13 +2555,18 @@ def create_bonus_giveaway(
         raise ValueError("Сообщение раздачи пустое")
 
     ensure_bonus_giveaway_tables(conn)
-    recipients = list(recipient_rows) if recipient_rows is not None else get_recipient_rows(conn, club_id, rules)
+    recipients = (
+        list(recipient_rows)
+        if recipient_rows is not None
+        else get_recipient_rows(conn, club_id, rules, logic=logic)
+    )
     recipients_count = len(recipients)
     expires_at = (
         datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
     )
     filters_json = {
         "rules": rules,
+        "logic": logic,
         "type": "bonus_giveaway",
         "bonus_amount": bonus_amount,
         "token_amount": token_amount,
@@ -2669,6 +2710,7 @@ def create_bonus_giveaway(
         message_text=message_text,
         parse_mode=parse_mode,
         filters_json=filters_json,
+        attachments=attachments,
     )
     mailing_id = mailing["mailing_id"]
 

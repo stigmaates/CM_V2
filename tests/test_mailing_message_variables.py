@@ -63,6 +63,21 @@ def test_mailing_recipients_require_real_telegram_id_not_cached_portrait_flag():
     assert params == [1]
 
 
+def test_mailing_filters_can_be_combined_with_or_without_escaping_club_scope():
+    where_sql, params = build_where_clause(
+        7,
+        [
+            {"field": "favorite_game", "op": "=", "value": "dota2"},
+            {"field": "recent_game_14d", "op": "=", "value": "cs2"},
+        ],
+        logic="or",
+    )
+
+    assert where_sql.startswith(" WHERE up.club_id = %s AND g.telegram_id IS NOT NULL AND (")
+    assert "up.favorite_game = %s OR up.recent_game_14d = %s" in where_sql
+    assert params == [7, "dota2", "cs2"]
+
+
 def test_case_openings_count_is_available_as_number_filter():
     field = mailing_service.FILTER_FIELDS["case_openings_count"]
 
