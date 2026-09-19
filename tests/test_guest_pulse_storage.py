@@ -376,8 +376,8 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpDeviationTelegram" checked' in html
     assert 'id="gpDeviationDetail"' in html
     assert 'class="gp-deviation-layout"' in html
-    assert 'class="gp-deviation-head-actions"' in html
-    assert html.index('data-range="deviation"') < html.index('class="gp-deviation-controls"')
+    assert 'class="gp-deviation-head-actions"' not in html
+    assert html.index('class="gp-deviation-controls"') < html.index('data-range="deviation"')
     assert 'id="gpAudienceContact"' not in html
     assert 'data-stat="telegram"' in html
     assert 'id="gpGuestsPanel"' not in html
