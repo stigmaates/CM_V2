@@ -367,6 +367,8 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpAudienceDialog"' in html
     assert 'id="gpAudienceSearch"' in html
     assert 'id="gpAudienceAverage"' in html
+    assert 'id="gpAudienceTelegramPercent"' in html
+    assert 'data-stat="telegram"' in html
     assert 'id="gpGuestsPanel"' not in html
     assert 'id="gpSegment"' not in html
     assert 'id="gpWithTelegram"' not in html

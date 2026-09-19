@@ -201,6 +201,8 @@
     $('gpAudienceTotal').textContent=num(data.selected_count);
     $('gpAudienceTelegram').textContent=num(data.selected_telegram_count);
     $('gpAudienceWithout').textContent=num(data.selected_without_telegram_count);
+    $('gpAudienceTelegramPercent').textContent=percentText(data.selected_telegram_count,data.selected_count);
+    $('gpAudienceWithoutPercent').textContent=percentText(data.selected_without_telegram_count,data.selected_count);
     $('gpAudienceAverage').textContent=num(data.selected_average_score);
     $('gpAudienceFooterCount').textContent=`Показано ${num(data.guests.length)} из ${num(data.selected_count)}`;
     $('gpGuests').innerHTML=data.guests.length?`<table class="gp-table gp-audience-table"><thead><tr>${sortHeader('name','Гость')}<th>Статус</th>${sortHeader('health','П','Посещения')}${sortHeader('value','Ц','Ценность')}${sortHeader('engagement','В','Вовлечённость')}${sortHeader('overall','Общий балл','П 35% + Ц 40% + В 25%')}<th>Последний визит</th></tr></thead><tbody>${data.guests.map(r=>`<tr><td><button class="gp-person" type="button" data-guest="${r.guest_id}">${esc(r.name)}<span>${esc(r.phone||`ID ${r.guest_id}`)} · ${r.has_telegram?'С Telegram':'Без Telegram'}</span></button></td><td><div class="gp-guest-segments">${audienceTags(r.segments||[])}</div></td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td><td class="gp-overall-cell">${score(r.overall?.score)}</td><td class="gp-last-visit">${esc(date(r.last_visit_date))}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет гостей с такими показателями. Попробуйте изменить фильтры.</div>';
