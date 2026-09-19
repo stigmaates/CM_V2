@@ -152,7 +152,8 @@
 .gp-segment-label{gap:10px}.gp-segment-label>span{font-size:12px;font-weight:650;color:#d8c6e9}.gp-segment-chips{display:flex;flex-wrap:wrap;gap:8px}.gp .gp-segment-chips button{width:auto;margin:0;padding:8px 12px;border-color:#52376d;border-radius:99px;background:#211431;color:#baa7cb;font-size:10px}.gp .gp-segment-chips button:hover,.gp .gp-segment-chips button:focus-visible{background:#352249;color:#eee5f8}.gp .gp-segment-chips button.is-active{border-color:#9b6ce3;background:#5c358a;color:#fff;box-shadow:0 4px 14px #6f3bb72e}
 
 /* Align the distribution card with the first audience row and use its chart space efficiently. */
-@media(min-width:1251px){.gp-chart-block{margin-top:53px}.gp-donut{width:min(100%,430px);aspect-ratio:1.25}}
+.gp-chart-column{min-width:0;max-width:100%}.gp-audience-panel-head,.gp-chart-column-head{box-sizing:border-box;min-height:30px;margin-bottom:16px}.gp-chart-column-head{display:flex;align-items:flex-start;justify-content:flex-end}.gp-chart-column .gp-chart-block{align-self:start;margin:0}.gp-chart-column-head .gp-chart-toggle{max-width:none}
+@media(min-width:1251px){.gp-donut{width:min(100%,430px);aspect-ratio:1.25}}
 
 /* Audience drilldown opens above the overview and keeps the page position intact. */
 .gp-audience-dialog{box-sizing:border-box;width:min(1280px,calc(100vw - 28px));max-width:none;height:min(860px,calc(100dvh - 28px));max-height:none;margin:auto;padding:0;border:1px solid #68478a;border-radius:20px;background:#1b102a;color:var(--text-main);overflow:hidden;box-shadow:0 28px 90px #07030dbd}

@@ -363,6 +363,7 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpChartSectors"' in html
     assert 'id="gpChartLabels"' in html
     assert 'id="gpChartIncludeWithout"' in html
+    assert 'class="gp-chart-column-head"' in html
     assert 'id="gpSegments"' in html
     assert 'id="gpAudienceDialog"' in html
     assert 'id="gpAudienceSearch"' in html
