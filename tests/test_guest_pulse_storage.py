@@ -368,6 +368,8 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpAudienceSearch"' in html
     assert 'id="gpAudienceAverage"' in html
     assert 'id="gpAudienceTelegramPercent"' in html
+    assert 'id="gpAudienceTelegramOnly" checked' in html
+    assert 'id="gpAudienceContact"' not in html
     assert 'data-stat="telegram"' in html
     assert 'id="gpGuestsPanel"' not in html
     assert 'id="gpSegment"' not in html
@@ -515,6 +517,9 @@ def test_audience_drawer_search_and_contact_filters(pulse_client, mixed_pulse_au
     assert without["selected_count"] == 1
     assert without["selected_telegram_count"] == 0
     assert without["guests"][0]["guest_id"] == 56
+    assert without["audience_summary_count"] == 14
+    assert without["audience_summary_telegram_count"] == 13
+    assert without["audience_summary_without_telegram_count"] == 1
 
 
 def test_audience_drawer_handoff_keeps_search_filter(pulse_client, database, mixed_pulse_audience):

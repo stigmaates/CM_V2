@@ -102,6 +102,7 @@ def guest_pulse_data():
     selected = select(current, f)
     for row in current:
         row["overall"] = overall_score(row)
+    audience_summary = list(selected)
     if search:
         needle = search.casefold()
         selected = [
@@ -132,6 +133,7 @@ def guest_pulse_data():
         [r for r in selected if not r["has_telegram"]]
     )
     scored_selected = [r["overall"]["score"] for r in selected if r["overall"]["score"] is not None]
+    audience_scored = [r["overall"]["score"] for r in audience_summary if r["overall"]["score"] is not None]
     at = utc_datetime_to_club_local(state.get("calculated_at"), state.get("timezone"))
     return jsonify(
         ok=True,
@@ -141,6 +143,12 @@ def guest_pulse_data():
         selected_telegram_count=sum(r["has_telegram"] for r in selected),
         selected_without_telegram_count=sum(not r["has_telegram"] for r in selected),
         selected_average_score=round(sum(scored_selected) / len(scored_selected), 1) if scored_selected else None,
+        audience_summary_count=len(audience_summary),
+        audience_summary_telegram_count=sum(r["has_telegram"] for r in audience_summary),
+        audience_summary_without_telegram_count=sum(not r["has_telegram"] for r in audience_summary),
+        audience_summary_average_score=(
+            round(sum(audience_scored) / len(audience_scored), 1) if audience_scored else None
+        ),
         audiences=[
             dict(
                 key=k,

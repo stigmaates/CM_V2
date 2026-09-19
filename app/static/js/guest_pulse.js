@@ -12,7 +12,7 @@
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:false,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, sort='health', sortDirection='asc', responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
   let modalAudience='', audienceData=null, audienceController=null, audienceTimer=null, audienceMotion=null, audienceClosing=false;
-  const audienceFilters={search:'',contact:'all',health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100};
+  const audienceFilters={search:'',contact:'with',health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100};
   let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null, chartIncludeWithoutTelegram=false;
   const chartSectors=new Map(), circumference=2*Math.PI*70;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -198,12 +198,12 @@
     $('gpGuestsCount').textContent=`${num(data.selected_count)} гостей · Telegram ${num(data.selected_telegram_count)} · без Telegram ${num(data.selected_without_telegram_count)}`;
     $('gpGuestsIcon').dataset.icon=modalAudience;
     $('gpGuestsIcon').style.setProperty('--audience-color',audience?.color||'#a78bfa');
-    $('gpAudienceTotal').textContent=num(data.selected_count);
-    $('gpAudienceTelegram').textContent=num(data.selected_telegram_count);
-    $('gpAudienceWithout').textContent=num(data.selected_without_telegram_count);
-    $('gpAudienceTelegramPercent').textContent=percentText(data.selected_telegram_count,data.selected_count);
-    $('gpAudienceWithoutPercent').textContent=percentText(data.selected_without_telegram_count,data.selected_count);
-    $('gpAudienceAverage').textContent=num(data.selected_average_score);
+    $('gpAudienceTotal').textContent=num(data.audience_summary_count);
+    $('gpAudienceTelegram').textContent=num(data.audience_summary_telegram_count);
+    $('gpAudienceWithout').textContent=num(data.audience_summary_without_telegram_count);
+    $('gpAudienceTelegramPercent').textContent=percentText(data.audience_summary_telegram_count,data.audience_summary_count);
+    $('gpAudienceWithoutPercent').textContent=percentText(data.audience_summary_without_telegram_count,data.audience_summary_count);
+    $('gpAudienceAverage').textContent=num(data.audience_summary_average_score);
     $('gpAudienceFooterCount').textContent=`Показано ${num(data.guests.length)} из ${num(data.selected_count)}`;
     $('gpGuests').innerHTML=data.guests.length?`<table class="gp-table gp-audience-table"><thead><tr>${sortHeader('name','Гость')}<th>Статус</th>${sortHeader('health','П','Посещения')}${sortHeader('value','Ц','Ценность')}${sortHeader('engagement','В','Вовлечённость')}${sortHeader('overall','Общий балл','П 35% + Ц 40% + В 25%')}<th>Последний визит</th></tr></thead><tbody>${data.guests.map(r=>`<tr><td><button class="gp-person" type="button" data-guest="${r.guest_id}">${esc(r.name)}<span>${esc(r.phone||`ID ${r.guest_id}`)} · ${r.has_telegram?'С Telegram':'Без Telegram'}</span></button></td><td><div class="gp-guest-segments">${audienceTags(r.segments||[])}</div></td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td><td class="gp-overall-cell">${score(r.overall?.score)}</td><td class="gp-last-visit">${esc(date(r.last_visit_date))}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет гостей с такими показателями. Попробуйте изменить фильтры.</div>';
     pagination($('gpGuestPages'),page,data.selected_count,p=>{page=p;loadAudience();});
@@ -218,8 +218,8 @@
     finally{if(own===audienceController)$('gpAudienceDialog').classList.remove('is-loading');}
   }
   function resetAudienceFilters(){
-    Object.assign(audienceFilters,{search:'',contact:'all',health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100});
-    $('gpAudienceSearch').value='';$('gpAudienceContact').value='all';
+    Object.assign(audienceFilters,{search:'',contact:'with',health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100});
+    $('gpAudienceSearch').value='';$('gpAudienceTelegramOnly').checked=true;
     for(const key of ['Health','Value','Engagement']){$(`gpAudience${key}Min`).value=0;$(`gpAudience${key}Max`).value=100;}
   }
   function choose(key){
@@ -316,7 +316,7 @@
   $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;}filters.audience_type='';filters.segment='';page=1;load();});
   $('gpRefresh').addEventListener('click',()=>load());
   $('gpAudienceSearch').addEventListener('input',event=>{audienceFilters.search=event.target.value;page=1;clearTimeout(audienceTimer);audienceTimer=setTimeout(loadAudience,280);});
-  $('gpAudienceContact').addEventListener('change',event=>{audienceFilters.contact=event.target.value;page=1;loadAudience();});
+  $('gpAudienceTelegramOnly').addEventListener('change',event=>{audienceFilters.contact=event.target.checked?'with':'all';page=1;loadAudience();});
   $('gpAudienceFilterApply').addEventListener('click',()=>{
     for(const [key,name] of [['health','Health'],['value','Value'],['engagement','Engagement']]){
       let low=Math.max(0,Math.min(100,Number($(`gpAudience${name}Min`).value)||0));
