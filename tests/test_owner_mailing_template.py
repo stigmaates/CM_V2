@@ -73,6 +73,8 @@ def test_manual_mailing_uses_one_audience_message_and_reward_form():
     assert 'data-audience-logic=' not in html
     assert "Пересчитать аудиторию" not in html
     assert 'id="previewBtn">Применить</button>' in html
+    assert "Сохранить как сегмент" not in html
+    assert 'id="segmentName" placeholder="Название сегмента"' in html
     assert "Добавить ссылку" in html
     assert 'Фильтры раздачи' not in html
     assert 'Отправить раздачу' not in html

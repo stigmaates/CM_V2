@@ -3,7 +3,7 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Рассылки{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-pulse-2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-pulse-3">
 {% endblock %}
 
 {% block content %}
@@ -80,7 +80,6 @@
                         <button type="button" class="btn btn-primary" id="addRuleBtn">＋ Добавить фильтр</button>
                         <button type="button" class="btn btn-secondary" id="previewBtn">Применить</button>
                         <div class="campaign-save-segment">
-                            <span>Сохранить как сегмент</span>
                             <input type="text" id="segmentName" placeholder="Название сегмента" autocomplete="off">
                             <button type="button" class="btn" id="saveSegmentBtn">Сохранить</button>
                         </div>
@@ -458,5 +457,5 @@
     window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
     window.MAILING_VARIABLES = {{ message_variables | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-pulse-2"></script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-pulse-3"></script>
 {% endblock %}

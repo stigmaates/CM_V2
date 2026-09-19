@@ -1948,7 +1948,7 @@
 
 .campaign-save-segment {
     display: grid;
-    grid-template-columns: auto minmax(240px, 360px) auto;
+    grid-template-columns: minmax(240px, 360px) auto;
     align-items: center;
     justify-content: start;
     gap: 8px;
