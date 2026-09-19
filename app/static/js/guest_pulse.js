@@ -12,8 +12,7 @@
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:false,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, sort='health', sortDirection='asc', responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
   let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null;
-  const chartSectors=new Map(), circumference=2*Math.PI*44;
-  const audienceIcons={new:'+',churned:'↘',valuable_risk:'◆',low_engagement:'◇',loyal:'★',risk:'!',other:'•••'};
+  const chartSectors=new Map(), circumference=2*Math.PI*70;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   function animateRing(){
     ringAnimation?.cancel();
@@ -43,7 +42,7 @@
       if(!state){
         const el=document.createElementNS('http://www.w3.org/2000/svg','circle');
         const label=document.createElementNS('http://www.w3.org/2000/svg','text');
-        for(const [k,v] of Object.entries({cx:120,cy:120,r:44,fill:'none',stroke:a.color,'stroke-width':88,'stroke-linecap':'butt',transform:'rotate(-90 120 120)',role:'button','stroke-dasharray':`0 ${circumference}`}))el.setAttribute(k,v);
+        for(const [k,v] of Object.entries({cx:120,cy:120,r:70,fill:'none',stroke:a.color,'stroke-width':42,'stroke-linecap':'round',transform:'rotate(-90 120 120)',role:'button','stroke-dasharray':`0 ${circumference}`}))el.setAttribute(k,v);
         el.classList.add('gp-chart-sector');
         label.classList.add('gp-chart-percent');
         state={el,label,length:0,offset:0,tip:''};chartSectors.set(a.key,state);
@@ -56,6 +55,7 @@
       }
       const length=data.total?circumference*a.count/data.total:0;
       const percent=data.total?a.count/data.total*100:0;
+      const gap=Math.min(4,length*.24);
       const angle=(offset+length/2)/circumference*Math.PI*2-Math.PI/2;
       state.tip=`${a.label}: ${num(a.count)} · с Telegram ${num(a.telegram_count)} · без Telegram ${num(a.without_telegram_count)}`;
       state.el.setAttribute('aria-label',state.tip);
@@ -63,13 +63,14 @@
       state.el.setAttribute('aria-hidden',String(!a.count));
       state.el.style.pointerEvents=a.count?'':'none';
       state.el.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.25':'1';
-      state.label.textContent=percent>=3?`${Math.round(percent)}%`:'';
-      state.label.setAttribute('x',120+Math.cos(angle)*55);
-      state.label.setAttribute('y',120+Math.sin(angle)*55);
+      state.label.textContent=percent>=2.5?`${Math.round(percent)}%`:'';
+      state.label.setAttribute('x',120+Math.cos(angle)*70);
+      state.label.setAttribute('y',120+Math.sin(angle)*70);
+      state.label.style.fontSize=percent<6?'9px':'12px';
       state.label.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.3':'1';
       state.length=length;state.offset=offset;
-      state.el.setAttribute('stroke-dasharray',`${length} ${Math.max(0,circumference-length)}`);
-      state.el.setAttribute('stroke-dashoffset',-offset);
+      state.el.setAttribute('stroke-dasharray',`${Math.max(0,length-gap)} ${Math.max(0,circumference-length+gap)}`);
+      state.el.setAttribute('stroke-dashoffset',-(offset+gap/2));
       offset+=length;
     });
     if(refill)animateRing();
@@ -115,7 +116,7 @@
     $('gpSelectionCount').textContent=`Для рассылки: ${num(data.selected_telegram_count)} · только с Telegram`;
     $('gpChartTip').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || 'Выберите сектор или карточку группы';
     $('gpAudienceList').innerHTML=data.audiences.map(a=>{
-      return `<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-icon" aria-hidden="true">${audienceIcons[a.key]||'•'}</span><span class="gp-audience-body"><span class="gp-label">${esc(a.label)}</span><span class="gp-audience-number"><strong>${num(a.telegram_count)}</strong><span>с Telegram</span></span></span><span class="gp-audience-side"><span class="gp-audience-open" aria-hidden="true">→</span><span class="gp-audience-total"><small>Всего</small><b>${num(a.count)}</b></span></span></button>`;
+      return `<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-icon" data-icon="${a.key}" aria-hidden="true"></span><span class="gp-audience-body"><span class="gp-label">${esc(a.label)}</span><span class="gp-audience-number"><strong>${num(a.telegram_count)}</strong><span>с Telegram</span></span></span><span class="gp-audience-side"><span class="gp-audience-open" aria-hidden="true">→</span><span class="gp-audience-total"><small>Всего</small><b>${num(a.count)}</b></span></span></button>`;
     }).join('');
     $('gpDistributionLegend').innerHTML=data.audiences.map(a=>`<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}"><i style="background:${a.color}"></i><span>${esc(a.label)}</span></button>`).join('');
     renderChart(data,refill);
