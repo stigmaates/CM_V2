@@ -85,8 +85,14 @@ def test_dashboard_does_not_eagerly_calculate_all_time_engagement(monkeypatch):
 def test_dashboard_template_uses_custom_date_inputs_and_lazy_all_time_endpoint():
     template = Path("app/templates/owner/dashboard.html").read_text(encoding="utf-8")
 
+    assert "css/team.css" in template
     assert 'name="date_from"' in template
     assert 'name="date_to"' in template
+    assert 'data-dashboard-preset="week"' in template
+    assert 'data-dashboard-preset="month"' in template
+    assert 'id="dashboardCalendarPopover"' in template
+    assert 'id="dashboardCalendarApply"' in template
+    assert "dashboardDateRangeForm.requestSubmit()" in template
     assert "period=7" not in template
     assert "period=30" not in template
     assert "period=90" not in template

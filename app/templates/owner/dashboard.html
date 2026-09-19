@@ -3,7 +3,8 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Дашборд{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260919-date-range-1') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='12') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260919-date-range-2') }}">
 {% endblock %}
 
 {% block content %}
@@ -30,16 +31,38 @@
 <main class="cb-dashboard content">
     <div class="cb-dashboard-head">
         <h1 class="cb-club-title">{{ header_club_name or 'Клуб' }}</h1>
-        <form class="cb-date-range" method="get" action="{{ url_for('owner.dashboard') }}" aria-label="Диапазон дат дашборда" data-dashboard-date-range>
-            <label>
-                <span>От</span>
-                <input type="date" name="date_from" value="{{ selected_date_from }}" max="{{ dashboard_max_date }}" required>
-            </label>
-            <label>
-                <span>До</span>
-                <input type="date" name="date_to" value="{{ selected_date_to }}" max="{{ dashboard_max_date }}" required>
-            </label>
-            <button type="submit">Показать</button>
+        <form class="cb-dashboard-date-filter" method="get" action="{{ url_for('owner.dashboard') }}" aria-label="Диапазон дат дашборда" data-dashboard-date-range>
+            <div class="team-period" data-dashboard-period>
+                <div class="team-period__main">
+                    <div class="team-presets" aria-label="Период дашборда">
+                        <button type="button" data-dashboard-preset="week" aria-pressed="false">Неделя</button>
+                        <button type="button" data-dashboard-preset="month" aria-pressed="false">Месяц</button>
+                        <button class="team-calendar-trigger" id="dashboardCalendarTrigger" type="button" aria-label="Выбрать даты" aria-expanded="false" aria-controls="dashboardCalendarPopover">
+                            <span class="team-calendar-icon" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                    <span class="team-period__summary" id="dashboardPeriodSummary">{{ selected_period_label }}</span>
+                </div>
+                <input type="hidden" name="date_from" id="dashboardDateFrom" value="{{ selected_date_from }}">
+                <input type="hidden" name="date_to" id="dashboardDateTo" value="{{ selected_date_to }}">
+                <div class="team-calendar-popover" id="dashboardCalendarPopover" hidden>
+                    <header>
+                        <div><strong>Выберите период</strong><small>Сначала начальную, затем конечную дату</small></div>
+                        <div class="team-calendar-nav">
+                            <button id="dashboardCalendarPrev" type="button" aria-label="Предыдущий месяц">‹</button>
+                            <button id="dashboardCalendarNext" type="button" aria-label="Следующий месяц">›</button>
+                        </div>
+                    </header>
+                    <div class="team-calendars" id="dashboardCalendars"></div>
+                    <footer>
+                        <div class="team-calendar-selection">
+                            <span>С <strong id="dashboardCalendarFrom">—</strong></span>
+                            <span>По <strong id="dashboardCalendarTo">—</strong></span>
+                        </div>
+                        <button class="team-calendar-apply" id="dashboardCalendarApply" type="button">Применить</button>
+                    </footer>
+                </div>
+            </div>
         </form>
     </div>
 
@@ -566,6 +589,176 @@
         }
     } catch (_error) {
         sessionStorage.removeItem(dashboardScrollStorageKey);
+    }
+
+    const dashboardPeriodRoot = document.querySelector('[data-dashboard-period]');
+    const dashboardFromInput = document.getElementById('dashboardDateFrom');
+    const dashboardToInput = document.getElementById('dashboardDateTo');
+    const dashboardCalendarTrigger = document.getElementById('dashboardCalendarTrigger');
+    const dashboardCalendarPopover = document.getElementById('dashboardCalendarPopover');
+    const dashboardCalendars = document.getElementById('dashboardCalendars');
+    const dashboardCalendarApply = document.getElementById('dashboardCalendarApply');
+    const dashboardRangeToday = {{ dashboard_max_date|tojson|safe }};
+    let dashboardCalendarView = null;
+    let dashboardCalendarFrom = null;
+    let dashboardCalendarTo = null;
+
+    function dashboardParseDate(value) {
+        return value ? new Date(`${value}T12:00:00Z`) : null;
+    }
+
+    function dashboardIsoDate(value) {
+        return value.toISOString().slice(0, 10);
+    }
+
+    function dashboardMonthStart(value) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1, 12));
+    }
+
+    function dashboardAddMonths(value, amount) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + amount, 1, 12));
+    }
+
+    function dashboardFormatDate(value) {
+        if (!value) return '—';
+        const [year, month, day] = value.split('-');
+        return `${day}.${month}.${year}`;
+    }
+
+    function dashboardPresetStart(preset) {
+        const date = dashboardParseDate(dashboardRangeToday);
+        if (preset === 'month') date.setUTCDate(1);
+        else date.setUTCDate(date.getUTCDate() - 6);
+        return dashboardIsoDate(date);
+    }
+
+    function dashboardSetActivePreset() {
+        if (!dashboardRangeToday || !dashboardFromInput?.value || !dashboardToInput?.value) return;
+        const from = dashboardFromInput.value;
+        const preset = dashboardToInput.value === dashboardRangeToday
+            ? (['week', 'month'].find((name) => from === dashboardPresetStart(name)) || null)
+            : null;
+        document.querySelectorAll('[data-dashboard-preset]').forEach((button) => {
+            const active = button.dataset.dashboardPreset === preset;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', String(active));
+        });
+        dashboardCalendarTrigger?.classList.toggle('is-active', !preset);
+        const summary = document.getElementById('dashboardPeriodSummary');
+        if (summary) {
+            summary.textContent = `${dashboardFormatDate(from)} — ${dashboardFormatDate(dashboardToInput.value)}`;
+        }
+    }
+
+    function dashboardMonthMarkup(firstDay) {
+        const monthNames = [
+            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+        ];
+        const year = firstDay.getUTCFullYear();
+        const month = firstDay.getUTCMonth();
+        const offset = (firstDay.getUTCDay() + 6) % 7;
+        const dayCount = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+        const cells = Array.from({length: offset}, () => '<span class="team-calendar-day is-empty"></span>');
+        for (let day = 1; day <= dayCount; day += 1) {
+            const value = dashboardIsoDate(new Date(Date.UTC(year, month, day, 12)));
+            const classes = ['team-calendar-day'];
+            if (value === dashboardRangeToday) classes.push('is-today');
+            if (value === dashboardCalendarFrom) classes.push('is-start');
+            if (value === dashboardCalendarTo) classes.push('is-end');
+            if (
+                dashboardCalendarFrom && dashboardCalendarTo &&
+                value > dashboardCalendarFrom && value < dashboardCalendarTo
+            ) classes.push('is-range');
+            cells.push(`<button class="${classes.join(' ')}" type="button" data-dashboard-calendar-date="${value}"${value > dashboardRangeToday ? ' disabled' : ''}>${day}</button>`);
+        }
+        return `<section class="team-calendar-month">
+            <h3>${monthNames[month]} ${year}</h3>
+            <div class="team-calendar-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+            <div class="team-calendar-days">${cells.join('')}</div>
+        </section>`;
+    }
+
+    function dashboardRenderCalendars() {
+        if (!dashboardCalendars || !dashboardCalendarView) return;
+        dashboardCalendars.innerHTML = dashboardMonthMarkup(dashboardCalendarView)
+            + dashboardMonthMarkup(dashboardAddMonths(dashboardCalendarView, 1));
+        document.getElementById('dashboardCalendarFrom').textContent = dashboardFormatDate(dashboardCalendarFrom);
+        document.getElementById('dashboardCalendarTo').textContent = dashboardFormatDate(dashboardCalendarTo);
+        dashboardCalendarApply.disabled = !(dashboardCalendarFrom && dashboardCalendarTo);
+        const currentMonth = dashboardMonthStart(dashboardParseDate(dashboardRangeToday));
+        document.getElementById('dashboardCalendarNext').disabled = dashboardAddMonths(dashboardCalendarView, 1) >= currentMonth;
+    }
+
+    function dashboardOpenCalendar() {
+        dashboardCalendarFrom = dashboardFromInput.value || null;
+        dashboardCalendarTo = dashboardToInput.value || null;
+        const anchor = dashboardMonthStart(dashboardParseDate(dashboardCalendarTo || dashboardRangeToday));
+        dashboardCalendarView = dashboardAddMonths(anchor, -1);
+        dashboardRenderCalendars();
+        dashboardCalendarPopover.hidden = false;
+        dashboardCalendarTrigger.setAttribute('aria-expanded', 'true');
+    }
+
+    function dashboardCloseCalendar() {
+        if (!dashboardCalendarPopover || !dashboardCalendarTrigger) return;
+        dashboardCalendarPopover.hidden = true;
+        dashboardCalendarTrigger.setAttribute('aria-expanded', 'false');
+    }
+
+    function dashboardSelectCalendarDate(value) {
+        if (!dashboardCalendarFrom || dashboardCalendarTo) {
+            dashboardCalendarFrom = value;
+            dashboardCalendarTo = null;
+        } else if (value < dashboardCalendarFrom) {
+            dashboardCalendarFrom = value;
+        } else {
+            dashboardCalendarTo = value;
+        }
+        dashboardRenderCalendars();
+    }
+
+    if (dashboardPeriodRoot) {
+        dashboardSetActivePreset();
+        document.querySelectorAll('[data-dashboard-preset]').forEach((button) => {
+            button.addEventListener('click', () => {
+                dashboardFromInput.value = dashboardPresetStart(button.dataset.dashboardPreset);
+                dashboardToInput.value = dashboardRangeToday;
+                dashboardCloseCalendar();
+                dashboardSetActivePreset();
+                dashboardDateRangeForm.requestSubmit();
+            });
+        });
+        dashboardCalendarTrigger.addEventListener('click', () => {
+            if (dashboardCalendarPopover.hidden) dashboardOpenCalendar();
+            else dashboardCloseCalendar();
+        });
+        document.getElementById('dashboardCalendarPrev').addEventListener('click', () => {
+            dashboardCalendarView = dashboardAddMonths(dashboardCalendarView, -1);
+            dashboardRenderCalendars();
+        });
+        document.getElementById('dashboardCalendarNext').addEventListener('click', () => {
+            dashboardCalendarView = dashboardAddMonths(dashboardCalendarView, 1);
+            dashboardRenderCalendars();
+        });
+        dashboardCalendars.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-dashboard-calendar-date]');
+            if (button && !button.disabled) dashboardSelectCalendarDate(button.dataset.dashboardCalendarDate);
+        });
+        dashboardCalendarApply.addEventListener('click', () => {
+            if (!dashboardCalendarFrom || !dashboardCalendarTo) return;
+            dashboardFromInput.value = dashboardCalendarFrom;
+            dashboardToInput.value = dashboardCalendarTo;
+            dashboardCloseCalendar();
+            dashboardSetActivePreset();
+            dashboardDateRangeForm.requestSubmit();
+        });
+        document.addEventListener('click', (event) => {
+            if (!dashboardPeriodRoot.contains(event.target)) dashboardCloseCalendar();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !dashboardCalendarPopover.hidden) dashboardCloseCalendar();
+        });
     }
 
     const engagementPeriodData = {{ engagement|tojson|safe }};
