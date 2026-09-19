@@ -34,7 +34,9 @@ def ensure_prize_claim_tables(cursor) -> None:
             id INT AUTO_INCREMENT PRIMARY KEY,
             club_id INT NOT NULL,
             guest_id INT NOT NULL,
-            spin_id INT NOT NULL,
+            spin_id INT NULL,
+            source_type VARCHAR(40) NULL,
+            source_id VARCHAR(120) NULL,
             prize_id INT NOT NULL,
             prize_name VARCHAR(255) NOT NULL,
             prize_description TEXT NULL,
@@ -54,7 +56,8 @@ def ensure_prize_claim_tables(cursor) -> None:
             KEY idx_prize_claims_club_status (club_id, status),
             KEY idx_prize_claims_guest (club_id, guest_id, created_at),
             KEY idx_prize_claims_spin (spin_id),
-            UNIQUE KEY uq_prize_claim_spin (spin_id)
+            UNIQUE KEY uq_prize_claim_spin (spin_id),
+            UNIQUE KEY uq_prize_claim_source (club_id, guest_id, source_type, source_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """)
     _prize_claim_tables_ready = True
@@ -136,12 +139,15 @@ def create_prize_claim(
     cursor,
     guest_id: int,
     club_id: int,
-    spin_id: int,
+    spin_id: int | None,
     prize: dict[str, Any],
     *,
     test_mode: bool = False,
+    source_type: str | None = None,
+    source_id: str | None = None,
+    return_existing: bool = True,
 ) -> int | None:
-    """Create a manual issue task for a wheel prize. Returns claim id.
+    """Create a manual prize issue task and return its id.
 
     КБ-prizes are credited automatically and should not create claims.
     """
@@ -157,6 +163,15 @@ def create_prize_claim(
     if not prize_id or not prize_name:
         return None
 
+    if not source_type:
+        source_type = "case_opening" if spin_id is not None and int(spin_id) < 0 else "wheel_spin"
+    if source_id is None and spin_id is not None:
+        source_id = str(abs(int(spin_id)))
+    source_type = str(source_type or "").strip() or None
+    source_id = str(source_id or "").strip() or None
+    if spin_id is None and (not source_type or not source_id):
+        return None
+
     prize_description = prize.get("description")
     if test_mode:
         prize_name = f"[ТЕСТ] {prize_name}"
@@ -170,6 +185,8 @@ def create_prize_claim(
             club_id,
             guest_id,
             spin_id,
+            source_type,
+            source_id,
             prize_id,
             prize_name,
             prize_description,
@@ -177,12 +194,14 @@ def create_prize_claim(
             status,
             created_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s)
         """,
         (
             club_id,
             guest_id,
             spin_id,
+            source_type,
+            source_id,
             prize_id,
             prize_name,
             prize_description,
@@ -194,15 +213,32 @@ def create_prize_claim(
     if cursor.lastrowid:
         return int(cursor.lastrowid)
 
-    cursor.execute(
-        """
-        SELECT id
-        FROM guest_prize_claims
-        WHERE spin_id = %s
-        LIMIT 1
-        """,
-        (spin_id,),
-    )
+    if not return_existing:
+        return None
+
+    if source_type and source_id:
+        cursor.execute(
+            """
+            SELECT id
+            FROM guest_prize_claims
+            WHERE club_id = %s
+              AND guest_id = %s
+              AND source_type = %s
+              AND source_id = %s
+            LIMIT 1
+            """,
+            (club_id, guest_id, source_type, source_id),
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT id
+            FROM guest_prize_claims
+            WHERE spin_id = %s
+            LIMIT 1
+            """,
+            (spin_id,),
+        )
     row = cursor.fetchone() or {}
     return int(row["id"]) if row.get("id") else None
 

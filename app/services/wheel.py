@@ -662,6 +662,7 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
     # Mission progress calculations use their own DB calls, so award mission rewards after streak sync.
     missions = get_guest_missions_with_progress(guest_id, club_id)
     conn = get_db_connection()
+    mission_claim_ids = []
     try:
         with conn.cursor() as cursor:
             ensure_token_tables(cursor)
@@ -670,10 +671,11 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
                 if not mission.get("is_completed"):
                     continue
 
-                record_mission_completion(cursor, club_id, guest_id, mission["id"])
+                first_completion = record_mission_completion(cursor, club_id, guest_id, mission["id"])
 
                 token_reward = int(mission.get("token_reward") or 0)
                 cm_bonus_reward = int(mission.get("cm_bonus_reward") or 0)
+                physical_reward = str(mission.get("reward_text") or "").strip()
                 mission_name = mission.get("name") or "задание"
                 source_id = str(mission["id"])
 
@@ -699,9 +701,32 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
                         description=f"Задание выполнено: {mission_name}",
                         status="done",
                     )
+
+                if first_completion and physical_reward:
+                    claim_id = create_prize_claim(
+                        cursor=cursor,
+                        guest_id=guest_id,
+                        club_id=club_id,
+                        spin_id=None,
+                        source_type="mission",
+                        source_id=source_id,
+                        prize={
+                            "id": mission["id"],
+                            "name": physical_reward,
+                            "description": f"За выполнение задания «{mission_name}»",
+                            "image_url": None,
+                            "bonus_amount": 0,
+                        },
+                        return_existing=False,
+                    )
+                    if claim_id:
+                        mission_claim_ids.append(claim_id)
         conn.commit()
     finally:
         conn.close()
+
+    for claim_id in mission_claim_ids:
+        notify_prize_claim_admin_chat(claim_id)
 
     return missions
 

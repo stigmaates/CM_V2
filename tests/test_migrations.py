@@ -253,6 +253,16 @@ def test_game_preferences_and_contract_engagement_migration_exports_revision():
     assert callable(migration.upgrade)
 
 
+def test_mission_prize_claims_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0048_mission_prize_claims")
+
+    assert migration.revision == "0048_mission_prize_claims"
+    assert callable(migration.upgrade)
+    constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
+    assert any("source_type" in value for value in constants)
+    assert any("uq_prize_claim_source" in value for value in constants)
+
+
 class _Cursor:
     def __init__(self):
         self.applied = False

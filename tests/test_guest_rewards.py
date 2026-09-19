@@ -133,3 +133,30 @@ def test_combined_reward_history_keeps_physical_case_prizes_without_double_count
     assert rewards[0]["title"] == "Клавиатура"
     assert rewards[0]["amount_label"] == "приз"
     assert rewards[0]["status_class"] == "pending"
+
+
+def test_combined_reward_history_includes_physical_mission_prize():
+    rewards = combine_guest_reward_history(
+        token_rows=[],
+        bonus_rows=[],
+        case_rows=[],
+        wheel_rows=[],
+        mission_prize_rows=[
+            {
+                "claim_id": 51,
+                "source_id": "17",
+                "prize_name": "Бесплатный напиток",
+                "prize_description": "За выполнение задания «Пять визитов»",
+                "prize_image_url": None,
+                "claim_status": "notified",
+                "created_at": datetime(2026, 9, 19, 10, 0, 0),
+            }
+        ],
+        limit=10,
+    )
+
+    assert rewards[0]["kind"] == "mission_prize"
+    assert rewards[0]["title"] == "Бесплатный напиток"
+    assert rewards[0]["amount_label"] == "приз"
+    assert rewards[0]["status_label"] == "ожидает выдачи"
+    assert rewards[0]["source_type"] == "mission"

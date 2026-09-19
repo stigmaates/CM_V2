@@ -106,6 +106,24 @@ def _wheel_reward(row: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _mission_prize_reward(row: dict[str, Any]) -> dict[str, Any]:
+    status_label, status_class = _format_status(row.get("claim_status"))
+    return {
+        "kind": "mission_prize",
+        "title": row.get("prize_name") or "Приз за задание",
+        "subtitle": (row.get("prize_description") or "Награда за выполненное задание").strip(),
+        "amount_label": "приз",
+        "status_label": status_label,
+        "status_class": status_class,
+        "created_at": row.get("created_at"),
+        "icon": "🎁",
+        "image_url": row.get("prize_image_url"),
+        "source_type": "mission",
+        "source_id": str(row.get("source_id") or ""),
+        "sort_id": int(row.get("claim_id") or 0),
+    }
+
+
 def _sort_key(item: dict[str, Any]) -> tuple[datetime, int]:
     created_at = item.get("created_at")
     if not isinstance(created_at, datetime):
@@ -120,6 +138,7 @@ def combine_guest_reward_history(
     case_rows: list[dict[str, Any]],
     wheel_rows: list[dict[str, Any]],
     limit: int,
+    mission_prize_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     rewards: list[dict[str, Any]] = []
 
@@ -142,6 +161,9 @@ def combine_guest_reward_history(
         item = _wheel_reward(row)
         if item:
             rewards.append(item)
+
+    for row in mission_prize_rows or []:
+        rewards.append(_mission_prize_reward(row))
 
     rewards.sort(key=_sort_key, reverse=True)
     return rewards[:limit]
@@ -237,12 +259,33 @@ def get_guest_reward_history(guest_id: int, club_id: int, limit: int = 12) -> li
             )
             wheel_rows = cursor.fetchall()
 
+            cursor.execute(
+                """
+                SELECT id AS claim_id,
+                       source_id,
+                       prize_name,
+                       prize_description,
+                       prize_image_url,
+                       status AS claim_status,
+                       created_at
+                FROM guest_prize_claims
+                WHERE club_id = %s
+                  AND guest_id = %s
+                  AND source_type = 'mission'
+                ORDER BY created_at DESC, id DESC
+                LIMIT %s
+                """,
+                (club_id, guest_id, query_limit),
+            )
+            mission_prize_rows = cursor.fetchall()
+
         return combine_guest_reward_history(
             token_rows=token_rows,
             bonus_rows=bonus_rows,
             case_rows=case_rows,
             wheel_rows=wheel_rows,
             limit=limit,
+            mission_prize_rows=mission_prize_rows,
         )
     finally:
         conn.close()
