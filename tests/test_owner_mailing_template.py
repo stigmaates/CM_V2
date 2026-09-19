@@ -68,6 +68,7 @@ def test_manual_mailing_uses_one_audience_message_and_reward_form():
     assert 'id="sendMailingBtn"' in html
     assert "Группы из Пульса гостя" in html
     assert "Лояльное ядро" in html
+    assert "Стабильно посещают клуб" not in html
     assert "чел." not in html.split("Конструктор аудитории", 1)[0]
     assert 'data-audience-logic=' not in html
     assert "Пересчитать аудиторию" not in html

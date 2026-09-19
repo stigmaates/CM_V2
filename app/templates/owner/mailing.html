@@ -3,7 +3,7 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Рассылки{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-pulse-1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-pulse-2">
 {% endblock %}
 
 {% block content %}
@@ -37,7 +37,6 @@
                                 <span class="crm-segment-card__emoji">{{ segment.emoji }}</span>
                                 <span class="crm-segment-card__body">
                                     <span class="crm-segment-card__title">{{ segment.title }}</span>
-                                    <span class="crm-segment-card__desc">{{ segment.description }}</span>
                                 </span>
                             </button>
                         {% endfor %}
@@ -459,5 +458,5 @@
     window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
     window.MAILING_VARIABLES = {{ message_variables | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-pulse-1"></script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-pulse-2"></script>
 {% endblock %}
