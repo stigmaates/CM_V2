@@ -12,16 +12,15 @@
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:false,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, sort='health', sortDirection='asc', responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
   let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null;
-  const chartSectors=new Map(), circumference=2*Math.PI*91;
+  const chartSectors=new Map(), circumference=2*Math.PI*44;
+  const audienceIcons={new:'+',churned:'↘',valuable_risk:'◆',low_engagement:'◇',loyal:'★',risk:'!',other:'•••'};
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   function animateRing(){
     ringAnimation?.cancel();
-    const reveal=$('gpRingReveal');
-    reveal.style.strokeDasharray=String(circumference);
-    // Animate the SVG reveal in the browser, independently of fetch and DOM rendering.
-    ringAnimation=reveal.animate(
-      [{strokeDashoffset:String(circumference)},{strokeDashoffset:'0'}],
-      {duration:reducedMotion.matches?260:1000,easing:'cubic-bezier(.25,.46,.45,.94)',iterations:1}
+    const sectors=$('gpChartSectors');
+    ringAnimation=sectors.animate(
+      [{opacity:.18,transform:'scale(.9)'},{opacity:1,transform:'scale(1)'}],
+      {duration:reducedMotion.matches?180:650,easing:'cubic-bezier(.25,.46,.45,.94)',iterations:1}
     );
   }
   function setLoading(value,animate=true){
@@ -43,7 +42,7 @@
       let state=chartSectors.get(a.key);
       if(!state){
         const el=document.createElementNS('http://www.w3.org/2000/svg','circle');
-        for(const [k,v] of Object.entries({cx:120,cy:120,r:91,fill:'none',stroke:a.color,'stroke-width':27,transform:'rotate(-90 120 120)',role:'button','stroke-dasharray':`0 ${circumference}`}))el.setAttribute(k,v);
+        for(const [k,v] of Object.entries({cx:120,cy:120,r:44,fill:'none',stroke:a.color,'stroke-width':88,'stroke-linecap':'butt',transform:'rotate(-90 120 120)',role:'button','stroke-dasharray':`0 ${circumference}`}))el.setAttribute(k,v);
         el.classList.add('gp-chart-sector');
         state={el,length:0,offset:0,tip:''};chartSectors.set(a.key,state);
         const showTip=()=>{$('gpChartTip').textContent=state.tip;};
@@ -103,11 +102,17 @@
   function render(data,refill=false){
     responseData=data;
     $('gpUpdated').textContent=data.calculated_at?`${data.stale?'Данные устарели · ':''}${date(data.calculated_at)} · время клуба`:'Ожидается первый расчёт';
-    $('gpWithTelegram').textContent=num(data.selected_telegram_count);
-    $('gpWithoutTelegram').textContent=num(data.selected_without_telegram_count);
+    $('gpDistributionTotal').textContent=num(data.total);
     $('gpSelectionCount').textContent=`Для рассылки: ${num(data.selected_telegram_count)} · только с Telegram`;
-    $('gpChartTip').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || 'Выберите сектор или панель аудитории';
-    $('gpAudienceList').innerHTML=data.audiences.map(a=>`<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-body"><span class="gp-label"><i class="gp-dot" style="background:${a.color}"></i>${esc(a.label)}</span><span class="gp-audience-open">Открыть <span aria-hidden="true">→</span></span></span><span class="gp-audience-end"><span class="gp-audience-with"><strong>${num(a.telegram_count)}</strong><span>с Telegram</span></span><span class="gp-audience-without">${num(a.without_telegram_count)} без Telegram</span></span></button>`).join('');
+    $('gpChartTip').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || 'Выберите сектор или карточку группы';
+    $('gpAudienceList').innerHTML=data.audiences.map(a=>{
+      const percent=data.total?Math.round(a.count/data.total*100):0;
+      return `<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-icon" aria-hidden="true">${audienceIcons[a.key]||'•'}</span><span class="gp-audience-body"><span class="gp-label">${esc(a.label)}</span><span class="gp-audience-number"><strong>${num(a.count)}</strong><span>гостей · ${percent}%</span></span><span class="gp-audience-contact">С Telegram ${num(a.telegram_count)} · без Telegram ${num(a.without_telegram_count)}</span></span><span class="gp-audience-open" aria-hidden="true">→</span></button>`;
+    }).join('');
+    $('gpDistributionLegend').innerHTML=data.audiences.map(a=>{
+      const percent=data.total?Math.round(a.count/data.total*100):0;
+      return `<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}: ${num(a.count)} гостей, ${percent}%"><i style="background:${a.color}"></i><span>${esc(a.label)}</span><strong>${num(a.count)}</strong><small>${percent}%</small></button>`;
+    }).join('');
     renderChart(data,refill);
     $('gpGuestsPanel').hidden=!filters.audience_type&&!filters.segment;
     document.querySelector('.gp-audiences').hidden=!$('gpGuestsPanel').hidden;
@@ -194,6 +199,7 @@
   document.addEventListener('pointercancel',finishRangeDrag);
   ['health','value','engagement','deviation'].forEach(syncRange);
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
+  $('gpDistributionLegend').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));
   document.querySelectorAll('[name=gpDeviationDirection]').forEach(input=>input.addEventListener('change',()=>{filters.deviation_direction=input.value;deviationPage=1;renderDeviationRule();load({animate:false});}));
   $('gpDeviationTelegram').addEventListener('change',event=>{filters.deviation_telegram_only=event.target.checked;deviationPage=1;renderDeviationRule();load({animate:false});});

@@ -352,7 +352,13 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
 def test_stage_navigation_and_role_gate(pulse_client):
     response = pulse_client.get("/owner/guest-pulse")
     assert response.status_code == 200
-    assert "Пульс гостя" in response.get_data(as_text=True)
+    html = response.get_data(as_text=True)
+    assert "Пульс гостя" in html
+    assert 'class="gp-audience-cards"' in html
+    assert 'id="gpDistributionTotal"' in html
+    assert 'id="gpDistributionLegend"' in html
+    assert 'id="gpChartSectors"' in html
+    assert 'id="gpWithTelegram"' not in html
     with pulse_client.session_transaction() as sess:
         sess["role"] = "reception"
     assert pulse_client.get("/owner/api/guest-pulse").status_code == 302
