@@ -110,3 +110,32 @@ def test_unified_reward_mailing_forwards_attachments(monkeypatch):
     assert started == [9]
     assert conn.committed is True
     assert conn.closed is True
+
+
+def test_blocked_stage_mailing_returns_json_error(monkeypatch):
+    conn = _Connection()
+    monkeypatch.setattr(owner_mailing, "get_db_connection", lambda: conn)
+    monkeypatch.setattr(
+        owner_mailing,
+        "create_mailing",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            ValueError("Исходящие сообщения отключены на тестовом стенде")
+        ),
+    )
+
+    with app.test_request_context(
+        "/owner/api/mailings/create",
+        method="POST",
+        json={"rules": [], "message_text": "Проверка", "attachments": []},
+    ):
+        session.update(user_id=1, role="owner", club_id=7)
+        response, status = owner_mailing.api_mailings_create()
+
+    assert status == 400
+    assert response.is_json
+    assert response.get_json() == {
+        "ok": False,
+        "error": "Исходящие сообщения отключены на тестовом стенде",
+    }
+    assert conn.committed is False
+    assert conn.closed is True

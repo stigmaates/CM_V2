@@ -310,6 +310,13 @@ def api_mailings_create():
             logic="and",
         )
         conn.commit()
+    except ValueError as exc:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        conn.rollback()
+        current_app.logger.exception("Failed to create mailing for club %s", club_id)
+        return jsonify({"ok": False, "error": "Не удалось создать рассылку"}), 500
     finally:
         conn.close()
 

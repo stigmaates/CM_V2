@@ -69,6 +69,23 @@ function insertSelectedVariable(selectEl, textarea) {
     insertAtCursor(textarea, selectEl.value);
 }
 
+async function readApiResponse(response, fallbackMessage) {
+    const body = await response.text();
+    if (body) {
+        try {
+            return JSON.parse(body);
+        } catch (_error) {
+            // Nginx and Flask can return an HTML error page. Do not expose its markup in the UI.
+        }
+    }
+    return {
+        ok: false,
+        error: response.status === 413
+            ? "Файл слишком большой для загрузки"
+            : (fallbackMessage || `Ошибка сервера (${response.status})`),
+    };
+}
+
 const OPERATOR_LABELS = {
     "=": "Равно",
     "!=": "Не равно",
@@ -600,7 +617,7 @@ async function createCampaign() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        const data = await readApiResponse(response, "Не удалось создать рассылку");
         if (!data.ok) {
             alert(data.error || "Не удалось создать рассылку");
             return;
