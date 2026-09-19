@@ -93,6 +93,7 @@ def test_dashboard_template_uses_custom_date_inputs_and_lazy_all_time_endpoint()
     assert 'id="dashboardCalendarPopover"' in template
     assert 'id="dashboardCalendarApply"' in template
     assert "dashboardDateRangeForm.requestSubmit()" in template
+    assert "event.composedPath()" in template
     assert "period=7" not in template
     assert "period=30" not in template
     assert "period=90" not in template

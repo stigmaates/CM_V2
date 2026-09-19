@@ -754,7 +754,10 @@
             dashboardDateRangeForm.requestSubmit();
         });
         document.addEventListener('click', (event) => {
-            if (!dashboardPeriodRoot.contains(event.target)) dashboardCloseCalendar();
+            const clickedInsidePeriod = event.composedPath().some(
+                (element) => element instanceof Element && element === dashboardPeriodRoot
+            );
+            if (!clickedInsidePeriod) dashboardCloseCalendar();
         });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && !dashboardCalendarPopover.hidden) dashboardCloseCalendar();
