@@ -4939,6 +4939,105 @@ body.modal-open { overflow: hidden; }
     }
 }
 
+/* Dashboard custom date range */
+.cb-date-range {
+    display: flex;
+    align-items: flex-end;
+    gap: 9px;
+    padding: 8px;
+    border: 1px solid rgba(143, 91, 255, 0.26);
+    border-radius: 18px;
+    background: rgba(25, 14, 45, 0.72);
+    box-shadow: inset 0 0 20px rgba(143, 91, 255, 0.08), 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.cb-date-range label {
+    display: grid;
+    gap: 4px;
+}
+
+.cb-date-range label > span {
+    padding-left: 4px;
+    color: #a999ca;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.cb-date-range input {
+    width: 142px;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid rgba(165, 114, 255, 0.2);
+    border-radius: 11px;
+    outline: none;
+    background: rgba(12, 7, 22, 0.72);
+    color: #f4ecff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    color-scheme: dark;
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.cb-date-range input:focus {
+    border-color: rgba(165, 114, 255, 0.7);
+    box-shadow: 0 0 0 3px rgba(143, 91, 255, 0.12);
+}
+
+.cb-date-range button {
+    min-height: 40px;
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 11px;
+    background: linear-gradient(135deg, #8f5bff, #6f48d6);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(111, 72, 214, .24);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.cb-date-range button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(111, 72, 214, .34);
+}
+
+.cb-scope-toggle.is-loading {
+    opacity: .65;
+    cursor: wait;
+}
+
+@media (max-width: 1180px) {
+    .cb-dashboard-head {
+        flex-wrap: wrap;
+    }
+
+    .stage-badge + .app-shell .cb-dashboard-head {
+        padding-right: 0;
+        padding-top: 48px;
+    }
+}
+
+@media (max-width: 700px) {
+    .cb-date-range {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cb-date-range input {
+        width: 100%;
+    }
+
+    .cb-date-range button {
+        grid-column: 1 / -1;
+    }
+}
+
 /* Owner dashboard lower cases showcase */
 .cb-engagement-panel {
     min-height: 320px;

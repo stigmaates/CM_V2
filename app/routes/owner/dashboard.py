@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
@@ -16,6 +16,38 @@ from app.services.dashboard import (
 from . import owner_bp
 
 
+def _parse_dashboard_range(args):
+    today = date.today()
+    default_to = today
+    default_from = today - timedelta(days=6)
+    raw_from = str(args.get("date_from") or "").strip()
+    raw_to = str(args.get("date_to") or "").strip()
+
+    if not raw_from and not raw_to:
+        date_from = default_from
+        date_to = default_to
+    elif not raw_from or not raw_to:
+        raise ValueError("Укажи обе даты диапазона")
+    else:
+        try:
+            date_from = datetime.strptime(raw_from, "%Y-%m-%d").date()
+            date_to = datetime.strptime(raw_to, "%Y-%m-%d").date()
+        except ValueError as exc:
+            raise ValueError("Укажи корректный диапазон дат") from exc
+
+    if date_to < date_from:
+        raise ValueError("Дата окончания раньше даты начала")
+    if date_to > today:
+        raise ValueError("Дата окончания не может быть позже сегодняшней")
+    if (date_to - date_from).days > 365:
+        raise ValueError("Максимальный диапазон — 366 дней")
+
+    current_start = datetime.combine(date_from, time.min)
+    current_end = datetime.combine(date_to + timedelta(days=1), time.min)
+    period_days = (date_to - date_from).days + 1
+    return date_from, date_to, current_start, current_end, period_days
+
+
 @owner_bp.route("/dashboard")
 @owner_required
 def dashboard():
@@ -24,33 +56,63 @@ def dashboard():
         flash("Сначала создайте клуб", "error")
         return redirect(url_for("owner.club_create"))
 
-    period = request.args.get("period", "30").strip()
     try:
-        period = int(period)
-    except ValueError:
-        period = 30
-    if period not in (7, 30, 90):
-        period = 30
+        date_from, date_to, current_start, current_end, period_days = _parse_dashboard_range(request.args)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("owner.dashboard"))
 
     club = get_club_info(club_id)
-    stats = get_dashboard_stats(int(club_id), period)
-    engagement = get_dashboard_engagement_stats(int(club_id), period, all_time=False)
-    engagement_all_time_data = get_dashboard_engagement_stats(int(club_id), period, all_time=True)
-    case_openings_chart = get_case_openings_chart(int(club_id), period)
-    mission_completions_chart = get_mission_completions_chart(int(club_id), period)
-    first_visit_feedback = get_first_visit_feedback_stats(int(club_id), period)
+    service_args = {
+        "period_days": period_days,
+        "current_start": current_start,
+        "current_end": current_end,
+    }
+    stats = get_dashboard_stats(int(club_id), include_chart=False, **service_args)
+    engagement = get_dashboard_engagement_stats(int(club_id), all_time=False, **service_args)
+    case_openings_chart = get_case_openings_chart(int(club_id), **service_args)
+    mission_completions_chart = get_mission_completions_chart(int(club_id), **service_args)
+    first_visit_feedback = get_first_visit_feedback_stats(int(club_id), **service_args)
+    period_label = f"{date_from.strftime('%d.%m.%Y')} — {date_to.strftime('%d.%m.%Y')}"
 
     return render_template(
         "owner/dashboard.html",
         club=club,
         stats=stats,
         engagement=engagement,
-        engagement_all_time_data=engagement_all_time_data,
+        engagement_all_time_data=None,
         case_openings_chart=case_openings_chart,
         mission_completions_chart=mission_completions_chart,
         first_visit_feedback=first_visit_feedback,
-        selected_period=period,
+        selected_period=period_days,
+        selected_date_from=date_from.isoformat(),
+        selected_date_to=date_to.isoformat(),
+        selected_period_label=period_label,
+        dashboard_max_date=date.today().isoformat(),
     )
+
+
+@owner_bp.route("/api/dashboard/engagement")
+@owner_required
+def dashboard_engagement():
+    club_id = int(session.get("club_id") or 0)
+    if not club_id:
+        return jsonify({"ok": False, "error": "Клуб не выбран"}), 400
+
+    try:
+        _, _, current_start, current_end, period_days = _parse_dashboard_range(request.args)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    all_time = request.args.get("scope") == "all_time"
+    data = get_dashboard_engagement_stats(
+        club_id,
+        period_days=period_days,
+        all_time=all_time,
+        current_start=current_start,
+        current_end=current_end,
+    )
+    return jsonify({"ok": True, "data": data})
 
 
 @owner_bp.route("/api/dashboard/case-openings-timeline")

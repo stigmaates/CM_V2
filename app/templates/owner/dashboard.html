@@ -3,7 +3,7 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Дашборд{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260918-owner-layout-1') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260919-date-range-1') }}">
 {% endblock %}
 
 {% block content %}
@@ -30,11 +30,17 @@
 <main class="cb-dashboard content">
     <div class="cb-dashboard-head">
         <h1 class="cb-club-title">{{ header_club_name or 'Клуб' }}</h1>
-        <div class="cb-period-switcher period-switcher" aria-label="Период дашборда">
-            <a href="{{ url_for('owner.dashboard', period=7) }}" class="cb-period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-            <a href="{{ url_for('owner.dashboard', period=30) }}" class="cb-period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-            <a href="{{ url_for('owner.dashboard', period=90) }}" class="cb-period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
-        </div>
+        <form class="cb-date-range" method="get" action="{{ url_for('owner.dashboard') }}" aria-label="Диапазон дат дашборда" data-dashboard-date-range>
+            <label>
+                <span>От</span>
+                <input type="date" name="date_from" value="{{ selected_date_from }}" max="{{ dashboard_max_date }}" required>
+            </label>
+            <label>
+                <span>До</span>
+                <input type="date" name="date_to" value="{{ selected_date_to }}" max="{{ dashboard_max_date }}" required>
+            </label>
+            <button type="submit">Показать</button>
+        </form>
     </div>
 
     <section class="cb-kpi-grid" aria-label="Основные показатели">
@@ -43,11 +49,11 @@
                 <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.57 3-3.5S17.66 4 16 4s-3 1.57-3 3.5S14.34 11 16 11Zm-8 0c1.66 0 3-1.57 3-3.5S9.66 4 8 4 5 5.57 5 7.5 6.34 11 8 11Zm0 2c-2.67 0-6 1.34-6 4v1h12v-1c0-2.66-3.33-4-6-4Zm8 0c-.31 0-.65.02-1 .07 1.16.84 2 1.97 2 3.43V18h5v-1c0-2.66-3.33-4-6-4Z"/></svg>
             </div>
             <div class="cb-kpi-body">
-                <div class="cb-kpi-title">Гостей за последние {{ stats.period_days }} дней</div>
+                <div class="cb-kpi-title">Гостей за выбранный период</div>
                 <div class="cb-kpi-value">{{ stats.guests_current }}</div>
                 <div class="cb-kpi-diff">
                     {% if stats.guests_diff > 0 %}<span class="positive">+{{ stats.guests_diff }}</span>{% elif stats.guests_diff < 0 %}<span class="negative">{{ stats.guests_diff }}</span>{% else %}<span>0</span>{% endif %}
-                    <span>к предыдущим {{ stats.period_days }} дням</span>
+                    <span>к предыдущему периоду</span>
                 </div>
                 <div class="cb-kpi-percent">
                     {% if stats.guests_diff_percent > 0 %}<span class="positive">+{{ stats.guests_diff_percent }}%</span>{% elif stats.guests_diff_percent < 0 %}<span class="negative">{{ stats.guests_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
@@ -61,11 +67,11 @@
                 <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V8a4 4 0 1 1-3.46 6H5.18a8 8 0 1 0 12.47-7.65Z"/></svg>
             </div>
             <div class="cb-kpi-body">
-                <div class="cb-kpi-title">Возвращаемость<br>за последние {{ stats.period_days }} дней</div>
+                <div class="cb-kpi-title">Возвращаемость<br>за выбранный период</div>
                 <div class="cb-kpi-value">{{ stats.retention_current }}%</div>
                 <div class="cb-kpi-diff">
                     {% if stats.retention_diff > 0 %}<span class="positive">+{{ stats.retention_diff }} п.п.</span>{% elif stats.retention_diff < 0 %}<span class="negative">{{ stats.retention_diff }} п.п.</span>{% else %}<span>0 п.п.</span>{% endif %}
-                    <span>к предыдущим {{ stats.period_days }} дням</span>
+                    <span>к предыдущему периоду</span>
                 </div>
             </div>
             <svg class="cb-sparkline" viewBox="0 0 140 56" aria-hidden="true"><path d="{{ spark.retention_path }}"/></svg>
@@ -76,11 +82,11 @@
                 <svg viewBox="0 0 24 24"><path d="M4 4h14a2 2 0 0 1 2 2v7h-2V6H6v12h7v2H4V4Zm3 4h8v2H7V8Zm0 4h6v2H7v-2Zm12.6 3.2 1.4 1.4-5.2 5.2-3.1-3.1 1.4-1.4 1.7 1.7 3.8-3.8Z"/></svg>
             </div>
             <div class="cb-kpi-body">
-                <div class="cb-kpi-title">Среднее пополнение<br>за последние {{ stats.period_days }} дней</div>
+                <div class="cb-kpi-title">Среднее пополнение<br>за выбранный период</div>
                 <div class="cb-kpi-value">{{ stats.avg_check_current }} ₽</div>
                 <div class="cb-kpi-diff">
                     {% if stats.avg_check_diff > 0 %}<span class="positive">+{{ stats.avg_check_diff }} ₽</span>{% elif stats.avg_check_diff < 0 %}<span class="negative">{{ stats.avg_check_diff }} ₽</span>{% else %}<span>0 ₽</span>{% endif %}
-                    <span>к предыдущим {{ stats.period_days }} дням</span>
+                    <span>к предыдущему периоду</span>
                 </div>
                 <div class="cb-kpi-percent">
                     {% if stats.avg_check_diff_percent > 0 %}<span class="positive">+{{ stats.avg_check_diff_percent }}%</span>{% elif stats.avg_check_diff_percent < 0 %}<span class="negative">{{ stats.avg_check_diff_percent }}%</span>{% else %}<span class="neutral">0%</span>{% endif %}
@@ -95,7 +101,7 @@
             <div class="cb-panel-head">
                 <div>
                     <h2>Оценка первого посещения</h2>
-                    <p>По ответам гостей после первого визита за последние {{ survey.period_days }} дней</p>
+                    <p>По ответам гостей после первого визита за выбранный период</p>
                 </div>
                 <span class="cb-info-tooltip"><span class="cb-info" tabindex="0" role="button" aria-label="Подсказка">i</span><span class="cb-tooltip-content" role="tooltip">Берутся завершённые ответы из формы после первого визита за выбранный период.</span></span>
             </div>
@@ -248,7 +254,7 @@
                     <span>За все время</span>
                 </button>
             </div>
-            <div class="cb-engagement-hint" id="engagementScopeHint">Период: последние {{ stats.period_days }} дней. В выборке гости, зарегистрированные за этот период.</div>
+            <div class="cb-engagement-hint" id="engagementScopeHint">Период: {{ selected_period_label }}. В выборке гости, активные за этот период.</div>
 
             <div id="wheelMetrics" class="cb-metric-grid" data-engagement-metrics="wheel">
                 <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Гостей в выборке</span><b data-engagement-value="wheel.total_guests">{{ engagement_data.wheel.total_guests }}</b></div></div>
@@ -286,7 +292,7 @@
                 <div class="cb-panel-head cb-case-openings-head">
                     <div>
                         <h2>Открытия кейсов</h2>
-                        <p>Топ кейсов за последние {{ case_openings_chart.period_days }} дней</p>
+                        <p>Топ кейсов за выбранный период</p>
                     </div>
                     <span class="cb-case-openings-column-label">Открытий</span>
                 </div>
@@ -423,7 +429,7 @@
                 <div class="cb-panel-head cb-case-openings-head">
                     <div>
                         <h2>Выполнения заданий</h2>
-                        <p>Топ заданий за последние {{ mission_completions_chart.period_days }} дней</p>
+                        <p>Топ заданий за выбранный период</p>
                     </div>
                     <span class="cb-case-openings-column-label">Выполнений</span>
                 </div>
@@ -483,7 +489,7 @@
         <div class="feedback-modal__header">
             <div>
                 <div class="feedback-modal__title">Что добавить</div>
-                <div class="feedback-modal__subtitle">Все ответы за последние {{ survey.period_days }} дней</div>
+                <div class="feedback-modal__subtitle">Все ответы за выбранный период</div>
             </div>
             <button type="button" class="feedback-modal__close" data-feedback-close>&times;</button>
         </div>
@@ -507,7 +513,7 @@
         <div class="feedback-modal__header">
             <div>
                 <div class="feedback-modal__title">Что не нравится</div>
-                <div class="feedback-modal__subtitle">Все ответы за последние {{ survey.period_days }} дней</div>
+                <div class="feedback-modal__subtitle">Все ответы за выбранный период</div>
             </div>
             <button type="button" class="feedback-modal__close" data-feedback-close>&times;</button>
         </div>
@@ -529,9 +535,44 @@
 
 {% block scripts %}
 <script>
+    const dashboardScrollStorageKey = 'cyberBonusOwnerDashboardScroll';
+    const dashboardDateRangeForm = document.querySelector('[data-dashboard-date-range]');
+    if (dashboardDateRangeForm) {
+        dashboardDateRangeForm.addEventListener('submit', () => {
+            try {
+                sessionStorage.setItem(dashboardScrollStorageKey, JSON.stringify({
+                    path: window.location.pathname,
+                    top: window.scrollY,
+                    savedAt: Date.now()
+                }));
+            } catch (_error) {
+                // The date filter still works when browser storage is unavailable.
+            }
+        });
+    }
+
+    try {
+        const savedScroll = JSON.parse(sessionStorage.getItem(dashboardScrollStorageKey) || 'null');
+        sessionStorage.removeItem(dashboardScrollStorageKey);
+        if (
+            savedScroll &&
+            savedScroll.path === window.location.pathname &&
+            Date.now() - Number(savedScroll.savedAt || 0) < 60000
+        ) {
+            if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                window.scrollTo({top: Number(savedScroll.top || 0), left: 0, behavior: 'instant'});
+            }));
+        }
+    } catch (_error) {
+        sessionStorage.removeItem(dashboardScrollStorageKey);
+    }
+
     const engagementPeriodData = {{ engagement|tojson|safe }};
-    const engagementAllTimeData = {{ engagement_all_time_data|default(engagement)|tojson|safe }};
-    const engagementPeriodDays = {{ stats.period_days|tojson|safe }};
+    let engagementAllTimeData = {{ engagement_all_time_data|tojson|safe }};
+    const engagementPeriodLabel = {{ selected_period_label|tojson|safe }};
+    const dashboardDateFrom = {{ selected_date_from|tojson|safe }};
+    const dashboardDateTo = {{ selected_date_to|tojson|safe }};
     let engagementAllTimeMode = false;
 
     const engagementMetricBlocks = document.querySelectorAll('[data-engagement-metrics]');
@@ -550,7 +591,7 @@
     }
 
     function updateEngagementValues() {
-        const source = engagementAllTimeMode ? engagementAllTimeData : engagementPeriodData;
+        const source = engagementAllTimeMode && engagementAllTimeData ? engagementAllTimeData : engagementPeriodData;
         document.querySelectorAll('[data-engagement-value]').forEach((node) => {
             node.textContent = getNestedValue(source, node.dataset.engagementValue);
         });
@@ -561,7 +602,29 @@
         if (engagementScopeHint) {
             engagementScopeHint.textContent = engagementAllTimeMode
                 ? 'Период: всё время. В выборке все гости клуба.'
-                : `Период: последние ${engagementPeriodDays} дней. В выборке гости, зарегистрированные за этот период.`;
+                : `Период: ${engagementPeriodLabel}. В выборке гости, активные за этот период.`;
+        }
+    }
+
+    async function loadAllTimeEngagement() {
+        if (engagementAllTimeData) return engagementAllTimeData;
+        const params = new URLSearchParams({
+            scope: 'all_time',
+            date_from: dashboardDateFrom,
+            date_to: dashboardDateTo
+        });
+        engagementScopeToggle.disabled = true;
+        engagementScopeToggle.classList.add('is-loading');
+        if (engagementScopeHint) engagementScopeHint.textContent = 'Загружаем данные за всё время…';
+        try {
+            const response = await fetch(`/owner/api/dashboard/engagement?${params.toString()}`);
+            const payload = await response.json();
+            if (!response.ok || !payload.ok) throw new Error(payload.error || 'Не удалось загрузить данные');
+            engagementAllTimeData = payload.data;
+            return engagementAllTimeData;
+        } finally {
+            engagementScopeToggle.disabled = false;
+            engagementScopeToggle.classList.remove('is-loading');
         }
     }
 
@@ -741,9 +804,22 @@
     });
     setEngagementMode('wheel');
     if (engagementScopeToggle) {
-        engagementScopeToggle.addEventListener('click', () => {
-            engagementAllTimeMode = !engagementAllTimeMode;
-            updateEngagementValues();
+        engagementScopeToggle.addEventListener('click', async () => {
+            if (engagementAllTimeMode) {
+                engagementAllTimeMode = false;
+                updateEngagementValues();
+                return;
+            }
+            try {
+                await loadAllTimeEngagement();
+                engagementAllTimeMode = true;
+                updateEngagementValues();
+            } catch (error) {
+                engagementAllTimeMode = false;
+                if (engagementScopeHint) {
+                    engagementScopeHint.textContent = error.message || 'Не удалось загрузить данные за всё время';
+                }
+            }
         });
     }
     updateEngagementValues();
