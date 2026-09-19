@@ -41,21 +41,28 @@
       let state=chartSectors.get(a.key);
       if(!state){
         const el=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        const labelGroup=document.createElementNS('http://www.w3.org/2000/svg','g');
+        const line=document.createElementNS('http://www.w3.org/2000/svg','path');
+        const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
         const label=document.createElementNS('http://www.w3.org/2000/svg','text');
-        for(const [k,v] of Object.entries({cx:120,cy:120,r:70,fill:'none',stroke:a.color,'stroke-width':42,'stroke-linecap':'round',transform:'rotate(-90 120 120)',role:'button','stroke-dasharray':`0 ${circumference}`}))el.setAttribute(k,v);
+        for(const [k,v] of Object.entries({cx:120,cy:120,r:70,fill:'none',stroke:a.color,'stroke-width':52,'stroke-linecap':'butt',transform:'rotate(-90 120 120)',role:'button','stroke-dasharray':`0 ${circumference}`}))el.setAttribute(k,v);
         el.classList.add('gp-chart-sector');
+        line.classList.add('gp-chart-callout');line.setAttribute('stroke',a.color);
+        dot.classList.add('gp-chart-callout-dot');dot.setAttribute('r','2.4');dot.setAttribute('fill',a.color);
         label.classList.add('gp-chart-percent');
-        state={el,label,length:0,offset:0,tip:''};chartSectors.set(a.key,state);
+        label.setAttribute('fill',a.color);
+        labelGroup.append(line,dot,label);
+        state={el,labelGroup,line,dot,label,length:0,offset:0,tip:'',layout:null};chartSectors.set(a.key,state);
         const showTip=()=>{$('gpChartTip').textContent=state.tip;};
         el.addEventListener('mouseenter',showTip);el.addEventListener('focus',showTip);
         el.addEventListener('click',()=>choose(a.key));
         el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(a.key);}});
         $('gpChartSectors').append(el);
-        $('gpChartLabels').append(label);
+        $('gpChartLabels').append(labelGroup);
       }
       const length=data.total?circumference*a.count/data.total:0;
       const percent=data.total?a.count/data.total*100:0;
-      const gap=Math.min(4,length*.24);
+      const gap=Math.min(1.4,length*.18);
       const angle=(offset+length/2)/circumference*Math.PI*2-Math.PI/2;
       state.tip=`${a.label}: ${num(a.count)} · с Telegram ${num(a.telegram_count)} · без Telegram ${num(a.without_telegram_count)}`;
       state.el.setAttribute('aria-label',state.tip);
@@ -63,16 +70,35 @@
       state.el.setAttribute('aria-hidden',String(!a.count));
       state.el.style.pointerEvents=a.count?'':'none';
       state.el.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.25':'1';
-      state.label.textContent=percent>=2.5?`${Math.round(percent)}%`:'';
-      state.label.setAttribute('x',120+Math.cos(angle)*70);
-      state.label.setAttribute('y',120+Math.sin(angle)*70);
-      state.label.style.fontSize=percent<6?'9px':'12px';
-      state.label.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.3':'1';
+      state.label.textContent=`${Math.round(percent)}%`;
+      state.labelGroup.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.28':'1';
+      state.layout={angle,percent,side:Math.cos(angle)>=0?1:-1};
       state.length=length;state.offset=offset;
       state.el.setAttribute('stroke-dasharray',`${Math.max(0,length-gap)} ${Math.max(0,circumference-length+gap)}`);
       state.el.setAttribute('stroke-dashoffset',-(offset+gap/2));
       offset+=length;
     });
+    for(const side of [-1,1]){
+      const states=[...chartSectors.values()].filter(state=>state.layout?.side===side).sort((a,b)=>Math.sin(a.layout.angle)-Math.sin(b.layout.angle));
+      const gap=18,minY=-8,maxY=248;
+      states.forEach((state,index)=>{
+        const natural=120+Math.sin(state.layout.angle)*109;
+        state.layout.y=Math.max(natural,index?states[index-1].layout.y+gap:minY);
+      });
+      if(states.length&&states.at(-1).layout.y>maxY){
+        const shift=states.at(-1).layout.y-maxY;
+        states.forEach(state=>state.layout.y-=shift);
+      }
+      states.forEach(state=>{
+        const {angle,y}=state.layout;
+        const x1=120+Math.cos(angle)*97,y1=120+Math.sin(angle)*97;
+        const elbowX=120+side*110,endX=120+side*122,textX=120+side*128;
+        state.line.setAttribute('d',`M ${x1} ${y1} L ${elbowX} ${y} L ${endX} ${y}`);
+        state.dot.setAttribute('cx',x1);state.dot.setAttribute('cy',y1);
+        state.label.setAttribute('x',textX);state.label.setAttribute('y',y);
+        state.label.setAttribute('text-anchor',side>0?'start':'end');
+      });
+    }
     if(refill)animateRing();
   }
 
@@ -118,7 +144,7 @@
     $('gpAudienceList').innerHTML=data.audiences.map(a=>{
       return `<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-icon" data-icon="${a.key}" aria-hidden="true"></span><span class="gp-audience-body"><span class="gp-label">${esc(a.label)}</span><span class="gp-audience-number"><strong>${num(a.telegram_count)}</strong><span>с Telegram</span></span></span><span class="gp-audience-side"><span class="gp-audience-open" aria-hidden="true">→</span><span class="gp-audience-total"><small>Всего</small><b>${num(a.count)}</b></span></span></button>`;
     }).join('');
-    $('gpDistributionLegend').innerHTML=data.audiences.map(a=>`<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}"><i style="background:${a.color}"></i><span>${esc(a.label)}</span></button>`).join('');
+    $('gpDistributionLegend').innerHTML=data.audiences.map(a=>{const percent=data.total?Math.round(a.count/data.total*100):0;return `<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}: ${num(a.count)} гостей, ${percent}%" style="--audience-color:${a.color}"><i style="background:${a.color}"></i><span>${esc(a.label)}</span><strong>${num(a.count)}</strong><small>${percent}%</small></button>`;}).join('');
     renderChart(data,refill);
     $('gpGuestsPanel').hidden=!filters.audience_type&&!filters.segment;
     document.querySelector('.gp-audiences').hidden=!$('gpGuestsPanel').hidden;
