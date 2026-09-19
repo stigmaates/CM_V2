@@ -76,7 +76,7 @@
             </button>
             <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if gamification_active else 'true' }}">
                 <div class="owner-navigation__links">
-                    <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}#prize-editor" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'wheel' and request.args.get('section') != 'bonuses' %}is-active{% endif %}">Настройки кейсов и колеса фортуны</a>
+                    <a href="{{ url_for('owner.settings', tab='wheel') }}#prize-editor" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'wheel' and request.args.get('section') != 'bonuses' %}is-active{% endif %}">Кейсы и колесо фортуны</a>
                     <a href="{{ url_for('owner.settings', tab='missions') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'missions' %}is-active{% endif %}">Задания</a>
                     <a href="{{ url_for('owner.settings', tab='contracts') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'contracts' %}is-active{% endif %}">Контракты</a>
                     <a href="{{ url_for('owner.promotions') }}" class="{% if current_endpoint == 'owner.promotions' %}is-active{% endif %}">Акции</a>

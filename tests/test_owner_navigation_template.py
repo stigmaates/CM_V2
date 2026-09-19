@@ -16,7 +16,7 @@ def test_owner_navigation_groups_existing_owner_pages():
         assert group in html
 
     for item in (
-        "Настройки кейсов и колеса фортуны",
+        "Кейсы и колесо фортуны",
         "Задания",
         "Контракты",
         "Акции",
@@ -39,6 +39,7 @@ def test_owner_navigation_groups_existing_owner_pages():
     assert "/owner/analytics/heatmaps" in html
     assert "/owner/promotions" in html
     assert "#prize-editor" in html
+    assert "editor=wheel" not in html
     assert "owner-navigation__account" in html
     assert html.index("owner-navigation__account") < html.index("owner-navigation__overview")
     assert "Тестовый клуб" in html

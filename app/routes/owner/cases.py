@@ -35,11 +35,6 @@ def _redirect_bonus_editor(editor: str = "cases"):
     return redirect(url_for("owner.settings", tab="wheel", editor=editor))
 
 
-def _current_bonus_editor(default: str = "cases") -> str:
-    editor = request.form.get("bonus_editor", default).strip()
-    return editor if editor in {"wheel", "cases"} else default
-
-
 def _wants_json() -> bool:
     return (
         request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -166,7 +161,7 @@ def game_mode_save():
     except Exception as e:
         flash(f"Ошибка сохранения режима: {e}", "error")
 
-    return _redirect_bonus_editor(_current_bonus_editor(mode if mode in {"wheel", "cases"} else "wheel"))
+    return _redirect_bonus_editor(mode if mode in {"wheel", "cases"} else "wheel")
 
 
 @owner_bp.route("/cases/add", methods=["POST"])
