@@ -1771,8 +1771,8 @@
 
 .campaign-layout {
     display: grid;
-    grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.92fr);
-    gap: 16px;
+    grid-template-columns: minmax(0, 1.55fr) minmax(470px, 0.95fr);
+    gap: 18px;
     align-items: start;
 }
 
@@ -1820,7 +1820,7 @@
 }
 
 .campaign-segments-box .crm-segments-grid {
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
     gap: 8px;
 }
 
@@ -1842,12 +1842,6 @@
 
 .campaign-segments-box .crm-segment-card__title {
     font-size: 13px;
-}
-
-.crm-segment-card__count {
-    color: #d8c8f2;
-    font-size: 12px;
-    font-weight: 800;
 }
 
 .campaign-segments-box .crm-segment-card__desc {
@@ -1917,34 +1911,6 @@
     border: 1px solid rgba(143, 91, 255, 0.17);
     border-radius: 14px;
     background: rgba(9, 5, 20, 0.22);
-}
-
-.campaign-logic-switch {
-    display: inline-grid;
-    grid-template-columns: repeat(2, 66px);
-    padding: 3px;
-    border: 1px solid rgba(143, 91, 255, 0.28);
-    border-radius: 11px;
-    background: rgba(9, 5, 20, 0.32);
-}
-
-.campaign-logic-switch button {
-    min-height: 32px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--text-muted);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 900;
-    cursor: pointer;
-    transition: 160ms ease;
-}
-
-.campaign-logic-switch button.is-active {
-    background: linear-gradient(135deg, #9a5bff, #7742dc);
-    color: #fff;
-    box-shadow: 0 6px 16px rgba(111, 57, 214, 0.28);
 }
 
 .campaign-audience-box .rule-row {
@@ -2131,7 +2097,7 @@
 
 .campaign-message-box .editor-toolbar {
     display: grid;
-    grid-template-columns: repeat(3, 36px) minmax(82px, 1fr);
+    grid-template-columns: repeat(3, 42px) minmax(150px, 1fr);
     gap: 6px;
     padding: 8px;
     border: 1px solid rgba(143, 91, 255, 0.24);
@@ -2148,6 +2114,11 @@
     background: rgba(255, 255, 255, 0.045);
     color: var(--text-main);
     cursor: pointer;
+}
+
+.campaign-message-box #insertLinkBtn {
+    padding-inline: 12px;
+    white-space: nowrap;
 }
 
 .campaign-message-box .editor-toolbar select {
@@ -2238,6 +2209,13 @@
     overflow-wrap: anywhere;
 }
 
+.campaign-preview__bubble a {
+    color: #d7b9ff;
+    font-weight: 800;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 .campaign-summary-box {
     padding-bottom: 14px !important;
 }
@@ -2285,7 +2263,7 @@
     }
 
     .campaign-layout {
-        grid-template-columns: minmax(0, 1.7fr) minmax(330px, 0.9fr);
+        grid-template-columns: minmax(0, 1.35fr) minmax(430px, 1fr);
     }
 
     .campaign-audience-box .rule-row {
@@ -2349,7 +2327,11 @@
         grid-template-columns: repeat(3, 1fr);
     }
 
-.campaign-message-box .editor-toolbar select {
+    .campaign-message-box #insertLinkBtn {
+        grid-column: 1 / -1;
+    }
+
+    .campaign-message-box .editor-toolbar select {
         grid-column: 1 / -2;
     }
 }

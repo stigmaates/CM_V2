@@ -38,14 +38,6 @@ const summaryFilesEl = document.getElementById("summaryFiles");
 
 let uploadedFiles = [];
 let currentSegmentId = null;
-let currentAudienceLogic = "and";
-
-function setAudienceLogic(logic) {
-    currentAudienceLogic = logic === "or" ? "or" : "and";
-    document.querySelectorAll("[data-audience-logic]").forEach((button) => {
-        button.classList.toggle("is-active", button.dataset.audienceLogic === currentAudienceLogic);
-    });
-}
 
 function createOption(value, label) {
     const option = document.createElement("option");
@@ -256,7 +248,7 @@ async function previewSegment() {
     const response = await fetch("/owner/api/segments/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules: getRules(rulesContainer), logic: currentAudienceLogic }),
+        body: JSON.stringify({ rules: getRules(rulesContainer) }),
     });
     const data = await response.json();
     if (!data.ok) {
@@ -280,7 +272,6 @@ async function saveSegment() {
         body: JSON.stringify({
             name,
             rules: getRules(rulesContainer),
-            logic: currentAudienceLogic,
         }),
     });
     const data = await response.json();
@@ -341,7 +332,7 @@ async function getRecipientsPreviewCount(rules = getRules(rulesContainer), targe
     const response = await fetch("/owner/api/segments/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules, logic: currentAudienceLogic }),
+        body: JSON.stringify({ rules }),
     });
     const data = await response.json();
     if (!data.ok) {
@@ -371,7 +362,7 @@ function escapeHtml(value) {
 function openMailingModal(recipientsCount, messageText) {
     modalRecipientsCountEl.textContent = recipientsCount;
     modalFilesCountEl.textContent = uploadedFiles.length;
-    modalMessagePreviewEl.innerHTML = escapeHtml(messageText).replaceAll("\n", "<br>");
+    renderTelegramMessagePreview(modalMessagePreviewEl, messageText);
     modalEl.classList.add("is-open");
     modalEl.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -457,6 +448,71 @@ function sampleMessageText(value) {
     return result || "Здесь появится текст сообщения";
 }
 
+function normalizeLinkUrl(value, addMissingScheme = true) {
+    let candidate = String(value || "").trim();
+    if (!candidate) return null;
+    if (addMissingScheme && !/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
+        candidate = `https://${candidate}`;
+    }
+    try {
+        const parsed = new URL(candidate);
+        return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : null;
+    } catch (_error) {
+        return null;
+    }
+}
+
+function escapeTelegramHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+}
+
+function appendTelegramPreviewNode(source, target) {
+    if (source.nodeType === Node.TEXT_NODE) {
+        target.appendChild(document.createTextNode(source.textContent || ""));
+        return;
+    }
+    if (source.nodeType !== Node.ELEMENT_NODE) return;
+
+    const tag = source.tagName.toLowerCase();
+    if (tag === "br") {
+        target.appendChild(document.createElement("br"));
+        return;
+    }
+
+    const allowed = new Set(["b", "strong", "i", "em", "u", "a"]);
+    if (!allowed.has(tag)) {
+        Array.from(source.childNodes).forEach((child) => appendTelegramPreviewNode(child, target));
+        return;
+    }
+
+    const previewTag = tag === "strong" ? "b" : tag === "em" ? "i" : tag;
+    const element = document.createElement(previewTag);
+    if (previewTag === "a") {
+        const href = normalizeLinkUrl(source.getAttribute("href"), false);
+        if (!href) {
+            Array.from(source.childNodes).forEach((child) => appendTelegramPreviewNode(child, target));
+            return;
+        }
+        element.href = href;
+        element.target = "_blank";
+        element.rel = "noopener noreferrer";
+    }
+    Array.from(source.childNodes).forEach((child) => appendTelegramPreviewNode(child, element));
+    target.appendChild(element);
+}
+
+function renderTelegramMessagePreview(target, value) {
+    if (!target) return;
+    const parsed = new DOMParser().parseFromString(sampleMessageText(value), "text/html");
+    const fragment = document.createDocumentFragment();
+    Array.from(parsed.body.childNodes).forEach((node) => appendTelegramPreviewNode(node, fragment));
+    target.replaceChildren(fragment);
+}
+
 function updateCampaignSummary() {
     const message = messageTextEl ? messageTextEl.value : "";
     const rewards = getCampaignRewardPayload(false);
@@ -474,7 +530,7 @@ function updateCampaignSummary() {
             : "дней";
         summaryExpirationEl.textContent = rewards.isExpiring ? `Через ${rewards.expiresValue} ${unitLabel}` : "Бессрочно";
     }
-    if (campaignMessagePreviewEl) campaignMessagePreviewEl.textContent = sampleMessageText(message);
+    renderTelegramMessagePreview(campaignMessagePreviewEl, message);
 }
 
 function syncRewardControls() {
@@ -525,7 +581,6 @@ async function createCampaign() {
         const payload = {
             segment_id: currentSegmentId,
             rules: getRules(rulesContainer),
-            logic: currentAudienceLogic,
             message_text: messageText,
             attachments: uploadedFiles,
             start_now: true,
@@ -563,7 +618,6 @@ async function createCampaign() {
 
 function applySegmentRules(rulesJson, segmentId = null) {
     currentSegmentId = segmentId;
-    setAudienceLogic(rulesJson && rulesJson.logic);
     rulesContainer.innerHTML = "";
     const rules = (rulesJson && rulesJson.rules) || [];
     rules.forEach((rule) => addRule(rule, rulesContainer));
@@ -605,13 +659,26 @@ function wrapSelection(tag) {
 }
 
 function insertLink() {
-    const url = prompt("Вставь ссылку");
-    if (!url) return;
-    const text = prompt("Текст ссылки", "ссылка") || "ссылка";
-
     const textarea = messageTextEl;
     const start = textarea.selectionStart;
-    textarea.setRangeText(`<a href="${url}">${text}</a>`, start, textarea.selectionEnd, "end");
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    const rawUrl = prompt("Адрес ссылки (например, https://cyber-bonus.ru)");
+    if (!rawUrl) return;
+    const url = normalizeLinkUrl(rawUrl);
+    if (!url) {
+        alert("Укажи корректную ссылку с адресом сайта");
+        return;
+    }
+    const linkText = selectedText || prompt("Текст ссылки", "Открыть");
+    if (!linkText) return;
+
+    textarea.setRangeText(
+        `<a href="${escapeTelegramHtml(url)}">${escapeTelegramHtml(linkText)}</a>`,
+        start,
+        end,
+        "end"
+    );
     textarea.focus();
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
@@ -620,12 +687,6 @@ document.getElementById("addRuleBtn").addEventListener("click", () => addRule({}
 document.getElementById("previewBtn").addEventListener("click", previewSegment);
 document.getElementById("saveSegmentBtn").addEventListener("click", saveSegment);
 document.getElementById("sendMailingBtn").addEventListener("click", openMailingConfirm);
-document.querySelectorAll("[data-audience-logic]").forEach((button) => {
-    button.addEventListener("click", () => {
-        setAudienceLogic(button.dataset.audienceLogic);
-        previewSegment().catch((error) => alert(error.message || "Не удалось пересчитать аудиторию"));
-    });
-});
 document.getElementById("filesInput").addEventListener("change", (e) => uploadFiles(e.target.files));
 
 document.querySelectorAll(".segment-chip__delete").forEach((btn) => {

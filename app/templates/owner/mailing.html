@@ -3,7 +3,7 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Рассылки{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-unified-1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-pulse-1">
 {% endblock %}
 
 {% block content %}
@@ -27,8 +27,8 @@
                 <section class="mailing-box campaign-segments-box">
                     <div class="campaign-section-head">
                         <div>
-                            <h3>Быстрые сегменты из CRM</h3>
-                            <p>Нажмите на сегмент, чтобы сразу применить его к аудитории.</p>
+                            <h3>Группы из Пульса гостя</h3>
+                            <p>Выберите готовую группу или соберите аудиторию фильтрами ниже.</p>
                         </div>
                     </div>
                     <div class="crm-segments-grid">
@@ -37,7 +37,6 @@
                                 <span class="crm-segment-card__emoji">{{ segment.emoji }}</span>
                                 <span class="crm-segment-card__body">
                                     <span class="crm-segment-card__title">{{ segment.title }}</span>
-                                    <span class="crm-segment-card__count">{{ segment.count }} чел.</span>
                                     <span class="crm-segment-card__desc">{{ segment.description }}</span>
                                 </span>
                             </button>
@@ -76,15 +75,11 @@
                         </div>
                     </div>
 
-                    <div class="campaign-logic-switch" aria-label="Логика объединения фильтров">
-                        <button type="button" class="is-active" data-audience-logic="and">И</button>
-                        <button type="button" data-audience-logic="or">ИЛИ</button>
-                    </div>
                     <div id="rulesContainer" class="rules-container"></div>
 
                     <div class="campaign-audience-actions">
                         <button type="button" class="btn btn-primary" id="addRuleBtn">＋ Добавить фильтр</button>
-                        <button type="button" class="btn btn-secondary" id="previewBtn">Пересчитать аудиторию</button>
+                        <button type="button" class="btn btn-secondary" id="previewBtn">Применить</button>
                         <div class="campaign-save-segment">
                             <span>Сохранить как сегмент</span>
                             <input type="text" id="segmentName" placeholder="Название сегмента" autocomplete="off">
@@ -158,7 +153,7 @@
                         <button type="button" data-tag="b" title="Жирный"><b>Ж</b></button>
                         <button type="button" data-tag="i" title="Курсив"><i>К</i></button>
                         <button type="button" data-tag="u" title="Подчёркнутый"><u>Ч</u></button>
-                        <button type="button" id="insertLinkBtn">🔗 Ссылка</button>
+                        <button type="button" id="insertLinkBtn">🔗 Добавить ссылку</button>
                         <select id="messageVariableSelect" class="message-variable-select" aria-label="Переменная сообщения"></select>
                         <button type="button" class="message-variable-insert" id="insertMessageVariableBtn">Вставить</button>
                     </div>
@@ -464,5 +459,5 @@
     window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
     window.MAILING_VARIABLES = {{ message_variables | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-unified-1"></script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-pulse-1"></script>
 {% endblock %}

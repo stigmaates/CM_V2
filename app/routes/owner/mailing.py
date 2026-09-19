@@ -126,11 +126,10 @@ def api_segments_preview():
     club_id = get_current_club_id()
     data = request.get_json(force=True)
     rules = data.get("rules", [])
-    logic = "or" if data.get("logic") == "or" else "and"
 
     conn = get_db_connection()
     try:
-        count = preview_recipients_count(conn, club_id, rules, logic=logic)
+        count = preview_recipients_count(conn, club_id, rules, logic="and")
     finally:
         conn.close()
 
@@ -144,14 +143,13 @@ def api_segments_save():
     data = request.get_json(force=True)
     name = (data.get("name") or "").strip()
     rules = data.get("rules", [])
-    logic = "or" if data.get("logic") == "or" else "and"
 
     if not name:
         return jsonify({"ok": False, "error": "Укажи название сегмента"}), 400
 
     conn = get_db_connection()
     try:
-        segment_id = save_segment(conn, club_id, name, rules, logic=logic)
+        segment_id = save_segment(conn, club_id, name, rules, logic="and")
         conn.commit()
     finally:
         conn.close()
@@ -290,7 +288,6 @@ def api_mailings_create():
     club_id = get_current_club_id()
     data = request.get_json(force=True)
     rules = data.get("rules", [])
-    logic = "or" if data.get("logic") == "or" else "and"
     segment_id = data.get("segment_id")
     message_text = (data.get("message_text") or "").strip()
     attachments = data.get("attachments", [])
@@ -310,7 +307,7 @@ def api_mailings_create():
             message_text=message_text,
             parse_mode=parse_mode,
             attachments=attachments,
-            logic=logic,
+            logic="and",
         )
         conn.commit()
     finally:
@@ -328,7 +325,6 @@ def api_bonus_giveaways_create():
     club_id = get_current_club_id()
     data = request.get_json(force=True)
     rules = data.get("rules", [])
-    logic = "or" if data.get("logic") == "or" else "and"
     bonus_amount_raw = data.get("bonus_amount")
     token_amount_raw = data.get("token_amount")
     message_text = (data.get("message_text") or "").strip()
@@ -388,7 +384,7 @@ def api_bonus_giveaways_create():
             message_text=message_text,
             parse_mode="HTML",
             attachments=attachments,
-            logic=logic,
+            logic="and",
         )
         conn.commit()
     except ValueError as exc:

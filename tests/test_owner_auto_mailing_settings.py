@@ -105,7 +105,7 @@ def test_unified_reward_mailing_forwards_attachments(monkeypatch):
 
     assert response.status_code == 200
     assert calls[0]["attachments"] == attachments
-    assert calls[0]["logic"] == "or"
+    assert calls[0]["logic"] == "and"
     assert calls[0]["club_id"] == 7
     assert started == [9]
     assert conn.committed is True

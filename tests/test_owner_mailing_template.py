@@ -44,7 +44,15 @@ def test_manual_mailing_uses_one_audience_message_and_reward_form():
             "owner/mailing.html",
             filter_fields=[],
             message_variables=[],
-            crm_segments=[],
+            crm_segments=[
+                {
+                    "key": "loyal",
+                    "title": "Лояльное ядро",
+                    "emoji": "👑",
+                    "description": "Стабильно посещают клуб",
+                    "rules": {"rules": [{"field": "guest_pulse_audience", "op": "=", "value": "loyal"}]},
+                }
+            ],
             segments=[],
             mailings=[],
             auto_mailings=[],
@@ -58,7 +66,12 @@ def test_manual_mailing_uses_one_audience_message_and_reward_form():
     assert 'id="giveawayBonusEnabled"' in html
     assert 'id="giveawayTokenEnabled"' in html
     assert 'id="sendMailingBtn"' in html
-    assert 'data-audience-logic="and"' in html
-    assert 'data-audience-logic="or"' in html
+    assert "Группы из Пульса гостя" in html
+    assert "Лояльное ядро" in html
+    assert "чел." not in html.split("Конструктор аудитории", 1)[0]
+    assert 'data-audience-logic=' not in html
+    assert "Пересчитать аудиторию" not in html
+    assert 'id="previewBtn">Применить</button>' in html
+    assert "Добавить ссылку" in html
     assert 'Фильтры раздачи' not in html
     assert 'Отправить раздачу' not in html

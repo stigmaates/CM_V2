@@ -78,6 +78,38 @@ def test_mailing_filters_can_be_combined_with_or_without_escaping_club_scope():
     assert params == [7, "dota2", "cs2"]
 
 
+def test_guest_pulse_audiences_replace_legacy_crm_groups_in_mailing_ui():
+    fields = {item["key"]: item for item in mailing_service.get_filter_fields()}
+    quick_groups = mailing_service.get_crm_segment_options(None, 7)
+
+    assert "guest_pulse_audience" in fields
+    assert "crm_type" not in fields
+    assert [item["key"] for item in quick_groups] == [
+        "new",
+        "churned",
+        "valuable_risk",
+        "low_engagement",
+        "loyal",
+        "risk",
+        "other",
+    ]
+    assert all("count" not in item for item in quick_groups)
+    assert quick_groups[4]["rules"] == {
+        "rules": [{"field": "guest_pulse_audience", "op": "=", "value": "loyal"}]
+    }
+
+
+def test_guest_pulse_audience_filter_uses_current_pulse_table():
+    where_sql, params = build_where_clause(
+        7,
+        [{"field": "guest_pulse_audience", "op": "=", "value": "valuable_risk"}],
+    )
+
+    assert "FROM guest_pulse_current gpc" in where_sql
+    assert "gpc.club_id = up.club_id" in where_sql
+    assert params == [7, "valuable_risk"]
+
+
 def test_case_openings_count_is_available_as_number_filter():
     field = mailing_service.FILTER_FIELDS["case_openings_count"]
 

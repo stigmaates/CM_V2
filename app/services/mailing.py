@@ -10,47 +10,49 @@ from werkzeug.utils import secure_filename
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.guest_pulse_scores import AUDIENCES
 from app.services.timezones import DEFAULT_CLUB_TIMEZONE, utc_datetime_to_club_local
 from app.services.wheel import _add_token_transaction, ensure_token_tables
 
-CRM_SEGMENT_OPTIONS = [
-    {
-        "key": "top",
-        "label": "Лучшие",
-        "title": "Лучшие",
-        "emoji": "👑",
-        "description": "8+ визитов за 30 дней или 18+ за 90 дней при 4+ за 30 дней",
-    },
-    {
-        "key": "base",
-        "label": "База",
-        "title": "База",
-        "emoji": "👥",
-        "description": "3–7 визитов за 30 дней или 8+ за 90 дней при 2+ за 30 дней",
-    },
-    {
-        "key": "rare",
-        "label": "Редкие",
-        "title": "Редкие",
-        "emoji": "✨",
-        "description": "Были недавно, но не набрали активность для Базы",
-    },
-    {"key": "risk", "label": "Риск", "title": "Риск", "emoji": "⚠️", "description": "Не были 14–29 дней"},
-    {
-        "key": "dead",
-        "label": "Давно без визита",
-        "title": "Давно без визита",
-        "emoji": "☠️",
-        "description": "Не были 90+ дней",
-    },
-    {"key": "lost", "label": "Потерянные", "title": "Потерянные", "emoji": "💔", "description": "Не были 30–89 дней"},
-    {
-        "key": "no_visits",
-        "label": "Без визитов",
-        "title": "Без визитов",
+GUEST_PULSE_AUDIENCE_META = {
+    "new": {
         "emoji": "🆕",
-        "description": "Есть в базе, без визитов",
+        "description": "Новые гости и те, кто формирует привычку",
     },
+    "churned": {
+        "emoji": "💔",
+        "description": "Гости, которые перестали возвращаться",
+    },
+    "valuable_risk": {
+        "emoji": "💎",
+        "description": "Ценные гости с ухудшением посещений",
+    },
+    "low_engagement": {
+        "emoji": "🎮",
+        "description": "Активны, но почти не взаимодействуют с механиками",
+    },
+    "loyal": {
+        "emoji": "👑",
+        "description": "Стабильно посещают клуб и дают высокую ценность",
+    },
+    "risk": {
+        "emoji": "⚠️",
+        "description": "Ритм посещений заметно ухудшился",
+    },
+    "other": {
+        "emoji": "👥",
+        "description": "Гости вне основных групп",
+    },
+}
+
+GUEST_PULSE_AUDIENCE_OPTIONS = [
+    {
+        "key": key,
+        "label": label,
+        "title": label,
+        **GUEST_PULSE_AUDIENCE_META[key],
+    }
+    for key, label, _color in AUDIENCES
 ]
 
 FILTER_FIELDS = {
@@ -166,10 +168,20 @@ FILTER_FIELDS = {
     "is_active_30d": {"type": "bool", "column": "up.is_active_30d", "label": "Активен за 30 дней"},
     "is_active_90d": {"type": "bool", "column": "up.is_active_90d", "label": "Активен за 90 дней"},
     "has_telegram": {"type": "bool", "column": "up.has_telegram", "label": "Есть Telegram"},
+    "guest_pulse_audience": {
+        "type": "enum",
+        "column": (
+            "(SELECT gpc.audience_type FROM guest_pulse_current gpc "
+            "WHERE gpc.club_id = up.club_id AND gpc.guest_id = up.guest_id LIMIT 1)"
+        ),
+        "label": "Группа Пульса гостя",
+        "options": [{"value": key, "label": label} for key, label, _color in AUDIENCES],
+    },
     "crm_type": {
         "type": "enum",
         "column": "up.crm_type",
         "label": "CRM-группа",
+        "hidden": True,
         "options": [
             {"value": "top", "label": "Лучшие"},
             {"value": "base", "label": "База"},
@@ -299,6 +311,8 @@ AUTO_MAILING_DEFAULTS = {
 def get_filter_fields() -> List[Dict[str, Any]]:
     result = []
     for key, meta in FILTER_FIELDS.items():
+        if meta.get("hidden"):
+            continue
         item = {
             "key": key,
             "type": meta["type"],
@@ -315,44 +329,19 @@ def get_message_variables() -> List[Dict[str, Any]]:
 
 
 def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
-    """Возвращает готовые CRM-группы для быстрых рассылок.
-
-    count считается так же, как реальная рассылка: только гости текущего клуба
-    с привязанным Telegram. Сами правила потом идут через общий механизм
-    фильтров, поэтому CRM-группу можно комбинировать с другими условиями.
-    """
-    counts = {item["key"]: 0 for item in CRM_SEGMENT_OPTIONS}
-
-    sql = """
-        SELECT
-            up.crm_type,
-            COUNT(*) AS cnt
-        FROM user_portrait up
-        JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
-        WHERE up.club_id = %s
-          AND g.telegram_id IS NOT NULL
-          AND up.crm_type IS NOT NULL
-        GROUP BY up.crm_type
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (club_id,))
-        rows = cur.fetchall()
-
-    for row in rows:
-        key = row.get("crm_type")
-        if key in counts:
-            counts[key] = int(row.get("cnt") or 0)
-
-    result = []
-    for item in CRM_SEGMENT_OPTIONS:
-        result.append(
-            {
-                **item,
-                "count": counts.get(item["key"], 0),
-                "rules": {"rules": [{"field": "crm_type", "op": "=", "value": item["key"]}]},
-            }
-        )
-    return result
+    """Возвращает актуальные группы из Пульса гостя для быстрых рассылок."""
+    del conn, club_id
+    return [
+        {
+            **item,
+            "rules": {
+                "rules": [
+                    {"field": "guest_pulse_audience", "op": "=", "value": item["key"]}
+                ]
+            },
+        }
+        for item in GUEST_PULSE_AUDIENCE_OPTIONS
+    ]
 
 
 PHONE_NORMALIZED_SQL = (
