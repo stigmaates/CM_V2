@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 
-def record_mission_completion(cursor, club_id: int, guest_id: int, mission_id: int) -> None:
+def record_mission_completion(cursor, club_id: int, guest_id: int, mission_id: int) -> bool:
     # One completion per mission, matching the reward ledger's source identity.
     cursor.execute(
         """
@@ -13,3 +13,7 @@ def record_mission_completion(cursor, club_id: int, guest_id: int, mission_id: i
         """,
         (club_id, guest_id, str(mission_id), datetime.now(UTC).replace(tzinfo=None)),
     )
+    rowcount = getattr(cursor, "rowcount", None)
+    if rowcount is None:
+        rowcount = getattr(getattr(cursor, "result", None), "rowcount", 0)
+    return int(rowcount or 0) > 0
