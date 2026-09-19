@@ -343,6 +343,9 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
     assert all(a["count"] == a["total"] for a in data["audiences"])
     assert pulse_client.get("/owner/api/guest-pulse?health_min=NaN").status_code == 400
     assert pulse_client.get("/owner/api/guest-pulse?metric=invalid").status_code == 400
+    segmented = pulse_client.get("/owner/api/guest-pulse?segment=high_value_at_risk").get_json()
+    assert segmented["total"] == 0
+    assert sum(audience["count"] for audience in segmented["audiences"]) == 0
     assert pulse_client.get("/owner/api/guest-pulse/guests/43").status_code == 404
     with pulse_client.session_transaction() as sess:
         sess["club_id"] = 3
@@ -359,6 +362,9 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpDistributionLegend"' in html
     assert 'id="gpChartSectors"' in html
     assert 'id="gpChartLabels"' in html
+    assert 'id="gpChartIncludeWithout"' in html
+    assert 'id="gpSegments"' in html
+    assert 'id="gpSegment"' not in html
     assert 'id="gpWithTelegram"' not in html
     assert 'data-slider="health"' not in html
     assert 'data-slider="value"' not in html

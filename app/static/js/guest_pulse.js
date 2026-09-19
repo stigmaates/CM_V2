@@ -11,9 +11,15 @@
   const score = (v) => `<span class="gp-score ${v!=null && v<40?'is-low':v>=75?'is-high':''}" title="${v==null?'Недостаточно данных':''}">${num(v)}</span>`;
   const filters = {health_min:0,health_max:100,value_min:0,value_max:100,engagement_min:0,engagement_max:100,deviation_min:.15,deviation_max:.5,deviation_direction:'all',deviation_telegram_only:false,metric:'all',audience_type:'',segment:''};
   let page=1, deviationPage=1, sort='health', sortDirection='asc', responseData=null, timer=null, controller=null, selectedGuest=null, detailController=null;
-  let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null;
+  let loading=false, selectedGuestConnected=false, ringAnimation=null, ringPending=false, rangeDrag=null, chartIncludeWithoutTelegram=false;
   const chartSectors=new Map(), circumference=2*Math.PI*70;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+  const distributionValue = (audience) => chartIncludeWithoutTelegram ? audience.count : audience.telegram_count;
+  const percentText = (value,total) => {
+    if(!total||!value)return '0%';
+    const percent=value/total*100;
+    return `${percent<1?percent.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}):Math.round(percent)}%`;
+  };
   function animateRing(){
     ringAnimation?.cancel();
     const sectors=$('gpChartSectors');
@@ -35,8 +41,22 @@
     $('gpDeviationInteract').disabled=loading||!responseData?.deviation_telegram_count;
     $('gpGuestInteract').disabled=!selectedGuestConnected;
   }
+  function setAudienceHighlight(key=''){
+    const active=key||filters.audience_type;
+    chartSectors.forEach((state,stateKey)=>{
+      const muted=Boolean(active&&stateKey!==active);
+      state.el.style.opacity=muted?'.18':'1';
+      state.labelGroup.style.opacity=muted?'.18':'1';
+    });
+    document.querySelectorAll('#gpDistributionLegend [data-audience]').forEach(row=>{
+      const highlighted=Boolean(active&&row.dataset.audience===active);
+      row.classList.toggle('is-highlighted',highlighted);
+      row.classList.toggle('is-dimmed',Boolean(active&&!highlighted));
+    });
+  }
   function renderChart(data,refill=false){
     let offset=0;
+    const chartTotal=data.audiences.reduce((sum,a)=>sum+distributionValue(a),0);
     data.audiences.forEach(a=>{
       let state=chartSectors.get(a.key);
       if(!state){
@@ -53,25 +73,26 @@
         label.setAttribute('fill',a.color);
         labelGroup.append(line,dot,label);
         state={el,labelGroup,line,dot,label,length:0,offset:0,tip:'',layout:null};chartSectors.set(a.key,state);
-        const showTip=()=>{$('gpChartTip').textContent=state.tip;};
+        const showTip=()=>{$('gpChartTip').textContent=state.tip;setAudienceHighlight(a.key);};
         el.addEventListener('mouseenter',showTip);el.addEventListener('focus',showTip);
+        el.addEventListener('mouseleave',()=>setAudienceHighlight());el.addEventListener('blur',()=>setAudienceHighlight());
         el.addEventListener('click',()=>choose(a.key));
         el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(a.key);}});
         $('gpChartSectors').append(el);
         $('gpChartLabels').append(labelGroup);
       }
-      const length=data.total?circumference*a.count/data.total:0;
-      const percent=data.total?a.count/data.total*100:0;
+      const value=distributionValue(a);
+      const length=chartTotal?circumference*value/chartTotal:0;
+      const percent=chartTotal?value/chartTotal*100:0;
       const gap=Math.min(1.4,length*.18);
       const angle=(offset+length/2)/circumference*Math.PI*2-Math.PI/2;
-      state.tip=`${a.label}: ${num(a.count)} · с Telegram ${num(a.telegram_count)} · без Telegram ${num(a.without_telegram_count)}`;
+      state.tip=`${a.label}: ${num(value)} · ${percentText(value,chartTotal)}`;
       state.el.setAttribute('aria-label',state.tip);
-      state.el.setAttribute('tabindex',a.count?'0':'-1');
-      state.el.setAttribute('aria-hidden',String(!a.count));
-      state.el.style.pointerEvents=a.count?'':'none';
-      state.el.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.25':'1';
-      state.label.textContent=`${Math.round(percent)}%`;
-      state.labelGroup.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.28':'1';
+      state.el.setAttribute('tabindex',value?'0':'-1');
+      state.el.setAttribute('aria-hidden',String(!value));
+      state.el.style.pointerEvents=value?'':'none';
+      state.label.textContent=percentText(value,chartTotal);
+      state.labelGroup.style.display=chartTotal?'':'none';
       state.layout={angle,percent,side:Math.cos(angle)>=0?1:-1};
       state.length=length;state.offset=offset;
       state.el.setAttribute('stroke-dasharray',`${Math.max(0,length-gap)} ${Math.max(0,circumference-length+gap)}`);
@@ -80,15 +101,12 @@
     });
     for(const side of [-1,1]){
       const states=[...chartSectors.values()].filter(state=>state.layout?.side===side).sort((a,b)=>Math.sin(a.layout.angle)-Math.sin(b.layout.angle));
-      const gap=18,minY=-8,maxY=248;
-      states.forEach((state,index)=>{
-        const natural=120+Math.sin(state.layout.angle)*109;
-        state.layout.y=Math.max(natural,index?states[index-1].layout.y+gap:minY);
-      });
-      if(states.length&&states.at(-1).layout.y>maxY){
-        const shift=states.at(-1).layout.y-maxY;
-        states.forEach(state=>state.layout.y-=shift);
-      }
+      const minY=-5,maxY=245;
+      const spacing=states.length>1?Math.min(38,(maxY-minY)/(states.length-1)):0;
+      const span=spacing*Math.max(0,states.length-1);
+      const naturalCenter=states.length?states.reduce((sum,state)=>sum+120+Math.sin(state.layout.angle)*109,0)/states.length:120;
+      const start=Math.max(minY,Math.min(maxY-span,naturalCenter-span/2));
+      states.forEach((state,index)=>{state.layout.y=start+index*spacing;});
       states.forEach(state=>{
         const {angle,y}=state.layout;
         const x1=120+Math.cos(angle)*97,y1=120+Math.sin(angle)*97;
@@ -99,7 +117,19 @@
         state.label.setAttribute('text-anchor',side>0?'start':'end');
       });
     }
+    setAudienceHighlight();
     if(refill)animateRing();
+  }
+
+  function renderDistribution(data,refill=false){
+    const chartTotal=data.audiences.reduce((sum,a)=>sum+distributionValue(a),0);
+    $('gpDistributionTotal').textContent=num(chartTotal);
+    $('gpDistributionTotalLabel').textContent=chartIncludeWithoutTelegram?'всего гостей':'с Telegram';
+    $('gpDistributionLegend').innerHTML=data.audiences.map(a=>{
+      const value=distributionValue(a),percent=percentText(value,chartTotal);
+      return `<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}: ${num(value)} гостей, ${percent}" style="--audience-color:${a.color}"><i style="background:${a.color}"></i><span>${esc(a.label)}</span><strong>${num(value)}</strong><small>${percent}</small></button>`;
+    }).join('');
+    renderChart(data,refill);
   }
 
   function error(message){$('gpError').textContent=message;$('gpError').hidden=!message;if(message)$('gpError').scrollIntoView({block:'center',behavior:'smooth'});}
@@ -138,17 +168,16 @@
   function render(data,refill=false){
     responseData=data;
     $('gpUpdated').textContent=data.calculated_at?`${data.stale?'Данные устарели · ':''}${date(data.calculated_at)} · время клуба`:'Ожидается первый расчёт';
-    $('gpDistributionTotal').textContent=num(data.total);
     $('gpSelectionCount').textContent=`Для рассылки: ${num(data.selected_telegram_count)} · только с Telegram`;
     $('gpChartTip').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || 'Выберите сектор или карточку группы';
     $('gpAudienceList').innerHTML=data.audiences.map(a=>{
       return `<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-icon" data-icon="${a.key}" aria-hidden="true"></span><span class="gp-audience-body"><span class="gp-label">${esc(a.label)}</span><span class="gp-audience-number"><strong>${num(a.telegram_count)}</strong><span>с Telegram</span></span></span><span class="gp-audience-side"><span class="gp-audience-open" aria-hidden="true">→</span><span class="gp-audience-total"><small>Всего</small><b>${num(a.count)}</b></span></span></button>`;
     }).join('');
-    $('gpDistributionLegend').innerHTML=data.audiences.map(a=>{const percent=data.total?Math.round(a.count/data.total*100):0;return `<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}: ${num(a.count)} гостей, ${percent}%" style="--audience-color:${a.color}"><i style="background:${a.color}"></i><span>${esc(a.label)}</span><strong>${num(a.count)}</strong><small>${percent}%</small></button>`;}).join('');
-    renderChart(data,refill);
-    $('gpGuestsPanel').hidden=!filters.audience_type&&!filters.segment;
+    renderDistribution(data,refill);
+    document.querySelectorAll('#gpSegments [data-segment]').forEach(button=>{const active=button.dataset.segment===filters.segment;button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));});
+    $('gpGuestsPanel').hidden=!filters.audience_type;
     document.querySelector('.gp-audiences').hidden=!$('gpGuestsPanel').hidden;
-    $('gpGuestsTitle').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || $('gpSegment').selectedOptions[0].textContent;
+    $('gpGuestsTitle').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || 'Гости аудитории';
     $('gpGuestsCount').textContent=`${num(data.selected_count)} гостей · с Telegram ${num(data.selected_telegram_count)} · без Telegram ${num(data.selected_without_telegram_count)}`;
     $('gpGuests').innerHTML=data.guests.length?`<table class="gp-table"><thead><tr>${sortHeader('name','Гость')}${sortHeader('health','П','Посещения')}${sortHeader('value','Ц','Ценность')}${sortHeader('engagement','В','Вовлечённость')}${sortHeader('overall','Общий балл','П 35% + Ц 40% + В 25%')}</tr></thead><tbody>${data.guests.map(r=>`<tr><td>${person(r)}</td><td>${score(r.health.score)}</td><td>${score(r.value.score)}</td><td>${score(r.engagement.score)}</td><td class="gp-overall-cell">${score(r.overall?.score)}</td></tr>`).join('')}</tbody></table>`:'<div class="gp-empty">Нет гостей с такими показателями. Попробуйте расширить диапазоны.</div>';
     pagination($('gpGuestPages'),page,data.selected_count,p=>{page=p;load({animate:false});});
@@ -233,12 +262,17 @@
   syncRange('deviation');
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   $('gpDistributionLegend').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
+  $('gpDistributionLegend').addEventListener('pointerover',e=>{const b=e.target.closest('[data-audience]');if(b)setAudienceHighlight(b.dataset.audience);});
+  $('gpDistributionLegend').addEventListener('pointerleave',()=>setAudienceHighlight());
+  $('gpDistributionLegend').addEventListener('focusin',e=>{const b=e.target.closest('[data-audience]');if(b)setAudienceHighlight(b.dataset.audience);});
+  $('gpDistributionLegend').addEventListener('focusout',e=>{if(!$('gpDistributionLegend').contains(e.relatedTarget))setAudienceHighlight();});
+  $('gpChartIncludeWithout').addEventListener('change',event=>{chartIncludeWithoutTelegram=event.target.checked;if(responseData)renderDistribution(responseData,true);});
+  $('gpSegments').addEventListener('click',e=>{const button=e.target.closest('[data-segment]');if(!button||button.dataset.segment===filters.segment)return;filters.segment=button.dataset.segment;page=1;load();});
   document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));
   document.querySelectorAll('[name=gpDeviationDirection]').forEach(input=>input.addEventListener('change',()=>{filters.deviation_direction=input.value;deviationPage=1;renderDeviationRule();load({animate:false});}));
   $('gpDeviationTelegram').addEventListener('change',event=>{filters.deviation_telegram_only=event.target.checked;deviationPage=1;renderDeviationRule();load({animate:false});});
-  $('gpSegment').addEventListener('change',e=>{filters.segment=e.target.value;page=1;load();});
-  $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;document.querySelectorAll(`[data-key="${k}_min"]`).forEach(e=>e.value=0);document.querySelectorAll(`[data-key="${k}_max"]`).forEach(e=>e.value=100);}['health','value','engagement'].forEach(syncRange);filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
-  $('gpAllTypes').addEventListener('click',()=>{filters.audience_type='';filters.segment='';$('gpSegment').value='';page=1;load();});
+  $('gpReset').addEventListener('click',()=>{for(const k of ['health','value','engagement']){filters[k+'_min']=0;filters[k+'_max']=100;}filters.audience_type='';filters.segment='';page=1;load();});
+  $('gpAllTypes').addEventListener('click',()=>{filters.audience_type='';page=1;load();});
   $('gpRefresh').addEventListener('click',()=>load());
   async function handoff(mode){
     if(mode==='guest'?!selectedGuestConnected:loading||!responseData)return;

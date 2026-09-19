@@ -7,7 +7,7 @@ from flask import abort, jsonify, render_template, request, session, url_for
 from app.config import GUEST_PULSE_CONFIG
 from app.core import get_db_connection, owner_required
 from app.services.guest_pulse import dumps, get_current, loads, rows
-from app.services.guest_pulse_filters import parse_filters, score_match, select
+from app.services.guest_pulse_filters import parse_filters, score_match, segment_match, select
 from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS, overall_score
 from app.services.mailing import get_message_variables
 from app.services.outbound_policy import outbound_blocked
@@ -88,7 +88,7 @@ def guest_pulse_data():
     finally:
         conn.close()
     total = Counter(r["audience_type"] for r in current)
-    filtered_rows = [r for r in current if score_match(r, f)]
+    filtered_rows = [r for r in current if score_match(r, f) and segment_match(r, f["segment"])]
     filtered = Counter(r["audience_type"] for r in filtered_rows)
     connected = Counter(r["audience_type"] for r in filtered_rows if r["has_telegram"])
     selected = select(current, f)
