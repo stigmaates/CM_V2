@@ -42,22 +42,31 @@
       let state=chartSectors.get(a.key);
       if(!state){
         const el=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        const label=document.createElementNS('http://www.w3.org/2000/svg','text');
         for(const [k,v] of Object.entries({cx:120,cy:120,r:44,fill:'none',stroke:a.color,'stroke-width':88,'stroke-linecap':'butt',transform:'rotate(-90 120 120)',role:'button','stroke-dasharray':`0 ${circumference}`}))el.setAttribute(k,v);
         el.classList.add('gp-chart-sector');
-        state={el,length:0,offset:0,tip:''};chartSectors.set(a.key,state);
+        label.classList.add('gp-chart-percent');
+        state={el,label,length:0,offset:0,tip:''};chartSectors.set(a.key,state);
         const showTip=()=>{$('gpChartTip').textContent=state.tip;};
         el.addEventListener('mouseenter',showTip);el.addEventListener('focus',showTip);
         el.addEventListener('click',()=>choose(a.key));
         el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(a.key);}});
         $('gpChartSectors').append(el);
+        $('gpChartLabels').append(label);
       }
       const length=data.total?circumference*a.count/data.total:0;
+      const percent=data.total?a.count/data.total*100:0;
+      const angle=(offset+length/2)/circumference*Math.PI*2-Math.PI/2;
       state.tip=`${a.label}: ${num(a.count)} · с Telegram ${num(a.telegram_count)} · без Telegram ${num(a.without_telegram_count)}`;
       state.el.setAttribute('aria-label',state.tip);
       state.el.setAttribute('tabindex',a.count?'0':'-1');
       state.el.setAttribute('aria-hidden',String(!a.count));
       state.el.style.pointerEvents=a.count?'':'none';
       state.el.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.25':'1';
+      state.label.textContent=percent>=3?`${Math.round(percent)}%`:'';
+      state.label.setAttribute('x',120+Math.cos(angle)*55);
+      state.label.setAttribute('y',120+Math.sin(angle)*55);
+      state.label.style.opacity=filters.audience_type&&filters.audience_type!==a.key?'.3':'1';
       state.length=length;state.offset=offset;
       state.el.setAttribute('stroke-dasharray',`${length} ${Math.max(0,circumference-length)}`);
       state.el.setAttribute('stroke-dashoffset',-offset);
@@ -106,13 +115,9 @@
     $('gpSelectionCount').textContent=`Для рассылки: ${num(data.selected_telegram_count)} · только с Telegram`;
     $('gpChartTip').textContent=data.audiences.find(a=>a.key===filters.audience_type)?.label || 'Выберите сектор или карточку группы';
     $('gpAudienceList').innerHTML=data.audiences.map(a=>{
-      const percent=data.total?Math.round(a.count/data.total*100):0;
-      return `<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-icon" aria-hidden="true">${audienceIcons[a.key]||'•'}</span><span class="gp-audience-body"><span class="gp-label">${esc(a.label)}</span><span class="gp-audience-number"><strong>${num(a.count)}</strong><span>гостей · ${percent}%</span></span><span class="gp-audience-contact">С Telegram ${num(a.telegram_count)} · без Telegram ${num(a.without_telegram_count)}</span></span><span class="gp-audience-open" aria-hidden="true">→</span></button>`;
+      return `<button type="button" class="gp-audience ${filters.audience_type===a.key?'is-active':''}" data-audience="${a.key}" aria-pressed="${filters.audience_type===a.key}" style="--audience-color:${a.color}"><span class="gp-audience-icon" aria-hidden="true">${audienceIcons[a.key]||'•'}</span><span class="gp-audience-body"><span class="gp-label">${esc(a.label)}</span><span class="gp-audience-number"><strong>${num(a.telegram_count)}</strong><span>с Telegram</span></span></span><span class="gp-audience-side"><span class="gp-audience-open" aria-hidden="true">→</span><span class="gp-audience-total"><small>Всего</small><b>${num(a.count)}</b></span></span></button>`;
     }).join('');
-    $('gpDistributionLegend').innerHTML=data.audiences.map(a=>{
-      const percent=data.total?Math.round(a.count/data.total*100):0;
-      return `<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}: ${num(a.count)} гостей, ${percent}%"><i style="background:${a.color}"></i><span>${esc(a.label)}</span><strong>${num(a.count)}</strong><small>${percent}%</small></button>`;
-    }).join('');
+    $('gpDistributionLegend').innerHTML=data.audiences.map(a=>`<button type="button" data-audience="${a.key}" class="gp-legend-row ${filters.audience_type===a.key?'is-active':''}" aria-label="${esc(a.label)}"><i style="background:${a.color}"></i><span>${esc(a.label)}</span></button>`).join('');
     renderChart(data,refill);
     $('gpGuestsPanel').hidden=!filters.audience_type&&!filters.segment;
     document.querySelector('.gp-audiences').hidden=!$('gpGuestsPanel').hidden;
@@ -136,6 +141,7 @@
     const percent=key==='deviation',factor=percent?100:1;
     const low=Math.round(filters[key+'_min']*factor),high=Math.round(filters[key+'_max']*factor);
     const track=document.querySelector(`[data-slider="${key}"]`),limit=percent?Math.max(100,high):100;
+    if(!track)return;
     track.style.setProperty('--range-low',`${low/limit*100}%`);
     track.style.setProperty('--range-high',`${high/limit*100}%`);
     for(const [bound,value] of [['min',low],['max',high]]){
@@ -197,7 +203,7 @@
   }
   document.addEventListener('pointerup',finishRangeDrag);
   document.addEventListener('pointercancel',finishRangeDrag);
-  ['health','value','engagement','deviation'].forEach(syncRange);
+  syncRange('deviation');
   $('gpAudienceList').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   $('gpDistributionLegend').addEventListener('click',e=>{const b=e.target.closest('[data-audience]');if(b)choose(b.dataset.audience);});
   document.querySelectorAll('[name=gpMetric]').forEach(input=>input.addEventListener('change',()=>{filters.metric=input.value;deviationPage=1;load({animate:false});}));

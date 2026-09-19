@@ -84,3 +84,14 @@
 @media(max-width:1250px) and (min-width:1001px){.gp-audience-layout{grid-template-columns:minmax(190px,.65fr) minmax(390px,1.45fr) minmax(270px,.9fr)}.gp-audience-cards{grid-template-columns:1fr}}
 @media(max-width:1000px){.gp-audience-layout{grid-template-columns:minmax(210px,.7fr) minmax(280px,1fr)}.gp-audiences{grid-column:1/-1;grid-row:2}.gp-chart-block{grid-column:2;grid-row:1}.gp-audience-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.gp-audience-layout{grid-template-columns:1fr}.gp-filters,.gp-audiences,.gp-chart-block{grid-column:auto;grid-row:auto}.gp-audience-cards{grid-template-columns:1fr}.gp-chart-block{padding:16px}.gp-audience-panel-head{display:grid}.gp button.gp-audience{min-height:118px}.gp-donut{width:min(76vw,220px)}}
+
+/* Audience overview refinement: cards lead with reachable guests; the pie carries its percentages. */
+.gp-audience-layout{grid-template-columns:minmax(560px,1.75fr) minmax(300px,.75fr);gap:24px}
+.gp-audience-number span{color:#c9b6da;font-size:11px;font-weight:600}
+.gp-audience-side{align-self:stretch;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:12px;min-width:56px}
+.gp-audience-total{display:grid;justify-items:end;gap:2px;color:#c8b5da;font-variant-numeric:tabular-nums}.gp-audience-total small{font-size:9px;font-weight:500}.gp-audience-total b{font-size:13px;color:#eee4f8}
+.gp-chart-percent{fill:#fff;stroke:#1a102b;stroke-width:3px;paint-order:stroke;dominant-baseline:middle;text-anchor:middle;font:800 13px var(--font-main);pointer-events:none;transition:opacity .2s}
+.gp button.gp-legend-row{grid-template-columns:9px minmax(0,1fr);padding:7px 8px}.gp-legend-row span{font-size:11px}
+@media(min-width:1001px){.gp-audience-layout:has(.gp-guests:not([hidden])){grid-template-columns:minmax(300px,.75fr) minmax(600px,2fr)}}
+@media(max-width:1000px){.gp-audience-layout{grid-template-columns:1fr}.gp-audiences,.gp-chart-block{grid-column:auto;grid-row:auto}.gp-audience-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.gp-audience-cards{grid-template-columns:1fr}}

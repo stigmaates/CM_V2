@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Пульс гостя{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260919-audience-cards-1') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260919-audience-cards-2') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
   <header class="gp-heading"><div><span class="gp-eyebrow">ГОСТИ И ОТНОШЕНИЯ</span><h1>Пульс гостя</h1><p>Найдите нужную аудиторию или изменения в привычках гостей.</p><button type="button" class="gp-help-trigger" id="gpHelpOpen" aria-haspopup="dialog" aria-controls="gpHelpDialog" aria-expanded="false"><span aria-hidden="true">?</span> Подробнее о системе показателей</button></div><div class="gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
@@ -8,14 +8,8 @@
   <section class="gp-card" aria-labelledby="gpAudienceTitle">
     <div class="gp-section-head"><div><h2 id="gpAudienceTitle">Группы гостей</h2><p>Выберите группу, чтобы перейти к списку гостей.</p></div><button type="button" class="gp-quiet" id="gpReset">Сбросить фильтры</button></div>
     <div class="gp-audience-layout">
-      <div class="gp-filters">
-        {% for key,name,meaning in [('health','Посещения (П)','Нужно ли вмешиваться'),('value','Ценность (Ц)','Насколько гость ценен клубу'),('engagement','Вовлечённость (В)','Активность в Кибер Бонус')] %}
-        <fieldset class="gp-range" data-range="{{ key }}"><legend>{{ name }}</legend><p>{{ meaning }}</p><div class="gp-range-values"><label>От <input type="number" min="0" max="100" value="0" data-key="{{ key }}_min" aria-label="{{ name }} от"></label><span>—</span><label>До <input type="number" min="0" max="100" value="100" data-key="{{ key }}_max" aria-label="{{ name }} до"></label></div><div class="gp-dual-range" data-slider="{{ key }}"><div class="gp-range-track" aria-hidden="true"><span></span></div><input type="range" min="0" max="100" value="0" data-key="{{ key }}_min" aria-label="Нижняя граница {{ name }}"><input type="range" min="0" max="100" value="100" data-key="{{ key }}_max" aria-label="Верхняя граница {{ name }}"></div></fieldset>
-        {% endfor %}
-        <p class="gp-hint">При полном диапазоне учитываются и гости с недостаточными данными. Гости без визитов не показаны.</p>
-      </div>
       <div class="gp-audiences"><div class="gp-audience-panel-head"><h3>Аудитории гостей</h3><span>По текущим фильтрам</span></div><div id="gpAudienceList" class="gp-audience-cards"></div><label class="gp-segment-label">Быстрый сегмент<select id="gpSegment"><option value="">Все гости</option>{% for key,label in segments.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label></div>
-      <aside class="gp-chart-block" aria-labelledby="gpDistributionTitle"><div class="gp-distribution-head"><div><h3 id="gpDistributionTitle">Распределение групп</h3><p><strong id="gpDistributionTotal">—</strong> гостей по текущим фильтрам</p></div></div><div class="gp-donut"><svg viewBox="0 0 240 240" id="gpChart" aria-label="Распределение гостей по группам"><circle cx="120" cy="120" r="88" fill="#291a3c"/><g id="gpChartSectors"></g></svg></div><p id="gpChartTip" aria-live="polite">Выберите сектор или карточку группы</p><div class="gp-distribution-legend" id="gpDistributionLegend"></div><span class="gp-selection-count" id="gpSelectionCount">Выбрано гостей: —</span><button type="button" class="gp-primary" id="gpMail" disabled>Отправить рассылку <span aria-hidden="true">↗</span></button></aside>
+      <aside class="gp-chart-block" aria-labelledby="gpDistributionTitle"><div class="gp-distribution-head"><div><h3 id="gpDistributionTitle">Распределение групп</h3><p><strong id="gpDistributionTotal">—</strong> гостей по текущим фильтрам</p></div></div><div class="gp-donut"><svg viewBox="0 0 240 240" id="gpChart" aria-label="Распределение гостей по группам"><circle cx="120" cy="120" r="88" fill="#291a3c"/><g id="gpChartSectors"></g><g id="gpChartLabels" aria-hidden="true"></g></svg></div><p id="gpChartTip" class="gp-sr-only" aria-live="polite">Выберите сектор или карточку группы</p><div class="gp-distribution-legend" id="gpDistributionLegend"></div><span class="gp-selection-count" id="gpSelectionCount">Выбрано гостей: —</span><button type="button" class="gp-primary" id="gpMail" disabled>Отправить рассылку <span aria-hidden="true">↗</span></button></aside>
     <section class="gp-guests" id="gpGuestsPanel" hidden><button type="button" class="gp-quiet" id="gpAllTypes">← Типы аудитории</button><div class="gp-section-head"><div><h3 id="gpGuestsTitle">Гости аудитории</h3><p id="gpGuestsCount"></p></div></div><div id="gpGuests"></div><div class="gp-pagination" id="gpGuestPages"></div><button type="button" class="gp-primary" id="gpInteract">Взаимодействовать ↗</button></section>
     </div>
   </section>
@@ -39,4 +33,4 @@
 window.CRM_MESSAGE_VARIABLES = {{ message_variables | tojson }};
 window.CRM_PULSE_GROUPS = [];
 window.CRM_OUTBOUND_DISABLED = {{ outbound_disabled | tojson }};
-</script><script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260911-pulse-inline-1') }}" defer></script><script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260919-audience-cards-1') }}" defer></script>{% endblock %}
+</script><script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260911-pulse-inline-1') }}" defer></script><script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260919-audience-cards-2') }}" defer></script>{% endblock %}

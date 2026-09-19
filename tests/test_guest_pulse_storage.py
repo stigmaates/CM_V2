@@ -358,7 +358,11 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpDistributionTotal"' in html
     assert 'id="gpDistributionLegend"' in html
     assert 'id="gpChartSectors"' in html
+    assert 'id="gpChartLabels"' in html
     assert 'id="gpWithTelegram"' not in html
+    assert 'data-slider="health"' not in html
+    assert 'data-slider="value"' not in html
+    assert 'data-slider="engagement"' not in html
     with pulse_client.session_transaction() as sess:
         sess["role"] = "reception"
     assert pulse_client.get("/owner/api/guest-pulse").status_code == 302
