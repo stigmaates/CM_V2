@@ -392,8 +392,7 @@ function closeMailingModal() {
     modalEl.classList.remove("is-open");
     modalEl.setAttribute("aria-hidden", "true");
     const hm = document.getElementById("crmInteractionModal");
-    const hint = document.getElementById("mailingAudienceHintModal");
-    if ((!hm || !hm.classList.contains("is-open")) && (!hint || !hint.classList.contains("is-open"))) {
+    if (!hm || !hm.classList.contains("is-open")) {
         document.body.style.overflow = "";
     }
 }
@@ -774,8 +773,7 @@ function closeCrmInteractionModal() {
     if (!crmInteractionModal) return;
     crmInteractionModal.classList.remove("is-open");
     crmInteractionModal.setAttribute("aria-hidden", "true");
-    const hint = document.getElementById("mailingAudienceHintModal");
-    if ((!modalEl || !modalEl.classList.contains("is-open")) && (!hint || !hint.classList.contains("is-open"))) {
+    if (!modalEl || !modalEl.classList.contains("is-open")) {
         document.body.style.overflow = "";
     }
 }
@@ -934,44 +932,6 @@ async function openCrmInteractionDetail(type, id) {
     }
 }
 
-const mailingAudienceHintModal = document.getElementById("mailingAudienceHintModal");
-const mailingAudienceHelpBtn = document.getElementById("mailingAudienceHelpBtn");
-const mailingAudienceHintClose = document.getElementById("mailingAudienceHintClose");
-const mailingAudienceHintOk = document.getElementById("mailingAudienceHintOk");
-
-function openMailingAudienceHintModal() {
-    if (!mailingAudienceHintModal) return;
-    mailingAudienceHintModal.classList.add("is-open");
-    mailingAudienceHintModal.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
-}
-
-function closeMailingAudienceHintModal() {
-    if (!mailingAudienceHintModal) return;
-    mailingAudienceHintModal.classList.remove("is-open");
-    mailingAudienceHintModal.setAttribute("aria-hidden", "true");
-    if ((!modalEl || !modalEl.classList.contains("is-open")) && (!crmInteractionModal || !crmInteractionModal.classList.contains("is-open"))) {
-        document.body.style.overflow = "";
-    }
-}
-
-if (mailingAudienceHelpBtn) {
-    mailingAudienceHelpBtn.addEventListener("click", openMailingAudienceHintModal);
-}
-if (mailingAudienceHintClose) {
-    mailingAudienceHintClose.addEventListener("click", closeMailingAudienceHintModal);
-}
-if (mailingAudienceHintOk) {
-    mailingAudienceHintOk.addEventListener("click", closeMailingAudienceHintModal);
-}
-if (mailingAudienceHintModal) {
-    mailingAudienceHintModal.addEventListener("click", function (event) {
-        if (event.target === mailingAudienceHintModal) {
-            closeMailingAudienceHintModal();
-        }
-    });
-}
-
 const crmInteractionRows = Array.from(document.querySelectorAll(".interaction-row"));
 const crmInteractionTypeFilter = document.getElementById("crmInteractionTypeFilter");
 const hideAutoMailingsFilter = document.getElementById("hideAutoMailingsFilter");
@@ -1031,10 +991,6 @@ if (crmInteractionModal) {
 
 document.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") return;
-    if (mailingAudienceHintModal && mailingAudienceHintModal.classList.contains("is-open")) {
-        closeMailingAudienceHintModal();
-        return;
-    }
     if (crmInteractionModal && crmInteractionModal.classList.contains("is-open")) {
         closeCrmInteractionModal();
     }
