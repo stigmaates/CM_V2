@@ -87,6 +87,10 @@ def test_crm_analytics_renders_cohort_analysis_block():
     assert 'id="analytics-heatmaps"' not in html
     assert "WALLZ" not in html
     assert "Период воронки" in html
+    assert 'class="crm-cohort-hero"' in html
+    assert 'class="crm-analysis-overview"' in html
+    assert 'class="crm-funnel-panel"' in html
+    assert "Всего гостей в когорте" in html
     assert 'data-period="all"' in html
     assert "Сохранить когорту" in html
     assert "Тестовая когорта" in html
