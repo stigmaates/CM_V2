@@ -9,7 +9,7 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — {{ analytics_titles.get(analytics_section, 'Аналитика') }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260920-cohorts-redesign-4') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260920-heatmap-scroll-1') }}">
 {% endblock %}
 
 {% block content %}
@@ -301,7 +301,12 @@
         </div>
 
         {% if pc_heatmap.pcs %}
-            <div class="pc-heatmap-grid">
+            <div class="pc-heatmap-grid"
+                 tabindex="0"
+                 aria-label="Тепловая карта по компьютерам"
+                 data-lenis-prevent
+                 data-lenis-prevent-wheel
+                 data-lenis-prevent-touch>
                 {% for pc in pc_heatmap.pcs %}
                     <div class="pc-heatmap-cell heatmap-level-{{ pc.level }}" title="{{ pc.name }} — {{ pc.hours_display }} ч, загрузка {{ pc.utilization_display }}%. UUID: {{ pc.uuid }}">
                         <div class="pc-heatmap-cell__name">{{ pc.name }}</div>

@@ -154,15 +154,27 @@ def test_crm_analytics_renders_manual_campaign_passports():
 
 
 def test_crm_analytics_renders_heatmaps_as_a_separate_page():
+    context = _base_template_context()
+    context["pc_heatmap"]["pcs"] = [
+        {
+            "name": "ПК 1",
+            "uuid": "pc-1",
+            "hours_display": "12,5",
+            "utilization_display": "25",
+            "level": 2,
+        }
+    ]
     with app.test_request_context("/owner/analytics/heatmaps"):
         html = render_template(
             "owner/crm_analytics.html",
-            **_base_template_context(),
+            **context,
             analytics_section="heatmaps",
         )
 
     assert "Тепловая карта посещений" in html
     assert "Тепловая карта по ПК" in html
+    assert 'class="pc-heatmap-grid"' in html
+    assert "data-lenis-prevent-wheel" in html
     assert 'id="analytics-cohorts"' not in html
     assert 'id="analytics-communications"' not in html
     assert "Пульс базы" not in html

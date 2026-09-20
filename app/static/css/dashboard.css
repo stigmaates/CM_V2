@@ -4244,8 +4244,17 @@ body.modal-open { overflow: hidden; }
     gap: 12px;
     margin-top: 20px;
     max-height: 560px;
-    overflow: auto;
-    padding-right: 4px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+    touch-action: pan-y;
+    padding-right: 8px;
+}
+
+.pc-heatmap-grid:focus-visible {
+    outline: 2px solid rgba(165, 114, 255, 0.72);
+    outline-offset: 4px;
 }
 
 .pc-heatmap-cell {
