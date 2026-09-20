@@ -1048,14 +1048,7 @@
                                                 </div>
                                                 <div class="case-cover-editor__drop">
                                                     <input class="form-input" type="file" id="case_file_{{ case.id }}" name="image_file" accept="image/png,image/jpeg,image/webp" data-case-cover-file>
-                                                    <input class="form-input" type="text" id="case_image_{{ case.id }}" name="image_url" value="{{ case.image_url or '' }}" placeholder="или внешняя https:// ссылка" data-case-cover-url>
-                                                    {% if case.image_url %}
-                                                        <label class="form-check">
-                                                            <input type="checkbox" class="form-check-input" name="remove_image" value="1">
-                                                            <span class="form-check-box" aria-hidden="true"></span>
-                                                            <span class="form-check-text">Удалить текущую картинку</span>
-                                                        </label>
-                                                    {% endif %}
+                                                    <input type="hidden" name="image_url" value="{{ case.image_url or '' }}">
                                                     <small>Рекомендуемый размер — 800×600.</small>
                                                 </div>
                                             </div>
@@ -1157,7 +1150,7 @@
                                                             <div class="form-group"><label>Жетоны</label><input class="form-input" type="number" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}"></div>
                                                             <div class="form-group"><label>Обновления контрактов</label><input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="{{ item.contract_refresh_amount or 0 }}"></div>
                                                             <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}"></div>
-                                                            <div class="form-group full"><label>Картинка предмета</label>{% if item.image_url %}<div class="case-image-preview case-image-preview--small"><img src="{{ item.image_url }}" alt="{{ item.name }}"><label class="form-check"><input type="checkbox" class="form-check-input" name="remove_image" value="1"><span class="form-check-box" aria-hidden="true"></span><span class="form-check-text">Удалить картинку</span></label></div>{% endif %}<input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><input class="form-input" type="text" name="image_url" value="{{ item.image_url or '' }}" placeholder="или внешняя https:// ссылка"></div>
+                                                            <div class="form-group full"><label>Картинка предмета</label>{% if item.image_url %}<div class="case-image-preview case-image-preview--small"><img src="{{ item.image_url }}" alt="{{ item.name }}"></div>{% endif %}<input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><input type="hidden" name="image_url" value="{{ item.image_url or '' }}"></div>
                                                             <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="2">{{ item.description or '' }}</textarea></div>
                                                             <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" {% if item.is_active %}checked{% endif %}><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
                                                         </div>
@@ -1193,7 +1186,7 @@
                                         <div class="form-group"><label>Жетоны</label><input class="form-input" type="number" name="token_amount" min="0" step="1" value="0"></div>
                                         <div class="form-group"><label>Обновления контрактов</label><input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="0"></div>
                                         <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ case_items|length + 1 }}"></div>
-                                        <div class="form-group full"><label>Картинка предмета</label><input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><div class="muted" style="margin: 6px 0;">JPG, PNG или WEBP до 5 МБ.</div><input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка"></div>
+                                        <div class="form-group full"><label>Картинка предмета</label><input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><div class="muted" style="margin: 6px 0;">JPG, PNG или WEBP до 5 МБ.</div></div>
                                         <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="3" placeholder="Короткое описание награды"></textarea></div>
                                         <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" checked><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
                                     </div>
@@ -1253,7 +1246,6 @@
                     <label for="add_case_file">Картинка кейса</label>
                     <input class="form-input" type="file" id="add_case_file" name="image_file" accept="image/png,image/jpeg,image/webp">
                     <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                    <input class="form-input" type="text" id="add_case_image" name="image_url" placeholder="или внешняя https:// ссылка">
                 </div>
                 <div class="form-group full">
                     <label for="add_case_description">Описание</label>
@@ -1515,13 +1507,6 @@
                     .filter(Boolean)
                     .forEach((image) => { image.src = url; image.hidden = false; });
             });
-            const coverUrl = workspace.querySelector('[data-case-cover-url]');
-            coverUrl?.addEventListener('input', () => {
-                if (!coverUrl.value.trim()) return;
-                [workspace.querySelector('[data-case-cover-preview]'), workspace.querySelector('[data-case-preview-image]')]
-                    .filter(Boolean)
-                    .forEach((image) => { image.src = coverUrl.value.trim(); image.hidden = false; });
-            });
         });
 
         function buildItemEditor(caseId, item, updateAction, deleteAction) {
@@ -1565,10 +1550,10 @@
                         </div>
                         <div class="form-group full">
                             <label>Картинка предмета</label>
-                            ${item.image_url ? `<div class="case-image-preview case-image-preview--small"><img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}"><label class="form-check"><input type="checkbox" class="form-check-input" name="remove_image" value="1"><span class="form-check-box" aria-hidden="true"></span><span class="form-check-text">Удалить текущую картинку</span></label></div>` : ''}
+                            ${item.image_url ? `<div class="case-image-preview case-image-preview--small"><img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}"></div>` : ''}
                             <input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp">
                             <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                            <input class="form-input" type="text" name="image_url" value="${escapeHtml(item.image_url || '')}" placeholder="или внешняя https:// ссылка">
+                            <input type="hidden" name="image_url" value="${escapeHtml(item.image_url || '')}">
                         </div>
                         <div class="form-group full">
                             <label>Описание</label>

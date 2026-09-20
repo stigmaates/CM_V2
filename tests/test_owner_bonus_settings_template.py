@@ -235,6 +235,9 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert 'class="case-toggle__track"' in html
     assert 'class="case-preview-card__price-text"' in html
     assert "Каждый кейс открывается за жетоны" not in html
+    assert 'name="remove_image"' not in html
+    assert 'data-case-cover-url' not in html
+    assert 'type="hidden" name="image_url"' in html
     assert 'name="badge_label"' in html
     assert 'name="badge_color"' in html
     assert 'type="color"' in html
