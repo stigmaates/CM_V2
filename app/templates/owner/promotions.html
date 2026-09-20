@@ -34,6 +34,78 @@
         color: var(--text-muted);
         line-height: 1.5;
     }
+
+    .topup-approvals {
+        padding: 24px;
+    }
+
+    .topup-approvals__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    .topup-approvals__head h2 {
+        margin: 0;
+        color: var(--text-main);
+        font-size: 22px;
+    }
+
+    .topup-approvals__head p {
+        margin: 6px 0 0;
+        color: var(--text-muted);
+    }
+
+    .topup-approvals__count {
+        min-width: 34px;
+        padding: 7px 10px;
+        border: 1px solid rgba(165, 114, 255, .4);
+        border-radius: 999px;
+        background: rgba(143, 91, 255, .16);
+        color: #fff;
+        text-align: center;
+        font-weight: 900;
+    }
+
+    .topup-approval-status {
+        display: inline-flex;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(143, 91, 255, .14);
+        color: #cdb8ff;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .topup-approval-status.is-awarded {
+        background: rgba(43, 211, 148, .14);
+        color: #6ee7b7;
+    }
+
+    .topup-approval-status.is-rejected {
+        background: rgba(255, 91, 126, .14);
+        color: #ff9bb3;
+    }
+
+    .topup-approval-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .topup-approval-actions form {
+        margin: 0;
+    }
+
+    @media (max-width: 760px) {
+        .topup-approvals {
+            padding: 18px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -46,6 +118,81 @@
     </header>
 
     {% set promotions_only = true %}
+    {% set topup_bonus_approvals = topup_bonus_approvals|default([]) %}
     {% include "owner/_settings_wheel.html" %}
+
+    {% set pending_topup_bonus_count = topup_bonus_approvals|selectattr('status', 'equalto', 'pending_approval')|list|length %}
+    <section class="card topup-approvals" id="topup-approvals">
+        <div class="topup-approvals__head">
+            <div>
+                <h2>Подтверждение бонусов за пополнение</h2>
+                <p>Сначала проверьте пополнение. КБ или жетоны начислятся только после подтверждения.</p>
+            </div>
+            <span class="topup-approvals__count" title="Ожидают подтверждения">{{ pending_topup_bonus_count }}</span>
+        </div>
+
+        {% if topup_bonus_approvals %}
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Пополнение</th>
+                            <th>Гость</th>
+                            <th>Награда</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for award in topup_bonus_approvals %}
+                            <tr>
+                                <td>
+                                    <strong>{{ award.topup_amount }} ₽</strong>
+                                    <div class="muted">{{ award.topup_at.strftime('%d.%m.%Y %H:%M') if award.topup_at else '—' }}</div>
+                                </td>
+                                <td>
+                                    <strong>{{ award.fio or ('Guest ID ' ~ award.guest_id) }}</strong>
+                                    <div class="muted">{{ award.phone or 'Телефон не указан' }}</div>
+                                </td>
+                                <td>
+                                    <strong>+{{ award.bonus_amount }} {{ 'КБ' if award.reward_type == 'cm_bonus' else 'жет.' }}</strong>
+                                    <div class="muted">Порог от {{ award.rule_min_amount }} ₽</div>
+                                </td>
+                                <td>
+                                    {% if award.status == 'pending_approval' %}
+                                        <span class="topup-approval-status">Ожидает</span>
+                                    {% elif award.status == 'awarded' %}
+                                        <span class="topup-approval-status is-awarded">Начислен</span>
+                                    {% else %}
+                                        <span class="topup-approval-status is-rejected">Отклонён</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if award.status == 'pending_approval' %}
+                                        <div class="topup-approval-actions">
+                                            <form method="post" action="{{ url_for('owner.settings_topup_bonus_review', award_id=award.id) }}" onsubmit="return confirm('Начислить бонус этому гостю?');">
+                                                <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                                                <input type="hidden" name="decision" value="approve">
+                                                <button class="btn" type="submit">Подтвердить</button>
+                                            </form>
+                                            <form method="post" action="{{ url_for('owner.settings_topup_bonus_review', award_id=award.id) }}" onsubmit="return confirm('Отклонить начисление бонуса?');">
+                                                <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+                                                <input type="hidden" name="decision" value="reject">
+                                                <button class="btn" type="submit">Отклонить</button>
+                                            </form>
+                                        </div>
+                                    {% else %}
+                                        <span class="muted">{{ award.reviewed_at.strftime('%d.%m.%Y %H:%M') if award.reviewed_at else 'Обработано' }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty">Подходящих пополнений пока нет.</div>
+        {% endif %}
+    </section>
 </main>
 {% endblock %}

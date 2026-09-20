@@ -328,7 +328,7 @@ def _claim_topup_bonus_award(
     rule: dict[str, Any],
     awarded_at: datetime,
 ) -> str:
-    """Claim one reward per guest and club within one hour of LG topup time, regardless of amount."""
+    """Create one approval request per guest and club within the duplicate window."""
     window_start = topup["topup_at"] - TOPUP_BONUS_DUPLICATE_WINDOW
     window_end = topup["topup_at"] + TOPUP_BONUS_DUPLICATE_WINDOW
     cursor.execute(
@@ -341,7 +341,7 @@ def _claim_topup_bonus_award(
          AND rewarded_topup.guest_id = a.guest_id
         WHERE a.club_id = %s
           AND a.guest_id = %s
-          AND a.status = 'awarded'
+          AND a.status IN ('pending_approval', 'awarded')
           AND rewarded_topup.topup_at >= %s
           AND rewarded_topup.topup_at <= %s
         LIMIT 1
@@ -354,15 +354,16 @@ def _claim_topup_bonus_award(
         ),
     )
     duplicate_award = cursor.fetchone()
-    status = "skipped_duplicate" if duplicate_award else "awarded"
-    delivery_status = "skipped" if duplicate_award else ("pending" if topup.get("telegram_id") else "no_telegram")
+    status = "skipped_duplicate" if duplicate_award else "pending_approval"
+    delivery_status = "skipped" if duplicate_award else "waiting_approval"
     bonus_amount = 0 if duplicate_award else int(rule["bonus_amount"])
     cursor.execute(
         """
         INSERT IGNORE INTO guest_topup_bonus_awards (
             club_id, topup_id, guest_id, rule_id, topup_amount,
-            bonus_amount, reward_type, status, delivery_status, telegram_id, created_at
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            rule_min_amount, bonus_amount, reward_type, status,
+            delivery_status, telegram_id, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             club_id,
@@ -370,6 +371,7 @@ def _claim_topup_bonus_award(
             topup["guest_id"],
             rule["id"],
             topup["amount"],
+            rule["min_amount"],
             bonus_amount,
             rule["reward_type"],
             status,
@@ -380,7 +382,150 @@ def _claim_topup_bonus_award(
     )
     if cursor.rowcount == 0:
         return "exists"
-    return "duplicate" if duplicate_award else "awarded"
+    return "duplicate" if duplicate_award else "pending"
+
+
+def get_topup_bonus_approvals(club_id: int, *, limit: int = 100) -> list[dict[str, Any]]:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    a.id, a.topup_id, a.guest_id, a.topup_amount,
+                    a.rule_min_amount, a.bonus_amount, a.reward_type,
+                    a.status, a.delivery_status, a.created_at,
+                    a.reviewed_at, a.rejection_reason,
+                    t.topup_at, g.fio, g.phone
+                FROM guest_topup_bonus_awards a
+                JOIN guest_balance_topups t
+                  ON t.club_id = a.club_id AND t.topup_id = a.topup_id
+                JOIN guests g
+                  ON g.club_id = a.club_id AND g.guest_id = a.guest_id
+                WHERE a.club_id = %s
+                  AND a.status IN ('pending_approval', 'awarded', 'rejected')
+                ORDER BY (a.status = 'pending_approval') DESC, a.created_at DESC, a.id DESC
+                LIMIT %s
+                """,
+                (club_id, max(1, min(int(limit), 500))),
+            )
+            return list(cursor.fetchall())
+    finally:
+        conn.close()
+
+
+def review_topup_bonus_award(
+    *,
+    award_id: int,
+    club_id: int,
+    user_id: int | None,
+    approve: bool,
+    rejection_reason: str | None = None,
+) -> dict[str, Any]:
+    """Approve or reject a queued reward while keeping the balance update atomic."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    a.*, g.fio, c.name AS club_name, s.message_template
+                FROM guest_topup_bonus_awards a
+                JOIN guests g
+                  ON g.club_id = a.club_id AND g.guest_id = a.guest_id
+                JOIN clubs c ON c.club_id = a.club_id
+                JOIN club_topup_bonus_settings s ON s.club_id = a.club_id
+                WHERE a.id = %s AND a.club_id = %s
+                LIMIT 1
+                FOR UPDATE
+                """,
+                (award_id, club_id),
+            )
+            award = cursor.fetchone()
+            if not award:
+                return {"ok": False, "error": "Заявка не найдена"}
+            if award["status"] != "pending_approval":
+                return {"ok": False, "error": "Заявка уже обработана"}
+
+            reviewed_at = _moscow_now()
+            if not approve:
+                cursor.execute(
+                    """
+                    UPDATE guest_topup_bonus_awards
+                    SET status = 'rejected', delivery_status = 'skipped',
+                        reviewed_by = %s, reviewed_at = %s,
+                        rejection_reason = %s
+                    WHERE id = %s AND club_id = %s AND status = 'pending_approval'
+                    """,
+                    (
+                        user_id,
+                        reviewed_at,
+                        (rejection_reason or "").strip()[:500] or None,
+                        award_id,
+                        club_id,
+                    ),
+                )
+                conn.commit()
+                return {"ok": True, "status": "rejected"}
+
+            transaction_args = {
+                "cursor": cursor,
+                "guest_id": int(award["guest_id"]),
+                "club_id": club_id,
+                "amount": int(award["bonus_amount"]),
+                "source_type": "topup_reward",
+                "source_id": str(award["topup_id"]),
+                "description": f"Награда за пополнение от {_format_money(award['rule_min_amount'])} ₽",
+            }
+            if award["reward_type"] == "tokens":
+                changed = add_guest_token_transaction(**transaction_args)
+            else:
+                changed = add_cm_bonus_transaction(**transaction_args, created_at=reviewed_at)
+            if not changed:
+                raise RuntimeError("Транзакция начисления уже существует")
+
+            cursor.execute(
+                """
+                SELECT
+                    (SELECT balance FROM cm_bonus_balances WHERE club_id = %s AND guest_id = %s) AS cm_balance,
+                    (SELECT balance FROM guest_wheel_token_balances WHERE club_id = %s AND guest_id = %s) AS token_balance
+                """,
+                (club_id, award["guest_id"], club_id, award["guest_id"]),
+            )
+            balances = cursor.fetchone() or {}
+            message = render_topup_bonus_message(
+                award["message_template"],
+                {
+                    "fio": award.get("fio"),
+                    "club_name": award.get("club_name"),
+                    "topup_amount": award["topup_amount"],
+                    "min_amount": award["rule_min_amount"],
+                    "bonus_amount": award["bonus_amount"],
+                    "reward_amount": award["bonus_amount"],
+                    "reward_type": award["reward_type"],
+                    "cm_bonus_balance": balances.get("cm_balance"),
+                    "token_balance": balances.get("token_balance"),
+                },
+            )
+            delivery_status = "pending" if award.get("telegram_id") else "no_telegram"
+            cursor.execute(
+                """
+                UPDATE guest_topup_bonus_awards
+                SET status = 'awarded', delivery_status = %s,
+                    message_text = %s, error_text = NULL,
+                    reviewed_by = %s, reviewed_at = %s,
+                    rejection_reason = NULL
+                WHERE id = %s AND club_id = %s AND status = 'pending_approval'
+                """,
+                (delivery_status, message, user_id, reviewed_at, award_id, club_id),
+            )
+        conn.commit()
+        return {"ok": True, "status": "awarded", "delivery_status": delivery_status}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def process_topup_bonus_awards(
@@ -390,12 +535,12 @@ def process_topup_bonus_awards(
     limit: int = 500,
 ) -> dict[str, int]:
     conn = get_db_connection()
-    awarded = sent = failed = skipped = 0
+    pending_approval = sent = failed = skipped = 0
     try:
         with conn.cursor() as cursor:
             settings = _load_enabled_club(cursor, club_id)
             if not settings or not settings.get("enabled_at"):
-                return {"awarded": 0, "sent": 0, "failed": 0, "skipped": 0}
+                return {"pending_approval": 0, "awarded": 0, "sent": 0, "failed": 0, "skipped": 0}
             cursor.execute(
                 """
                 SELECT id, min_amount, bonus_amount, reward_type
@@ -452,54 +597,8 @@ def process_topup_bonus_awards(
                         conn.commit()
                         skipped += 1
                         continue
-                    transaction_args = {
-                        "cursor": cursor,
-                        "guest_id": int(topup["guest_id"]),
-                        "club_id": club_id,
-                        "amount": int(rule["bonus_amount"]),
-                        "source_type": "topup_reward",
-                        "source_id": str(topup["topup_id"]),
-                        "description": f"Награда за пополнение от {_format_money(rule['min_amount'])} ₽",
-                    }
-                    if rule["reward_type"] == "tokens":
-                        changed = add_guest_token_transaction(**transaction_args)
-                    else:
-                        changed = add_cm_bonus_transaction(**transaction_args, created_at=awarded_at)
-                    if not changed:
-                        raise RuntimeError("Транзакция начисления уже существует")
-                    cursor.execute(
-                        """
-                        SELECT
-                            (SELECT balance FROM cm_bonus_balances WHERE club_id = %s AND guest_id = %s) AS cm_balance,
-                            (SELECT balance FROM guest_wheel_token_balances WHERE club_id = %s AND guest_id = %s) AS token_balance
-                        """,
-                        (club_id, topup["guest_id"], club_id, topup["guest_id"]),
-                    )
-                    balances = cursor.fetchone() or {}
-                    message = render_topup_bonus_message(
-                        settings["message_template"],
-                        {
-                            "fio": topup.get("fio"),
-                            "club_name": settings.get("club_name"),
-                            "topup_amount": topup["amount"],
-                            "min_amount": rule["min_amount"],
-                            "bonus_amount": rule["bonus_amount"],
-                            "reward_amount": rule["bonus_amount"],
-                            "reward_type": rule["reward_type"],
-                            "cm_bonus_balance": balances.get("cm_balance"),
-                            "token_balance": balances.get("token_balance"),
-                        },
-                    )
-                    cursor.execute(
-                        """
-                        UPDATE guest_topup_bonus_awards
-                        SET message_text = %s
-                        WHERE club_id = %s AND topup_id = %s
-                        """,
-                        (message, club_id, topup["topup_id"]),
-                    )
                 conn.commit()
-                awarded += 1
+                pending_approval += 1
             except Exception:
                 conn.rollback()
                 raise
@@ -542,7 +641,13 @@ def process_topup_bonus_awards(
                 else:
                     failed += 1
 
-        return {"awarded": awarded, "sent": sent, "failed": failed, "skipped": skipped}
+        return {
+            "pending_approval": pending_approval,
+            "awarded": 0,
+            "sent": sent,
+            "failed": failed,
+            "skipped": skipped,
+        }
     finally:
         conn.close()
 

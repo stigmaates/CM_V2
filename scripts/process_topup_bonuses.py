@@ -55,10 +55,15 @@ def _enabled_club_ids(club_id: int | None = None) -> list[int]:
         conn.close()
 
 
-def process_topup_bonuses(club_id: int | None = None) -> list[dict]:
+def process_topup_bonuses(
+    club_id: int | None = None,
+    *,
+    create_approvals_when_blocked: bool = False,
+) -> list[dict]:
     from app.services.outbound_policy import outbound_blocked
 
-    if outbound_blocked():
+    is_outbound_blocked = outbound_blocked()
+    if is_outbound_blocked and not create_approvals_when_blocked:
         return []
 
     summary = []
@@ -68,12 +73,15 @@ def process_topup_bonuses(club_id: int | None = None) -> list[dict]:
                 continue
             job_id = start_job_run("process_topup_bonuses", club_id=current_club_id)
             try:
-                result = process_topup_bonus_awards(current_club_id, send_message=_send_message)
+                result = process_topup_bonus_awards(
+                    current_club_id,
+                    send_message=None if is_outbound_blocked else _send_message,
+                )
                 finish_job_run(
                     job_id,
                     "success",
-                    rows_received=result["awarded"],
-                    rows_saved=result["awarded"],
+                    rows_received=result["pending_approval"],
+                    rows_saved=result["pending_approval"],
                     metadata=result,
                 )
                 summary.append({"club_id": current_club_id, **result})

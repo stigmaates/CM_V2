@@ -1,3 +1,5 @@
+from datetime import datetime
+from decimal import Decimal
 from types import SimpleNamespace
 
 from flask import render_template
@@ -134,10 +136,30 @@ def test_promotions_page_contains_only_promotion_settings():
             topup_bonus_variables=[],
             topup_bonus_exclude_from_amount=30000,
             topup_bonus_max_rule_amount=29999.99,
+            topup_bonus_approvals=[
+                {
+                    "id": 41,
+                    "topup_amount": Decimal("1500.00"),
+                    "topup_at": datetime(2026, 9, 21, 12, 30),
+                    "guest_id": 15173,
+                    "fio": "Морозов Дмитрий Антонович",
+                    "phone": "79990000000",
+                    "bonus_amount": 300,
+                    "reward_type": "cm_bonus",
+                    "rule_min_amount": Decimal("1000.00"),
+                    "status": "pending_approval",
+                    "reviewed_at": None,
+                }
+            ],
         )
 
     assert "<h1>Акции</h1>" in html
     assert "Бонусы за пополнения" in html
+    assert "Подтверждение бонусов за пополнение" in html
+    assert "Морозов Дмитрий Антонович" in html
+    assert 'action="/owner/settings/topup-bonuses/41/review"' in html
+    assert 'value="approve"' in html
+    assert 'value="reject"' in html
     assert "Приветственная награда" in html
     assert "Редактор механики" not in html
     assert "Призы колеса" not in html

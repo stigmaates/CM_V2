@@ -10,6 +10,7 @@ from app.services.topup_bonuses import (
     _resolve_enabled_at,
     award_first_authorization_reward,
     render_topup_bonus_message,
+    review_topup_bonus_award,
     save_topup_bonus_settings,
     save_welcome_reward_settings,
     select_topup_bonus_rule,
@@ -43,7 +44,7 @@ def _claim_topup(cursor):
             "topup_at": datetime(2026, 8, 27, 10, 32, 25),
             "telegram_id": 123,
         },
-        rule={"id": 7, "bonus_amount": 300, "reward_type": "cm_bonus"},
+        rule={"id": 7, "min_amount": Decimal("1000.00"), "bonus_amount": 300, "reward_type": "cm_bonus"},
         awarded_at=datetime(2026, 8, 27, 10, 33, 6),
     )
 
@@ -60,26 +61,141 @@ def test_topup_bonus_claim_marks_matching_reward_inside_hour_as_skipped():
     duplicate_params = cursor.calls[0][1]
     insert_params = cursor.calls[1][1]
     assert duplicate_params == (2, 15173, datetime(2026, 8, 27, 9, 32, 25), datetime(2026, 8, 27, 11, 32, 25))
-    assert insert_params[5] == 0
-    assert insert_params[7] == "skipped_duplicate"
-    assert insert_params[8] == "skipped"
+    assert insert_params[6] == 0
+    assert insert_params[8] == "skipped_duplicate"
+    assert insert_params[9] == "skipped"
 
 
-def test_topup_bonus_claim_awards_when_hour_has_no_matching_reward():
+def test_topup_bonus_claim_waits_for_approval_when_hour_has_no_matching_reward():
     cursor = _TopupClaimCursor()
 
-    assert _claim_topup(cursor) == "awarded"
+    assert _claim_topup(cursor) == "pending"
 
     insert_params = cursor.calls[1][1]
-    assert insert_params[5] == 300
-    assert insert_params[7] == "awarded"
-    assert insert_params[8] == "pending"
+    assert insert_params[5] == Decimal("1000.00")
+    assert insert_params[6] == 300
+    assert insert_params[8] == "pending_approval"
+    assert insert_params[9] == "waiting_approval"
 
 
 def test_topup_bonus_claim_returns_exists_for_already_processed_topup():
     cursor = _TopupClaimCursor(insert_rowcount=0)
 
     assert _claim_topup(cursor) == "exists"
+
+
+class _ReviewCursor:
+    def __init__(self, fetchone_results):
+        self.fetchone_results = list(fetchone_results)
+        self.calls = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, query, params=None):
+        self.calls.append((query, params))
+
+    def fetchone(self):
+        return self.fetchone_results.pop(0)
+
+
+class _ReviewConnection:
+    def __init__(self, fetchone_results):
+        self.cursor_obj = _ReviewCursor(fetchone_results)
+        self.commits = 0
+        self.rollbacks = 0
+        self.closed = False
+
+    def cursor(self):
+        return self.cursor_obj
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
+
+    def close(self):
+        self.closed = True
+
+
+def _pending_award(**overrides):
+    value = {
+        "id": 41,
+        "club_id": 2,
+        "topup_id": 699621,
+        "guest_id": 15173,
+        "topup_amount": Decimal("1500.00"),
+        "rule_min_amount": Decimal("1000.00"),
+        "bonus_amount": 300,
+        "reward_type": "cm_bonus",
+        "status": "pending_approval",
+        "telegram_id": 123,
+        "fio": "Морозов Дмитрий Антонович",
+        "club_name": "WALLZ",
+        "message_template": "{first_name}, начислено {reward_amount} {reward_name}",
+    }
+    value.update(overrides)
+    return value
+
+
+def test_topup_bonus_is_granted_only_after_approval(monkeypatch):
+    connection = _ReviewConnection([_pending_award(), {"cm_balance": 700, "token_balance": 2}])
+    transactions = []
+    monkeypatch.setattr("app.services.topup_bonuses.get_db_connection", lambda: connection)
+    monkeypatch.setattr(
+        "app.services.topup_bonuses.add_cm_bonus_transaction",
+        lambda **kwargs: transactions.append(kwargs) or True,
+    )
+
+    result = review_topup_bonus_award(award_id=41, club_id=2, user_id=9, approve=True)
+
+    assert result == {"ok": True, "status": "awarded", "delivery_status": "pending"}
+    assert transactions[0]["amount"] == 300
+    assert transactions[0]["source_id"] == "699621"
+    update_query, update_params = connection.cursor_obj.calls[-1]
+    assert "status = 'awarded'" in update_query
+    assert update_params[0] == "pending"
+    assert "Дмитрий, начислено 300 КБ" in update_params[1]
+    assert connection.commits == 1
+    assert connection.rollbacks == 0
+    assert connection.closed is True
+
+
+def test_rejected_topup_bonus_does_not_change_balance(monkeypatch):
+    connection = _ReviewConnection([_pending_award()])
+    monkeypatch.setattr("app.services.topup_bonuses.get_db_connection", lambda: connection)
+    monkeypatch.setattr(
+        "app.services.topup_bonuses.add_cm_bonus_transaction",
+        lambda **kwargs: pytest.fail("rejected reward must not change balance"),
+    )
+
+    result = review_topup_bonus_award(
+        award_id=41,
+        club_id=2,
+        user_id=9,
+        approve=False,
+        rejection_reason="Пополнение отменено",
+    )
+
+    assert result == {"ok": True, "status": "rejected"}
+    update_query, update_params = connection.cursor_obj.calls[-1]
+    assert "status = 'rejected'" in update_query
+    assert update_params[2] == "Пополнение отменено"
+    assert connection.commits == 1
+
+
+def test_topup_bonus_review_cannot_be_repeated(monkeypatch):
+    connection = _ReviewConnection([_pending_award(status="awarded")])
+    monkeypatch.setattr("app.services.topup_bonuses.get_db_connection", lambda: connection)
+
+    result = review_topup_bonus_award(award_id=41, club_id=2, user_id=9, approve=True)
+
+    assert result == {"ok": False, "error": "Заявка уже обработана"}
+    assert connection.commits == 0
 
 
 @pytest.mark.parametrize(
@@ -91,9 +207,9 @@ def test_topup_bonus_claim_returns_exists_for_already_processed_topup():
         (3000, 4, 2, 23210, "duplicate"),
         (1000, -4, 2, 23210, "duplicate"),
         (1000, 3600, 2, 23210, "duplicate"),
-        (1000, 3601, 2, 23210, "awarded"),
-        (1000, 4, 3, 23210, "awarded"),
-        (1000, 4, 2, 23211, "awarded"),
+        (1000, 3601, 2, 23210, "pending"),
+        (1000, 4, 3, 23210, "pending"),
+        (1000, 4, 2, 23211, "pending"),
     ],
 )
 def test_topup_cooldown_executes_sql_independently_of_amount(amount, seconds, club_id, guest_id, expected):
@@ -132,7 +248,7 @@ def test_topup_cooldown_executes_sql_independently_of_amount(amount, seconds, cl
             );
             CREATE TABLE guest_topup_bonus_awards (
                 id INTEGER PRIMARY KEY, club_id INTEGER, topup_id INTEGER, guest_id INTEGER,
-                rule_id INTEGER, topup_amount NUMERIC, bonus_amount INTEGER,
+                rule_id INTEGER, topup_amount NUMERIC, rule_min_amount NUMERIC, bonus_amount INTEGER,
                 reward_type TEXT, status TEXT, delivery_status TEXT, telegram_id INTEGER,
                 created_at TEXT, UNIQUE(club_id, topup_id)
             );
@@ -140,7 +256,7 @@ def test_topup_cooldown_executes_sql_independently_of_amount(amount, seconds, cl
         cursor = Cursor()
         first_at = datetime(2026, 9, 6, 15, 34, 32)
         for topup_id, club, guest, value, when, outcome in [
-            (701980, 2, 23210, 2000, first_at, "awarded"),
+            (701980, 2, 23210, 2000, first_at, "pending"),
             (701981, club_id, guest_id, amount, first_at + timedelta(seconds=seconds), expected),
         ]:
             cursor.execute(
@@ -152,14 +268,19 @@ def test_topup_cooldown_executes_sql_independently_of_amount(amount, seconds, cl
                     cursor,
                     club_id=club,
                     topup={"topup_id": topup_id, "guest_id": guest, "amount": Decimal(value), "topup_at": when},
-                    rule={"id": 7, "bonus_amount": 300, "reward_type": "cm_bonus"},
+                    rule={
+                        "id": 7,
+                        "min_amount": Decimal("1000.00"),
+                        "bonus_amount": 300,
+                        "reward_type": "cm_bonus",
+                    },
                     awarded_at=datetime(2026, 9, 6, 15, 36, 6),
                 )
                 == outcome
             )
         row = conn.execute("SELECT * FROM guest_topup_bonus_awards WHERE topup_id = 701981").fetchone()
         assert row["bonus_amount"] == (0 if expected == "duplicate" else 300)
-        assert row["status"] == ("skipped_duplicate" if expected == "duplicate" else "awarded")
+        assert row["status"] == ("skipped_duplicate" if expected == "duplicate" else "pending_approval")
     finally:
         conn.close()
 
