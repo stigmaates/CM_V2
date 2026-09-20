@@ -22,8 +22,10 @@ from app.services.test_guests import ensure_test_guest
 from app.services.timezones import CLUB_TIMEZONE_CHOICES, get_club_timezone_label
 from app.services.topup_bonuses import (
     TOPUP_BONUS_VARIABLES,
+    get_topup_bonus_approvals,
     get_topup_bonus_settings,
     get_welcome_reward_settings,
+    review_topup_bonus_award,
     save_topup_bonus_settings,
     save_welcome_reward_settings,
 )
@@ -263,6 +265,47 @@ def settings_topup_bonuses_save():
     return redirect(url_for("owner.promotions") + "#topup-bonuses")
 
 
+@owner_bp.route("/settings/topup-bonuses/<int:award_id>/review", methods=["POST"])
+@owner_required
+def settings_topup_bonus_review(award_id):
+    club_id = session.get("club_id")
+    if not club_id:
+        flash("Сначала создайте клуб", "error")
+        return redirect(url_for("owner.club_create"))
+
+    decision = request.form.get("decision", "").strip()
+    if decision not in {"approve", "reject"}:
+        flash("Неизвестное действие", "error")
+        return redirect(url_for("owner.promotions") + "#topup-approvals")
+
+    try:
+        result = review_topup_bonus_award(
+            award_id=award_id,
+            club_id=int(club_id),
+            user_id=int(session["user_id"]) if session.get("user_id") else None,
+            approve=decision == "approve",
+            rejection_reason=request.form.get("rejection_reason"),
+        )
+        if not result.get("ok"):
+            flash(result.get("error") or "Не удалось обработать заявку", "error")
+        else:
+            record_audit_event(
+                action=f"owner.topup_bonus.{decision}",
+                club_id=int(club_id),
+                entity_type="guest_topup_bonus_award",
+                entity_id=award_id,
+            )
+            flash(
+                "Бонус начислен гостю" if decision == "approve" else "Начисление отклонено",
+                "success",
+            )
+    except Exception:
+        current_app.logger.exception("Failed to review top-up bonus award %s", award_id)
+        flash("Не удалось обработать начисление. Попробуйте ещё раз", "error")
+
+    return redirect(url_for("owner.promotions") + "#topup-approvals")
+
+
 @owner_bp.route("/settings/welcome-reward", methods=["POST"])
 @owner_required
 def settings_welcome_reward_save():
@@ -314,6 +357,7 @@ def promotions():
     club_id_int = int(club_id)
     return render_template(
         "owner/promotions.html",
+        topup_bonus_approvals=get_topup_bonus_approvals(club_id_int),
         topup_bonus_settings=get_topup_bonus_settings(club_id_int),
         welcome_reward_settings=get_welcome_reward_settings(club_id_int),
         topup_bonus_variables=TOPUP_BONUS_VARIABLES,

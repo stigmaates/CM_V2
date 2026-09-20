@@ -285,7 +285,10 @@ def sync_balance_topups_incremental(club_id=None):
             saved = save_topups(current_club_id, topups)
             from scripts.process_topup_bonuses import process_topup_bonuses
 
-            reward_summary = process_topup_bonuses(current_club_id)
+            reward_summary = process_topup_bonuses(
+                current_club_id,
+                create_approvals_when_blocked=True,
+            )
             finish_job_run(
                 job_run_id,
                 "success",

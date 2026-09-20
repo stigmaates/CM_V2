@@ -1155,7 +1155,7 @@
             <div class="topup-bonus-head">
                 <div>
                     <div class="section-title">Бонусы за пополнения</div>
-                    <p class="wheel-subtitle">Автоматически начисляет КБ или жетоны после пополнения баланса гостя.</p>
+                    <p class="wheel-subtitle">Создаёт заявку на КБ или жетоны после пополнения. Начисление выполняется после подтверждения администратора.</p>
                 </div>
                 <label class="settings-toggle topup-bonus-toggle" for="topup_bonus_enabled">
                     <span>Механика включена</span>
@@ -1216,7 +1216,7 @@
 
             <div class="topup-bonus-foot">
                 <div class="topup-bonus-note">
-                    Если подходят несколько правил, применяется самый высокий порог. Старые пополнения до момента включения не обрабатываются. Пополнения от {{ topup_bonus_exclude_from_amount }} ₽ не участвуют.
+                    Если подходят несколько правил, применяется самый высокий порог. Перед начислением бонус нужно подтвердить ниже. Старые пополнения до момента включения не обрабатываются. Пополнения от {{ topup_bonus_exclude_from_amount }} ₽ не участвуют.
                 </div>
                 <button class="btn" type="submit">Сохранить правила</button>
             </div>

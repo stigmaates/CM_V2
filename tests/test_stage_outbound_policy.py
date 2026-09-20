@@ -32,6 +32,37 @@ def test_copied_queue_workers_return_before_database_or_locks(blocked, monkeypat
     assert process_topup_bonuses.process_topup_bonuses() == []
 
 
+def test_stage_topup_sync_can_create_approvals_without_sending(blocked, monkeypatch):
+    from scripts import process_topup_bonuses
+
+    monkeypatch.setattr(process_topup_bonuses, "_enabled_club_ids", lambda club_id=None: [club_id or 2])
+    monkeypatch.setattr(process_topup_bonuses, "start_job_run", lambda *args, **kwargs: 7)
+    monkeypatch.setattr(process_topup_bonuses, "finish_job_run", lambda *args, **kwargs: None)
+
+    class Lock:
+        acquired = True
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(process_topup_bonuses, "job_lock", lambda *args, **kwargs: Lock())
+    calls = []
+    monkeypatch.setattr(
+        process_topup_bonuses,
+        "process_topup_bonus_awards",
+        lambda club_id, send_message: calls.append((club_id, send_message))
+        or {"pending_approval": 1, "awarded": 0, "sent": 0, "failed": 0, "skipped": 0},
+    )
+
+    result = process_topup_bonuses.process_topup_bonuses(2, create_approvals_when_blocked=True)
+
+    assert result[0]["pending_approval"] == 1
+    assert calls == [(2, None)]
+
+
 def test_transports_block_before_network_and_recipient_lookup(blocked):
     from app.services import cm_bonuses, first_visit_survey, prize_claims, tech_alerts
     from scripts import process_mailings

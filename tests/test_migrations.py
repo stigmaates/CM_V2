@@ -180,6 +180,17 @@ def test_topup_bonus_moscow_timestamps_migration_exports_revision_and_upgrade():
     assert any("topup_reward" in value for value in constants)
 
 
+def test_topup_bonus_approvals_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0049_topup_bonus_approvals")
+
+    assert migration.revision == "0049_topup_bonus_approvals"
+    assert callable(migration.upgrade)
+    constants = repr(migration.upgrade.__code__.co_consts)
+    assert "rule_min_amount" in constants
+    assert "reviewed_by" in constants
+    assert "idx_topup_bonus_awards_review" in constants
+
+
 def test_configurable_reward_types_migration_exports_revision_and_upgrade():
     migration = importlib.import_module("migrations.versions.0020_configurable_reward_types")
 
