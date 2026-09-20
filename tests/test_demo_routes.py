@@ -6,11 +6,14 @@ def test_demo_owner_pages_render_without_authentication():
     client = app.test_client()
 
     for path, marker in (
-        ("/demo", "Главные показатели демонстрационного клуба"),
-        ("/demo/cases", "Настройка игровых механик и призов"),
-        ("/demo/guest-pulse", "Состояние и поведение гостевой базы"),
-        ("/demo/cohorts", "Воронка визитов по когорте"),
+        ("/demo", "Оценка первого посещения"),
+        ("/demo/cases", "Добавить кейс"),
+        ("/demo/guest-pulse", "Отклонения от нормы"),
+        ("/demo/cohorts", "Период воронки"),
         ("/demo/heatmaps", "Тепловая карта по ПК"),
+        ("/demo/team", "Возвращаемость новых гостей"),
+        ("/demo/mailings", "Ручная рассылка"),
+        ("/demo/missions", "Задания клуба"),
     ):
         response = client.get(path)
         assert response.status_code == 200
@@ -23,7 +26,8 @@ def test_demo_guest_case_opening_uses_session_balance_only():
 
     page = client.get("/demo/guest")
     assert page.status_code == 200
-    assert "Демонстрационный профиль" in page.get_data(as_text=True)
+    assert "Кабинет гостя" in page.get_data(as_text=True)
+    assert "WALLZ CS2 Case" in page.get_data(as_text=True)
 
     with client.session_transaction() as demo_session:
         csrf_token = demo_session["_csrf_token"]
@@ -36,11 +40,10 @@ def test_demo_guest_case_opening_uses_session_balance_only():
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["ok"] is True
-    assert payload["prize"]["name"]
+    assert payload["item"]["name"]
 
     with client.session_transaction() as demo_session:
-        assert demo_session["demo_guest_tokens"] == payload["tokens"]
-        assert len(demo_session["demo_guest_history"]) == 1
+        assert demo_session["demo_guest_tokens"] == payload["tokens_after"]
 
 
 def test_unknown_demo_page_returns_404():

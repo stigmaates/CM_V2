@@ -15,6 +15,7 @@
     <link rel="preconnect" href="https://cdn.cloudflare.steamstatic.com">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    {% if demo_mode %}<link rel="stylesheet" href="{{ url_for('static', filename='css/demo_bridge.css') }}">{% endif %}
     <style>
         body {
             min-height: 100vh;
@@ -2889,7 +2890,9 @@
     </style>
 </head>
 <body>
-    {% if request.host.startswith('stage.') %}
+    {% if demo_mode %}
+    <div class="demo-badge">ДЕМО-РЕЖИМ</div>
+    {% elif request.host.startswith('stage.') %}
     <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
     {% endif %}
     {% set profile = profile_stats|default({"total_hours": 0, "bonus_balance_placeholder": "—", "loyalty_level_placeholder": "—"}) %}
@@ -3541,6 +3544,7 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
+    {% if demo_mode %}<script src="{{ url_for('static', filename='js/demo_bridge.js') }}"></script>{% endif %}
     <script>
         const wheel = document.getElementById('wheel');
         const wheelPointer = document.querySelector('.wheel-pointer');
