@@ -6504,6 +6504,13 @@ body.modal-open { overflow: hidden; }
     height: 17px;
 }
 
+.crm-cohorts-page .crm-funnel-controls .crm-cohort-panel-icon,
+.crm-cohorts-page .crm-analysis-audience .crm-analysis-audience-icon,
+.crm-cohorts-page .crm-analysis-metric .crm-analysis-metric-icon {
+    display: grid;
+    place-items: center;
+}
+
 .crm-cohorts-page .crm-analysis-metric > strong {
     margin: 12px 0 8px;
     font-size: clamp(20px, 1.6vw, 27px);
