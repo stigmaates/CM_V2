@@ -10,47 +10,49 @@ from werkzeug.utils import secure_filename
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.guest_pulse_scores import AUDIENCES
 from app.services.timezones import DEFAULT_CLUB_TIMEZONE, utc_datetime_to_club_local
 from app.services.wheel import _add_token_transaction, ensure_token_tables
 
-CRM_SEGMENT_OPTIONS = [
-    {
-        "key": "top",
-        "label": "Лучшие",
-        "title": "Лучшие",
-        "emoji": "👑",
-        "description": "8+ визитов за 30 дней или 18+ за 90 дней при 4+ за 30 дней",
-    },
-    {
-        "key": "base",
-        "label": "База",
-        "title": "База",
-        "emoji": "👥",
-        "description": "3–7 визитов за 30 дней или 8+ за 90 дней при 2+ за 30 дней",
-    },
-    {
-        "key": "rare",
-        "label": "Редкие",
-        "title": "Редкие",
-        "emoji": "✨",
-        "description": "Были недавно, но не набрали активность для Базы",
-    },
-    {"key": "risk", "label": "Риск", "title": "Риск", "emoji": "⚠️", "description": "Не были 14–29 дней"},
-    {
-        "key": "dead",
-        "label": "Давно без визита",
-        "title": "Давно без визита",
-        "emoji": "☠️",
-        "description": "Не были 90+ дней",
-    },
-    {"key": "lost", "label": "Потерянные", "title": "Потерянные", "emoji": "💔", "description": "Не были 30–89 дней"},
-    {
-        "key": "no_visits",
-        "label": "Без визитов",
-        "title": "Без визитов",
+GUEST_PULSE_AUDIENCE_META = {
+    "new": {
         "emoji": "🆕",
-        "description": "Есть в базе, без визитов",
+        "description": "Новые гости и те, кто формирует привычку",
     },
+    "churned": {
+        "emoji": "💔",
+        "description": "Гости, которые перестали возвращаться",
+    },
+    "valuable_risk": {
+        "emoji": "💎",
+        "description": "Ценные гости с ухудшением посещений",
+    },
+    "low_engagement": {
+        "emoji": "🎮",
+        "description": "Активны, но почти не взаимодействуют с механиками",
+    },
+    "loyal": {
+        "emoji": "👑",
+        "description": "Стабильно посещают клуб и дают высокую ценность",
+    },
+    "risk": {
+        "emoji": "⚠️",
+        "description": "Ритм посещений заметно ухудшился",
+    },
+    "other": {
+        "emoji": "👥",
+        "description": "Гости вне основных групп",
+    },
+}
+
+GUEST_PULSE_AUDIENCE_OPTIONS = [
+    {
+        "key": key,
+        "label": label,
+        "title": label,
+        **GUEST_PULSE_AUDIENCE_META[key],
+    }
+    for key, label, _color in AUDIENCES
 ]
 
 FILTER_FIELDS = {
@@ -166,10 +168,20 @@ FILTER_FIELDS = {
     "is_active_30d": {"type": "bool", "column": "up.is_active_30d", "label": "Активен за 30 дней"},
     "is_active_90d": {"type": "bool", "column": "up.is_active_90d", "label": "Активен за 90 дней"},
     "has_telegram": {"type": "bool", "column": "up.has_telegram", "label": "Есть Telegram"},
+    "guest_pulse_audience": {
+        "type": "enum",
+        "column": (
+            "(SELECT gpc.audience_type FROM guest_pulse_current gpc "
+            "WHERE gpc.club_id = up.club_id AND gpc.guest_id = up.guest_id LIMIT 1)"
+        ),
+        "label": "Группа Пульса гостя",
+        "options": [{"value": key, "label": label} for key, label, _color in AUDIENCES],
+    },
     "crm_type": {
         "type": "enum",
         "column": "up.crm_type",
         "label": "CRM-группа",
+        "hidden": True,
         "options": [
             {"value": "top", "label": "Лучшие"},
             {"value": "base", "label": "База"},
@@ -299,6 +311,8 @@ AUTO_MAILING_DEFAULTS = {
 def get_filter_fields() -> List[Dict[str, Any]]:
     result = []
     for key, meta in FILTER_FIELDS.items():
+        if meta.get("hidden"):
+            continue
         item = {
             "key": key,
             "type": meta["type"],
@@ -315,44 +329,19 @@ def get_message_variables() -> List[Dict[str, Any]]:
 
 
 def get_crm_segment_options(conn, club_id: int) -> List[Dict[str, Any]]:
-    """Возвращает готовые CRM-группы для быстрых рассылок.
-
-    count считается так же, как реальная рассылка: только гости текущего клуба
-    с привязанным Telegram. Сами правила потом идут через общий механизм
-    фильтров, поэтому CRM-группу можно комбинировать с другими условиями.
-    """
-    counts = {item["key"]: 0 for item in CRM_SEGMENT_OPTIONS}
-
-    sql = """
-        SELECT
-            up.crm_type,
-            COUNT(*) AS cnt
-        FROM user_portrait up
-        JOIN guests g ON g.club_id = up.club_id AND g.guest_id = up.guest_id
-        WHERE up.club_id = %s
-          AND g.telegram_id IS NOT NULL
-          AND up.crm_type IS NOT NULL
-        GROUP BY up.crm_type
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (club_id,))
-        rows = cur.fetchall()
-
-    for row in rows:
-        key = row.get("crm_type")
-        if key in counts:
-            counts[key] = int(row.get("cnt") or 0)
-
-    result = []
-    for item in CRM_SEGMENT_OPTIONS:
-        result.append(
-            {
-                **item,
-                "count": counts.get(item["key"], 0),
-                "rules": {"rules": [{"field": "crm_type", "op": "=", "value": item["key"]}]},
-            }
-        )
-    return result
+    """Возвращает актуальные группы из Пульса гостя для быстрых рассылок."""
+    del conn, club_id
+    return [
+        {
+            **item,
+            "rules": {
+                "rules": [
+                    {"field": "guest_pulse_audience", "op": "=", "value": item["key"]}
+                ]
+            },
+        }
+        for item in GUEST_PULSE_AUDIENCE_OPTIONS
+    ]
 
 
 PHONE_NORMALIZED_SQL = (
@@ -467,25 +456,33 @@ def _build_single_rule(rule: Dict[str, Any]) -> Tuple[str, List[Any]]:
 
 
 def build_where_clause(
-    club_id: int, rules: List[Dict[str, Any]], require_telegram: bool = True
+    club_id: int,
+    rules: List[Dict[str, Any]],
+    require_telegram: bool = True,
+    logic: str = "and",
 ) -> Tuple[str, List[Any]]:
     where_parts = ["up.club_id = %s"]
     if require_telegram:
         where_parts.append("g.telegram_id IS NOT NULL")
     params: List[Any] = [club_id]
 
+    rule_parts = []
     for rule in rules:
         if not rule.get("field") or not rule.get("op"):
             continue
         sql_part, sql_params = _build_single_rule(rule)
-        where_parts.append(sql_part)
+        rule_parts.append(sql_part)
         params.extend(sql_params)
+
+    if rule_parts:
+        connector = " OR " if str(logic or "").lower() == "or" else " AND "
+        where_parts.append(f"({connector.join(rule_parts)})")
 
     return " WHERE " + " AND ".join(where_parts), params
 
 
-def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]]) -> int:
-    where_sql, params = build_where_clause(club_id, rules)
+def preview_recipients_count(conn, club_id: int, rules: List[Dict[str, Any]], logic: str = "and") -> int:
+    where_sql, params = build_where_clause(club_id, rules, logic=logic)
     sql = f"""
         SELECT COUNT(DISTINCT up.guest_id) AS cnt
         FROM user_portrait up
@@ -510,12 +507,14 @@ def _dedupe_recipient_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return list(by_guest.values())
 
 
-def get_recipient_rows(conn, club_id: int, rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def get_recipient_rows(
+    conn, club_id: int, rules: List[Dict[str, Any]], logic: str = "and"
+) -> List[Dict[str, Any]]:
     with conn.cursor() as cur:
         ensure_cm_bonus_tables(cur)
         ensure_token_tables(cur)
 
-    where_sql, params = build_where_clause(club_id, rules)
+    where_sql, params = build_where_clause(club_id, rules, logic=logic)
     sql = f"""
         SELECT
             up.guest_id,
@@ -735,13 +734,13 @@ def list_segments(conn, club_id: int) -> List[Dict[str, Any]]:
     return rows
 
 
-def save_segment(conn, club_id: int, name: str, rules: List[Dict[str, Any]]) -> int:
+def save_segment(conn, club_id: int, name: str, rules: List[Dict[str, Any]], logic: str = "and") -> int:
     sql = """
         INSERT INTO saved_segments (club_id, name, rules_json)
         VALUES (%s, %s, %s)
     """
     with conn.cursor() as cur:
-        cur.execute(sql, (club_id, name, json.dumps({"rules": rules}, ensure_ascii=False)))
+        cur.execute(sql, (club_id, name, json.dumps({"rules": rules, "logic": logic}, ensure_ascii=False)))
         return cur.lastrowid
 
 
@@ -784,8 +783,13 @@ def create_mailing(
     message_text: str,
     parse_mode: str,
     attachments: List[Dict[str, str]],
+    logic: str = "and",
 ) -> Dict[str, Any]:
-    recipients = get_recipient_rows(conn, club_id, rules)
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
+    recipients = get_recipient_rows(conn, club_id, rules, logic=logic)
     recipients_count = len(recipients)
 
     with conn.cursor() as cur:
@@ -806,7 +810,7 @@ def create_mailing(
             (
                 club_id,
                 segment_id,
-                json.dumps({"rules": rules}, ensure_ascii=False),
+                json.dumps({"rules": rules, "logic": logic}, ensure_ascii=False),
                 message_text,
                 parse_mode,
                 recipients_count,
@@ -2296,7 +2300,12 @@ def create_mailing_for_recipients(
     message_text: str,
     parse_mode: str = "HTML",
     filters_json: Dict[str, Any] | None = None,
+    attachments: List[Dict[str, str]] | None = None,
 ) -> Dict[str, Any]:
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     recipients_count = len(recipients)
 
     with conn.cursor() as cur:
@@ -2323,6 +2332,28 @@ def create_mailing_for_recipients(
             ),
         )
         mailing_id = cur.lastrowid
+
+        if attachments:
+            cur.executemany(
+                """
+                INSERT INTO mailing_attachments (
+                    mailing_id,
+                    file_type,
+                    file_path,
+                    original_name
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                [
+                    (
+                        mailing_id,
+                        item["file_type"],
+                        item["file_path"],
+                        item["original_name"],
+                    )
+                    for item in attachments
+                ],
+            )
 
         if recipients:
             cur.executemany(
@@ -2481,12 +2512,18 @@ def create_bonus_giveaway(
     parse_mode: str = "HTML",
     recipient_rows: List[Dict[str, Any]] | None = None,
     filters_json_extra: Dict[str, Any] | None = None,
+    attachments: List[Dict[str, str]] | None = None,
+    logic: str = "and",
 ) -> Dict[str, Any]:
     """Начисляет КБ/жетоны выбранной аудитории и создаёт Telegram-рассылку.
 
     Фильтры используются ровно те же, что и в сегментах/ручной рассылке.
     Возвращает id раздачи, id рассылки и количество получателей.
     """
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     bonus_amount = int(bonus_amount or 0)
     token_amount = int(token_amount or 0)
     if bonus_amount < 0:
@@ -2507,13 +2544,18 @@ def create_bonus_giveaway(
         raise ValueError("Сообщение раздачи пустое")
 
     ensure_bonus_giveaway_tables(conn)
-    recipients = list(recipient_rows) if recipient_rows is not None else get_recipient_rows(conn, club_id, rules)
+    recipients = (
+        list(recipient_rows)
+        if recipient_rows is not None
+        else get_recipient_rows(conn, club_id, rules, logic=logic)
+    )
     recipients_count = len(recipients)
     expires_at = (
         datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
     )
     filters_json = {
         "rules": rules,
+        "logic": logic,
         "type": "bonus_giveaway",
         "bonus_amount": bonus_amount,
         "token_amount": token_amount,
@@ -2657,6 +2699,7 @@ def create_bonus_giveaway(
         message_text=message_text,
         parse_mode=parse_mode,
         filters_json=filters_json,
+        attachments=attachments,
     )
     mailing_id = mailing["mailing_id"]
 

@@ -1,0 +1,154 @@
+{% set current_endpoint = request.endpoint or '' %}
+{% set demo_nav = demo_page|default('') %}
+{% set settings_tab = request.args.get('tab', 'club') if current_endpoint == 'owner.settings' else ({'settings': 'club', 'missions': 'missions', 'contracts': 'contracts', 'cases': 'wheel', 'managed-drops': 'managed-drops', 'guests': 'guests'}.get(demo_nav, '')) %}
+{% set gamification_active = current_endpoint in [
+    'owner.missions', 'owner.missions_add', 'owner.missions_update',
+    'owner.missions_disable', 'owner.missions_delete', 'owner.wheel_settings',
+    'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete',
+    'owner.promotions'
+] or (current_endpoint == 'owner.settings' and settings_tab in ['missions', 'contracts', 'wheel', 'managed-drops']) or demo_nav in ['cases', 'missions', 'contracts', 'promotions', 'managed-drops'] %}
+{% set crm_active = current_endpoint in ['owner.mailing_page', 'owner.guest_pulse'] or demo_nav in ['mailings', 'guest-pulse'] %}
+{% set analytics_active = current_endpoint in ['owner.analytics_cohorts', 'owner.analytics_communications', 'owner.analytics_heatmaps'] or demo_nav in ['cohorts', 'communications', 'heatmaps'] %}
+{% set management_active = current_endpoint == 'owner.team' or (current_endpoint == 'owner.settings' and settings_tab in ['club', 'guests']) or demo_nav in ['team', 'settings', 'guests'] %}
+{% set profile_active = current_endpoint == 'owner.settings' and settings_tab == 'profile' %}
+{% set training_active = current_endpoint == 'owner.training' or demo_nav == 'training' %}
+{% set account_role = 'Владелец' if session.get('role') == 'owner' else ('Совладелец' if session.get('role') == 'co-owner' else ('Администратор' if session.get('impersonating_owner') else 'Пользователь')) %}
+
+<button class="owner-navigation-backdrop" type="button" data-owner-menu-close tabindex="-1" aria-label="Закрыть меню"></button>
+<button
+    type="button"
+    class="owner-menu-trigger"
+    data-owner-menu-open
+    aria-label="Свернуть боковую панель"
+    aria-controls="ownerNavigation"
+    aria-expanded="true"
+>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2.5"></rect>
+        <path d="M9 4v16"></path>
+        <path class="owner-menu-trigger__arrow" d="m15 9-3 3 3 3"></path>
+    </svg>
+</button>
+
+<aside class="owner-navigation is-open" id="ownerNavigation" aria-hidden="false" aria-label="Навигация владельца">
+    <div class="owner-navigation__head">
+        <a class="owner-navigation__brand" href="{{ url_for('owner.dashboard') }}">
+            <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="">
+            <span>
+                <strong>Cyber Bonus</strong>
+                <small>{{ header_club_name or 'Панель клуба' }}</small>
+            </span>
+        </a>
+    </div>
+
+    {% if session.get('role') in ['owner', 'co-owner'] %}
+        <a class="owner-navigation__account {% if profile_active %}is-active{% endif %}" href="{{ url_for('owner.settings', tab='profile') }}" {% if profile_active %}aria-current="page"{% endif %}>
+    {% else %}
+        <div class="owner-navigation__account">
+    {% endif %}
+            <span class="owner-navigation__account-avatar" aria-hidden="true">{{ (header_user_name or 'П')[0]|upper }}</span>
+            <span class="owner-navigation__account-copy">
+                <strong>{{ header_club_name or 'Клуб' }}</strong>
+                <small>{{ header_user_name or 'Пользователь' }}</small>
+                <em>{{ account_role }}</em>
+            </span>
+            {% if session.get('role') in ['owner', 'co-owner'] %}<i aria-hidden="true">›</i>{% endif %}
+    {% if session.get('role') in ['owner', 'co-owner'] %}
+        </a>
+    {% else %}
+        </div>
+    {% endif %}
+
+    <nav class="owner-navigation__body" aria-label="Разделы модуля">
+        <a class="owner-navigation__overview {% if current_endpoint == 'owner.dashboard' or demo_nav == 'dashboard' %}is-active{% endif %}" href="{{ url_for('owner.dashboard') }}" {% if current_endpoint == 'owner.dashboard' or demo_nav == 'dashboard' %}aria-current="page"{% endif %}>
+            <span class="owner-navigation__section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 10.8 12 4l8 6.8V20H4v-9.2Z"></path><path d="M9 20v-6h6v6"></path></svg>
+            </span>
+            <span><strong>Обзор</strong></span>
+        </a>
+
+        <section class="owner-navigation__group {% if gamification_active %}is-active is-open{% endif %}" data-owner-nav-group>
+            <button class="owner-navigation__group-toggle" type="button" aria-expanded="{{ 'true' if gamification_active else 'false' }}">
+                <span class="owner-navigation__section-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M8.5 7.5h7A5.5 5.5 0 0 1 21 13v2.2a3 3 0 0 1-5.3 1.9l-1.1-1.4H9.4l-1.1 1.4A3 3 0 0 1 3 15.2V13a5.5 5.5 0 0 1 5.5-5.5Z"></path><path d="M7 11v4M5 13h4"></path><circle cx="16.5" cy="11.5" r=".65"></circle><circle cx="18.5" cy="14" r=".65"></circle></svg>
+                </span>
+                <span class="owner-navigation__section-label"><strong>Геймификация</strong></span>
+                <i aria-hidden="true"></i>
+            </button>
+            <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if gamification_active else 'true' }}">
+                <div class="owner-navigation__links">
+                    <a href="{{ url_for('owner.settings', tab='wheel') }}#prize-editor" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'wheel' and request.args.get('section') != 'bonuses') or demo_nav == 'cases' %}is-active{% endif %}">Кейсы и колесо фортуны</a>
+                    <a href="{{ url_for('owner.settings', tab='missions') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'missions') or demo_nav == 'missions' %}is-active{% endif %}">Задания</a>
+                    <a href="{{ url_for('owner.settings', tab='contracts') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'contracts') or demo_nav == 'contracts' %}is-active{% endif %}">Контракты</a>
+                    <a href="{{ url_for('owner.promotions') }}" class="{% if current_endpoint == 'owner.promotions' or demo_nav == 'promotions' %}is-active{% endif %}">Акции</a>
+                    {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
+                        <a href="{{ url_for('owner.settings', tab='managed-drops') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'managed-drops') or demo_nav == 'managed-drops' %}is-active{% endif %}">Управляемое выпадение</a>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section class="owner-navigation__group {% if crm_active %}is-active is-open{% endif %}" data-owner-nav-group>
+            <button class="owner-navigation__group-toggle" type="button" aria-expanded="{{ 'true' if crm_active else 'false' }}">
+                <span class="owner-navigation__section-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="3"></rect><path d="M8 7V5h8v2"></path><path d="M9 13h6"></path></svg>
+                </span>
+                <span class="owner-navigation__section-label"><strong>CRM</strong></span>
+                <i aria-hidden="true"></i>
+            </button>
+            <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if crm_active else 'true' }}">
+                <div class="owner-navigation__links">
+                    <a href="{{ url_for('owner.mailing_page') }}" class="{% if current_endpoint == 'owner.mailing_page' or demo_nav == 'mailings' %}is-active{% endif %}">Рассылки и авторассылки</a>
+                    <a href="{{ url_for('owner.guest_pulse') }}" class="{% if current_endpoint == 'owner.guest_pulse' or demo_nav == 'guest-pulse' %}is-active{% endif %}">Пульс гостя</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="owner-navigation__group {% if analytics_active %}is-active is-open{% endif %}" data-owner-nav-group>
+            <button class="owner-navigation__group-toggle" type="button" aria-expanded="{{ 'true' if analytics_active else 'false' }}">
+                <span class="owner-navigation__section-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M5 20V11"></path><path d="M12 20V4"></path><path d="M19 20v-7"></path></svg>
+                </span>
+                <span class="owner-navigation__section-label"><strong>Аналитика</strong></span>
+                <i aria-hidden="true"></i>
+            </button>
+            <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if analytics_active else 'true' }}">
+                <div class="owner-navigation__links">
+                    <a href="{{ url_for('owner.analytics_cohorts') }}" class="{% if current_endpoint == 'owner.analytics_cohorts' or demo_nav == 'cohorts' %}is-active{% endif %}">Анализ по когортам</a>
+                    <a href="{{ url_for('owner.analytics_communications') }}" class="{% if current_endpoint == 'owner.analytics_communications' or demo_nav == 'communications' %}is-active{% endif %}">Анализ коммуникаций</a>
+                    <a href="{{ url_for('owner.analytics_heatmaps') }}" class="{% if current_endpoint == 'owner.analytics_heatmaps' or demo_nav == 'heatmaps' %}is-active{% endif %}">Тепловые карты</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="owner-navigation__group {% if management_active %}is-active is-open{% endif %}" data-owner-nav-group>
+            <button class="owner-navigation__group-toggle" type="button" aria-expanded="{{ 'true' if management_active else 'false' }}">
+                <span class="owner-navigation__section-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"></rect><path d="M8 9h8"></path><path d="M8 13h5"></path></svg>
+                </span>
+                <span class="owner-navigation__section-label"><strong>Управление</strong></span>
+                <i aria-hidden="true"></i>
+            </button>
+            <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if management_active else 'true' }}">
+                <div class="owner-navigation__links">
+                    <a href="{{ url_for('owner.team') }}" class="{% if current_endpoint == 'owner.team' or demo_nav == 'team' %}is-active{% endif %}">Команда</a>
+                    <a href="{{ url_for('owner.settings', tab='club') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab in ['club', 'profile']) or demo_nav == 'settings' %}is-active{% endif %}">Настройки</a>
+                    {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
+                        <a href="{{ url_for('owner.settings', tab='guests') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'guests') or demo_nav == 'guests' %}is-active{% endif %}">Управление гостями</a>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <a class="owner-navigation__standalone {% if training_active %}is-active{% endif %}" href="{{ url_for('owner.training') }}" {% if training_active %}aria-current="page"{% endif %}>
+            <span class="owner-navigation__section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="14" rx="2.5"></rect><path d="M9 21h6"></path><path d="M12 18v3"></path><path d="m10 8 5 3-5 3V8Z"></path></svg>
+            </span>
+            <span><strong>Обучение</strong></span>
+        </a>
+    </nav>
+
+    <div class="owner-navigation__footer">
+        <a href="{{ url_for('auth.logout') }}">Выйти</a>
+    </div>
+</aside>

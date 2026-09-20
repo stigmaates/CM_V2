@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260919-owner-nav-6') }}">
     {% if demo_mode %}<link rel="stylesheet" href="{{ url_for('static', filename='css/demo_bridge.css') }}">{% endif %}
     {% block head %}{% endblock %}
     {% block extra_css %}{% endblock %}
@@ -24,39 +24,7 @@
     <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
     {% endif %}
     <div class="app-shell app-shell--topnav">
-        <header class="owner-topbar">
-            <div class="owner-topbar__brand">
-                <a class="brand-mark" href="/" aria-label="На главную">
-                    <img src="{{ url_for('static', filename='img/cyber-bonus-logo.png') }}" alt="Cyber Bonus">
-                </a>
-            </div>
-
-            <div class="owner-topbar__right">
-                <nav class="owner-topnav" aria-label="Основной раздел">
-                    <a href="{{ url_for('owner.dashboard') }}" class="owner-topnav__link {% if request.endpoint == 'owner.dashboard' or demo_page == 'dashboard' %}is-active{% endif %}">Дашборд</a>
-                    <a href="{{ url_for('owner.crm_analytics') }}" class="owner-topnav__link {% if request.endpoint == 'owner.crm_analytics' or demo_page == 'crm-analytics' %}is-active{% endif %}">CRM-Аналитика</a>
-                    <a href="{{ url_for('owner.guest_pulse') }}" class="owner-topnav__link {% if request.endpoint == 'owner.guest_pulse' or demo_page == 'guest-pulse' %}is-active{% endif %}">Пульс гостя</a>
-                    <a href="{{ url_for('owner.training') }}" class="owner-topnav__link {% if request.endpoint == 'owner.training' or demo_page == 'training' %}is-active{% endif %}">Обучение</a>
-                    <a href="{{ url_for('owner.settings') }}" class="owner-topnav__link {% if request.endpoint in ['owner.settings', 'owner.missions', 'owner.missions_add', 'owner.missions_update', 'owner.missions_disable', 'owner.missions_delete', 'owner.wheel_settings', 'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete'] or demo_page == 'settings' %}is-active{% endif %}">Настройки</a>
-                    <a href="{{ url_for('owner.team') }}" class="owner-topnav__link {% if request.endpoint == 'owner.team' or demo_page == 'team' %}is-active{% endif %}">Команда</a>
-                    <a href="{{ url_for('owner.mailing_page') }}" class="owner-topnav__link {% if request.endpoint == 'owner.mailing_page' or demo_page == 'mailing' %}is-active{% endif %}">Рассылка</a>
-                </nav>
-
-                <details class="owner-user-menu">
-                    <summary class="owner-user-menu__trigger">
-                        <span class="owner-user-menu__name">{{ header_user_name or 'Пользователь' }}</span>
-                        <span class="owner-user-menu__chevron">▾</span>
-                    </summary>
-                    <div class="owner-user-menu__panel">
-                        <div class="owner-user-menu__title">{{ header_user_name or 'Пользователь' }}</div>
-                        <div class="owner-user-menu__meta">
-                            Логин: <span>{{ header_user_login or '—' }}</span>
-                        </div>
-                        <a href="{{ url_for('auth.logout') }}" class="owner-user-menu__logout">Выйти</a>
-                    </div>
-                </details>
-            </div>
-        </header>
+        {% include "owner/_navigation.html" %}
 
         <div class="owner-page">
             {% if is_owner_impersonation %}
@@ -81,13 +49,14 @@
     </div>
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='js/page_loading.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/owner_navigation.js', v='20260919-4') }}"></script>
     {% if demo_mode %}<script src="{{ url_for('static', filename='js/demo_bridge.js') }}"></script>{% endif %}
     {% block scripts %}{% endblock %}
 </body>
 <script src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"></script>
 
 <script>
-    const lenis = new Lenis({
+    window.ownerLenis = new Lenis({
         duration: 1.15,
         wheelMultiplier: 0.75,
         touchMultiplier: 1.2,
@@ -96,7 +65,7 @@
     });
 
     function raf(time) {
-        lenis.raf(time);
+        window.ownerLenis.raf(time);
         requestAnimationFrame(raf);
     }
 

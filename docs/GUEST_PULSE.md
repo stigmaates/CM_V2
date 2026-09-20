@@ -1,4 +1,4 @@
-# Пульс гостя
+# Пульс гостя · stage v1
 
 Отдельная вкладка владельца и совладельца: `/owner/guest-pulse`. Администратор
 видит её в режиме просмотра выбранного клуба. Реальные отправки и начисления
@@ -81,7 +81,7 @@ Value всегда пересчитывается для всего клуба: 
 Триггер только увеличивает поколение очереди `guest_pulse_dirty` в транзакции источника.
 Rollback игрового действия откатывает и очередь. Для миграции нужны права CREATE TRIGGER.
 
-Production-таймер запускает обработчик через минуту после завершения предыдущего запуска.
+Stage-таймер запускает обработчик через 15 секунд после завершения предыдущего запуска.
 Это событийный асинхронный пересчёт: он не задерживает выдачу наград.
 В 04:00–05:00 местного времени клуба выполняется ежедневный пересчёт и снимок;
 при простое сервиса пропущенный запуск выполняется после восстановления.
@@ -104,36 +104,32 @@ venv/bin/python scripts/check_guest_pulse.py
 Названия/порядок типов — справочник `AUDIENCES` в `guest_pulse_scores.py`.
 После изменения порогов выполнить `--force` для текущих оценок; история остаётся прежней.
 
-## Подготовка к production-развёртыванию
-
-Этот документ не является командой на выкладку. Перед включением модуля в production
-нужны резервная копия БД, проверка миграции на копии production-данных и явное
-подтверждение окна работ. Миграция создаёт MySQL-триггеры и требует права
-`CREATE TRIGGER`.
+## Выкладка только на stage
 
 ```bash
 (
 set -euo pipefail
-cd /root/cm_v2/CM_V2
-git switch <утверждённая-release-ветка>
-git pull --ff-only origin <утверждённая-release-ветка>
+cd /root/cm_stage/CM_V2
+git switch product-readiness-from-stage
+git pull --ff-only origin product-readiness-from-stage
 bash scripts/backup_mysql.sh
 venv/bin/python scripts/migrate.py
 venv/bin/python scripts/rebuild_guest_pulse.py --backfill
 venv/bin/python scripts/check_guest_pulse.py
 venv/bin/python -m compileall -q app scripts migrations
-install -m 644 deploy/systemd/clubmodule-guest-pulse.service /etc/systemd/system/
-install -m 644 deploy/systemd/clubmodule-guest-pulse.timer /etc/systemd/system/
+install -m 644 deploy/systemd/clubmodule-stage-guest-pulse.service /etc/systemd/system/
+install -m 644 deploy/systemd/clubmodule-stage-guest-pulse.timer /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now clubmodule-guest-pulse.timer
-systemctl restart clubmodule.service
-systemctl is-active clubmodule.service clubmodule-guest-pulse.timer
+systemctl enable --now clubmodule-stage-guest-pulse.timer
+systemctl restart clubmodule-stage.service
+systemctl is-active clubmodule-stage.service clubmodule-stage-guest-pulse.timer
 venv/bin/python scripts/migrate.py --dry-run
 git rev-parse --short HEAD
 )
 ```
 
 После ошибки миграции остановиться, не перезапускать web. Боты не изменялись.
+Production-ветка и сервер не входят в этот релиз.
 
 ## Проверка на стенде
 
@@ -143,7 +139,7 @@ git rev-parse --short HEAD
 - Создать новое тестовое игровое событие, дождаться таймера и проверить Engagement.
 - Проверить, что в форме CRM остаётся полная выбранная аудитория; отправку делать только тестовому гостю.
 - Проверить два клуба с одинаковым guest_id и повторные обновления таймера.
-- Прочитать `journalctl -u clubmodule-guest-pulse.service -n 30 --no-pager` при ошибке.
+- Прочитать `journalctl -u clubmodule-stage-guest-pulse.service -n 30 --no-pager` при ошибке.
 
 ## Автоматические проверки
 

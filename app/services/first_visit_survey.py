@@ -274,6 +274,10 @@ def create_first_visit_survey(conn, setting: dict, candidate: dict) -> int | Non
 
 
 def _tg_request(method: str, payload: dict):
+    from app.services.outbound_policy import ensure_outbound_allowed
+
+    ensure_outbound_allowed()
+
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN не настроен")
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
@@ -285,6 +289,11 @@ def _tg_request(method: str, payload: dict):
 
 
 def send_first_visit_survey_invite(conn, survey_id: int, message_text: str) -> bool:
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return False
+
     with conn.cursor() as cur:
         ensure_first_visit_survey_tables(cur)
         cur.execute(

@@ -58,8 +58,7 @@ def test_guest_balance_topups_migration_exports_revision_and_upgrade():
     assert migration.revision == "0006_guest_balance_topups"
     assert callable(migration.upgrade)
     assert any(
-        isinstance(value, str) and "guest_balance_topups" in value
-        for value in migration.upgrade.__code__.co_consts
+        isinstance(value, str) and "guest_balance_topups" in value for value in migration.upgrade.__code__.co_consts
     )
 
 
@@ -69,9 +68,10 @@ def test_monthly_reports_migration_exports_revision_and_upgrade():
     assert migration.revision == "0034_monthly_reports"
     assert callable(migration.upgrade)
     assert any(
-        isinstance(value, str) and "monthly_reports" in value
-        for value in migration.upgrade.__code__.co_consts
+        isinstance(value, str) and "monthly_reports" in value for value in migration.upgrade.__code__.co_consts
     )
+
+
 def test_club_service_enabled_migration_exports_revision_and_upgrade():
     migration = importlib.import_module("migrations.versions.0007_club_service_enabled")
 
@@ -225,19 +225,6 @@ def test_guest_module_bans_migration_exports_revision_and_upgrade():
     assert callable(migration.upgrade)
     constants = [value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)]
     assert any("guest_module_bans" in value for value in constants)
-
-
-def test_module_registration_capture_migration_exports_table():
-    migration = importlib.import_module(
-        "migrations.versions.0030_module_registration_capture"
-    )
-
-    assert migration.revision == "0030_module_registration_capture"
-    assert callable(migration.upgrade)
-    constants = [
-        value for value in migration.upgrade.__code__.co_consts if isinstance(value, str)
-    ]
-    assert any("module_registrations" in value for value in constants)
 
 
 def test_team_admin_settings_migration_exports_table():

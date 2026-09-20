@@ -66,7 +66,9 @@
     }
     .case-showcase-cover {
         position: relative;
-        aspect-ratio: 16 / 10;
+        height: 170px;
+        margin: 14px 14px 0;
+        border-radius: 14px;
         background:
             radial-gradient(circle at 50% 45%, rgba(255, 212, 105, .16), transparent 34%),
             linear-gradient(135deg, rgba(143, 91, 255, .22), rgba(20, 12, 36, .72));
@@ -95,7 +97,8 @@
         width: 100%;
         height: 100%;
         display: block;
-        object-fit: cover;
+        object-fit: contain;
+        object-position: center;
     }
     .case-showcase-fallback {
         position: absolute;
@@ -271,6 +274,617 @@
         opacity: .72;
         pointer-events: none;
     }
+
+    /* Full case workspace */
+    .case-config-modal .modal-panel--prize.case-workspace {
+        position: relative;
+        width: min(1540px, calc(100vw - 32px));
+        height: min(940px, calc(100dvh - 32px));
+        max-height: calc(100dvh - 32px);
+        overflow: hidden;
+        border-color: rgba(152, 96, 239, .42);
+        background: linear-gradient(145deg, rgba(29, 17, 52, .99), rgba(17, 10, 32, .99));
+        box-shadow: 0 34px 90px rgba(2, 0, 8, .72), 0 0 44px rgba(118, 54, 213, .13);
+    }
+    .case-workspace .case-workspace-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 76px;
+        padding: 14px 20px;
+    }
+    .case-workspace-header__thumb {
+        width: 70px;
+        height: 48px;
+        flex: 0 0 auto;
+        overflow: hidden;
+        border: 1px solid rgba(165, 114, 255, .28);
+        border-radius: 12px;
+        background: radial-gradient(circle, rgba(143, 91, 255, .28), rgba(18, 9, 31, .84));
+    }
+    .case-workspace-header__thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .case-workspace-header__copy {
+        min-width: 0;
+    }
+    .case-workspace-header__copy small {
+        display: block;
+        margin-bottom: 3px;
+        color: #a995c5;
+        font-size: 11px;
+    }
+    .case-workspace-header__copy h2 {
+        overflow: hidden;
+        color: #f8f3ff;
+        font-size: 22px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .case-workspace-header__status {
+        margin-left: 4px;
+    }
+    .case-workspace-add-item {
+        min-height: 40px;
+        padding: 0 16px;
+        border: 1px solid rgba(188, 128, 255, .74);
+        border-radius: 11px;
+        background: linear-gradient(135deg, #9c50fa, #7139de);
+        box-shadow: 0 8px 22px rgba(115, 54, 218, .24);
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 850;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .case-workspace-add-item:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+    }
+    .case-workspace .modal-close {
+        margin-left: auto;
+    }
+    .case-workspace-scroll {
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 14px 16px 20px;
+        scrollbar-gutter: stable;
+    }
+    .case-workspace-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(310px, 370px);
+        gap: 14px;
+        align-items: start;
+    }
+    .case-workspace-main,
+    .case-workspace-side {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+    }
+    .case-workspace-side {
+        position: sticky;
+        top: 0;
+    }
+    .case-editor-section,
+    .case-preview-panel,
+    .case-item-editor-panel {
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid rgba(151, 99, 219, .26);
+        border-radius: 16px;
+        background: linear-gradient(145deg, rgba(39, 22, 67, .58), rgba(22, 13, 40, .62));
+    }
+    .case-editor-section__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+    .case-editor-section__head h3,
+    .case-preview-panel h3,
+    .case-item-editor-panel h3 {
+        margin: 0;
+        color: #f5eeff;
+        font-size: 16px;
+    }
+    .case-editor-section__head p,
+    .case-preview-panel__subtitle {
+        margin: 4px 0 0;
+        color: #9f8dbb;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+    .case-workspace .case-form-grid {
+        grid-template-columns: minmax(180px, 1.2fr) minmax(140px, .8fr) minmax(140px, .7fr);
+        gap: 12px;
+    }
+    .case-workspace .case-form-grid .case-description-field {
+        grid-column: span 2;
+    }
+    .case-cover-editor {
+        display: grid;
+        grid-template-columns: 170px minmax(0, 1fr);
+        gap: 14px;
+        align-items: stretch;
+    }
+    .case-cover-editor__preview {
+        min-height: 122px;
+        overflow: hidden;
+        border: 1px solid rgba(165, 114, 255, .3);
+        border-radius: 13px;
+        background: rgba(9, 4, 18, .44);
+    }
+    .case-cover-editor__preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .case-cover-editor__drop {
+        display: grid;
+        align-content: center;
+        gap: 9px;
+        min-width: 0;
+        padding: 14px;
+        border: 1px dashed rgba(165, 114, 255, .38);
+        border-radius: 13px;
+        background: rgba(8, 4, 16, .2);
+    }
+    .case-cover-editor__drop small {
+        color: #8f7ba9;
+        font-size: 11px;
+    }
+    .case-preview-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 12px;
+        padding: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(165, 114, 255, .28);
+        border-radius: 15px;
+        background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    }
+    .case-preview-card__image {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 170px;
+        overflow: hidden;
+        border-radius: 14px;
+        background: radial-gradient(circle, rgba(143, 91, 255, .28), rgba(18, 9, 31, .92));
+    }
+    .case-preview-card__image img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+    }
+    .case-preview-card__badge {
+        align-self: flex-start;
+        max-width: 100%;
+        padding: 4px 10px;
+        border: 1px solid var(--preview-badge, #8f5bff);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--preview-badge, #8f5bff) 20%, transparent);
+        color: color-mix(in srgb, var(--preview-badge, #8f5bff) 52%, white);
+        font-size: 11px;
+        font-weight: 900;
+    }
+    .case-preview-card__body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 0;
+    }
+    .case-preview-card__body h4 {
+        margin: 0;
+        color: #fff;
+        font-size: 15px;
+        line-height: 1.18;
+    }
+    .case-preview-card__body p {
+        min-height: 34px;
+        margin: 0;
+        color: #ad9cbe;
+        font-size: 12px;
+        line-height: 1.3;
+    }
+    .case-preview-card__price {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 42px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #9b50f7, #6f37dd);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 900;
+    }
+    .case-preview-card__price-text {
+        white-space: nowrap;
+    }
+    .case-items-toolbar {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) auto;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .case-items-search {
+        min-height: 42px;
+        padding: 0 13px;
+        border: 1px solid rgba(165, 114, 255, .25);
+        border-radius: 11px;
+        background: rgba(9, 5, 18, .45);
+        color: #f3ebff;
+        font: inherit;
+    }
+    .case-items-summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .case-items-summary span {
+        padding: 8px 10px;
+        border: 1px solid rgba(165, 114, 255, .16);
+        border-radius: 10px;
+        color: #bcaad1;
+        font-size: 11px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+    .case-items-table-shell {
+        overflow-x: auto;
+        border: 1px solid rgba(165, 114, 255, .18);
+        border-radius: 13px;
+        background: rgba(8, 4, 16, .25);
+    }
+    .case-items-table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+    }
+    .case-items-table th {
+        padding: 10px 8px;
+        color: #9e8ab8;
+        font-size: 10px;
+        font-weight: 850;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .case-items-table td {
+        padding: 7px 6px;
+        border-top: 1px solid rgba(165, 114, 255, .11);
+        vertical-align: middle;
+    }
+    .case-items-table tr {
+        transition: background .16s ease, box-shadow .16s ease;
+    }
+    .case-items-table tbody tr:hover,
+    .case-items-table tbody tr.is-selected {
+        background: rgba(143, 91, 255, .1);
+        box-shadow: inset 3px 0 #9f62ff;
+    }
+    .case-items-table tr.is-saving {
+        opacity: .58;
+        pointer-events: none;
+    }
+    .case-items-table .case-table-input,
+    .case-items-table .case-table-select {
+        width: 100%;
+        min-width: 62px;
+        height: 34px;
+        padding: 0 8px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: transparent;
+        color: #eee6fa;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .case-items-table .case-table-input:hover,
+    .case-items-table .case-table-input:focus,
+    .case-items-table .case-table-select:hover,
+    .case-items-table .case-table-select:focus {
+        border-color: rgba(165, 114, 255, .42);
+        outline: 0;
+        background: rgba(17, 9, 31, .88);
+    }
+    .case-table-item {
+        display: grid;
+        grid-template-columns: 36px minmax(130px, 1fr);
+        gap: 8px;
+        align-items: center;
+    }
+    .case-table-item img,
+    .case-table-item__fallback {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        object-fit: contain;
+        background: rgba(143, 91, 255, .12);
+    }
+    .case-table-item__fallback {
+        display: grid;
+        place-items: center;
+        color: #9f62ff;
+        font-weight: 900;
+    }
+    .case-table-number {
+        color: #806c98;
+        font-size: 11px;
+        text-align: center;
+    }
+    .case-toggle {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 28px;
+        margin: 0;
+        cursor: pointer;
+        user-select: none;
+    }
+    .case-form-grid label.case-toggle,
+    .case-item-grid label.case-toggle,
+    .case-items-table label.case-toggle {
+        display: inline-flex;
+        width: auto;
+        margin: 0;
+    }
+    .case-toggle input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .case-toggle__track {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        flex: 0 0 auto;
+        border: 1px solid rgba(165, 114, 255, .48);
+        border-radius: 999px;
+        background: rgba(18, 9, 32, .88);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03);
+        transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .case-toggle__track::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #a994c5;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, .36);
+        transition: transform .18s ease, background .18s ease;
+    }
+    .case-toggle input:checked + .case-toggle__track {
+        border-color: #aa6cff;
+        background: linear-gradient(135deg, #9d55f6, #7138d7);
+        box-shadow: 0 0 14px rgba(144, 77, 241, .24);
+    }
+    .case-toggle input:checked + .case-toggle__track::after {
+        transform: translateX(20px);
+        background: #fff;
+    }
+    .case-toggle input:focus-visible + .case-toggle__track {
+        outline: 2px solid rgba(190, 143, 255, .72);
+        outline-offset: 2px;
+    }
+    .case-toggle__label {
+        color: #cbb9df;
+        font-size: 13px;
+        font-weight: 750;
+        line-height: 1.25;
+    }
+    .case-toggle--case {
+        gap: 13px;
+        min-height: 36px;
+    }
+    .case-toggle--case .case-toggle__track {
+        width: 58px;
+        height: 32px;
+        border-width: 2px;
+    }
+    .case-toggle--case .case-toggle__track::after {
+        top: 3px;
+        left: 3px;
+        width: 22px;
+        height: 22px;
+    }
+    .case-toggle--case input:checked + .case-toggle__track::after {
+        transform: translateX(26px);
+    }
+    .case-toggle--case .case-toggle__label {
+        font-size: 15px;
+        font-weight: 850;
+    }
+    .case-table-toggle {
+        display: flex;
+        width: 44px;
+        margin: 0 auto;
+    }
+    .case-items-table label.case-toggle.case-table-toggle {
+        width: 44px;
+        margin: 0 auto;
+    }
+    .case-table-save {
+        min-width: 82px;
+        min-height: 34px;
+        border: 1px solid rgba(165, 114, 255, .36);
+        border-radius: 9px;
+        background: rgba(143, 91, 255, .14);
+        color: #d8c4f4;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 850;
+        cursor: pointer;
+    }
+    .case-table-save:hover {
+        background: rgba(143, 91, 255, .28);
+        color: #fff;
+    }
+    .case-table-status {
+        min-height: 14px;
+        margin-top: 3px;
+        color: #7bed9f;
+        font-size: 9px;
+        text-align: center;
+    }
+    .case-item-picker--hidden {
+        display: none;
+    }
+    .case-item-editor-panel .case-items-compact {
+        margin: 10px 0 0;
+    }
+    .case-item-editor-panel .case-item-row {
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+    .case-item-editor-panel .case-item-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+        align-items: start;
+    }
+    .case-item-editor-panel .case-item-grid > .form-group:first-child,
+    .case-item-editor-panel .case-item-grid .full {
+        grid-column: 1 / -1;
+    }
+    .case-item-editor-panel .form-input {
+        width: 100%;
+        min-height: 38px;
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+    .case-item-editor-panel .case-item-grid > .form-group:not(.full) > label {
+        display: flex;
+        align-items: flex-end;
+        min-height: 36px;
+        line-height: 1.25;
+    }
+    .case-item-editor-panel .case-image-preview {
+        margin-top: 0;
+    }
+    .case-workspace-footer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .case-workspace-footer__spacer {
+        flex: 1 1 auto;
+    }
+    .case-workspace-footer .btn {
+        min-width: 150px;
+    }
+    .case-workspace-footer .btn-primary {
+        background: linear-gradient(135deg, #9c50fa, #6f38df);
+        box-shadow: 0 10px 24px rgba(115, 54, 218, .22);
+    }
+    .case-item-add-dialog {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgba(7, 3, 14, .76);
+        backdrop-filter: blur(10px);
+    }
+    .case-item-add-dialog[hidden] {
+        display: none;
+    }
+    .case-item-add-dialog__panel {
+        width: min(760px, 100%);
+        max-height: min(760px, calc(100dvh - 72px));
+        overflow: auto;
+        overscroll-behavior: contain;
+        border: 1px solid rgba(172, 109, 255, .48);
+        border-radius: 18px;
+        background: linear-gradient(145deg, rgba(39, 22, 67, .99), rgba(20, 11, 37, .99));
+        box-shadow: 0 30px 80px rgba(0, 0, 0, .58);
+    }
+    .case-item-add-dialog__header {
+        position: sticky;
+        z-index: 2;
+        top: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 22px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, .09);
+        background: rgba(31, 18, 55, .96);
+        backdrop-filter: blur(10px);
+    }
+    .case-item-add-dialog__header h3 {
+        margin: 0;
+        color: #fff;
+        font-size: 20px;
+    }
+    .case-item-add-dialog__header p {
+        margin: 5px 0 0;
+        color: #a995bf;
+        font-size: 12px;
+    }
+    .case-item-add-dialog__close {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        border: 1px solid rgba(165, 114, 255, .34);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, .04);
+        color: #e9ddf6;
+        font: inherit;
+        font-size: 22px;
+        cursor: pointer;
+    }
+    .case-item-add-dialog__form {
+        padding: 20px 22px 22px;
+    }
+    .case-item-add-dialog__form .case-item-grid {
+        gap: 14px;
+    }
+    .case-item-add-dialog__form .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 18px;
+    }
+    .case-item-add-dialog__form .actions .btn {
+        min-width: 160px;
+    }
+    .case-item-add-dialog__form .actions .btn-primary {
+        background: linear-gradient(135deg, #9c50fa, #7139de);
+    }
+    @media (max-width: 1080px) {
+        .case-workspace-layout {
+            grid-template-columns: 1fr;
+        }
+        .case-workspace-side {
+            position: static;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .case-workspace .case-form-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
     @media (max-width: 760px) {
         #caseAddModal .modal-header,
         .case-config-modal .modal-header {
@@ -289,6 +903,36 @@
         .case-config-modal > .modal-panel--prize > .prize-card-actions {
             padding: 14px 18px 18px;
         }
+        .case-config-modal .modal-panel--prize.case-workspace {
+            width: calc(100vw - 12px);
+            height: calc(100dvh - 12px);
+            max-height: calc(100dvh - 12px);
+        }
+        .case-workspace-side,
+        .case-workspace .case-form-grid,
+        .case-cover-editor {
+            grid-template-columns: 1fr;
+        }
+        .case-workspace-header {
+            flex-wrap: wrap;
+        }
+        .case-workspace-add-item {
+            order: 4;
+            width: 100%;
+        }
+        .case-item-add-dialog {
+            padding: 8px;
+        }
+        .case-workspace .case-form-grid .case-description-field {
+            grid-column: auto;
+        }
+        .case-workspace-footer {
+            flex-wrap: wrap;
+        }
+        .case-workspace-footer .btn,
+        .case-workspace-footer form {
+            flex: 1 1 140px;
+        }
     }
 </style>
 
@@ -298,12 +942,6 @@
         <div class="section-title">Кейсы</div>
         <button class="case-add-trigger" type="button" id="openCaseAddModal">+ Добавить кейс</button>
     </div>
-    <p class="wheel-subtitle">
-        Каждый кейс открывается за жетоны по своей цене. У каждого предмета можно задать название, картинку, описание,
-        а также КБ и/или жетоны, которые начислятся автоматически. Если у предмета нет КБ/жетонов — он попадёт в заявки
-        на ручную выдачу, как сейчас работает для призов колеса. Чтобы включить кейс, сумма шансов его активных
-        предметов должна быть равна 100%.
-    </p>
 
     {% if case_upload_usage %}
         <div class="case-upload-quota">
@@ -364,244 +1002,230 @@
                 </article>
 
                 <div class="modal-overlay case-config-modal" id="caseConfigModal{{ case.id }}" aria-hidden="true">
-                    <div class="modal-panel modal-panel--prize" role="dialog" aria-modal="true" aria-labelledby="caseConfigModalTitle{{ case.id }}">
-                        <div class="modal-header">
-                            <h2 class="modal-title" id="caseConfigModalTitle{{ case.id }}">Настроить кейс: {{ case.name }}</h2>
+                    <div class="modal-panel modal-panel--prize case-workspace" role="dialog" aria-modal="true" aria-labelledby="caseConfigModalTitle{{ case.id }}">
+                        <div class="modal-header case-workspace-header">
+                            <div class="case-workspace-header__thumb">
+                                {% if case.image_url %}<img src="{{ case.image_url }}" alt="">{% endif %}
+                            </div>
+                            <div class="case-workspace-header__copy">
+                                <small>Настройка кейса</small>
+                                <h2 class="modal-title" id="caseConfigModalTitle{{ case.id }}">Настроить кейс: {{ case.name }}</h2>
+                            </div>
+                            <span class="prize-active-badge case-workspace-header__status {% if not case.is_active %}prize-active-badge--off{% endif %}">
+                                {% if case.is_active %}активен{% else %}выключен{% endif %}
+                            </span>
+                            <button type="button" class="case-workspace-add-item" data-open-case-item-add="caseItemAddDialog{{ case.id }}">+ Добавить предмет</button>
                             <button type="button" class="modal-close" data-close-case-config aria-label="Закрыть">×</button>
                         </div>
 
-                        <form id="case-update-{{ case.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_update', case_id=case.id) }}">
-                            <div class="case-form-grid">
-                                <div class="form-group">
-                                    <label for="case_name_{{ case.id }}">Название</label>
-                                    <input class="form-input" type="text" id="case_name_{{ case.id }}" name="name" value="{{ case.name }}" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="case_badge_{{ case.id }}">Текст ярлыка</label>
-                                    <input class="form-input" type="text" id="case_badge_{{ case.id }}" name="badge_label" value="{{ case.badge_label or '' }}" maxlength="60" placeholder="Например: x2 шанс редкого">
-                                </div>
-                                <div class="form-group">
-                                    <label for="case_badge_color_{{ case.id }}">Цвет ярлыка</label>
-                                    <div class="case-badge-color-control">
-                                        <input class="case-badge-color-input" type="color" id="case_badge_color_{{ case.id }}" name="badge_color" value="{{ case.badge_color or '#8F5BFF' }}">
-                                        <span class="muted">Цвет текста, рамки и подсветки</span>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="case_price_{{ case.id }}">Цена, жетонов</label>
-                                    <input class="form-input" type="number" id="case_price_{{ case.id }}" name="price_tokens" min="0" step="1" value="{{ case.price_tokens or 0 }}">
-                                </div>
-                                <div class="form-group full">
-                                    <label for="case_file_{{ case.id }}">Картинка кейса</label>
-                                    {% if case.image_url %}
-                                        <div class="case-image-preview">
-                                            <img src="{{ case.image_url }}" alt="{{ case.name }}">
-                                            <label class="form-check">
-                                                <input type="checkbox" class="form-check-input" name="remove_image" value="1">
-                                                <span class="form-check-box" aria-hidden="true"></span>
-                                                <span class="form-check-text">Удалить текущую картинку</span>
-                                            </label>
-                                        </div>
-                                    {% endif %}
-                                    <input class="form-input" type="file" id="case_file_{{ case.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
-                                    <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                                    <input class="form-input" type="text" id="case_image_{{ case.id }}" name="image_url" value="{{ case.image_url or '' }}" placeholder="или внешняя https:// ссылка">
-                                </div>
-                                <div class="form-group full">
-                                    <label for="case_description_{{ case.id }}">Описание</label>
-                                    <textarea class="form-input" id="case_description_{{ case.id }}" name="description" rows="2">{{ case.description or '' }}</textarea>
-                                </div>
-                                <div class="form-group full">
-                                    <label class="form-check" for="case_active_{{ case.id }}">
-                                        <input type="checkbox" class="form-check-input" id="case_active_{{ case.id }}" name="is_active" value="1" {% if case.is_active %}checked{% endif %}>
-                                        <span class="form-check-box" aria-hidden="true"></span>
-                                        <span class="form-check-text">Кейс включён (виден гостям)</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </form>
-
-                        <div class="case-prob-total {% if case_prob_ok %}is-ok{% else %}is-bad{% endif %}">
-                            Сумма шансов активных предметов: {{ '%.2f'|format(prob_sum) }}%
-                            {% if not case_prob_ok %} — должна быть 100%, чтобы включить кейс{% endif %}
-                        </div>
-
-                        <div class="case-items-compact" data-case-items-compact="{{ case.id }}">
-                            <div class="case-item-picker">
-                                <div class="form-group">
-                                    <label for="case_item_select_{{ case.id }}">Предмет кейса</label>
-                                    {% if case_items %}
-                                        <select class="form-input" id="case_item_select_{{ case.id }}" data-case-item-selector data-case-id="{{ case.id }}">
-                                            {% for item in case_items %}
-                                                <option value="{{ item.id }}"
-                                                        data-name="{{ item.name }}"
-                                                        data-rarity-label="{{ item.rarity_label or 'Обычный' }}"
-                                                        data-is-active="{{ 1 if item.is_active else 0 }}"
-                                                        data-sort-order="{{ item.sort_order or loop.index }}">
-                                                    {{ loop.index }}. {{ item.name }} — {{ item.rarity_label or 'Обычный' }}{% if not item.is_active %} · выкл.{% endif %}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                    {% else %}
-                                        <div class="muted">В кейсе пока нет предметов.</div>
-                                    {% endif %}
-                                </div>
-                                {% if case_items %}
-                                    <div class="case-item-picker-meta">
-                                        <span>Всего предметов: {{ case_items|length }}</span>
-                                        <span>Активных: {{ active_items|length }}</span>
-                                    </div>
-                                {% endif %}
-                            </div>
-
-                            {% for item in case_items %}
-                                <div class="case-item-row case-item-row--compact"
-                                     data-case-item-editor
-                                     data-case-id="{{ case.id }}"
-                                     data-item-id="{{ item.id }}"
-                                     {% if not loop.first %}hidden{% endif %}>
-                                    <form id="case-item-update-{{ item.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}" data-case-item-form data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
-                                        <div class="case-item-grid">
-                                            <div class="form-group">
-                                                <label for="item_name_{{ item.id }}">Название</label>
-                                                <input class="form-input" type="text" id="item_name_{{ item.id }}" name="name" value="{{ item.name }}" required>
+                        <div class="case-workspace-scroll" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch>
+                            <div class="case-workspace-layout">
+                                <div class="case-workspace-main">
+                                    <form id="case-update-{{ case.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_update', case_id=case.id) }}">
+                                        <section class="case-editor-section" id="caseMain{{ case.id }}">
+                                            <div class="case-editor-section__head">
+                                                <div><h3>Основное</h3><p>Базовая информация, которую увидят гости.</p></div>
                                             </div>
-                                            <div class="form-group">
-                                                <label for="item_prob_{{ item.id }}">Шанс, %</label>
-                                                <input class="form-input" type="number" id="item_prob_{{ item.id }}" name="probability" min="0.0001" step="0.0001" value="{{ item.probability }}" required>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="item_rarity_{{ item.id }}">Группа описания</label>
-                                                <select class="form-input" id="item_rarity_{{ item.id }}" name="rarity_label">
-                                                    {% set item_rarity = item.rarity_label or 'Обычный' %}
-                                                    {% for rarity in ['Обычный', 'Редкий', 'Очень редкий', 'Ультра редкий'] %}
-                                                        <option value="{{ rarity }}" {% if item_rarity == rarity %}selected{% endif %}>{{ rarity }}</option>
-                                                    {% endfor %}
-                                                </select>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="item_bonus_{{ item.id }}">КБ</label>
-                                                <input class="form-input" type="number" id="item_bonus_{{ item.id }}" name="bonus_amount" min="0" step="1" value="{{ item.bonus_amount or 0 }}">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="item_tokens_{{ item.id }}">Жетоны</label>
-                                                <input class="form-input" type="number" id="item_tokens_{{ item.id }}" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="item_contract_refresh_{{ item.id }}">Обновления контрактов</label>
-                                                <input class="form-input" type="number" id="item_contract_refresh_{{ item.id }}" name="contract_refresh_amount" min="0" step="1" value="{{ item.contract_refresh_amount or 0 }}">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="item_sort_{{ item.id }}">Порядок</label>
-                                                <input class="form-input" type="number" id="item_sort_{{ item.id }}" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}">
-                                            </div>
-                                            <div class="form-group full">
-                                                <label for="item_file_{{ item.id }}">Картинка предмета</label>
-                                                {% if item.image_url %}
-                                                    <div class="case-image-preview case-image-preview--small">
-                                                        <img src="{{ item.image_url }}" alt="{{ item.name }}">
-                                                        <label class="form-check">
-                                                            <input type="checkbox" class="form-check-input" name="remove_image" value="1">
-                                                            <span class="form-check-box" aria-hidden="true"></span>
-                                                            <span class="form-check-text">Удалить текущую картинку</span>
-                                                        </label>
+                                            <div class="case-form-grid">
+                                                <div class="form-group">
+                                                    <label for="case_name_{{ case.id }}">Название кейса</label>
+                                                    <input class="form-input" type="text" id="case_name_{{ case.id }}" name="name" value="{{ case.name }}" data-case-preview-source="name" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="case_badge_{{ case.id }}">Текст ярлыка</label>
+                                                    <input class="form-input" type="text" id="case_badge_{{ case.id }}" name="badge_label" value="{{ case.badge_label or '' }}" maxlength="60" placeholder="Например: Игровой" data-case-preview-source="badge">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="case_badge_color_{{ case.id }}">Цвет ярлыка</label>
+                                                    <div class="case-badge-color-control">
+                                                        <input class="case-badge-color-input" type="color" id="case_badge_color_{{ case.id }}" name="badge_color" value="{{ case.badge_color or '#8F5BFF' }}" data-case-preview-source="color">
+                                                        <span class="muted">Ярлык и подсветка</span>
                                                     </div>
-                                                {% endif %}
-                                                <input class="form-input" type="file" id="item_file_{{ item.id }}" name="image_file" accept="image/png,image/jpeg,image/webp">
-                                                <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                                                <input class="form-input" type="text" id="item_image_{{ item.id }}" name="image_url" value="{{ item.image_url or '' }}" placeholder="или внешняя https:// ссылка">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="case_price_{{ case.id }}">Цена в жетонах</label>
+                                                    <input class="form-input" type="number" id="case_price_{{ case.id }}" name="price_tokens" min="0" step="1" value="{{ case.price_tokens or 0 }}" data-case-preview-source="price">
+                                                </div>
+                                                <div class="form-group case-description-field">
+                                                    <label for="case_description_{{ case.id }}">Описание</label>
+                                                    <textarea class="form-input" id="case_description_{{ case.id }}" name="description" rows="2" data-case-preview-source="description">{{ case.description or '' }}</textarea>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="case-toggle case-toggle--case" for="case_active_{{ case.id }}">
+                                                        <input type="checkbox" id="case_active_{{ case.id }}" name="is_active" value="1" data-case-preview-source="active" {% if case.is_active %}checked{% endif %}>
+                                                        <span class="case-toggle__track" aria-hidden="true"></span>
+                                                        <span class="case-toggle__label">Кейс включён</span>
+                                                    </label>
+                                                </div>
                                             </div>
-                                            <div class="form-group full">
-                                                <label for="item_description_{{ item.id }}">Описание</label>
-                                                <textarea class="form-input" id="item_description_{{ item.id }}" name="description" rows="2">{{ item.description or '' }}</textarea>
+                                        </section>
+
+                                        <section class="case-editor-section">
+                                            <div class="case-editor-section__head">
+                                                <div><h3>Обложка кейса</h3><p>JPG, PNG или WEBP до 5 МБ.</p></div>
                                             </div>
-                                            <div class="form-group full">
-                                                <label class="form-check" for="item_active_{{ item.id }}">
-                                                    <input type="checkbox" class="form-check-input" id="item_active_{{ item.id }}" name="is_active" value="1" {% if item.is_active %}checked{% endif %}>
-                                                    <span class="form-check-box" aria-hidden="true"></span>
-                                                    <span class="form-check-text">Предмет активен</span>
-                                                </label>
+                                            <div class="case-cover-editor">
+                                                <div class="case-cover-editor__preview">
+                                                    <img src="{{ case.image_url or '' }}" alt="{{ case.name }}" data-case-cover-preview {% if not case.image_url %}hidden{% endif %}>
+                                                </div>
+                                                <div class="case-cover-editor__drop">
+                                                    <input class="form-input" type="file" id="case_file_{{ case.id }}" name="image_file" accept="image/png,image/jpeg,image/webp" data-case-cover-file>
+                                                    <input type="hidden" name="image_url" value="{{ case.image_url or '' }}">
+                                                    <small>Рекомендуемый размер — 800×600.</small>
+                                                </div>
+                                            </div>
+                                        </section>
+                                    </form>
+
+                                    <section class="case-editor-section" id="caseItems{{ case.id }}">
+                                        <div class="case-editor-section__head">
+                                            <div><h3>Предметы кейса</h3><p>Основные значения можно менять прямо в таблице.</p></div>
+                                            <span class="case-prob-total {% if case_prob_ok %}is-ok{% else %}is-bad{% endif %}" data-case-probability-total>
+                                                Сумма шансов: {{ '%.2f'|format(prob_sum) }}%
+                                            </span>
+                                        </div>
+                                        <div class="case-items-toolbar">
+                                            <input class="case-items-search" type="search" placeholder="Поиск предметов…" aria-label="Поиск предметов" data-case-item-search="{{ case.id }}">
+                                            <div class="case-items-summary">
+                                                <span>Всего: {{ case_items|length }}</span>
+                                                <span>Активных: {{ active_items|length }}</span>
                                             </div>
                                         </div>
-                                    </form>
-                                    <div class="prize-card-actions">
-                                        <button type="submit" class="btn" form="case-item-update-{{ item.id }}">Сохранить предмет</button>
-                                        <form method="POST" action="{{ url_for('owner.case_item_delete', case_id=case.id, item_id=item.id) }}" data-case-item-delete data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
-                                            <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот предмет?')">Удалить</button>
-                                        </form>
-                                    </div>
-                                    <div class="case-inline-status" data-case-item-status></div>
+                                        <div class="case-items-table-shell">
+                                            <table class="case-items-table" data-case-items-table="{{ case.id }}">
+                                                <thead><tr><th>#</th><th>Предмет</th><th>Редкость</th><th>Шанс, %</th><th>КБ</th><th>Жетоны</th><th>Порядок</th><th>Активен</th><th></th></tr></thead>
+                                                <tbody>
+                                                    {% for item in case_items %}
+                                                        <tr data-case-table-row data-case-id="{{ case.id }}" data-item-id="{{ item.id }}" data-item-name="{{ item.name|lower }}" {% if loop.first %}class="is-selected"{% endif %}>
+                                                            <td class="case-table-number">{{ loop.index }}</td>
+                                                            <td>
+                                                                <div class="case-table-item">
+                                                                    {% if item.image_url %}<img src="{{ item.image_url }}" alt="">{% else %}<span class="case-table-item__fallback">◇</span>{% endif %}
+                                                                    <input class="case-table-input" type="text" name="name" value="{{ item.name }}" form="case-inline-item-{{ item.id }}" aria-label="Название предмета" required>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                {% set item_rarity = item.rarity_label or 'Обычный' %}
+                                                                <select class="case-table-select" name="rarity_label" form="case-inline-item-{{ item.id }}" aria-label="Редкость">
+                                                                    {% for rarity in ['Обычный', 'Редкий', 'Очень редкий', 'Ультра редкий'] %}<option value="{{ rarity }}" {% if item_rarity == rarity %}selected{% endif %}>{{ rarity }}</option>{% endfor %}
+                                                                </select>
+                                                            </td>
+                                                            <td><input class="case-table-input" type="number" name="probability" min="0.0001" step="0.0001" value="{{ item.probability }}" form="case-inline-item-{{ item.id }}" aria-label="Шанс выпадения" required></td>
+                                                            <td><input class="case-table-input" type="number" name="bonus_amount" min="0" step="1" value="{{ item.bonus_amount or 0 }}" form="case-inline-item-{{ item.id }}" aria-label="Количество КБ"></td>
+                                                            <td><input class="case-table-input" type="number" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}" form="case-inline-item-{{ item.id }}" aria-label="Количество жетонов"></td>
+                                                            <td><input class="case-table-input" type="number" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}" form="case-inline-item-{{ item.id }}" aria-label="Порядок"></td>
+                                                            <td><label class="case-toggle case-table-toggle"><input type="checkbox" name="is_active" value="1" form="case-inline-item-{{ item.id }}" {% if item.is_active %}checked{% endif %} aria-label="Предмет активен"><span class="case-toggle__track" aria-hidden="true"></span></label></td>
+                                                            <td>
+                                                                <form id="case-inline-item-{{ item.id }}" method="POST" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}" data-case-inline-form data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
+                                                                    <input type="hidden" name="description" value="{{ item.description or '' }}">
+                                                                    <input type="hidden" name="image_url" value="{{ item.image_url or '' }}">
+                                                                    <input type="hidden" name="contract_refresh_amount" value="{{ item.contract_refresh_amount or 0 }}">
+                                                                </form>
+                                                                <button class="case-table-save" type="submit" form="case-inline-item-{{ item.id }}">Сохранить</button>
+                                                                <div class="case-table-status" data-case-inline-status></div>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                    </section>
                                 </div>
-                            {% endfor %}
+
+                                <aside class="case-workspace-side">
+                                    <section class="case-preview-panel" id="casePreview{{ case.id }}">
+                                        <h3>Предпросмотр кейса</h3>
+                                        <p class="case-preview-panel__subtitle">Так кейс будет выглядеть для гостей.</p>
+                                        <div class="case-preview-card">
+                                            <span class="case-preview-card__badge" style="--preview-badge: {{ case.badge_color or '#8F5BFF' }};" data-case-preview="badge">{{ case.badge_label or 'Кейс' }}</span>
+                                            <div class="case-preview-card__image">
+                                                <img src="{{ case.image_url or '' }}" alt="{{ case.name }}" data-case-preview-image {% if not case.image_url %}hidden{% endif %}>
+                                            </div>
+                                            <div class="case-preview-card__body">
+                                                <h4 data-case-preview="name">{{ case.name }}</h4>
+                                                <p data-case-preview="description">{{ case.description or 'Кейс с настраиваемыми предметами' }}</p>
+                                                <div class="case-preview-card__price"><span aria-hidden="true">🪙</span><span class="case-preview-card__price-text">Открыть за <strong data-case-preview="price">{{ case.price_tokens or 0 }}</strong> жет.</span></div>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section class="case-item-editor-panel">
+                                        <h3 data-case-item-editor-title>{% if case_items %}{{ case_items[0].name }}{% else %}Редактирование предмета{% endif %}</h3>
+                                        <p class="case-preview-panel__subtitle">Расширенные параметры выбранной строки.</p>
+                                        <div class="case-items-compact" data-case-items-compact="{{ case.id }}">
+                                            <div class="case-item-picker case-item-picker--hidden">
+                                                <div class="form-group">
+                                                    <select class="form-input" id="case_item_select_{{ case.id }}" data-case-item-selector data-case-id="{{ case.id }}">
+                                                        {% for item in case_items %}<option value="{{ item.id }}" data-name="{{ item.name }}" data-rarity-label="{{ item.rarity_label or 'Обычный' }}" data-is-active="{{ 1 if item.is_active else 0 }}" data-sort-order="{{ item.sort_order or loop.index }}">{{ item.name }}</option>{% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            {% for item in case_items %}
+                                                <div class="case-item-row case-item-row--compact" data-case-item-editor data-case-id="{{ case.id }}" data-item-id="{{ item.id }}" {% if not loop.first %}hidden{% endif %}>
+                                                    <form id="case-item-update-{{ item.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}" data-case-item-form data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
+                                                        <div class="case-item-grid">
+                                                            <div class="form-group"><label>Название</label><input class="form-input" type="text" name="name" value="{{ item.name }}" required></div>
+                                                            <div class="form-group"><label>Шанс, %</label><input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" value="{{ item.probability }}" required></div>
+                                                            <div class="form-group"><label>Группа описания</label>{% set item_rarity = item.rarity_label or 'Обычный' %}<select class="form-input" name="rarity_label">{% for rarity in ['Обычный', 'Редкий', 'Очень редкий', 'Ультра редкий'] %}<option value="{{ rarity }}" {% if item_rarity == rarity %}selected{% endif %}>{{ rarity }}</option>{% endfor %}</select></div>
+                                                            <div class="form-group"><label>КБ</label><input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="{{ item.bonus_amount or 0 }}"></div>
+                                                            <div class="form-group"><label>Жетоны</label><input class="form-input" type="number" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}"></div>
+                                                            <div class="form-group"><label>Обновления контрактов</label><input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="{{ item.contract_refresh_amount or 0 }}"></div>
+                                                            <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}"></div>
+                                                            <div class="form-group full"><label>Картинка предмета</label>{% if item.image_url %}<div class="case-image-preview case-image-preview--small"><img src="{{ item.image_url }}" alt="{{ item.name }}"></div>{% endif %}<input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><input type="hidden" name="image_url" value="{{ item.image_url or '' }}"></div>
+                                                            <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="2">{{ item.description or '' }}</textarea></div>
+                                                            <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" {% if item.is_active %}checked{% endif %}><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
+                                                        </div>
+                                                    </form>
+                                                    <div class="prize-card-actions">
+                                                        <button type="submit" class="btn" form="case-item-update-{{ item.id }}">Сохранить предмет</button>
+                                                        <form method="POST" action="{{ url_for('owner.case_item_delete', case_id=case.id, item_id=item.id) }}" data-case-item-delete data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}"><button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот предмет?')">Удалить</button></form>
+                                                    </div>
+                                                    <div class="case-inline-status" data-case-item-status></div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </section>
+                                </aside>
+                            </div>
                         </div>
 
-                        <details style="margin-top: 12px;">
-                            <summary style="cursor:pointer; font-weight:800; color: var(--accent-strong);">+ Добавить предмет в кейс</summary>
-                            <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" style="margin-top: 10px;" data-case-item-add-form data-no-loading data-case-id="{{ case.id }}">
-                                <div class="case-item-grid">
-                                    <div class="form-group">
-                                        <label>Название</label>
-                                        <input class="form-input" type="text" name="name" required>
+                        <div class="case-item-add-dialog" id="caseItemAddDialog{{ case.id }}" data-case-item-add-dialog data-case-id="{{ case.id }}" hidden>
+                            <div class="case-item-add-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="caseItemAddTitle{{ case.id }}" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch>
+                                <div class="case-item-add-dialog__header">
+                                    <div>
+                                        <h3 id="caseItemAddTitle{{ case.id }}">Добавить предмет</h3>
+                                        <p>Настройте награду и вероятность её выпадения из кейса.</p>
                                     </div>
-                                    <div class="form-group">
-                                        <label>Шанс, %</label>
-                                        <input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Группа описания</label>
-                                        <select class="form-input" name="rarity_label">
-                                            <option value="Обычный" selected>Обычный</option>
-                                            <option value="Редкий">Редкий</option>
-                                            <option value="Очень редкий">Очень редкий</option>
-                                            <option value="Ультра редкий">Ультра редкий</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>КБ</label>
-                                        <input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="0">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Жетоны</label>
-                                        <input class="form-input" type="number" name="token_amount" min="0" step="1" value="0">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Обновления контрактов</label>
-                                        <input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="0">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Порядок</label>
-                                        <input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ case_items|length + 1 }}">
-                                    </div>
-                                    <div class="form-group full">
-                                        <label>Картинка предмета</label>
-                                        <input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp">
-                                        <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                                        <input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка">
-                                    </div>
-                                    <div class="form-group full">
-                                        <label>Описание</label>
-                                        <textarea class="form-input" name="description" rows="2"></textarea>
-                                    </div>
-                                    <div class="form-group full">
-                                        <label class="form-check">
-                                            <input type="checkbox" class="form-check-input" name="is_active" value="1" checked>
-                                            <span class="form-check-box" aria-hidden="true"></span>
-                                            <span class="form-check-text">Предмет активен</span>
-                                        </label>
-                                    </div>
+                                    <button type="button" class="case-item-add-dialog__close" data-close-case-item-add aria-label="Закрыть">×</button>
                                 </div>
-                                <div class="actions">
-                                    <button type="submit" class="btn">Добавить предмет</button>
-                                </div>
-                                <div class="case-inline-status" data-case-add-status></div>
-                            </form>
-                        </details>
+                                <form class="case-item-add-dialog__form" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" data-case-item-add-form data-no-loading data-case-id="{{ case.id }}">
+                                    <div class="case-item-grid">
+                                        <div class="form-group"><label>Название предмета</label><input class="form-input" type="text" name="name" placeholder="Например: 500 КБ" required></div>
+                                        <div class="form-group"><label>Шанс выпадения, %</label><input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" placeholder="0,0001–100" required></div>
+                                        <div class="form-group"><label>Группа описания</label><select class="form-input" name="rarity_label"><option value="Обычный">Обычный</option><option value="Редкий">Редкий</option><option value="Очень редкий">Очень редкий</option><option value="Ультра редкий">Ультра редкий</option></select></div>
+                                        <div class="form-group"><label>КБ</label><input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="0"></div>
+                                        <div class="form-group"><label>Жетоны</label><input class="form-input" type="number" name="token_amount" min="0" step="1" value="0"></div>
+                                        <div class="form-group"><label>Обновления контрактов</label><input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="0"></div>
+                                        <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ case_items|length + 1 }}"></div>
+                                        <div class="form-group full"><label>Картинка предмета</label><input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><div class="muted" style="margin: 6px 0;">JPG, PNG или WEBP до 5 МБ.</div></div>
+                                        <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="3" placeholder="Короткое описание награды"></textarea></div>
+                                        <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" checked><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
+                                    </div>
+                                    <div class="case-inline-status" data-case-add-status></div>
+                                    <div class="actions">
+                                        <button type="button" class="btn" data-close-case-item-add>Отмена</button>
+                                        <button type="submit" class="btn btn-primary">Добавить предмет</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
 
-                        <div class="prize-card-actions">
-                            <button type="submit" class="btn" form="case-update-{{ case.id }}">Сохранить кейс</button>
-                            <form method="POST" action="{{ url_for('owner.case_delete', case_id=case.id) }}">
-                                <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот кейс со всеми предметами?')">Удалить кейс</button>
-                            </form>
+                        <div class="prize-card-actions case-workspace-footer">
+                            <form method="POST" action="{{ url_for('owner.case_delete', case_id=case.id) }}"><button type="submit" class="btn btn-danger" onclick="return confirm('Удалить этот кейс со всеми предметами?')">Удалить кейс</button></form>
+                            <span class="case-workspace-footer__spacer"></span>
+                            <button type="button" class="btn" data-close-case-config>Отмена</button>
+                            <button type="submit" class="btn btn-primary" form="case-update-{{ case.id }}">Сохранить кейс</button>
                         </div>
                     </div>
                 </div>
@@ -644,7 +1268,6 @@
                     <label for="add_case_file">Картинка кейса</label>
                     <input class="form-input" type="file" id="add_case_file" name="image_file" accept="image/png,image/jpeg,image/webp">
                     <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                    <input class="form-input" type="text" id="add_case_image" name="image_url" placeholder="или внешняя https:// ссылка">
                 </div>
                 <div class="form-group full">
                     <label for="add_case_description">Описание</label>
@@ -721,6 +1344,30 @@
             button.addEventListener('click', () => openModal(document.getElementById(button.dataset.openCaseConfig)));
         });
 
+        function openCaseItemAddDialog(dialog) {
+            if (!dialog) return;
+            dialog.hidden = false;
+            dialog.querySelector('input[name="name"]')?.focus();
+        }
+
+        function closeCaseItemAddDialog(dialog) {
+            if (!dialog) return;
+            dialog.hidden = true;
+        }
+
+        document.querySelectorAll('[data-open-case-item-add]').forEach((button) => {
+            button.addEventListener('click', () => openCaseItemAddDialog(document.getElementById(button.dataset.openCaseItemAdd)));
+        });
+
+        document.querySelectorAll('[data-case-item-add-dialog]').forEach((dialog) => {
+            dialog.querySelectorAll('[data-close-case-item-add]').forEach((button) => {
+                button.addEventListener('click', () => closeCaseItemAddDialog(dialog));
+            });
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog) closeCaseItemAddDialog(dialog);
+            });
+        });
+
         modals.forEach((modal) => {
             modal.addEventListener('wheel', stopModalBackgroundScroll, { passive: false });
             modal.addEventListener('touchmove', stopModalBackgroundScroll, { passive: false });
@@ -790,17 +1437,99 @@
             sortSelectorOptions(selector);
         }
 
+        function updateCaseProbabilityTotal(caseId) {
+            const rows = Array.from(document.querySelectorAll(`[data-case-table-row][data-case-id="${caseId}"]`));
+            const total = rows.reduce((sum, row) => {
+                const active = row.querySelector('input[name="is_active"]')?.checked;
+                const probability = Number(row.querySelector('input[name="probability"]')?.value || 0);
+                return active ? sum + probability : sum;
+            }, 0);
+            const label = document.querySelector(`#caseItems${caseId} [data-case-probability-total]`);
+            if (!label) return;
+            label.textContent = `Сумма шансов: ${total.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`;
+            label.classList.toggle('is-ok', Math.abs(total - 100) < 0.06);
+            label.classList.toggle('is-bad', Math.abs(total - 100) >= 0.06);
+        }
+
+        function selectCaseItem(caseId, itemId) {
+            const selector = document.querySelector(`[data-case-item-selector][data-case-id="${caseId}"]`);
+            if (selector && selector.value !== String(itemId)) selector.value = String(itemId);
+            document.querySelectorAll(`[data-case-item-editor][data-case-id="${caseId}"]`).forEach((editor) => {
+                editor.hidden = editor.dataset.itemId !== String(itemId);
+            });
+            document.querySelectorAll(`[data-case-table-row][data-case-id="${caseId}"]`).forEach((row) => {
+                row.classList.toggle('is-selected', row.dataset.itemId === String(itemId));
+            });
+            const selectedRow = document.querySelector(`[data-case-table-row][data-case-id="${caseId}"][data-item-id="${itemId}"]`);
+            const title = selectedRow?.querySelector('input[name="name"]')?.value
+                || selector?.selectedOptions?.[0]?.dataset.name
+                || 'Редактирование предмета';
+            const panel = selector?.closest('.case-item-editor-panel');
+            const heading = panel?.querySelector('[data-case-item-editor-title]');
+            if (heading) heading.textContent = title;
+        }
+
         function bindItemSelector(selector) {
-            selector.addEventListener('change', () => {
-                const caseId = selector.dataset.caseId;
-                const itemId = selector.value;
-                document.querySelectorAll(`[data-case-item-editor][data-case-id="${caseId}"]`).forEach((editor) => {
-                    editor.hidden = editor.dataset.itemId !== itemId;
+            selector.addEventListener('change', () => selectCaseItem(selector.dataset.caseId, selector.value));
+        }
+
+        function bindTableRow(row) {
+            row.addEventListener('click', () => selectCaseItem(row.dataset.caseId, row.dataset.itemId));
+            row.querySelectorAll('input, select').forEach((control) => {
+                control.addEventListener('input', () => {
+                    if (control.name === 'name') row.dataset.itemName = control.value.toLocaleLowerCase('ru');
+                    if (control.name === 'probability' || control.name === 'is_active') {
+                        updateCaseProbabilityTotal(row.dataset.caseId);
+                    }
                 });
             });
         }
 
         document.querySelectorAll('[data-case-item-selector]').forEach(bindItemSelector);
+        document.querySelectorAll('[data-case-table-row]').forEach(bindTableRow);
+
+        document.querySelectorAll('[data-case-item-search]').forEach((input) => {
+            input.addEventListener('input', () => {
+                const query = input.value.trim().toLocaleLowerCase('ru');
+                document.querySelectorAll(`[data-case-table-row][data-case-id="${input.dataset.caseItemSearch}"]`).forEach((row) => {
+                    row.hidden = Boolean(query) && !row.dataset.itemName.includes(query);
+                });
+            });
+        });
+
+        document.querySelectorAll('.case-workspace').forEach((workspace) => {
+            workspace.querySelectorAll('[data-case-preview-source]').forEach((control) => {
+                const sync = () => {
+                    const key = control.dataset.casePreviewSource;
+                    const target = workspace.querySelector(`[data-case-preview="${key}"]`);
+                    if (target) target.textContent = control.value || (key === 'badge' ? 'Кейс' : key === 'description' ? 'Кейс с настраиваемыми предметами' : '0');
+                    if (key === 'color') {
+                        const badge = workspace.querySelector('[data-case-preview="badge"]');
+                        if (badge) badge.style.setProperty('--preview-badge', control.value);
+                    }
+                    if (key === 'name') {
+                        const heading = workspace.querySelector('.case-workspace-header__copy h2');
+                        if (heading) heading.textContent = `Настроить кейс: ${control.value || 'Без названия'}`;
+                    }
+                    if (key === 'active') {
+                        const status = workspace.querySelector('.case-workspace-header__status');
+                        status?.classList.toggle('prize-active-badge--off', !control.checked);
+                        if (status) status.textContent = control.checked ? 'активен' : 'выключен';
+                    }
+                };
+                control.addEventListener(control.type === 'checkbox' ? 'change' : 'input', sync);
+            });
+
+            const coverFile = workspace.querySelector('[data-case-cover-file]');
+            coverFile?.addEventListener('change', () => {
+                const file = coverFile.files?.[0];
+                if (!file) return;
+                const url = URL.createObjectURL(file);
+                [workspace.querySelector('[data-case-cover-preview]'), workspace.querySelector('[data-case-preview-image]')]
+                    .filter(Boolean)
+                    .forEach((image) => { image.src = url; image.hidden = false; });
+            });
+        });
 
         function buildItemEditor(caseId, item, updateAction, deleteAction) {
             const row = document.createElement('div');
@@ -843,20 +1572,20 @@
                         </div>
                         <div class="form-group full">
                             <label>Картинка предмета</label>
-                            ${item.image_url ? `<div class="case-image-preview case-image-preview--small"><img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}"><label class="form-check"><input type="checkbox" class="form-check-input" name="remove_image" value="1"><span class="form-check-box" aria-hidden="true"></span><span class="form-check-text">Удалить текущую картинку</span></label></div>` : ''}
+                            ${item.image_url ? `<div class="case-image-preview case-image-preview--small"><img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}"></div>` : ''}
                             <input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp">
                             <div class="muted" style="margin: 6px 0;">JPG/PNG/WEBP до 5 МБ. Файл автоматически сожмётся в WEBP.</div>
-                            <input class="form-input" type="text" name="image_url" value="${escapeHtml(item.image_url || '')}" placeholder="или внешняя https:// ссылка">
+                            <input type="hidden" name="image_url" value="${escapeHtml(item.image_url || '')}">
                         </div>
                         <div class="form-group full">
                             <label>Описание</label>
                             <textarea class="form-input" name="description" rows="2">${escapeHtml(item.description || '')}</textarea>
                         </div>
                         <div class="form-group full">
-                            <label class="form-check">
-                                <input type="checkbox" class="form-check-input" name="is_active" value="1" ${item.is_active ? 'checked' : ''}>
-                                <span class="form-check-box" aria-hidden="true"></span>
-                                <span class="form-check-text">Предмет активен</span>
+                            <label class="case-toggle">
+                                <input type="checkbox" name="is_active" value="1" ${item.is_active ? 'checked' : ''}>
+                                <span class="case-toggle__track" aria-hidden="true"></span>
+                                <span class="case-toggle__label">Предмет активен</span>
                             </label>
                         </div>
                     </div>
@@ -872,6 +1601,64 @@
             return row;
         }
 
+        function buildInlineTableRow(caseId, item, updateAction, index) {
+            const row = document.createElement('tr');
+            const formId = `case-inline-item-${item.id}`;
+            const rarityOptions = ['Обычный', 'Редкий', 'Очень редкий', 'Ультра редкий']
+                .map((rarity) => `<option value="${rarity}" ${item.rarity_label === rarity ? 'selected' : ''}>${rarity}</option>`)
+                .join('');
+            row.dataset.caseTableRow = '';
+            row.dataset.caseId = String(caseId);
+            row.dataset.itemId = String(item.id);
+            row.dataset.itemName = String(item.name || '').toLocaleLowerCase('ru');
+            row.innerHTML = `
+                <td class="case-table-number">${index}</td>
+                <td><div class="case-table-item">${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="">` : '<span class="case-table-item__fallback">◇</span>'}<input class="case-table-input" type="text" name="name" value="${escapeHtml(item.name)}" form="${formId}" aria-label="Название предмета" required></div></td>
+                <td><select class="case-table-select" name="rarity_label" form="${formId}" aria-label="Редкость">${rarityOptions}</select></td>
+                <td><input class="case-table-input" type="number" name="probability" min="0.0001" step="0.0001" value="${item.probability}" form="${formId}" aria-label="Шанс выпадения" required></td>
+                <td><input class="case-table-input" type="number" name="bonus_amount" min="0" step="1" value="${item.bonus_amount || 0}" form="${formId}" aria-label="Количество КБ"></td>
+                <td><input class="case-table-input" type="number" name="token_amount" min="0" step="1" value="${item.token_amount || 0}" form="${formId}" aria-label="Количество жетонов"></td>
+                <td><input class="case-table-input" type="number" name="sort_order" min="0" step="1" value="${item.sort_order || index}" form="${formId}" aria-label="Порядок"></td>
+                <td><label class="case-toggle case-table-toggle"><input type="checkbox" name="is_active" value="1" form="${formId}" ${item.is_active ? 'checked' : ''} aria-label="Предмет активен"><span class="case-toggle__track" aria-hidden="true"></span></label></td>
+                <td><form id="${formId}" method="POST" action="${escapeHtml(updateAction)}" data-case-inline-form data-no-loading data-case-id="${caseId}" data-item-id="${item.id}"><input type="hidden" name="description" value="${escapeHtml(item.description || '')}"><input type="hidden" name="image_url" value="${escapeHtml(item.image_url || '')}"><input type="hidden" name="contract_refresh_amount" value="${item.contract_refresh_amount || 0}"></form><button class="case-table-save" type="submit" form="${formId}">Сохранить</button><div class="case-table-status" data-case-inline-status></div></td>
+            `;
+            bindTableRow(row);
+            return row;
+        }
+
+        function syncItemControls(caseId, item) {
+            const values = {
+                name: item.name || '',
+                probability: item.probability,
+                rarity_label: item.rarity_label || 'Обычный',
+                bonus_amount: item.bonus_amount || 0,
+                token_amount: item.token_amount || 0,
+                contract_refresh_amount: item.contract_refresh_amount || 0,
+                sort_order: item.sort_order || 0,
+                description: item.description || '',
+                image_url: item.image_url || '',
+                is_active: Boolean(item.is_active),
+            };
+            const forms = [
+                document.getElementById(`case-inline-item-${item.id}`),
+                document.getElementById(`case-item-update-${item.id}`),
+            ].filter(Boolean);
+            forms.forEach((form) => {
+                Object.entries(values).forEach(([name, value]) => {
+                    const field = form.elements.namedItem(name);
+                    if (!field || field.type === 'file') return;
+                    if (field.type === 'checkbox') field.checked = value;
+                    else field.value = value;
+                });
+            });
+            const row = document.querySelector(`[data-case-table-row][data-case-id="${caseId}"][data-item-id="${item.id}"]`);
+            if (row) row.dataset.itemName = String(item.name || '').toLocaleLowerCase('ru');
+            const selector = document.querySelector(`[data-case-item-selector][data-case-id="${caseId}"]`);
+            refreshOption(selector, item);
+            selectCaseItem(caseId, item.id);
+            updateCaseProbabilityTotal(caseId);
+        }
+
         async function submitCaseItemForm(form) {
             const row = form.closest('[data-case-item-editor]');
             if (!row) return;
@@ -885,8 +1672,7 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось сохранить предмет');
-                const selector = document.querySelector(`[data-case-item-selector][data-case-id="${form.dataset.caseId}"]`);
-                refreshOption(selector, data.item);
+                syncItemControls(form.dataset.caseId, data.item);
                 setStatus(row, data.message || 'Сохранено', 'ok');
             } catch (error) {
                 setStatus(row, error.message || 'Ошибка сохранения', 'error');
@@ -895,9 +1681,41 @@
             }
         }
 
+        async function submitCaseInlineForm(form) {
+            const row = form.closest('tr');
+            const status = row?.querySelector('[data-case-inline-status]');
+            if (!row) return;
+            row.classList.add('is-saving');
+            if (status) {
+                status.textContent = 'Сохраняем…';
+                status.style.color = '';
+            }
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) throw new Error(data.message || 'Не удалось сохранить предмет');
+                syncItemControls(form.dataset.caseId, data.item);
+                if (status) {
+                    status.textContent = 'Сохранено';
+                    status.style.color = '';
+                }
+            } catch (error) {
+                if (status) {
+                    status.textContent = error.message || 'Ошибка';
+                    status.style.color = '#ff8b8b';
+                }
+            } finally {
+                row.classList.remove('is-saving');
+            }
+        }
+
         async function submitCaseItemAddForm(form) {
             const caseId = form.dataset.caseId;
-            const details = form.closest('details');
+            const dialog = form.closest('[data-case-item-add-dialog]');
             setStatus(form, 'Добавляем...', '');
             try {
                 const response = await fetch(form.action, {
@@ -921,12 +1739,17 @@
                 }
 
                 refreshOption(selector, data.item);
-                const row = buildItemEditor(caseId, data.item, `${form.action.replace(/\/add$/, '')}/${data.item.id}/update`, `${form.action.replace(/\/add$/, '')}/${data.item.id}/delete`);
+                const updateAction = `${form.action.replace(/\/add$/, '')}/${data.item.id}/update`;
+                const deleteAction = `${form.action.replace(/\/add$/, '')}/${data.item.id}/delete`;
+                const row = buildItemEditor(caseId, data.item, updateAction, deleteAction);
                 compact.appendChild(row);
+                const tableBody = document.querySelector(`[data-case-items-table="${caseId}"] tbody`);
+                if (tableBody) tableBody.appendChild(buildInlineTableRow(caseId, data.item, updateAction, tableBody.rows.length + 1));
                 selector.dispatchEvent(new Event('change'));
                 form.reset();
-                if (details) details.open = false;
+                closeCaseItemAddDialog(dialog);
                 setStatus(row, data.message || 'Предмет добавлен', 'ok');
+                updateCaseProbabilityTotal(caseId);
             } catch (error) {
                 setStatus(form, error.message || 'Ошибка добавления', 'error');
             }
@@ -949,10 +1772,12 @@
                 const option = selector ? selector.querySelector(`option[value="${form.dataset.itemId}"]`) : null;
                 if (option) option.remove();
                 row.remove();
+                document.querySelector(`[data-case-table-row][data-case-id="${form.dataset.caseId}"][data-item-id="${form.dataset.itemId}"]`)?.remove();
                 if (selector && selector.options.length) {
                     selector.value = selector.options[0].value;
                     selector.dispatchEvent(new Event('change'));
                 }
+                updateCaseProbabilityTotal(form.dataset.caseId);
             } catch (error) {
                 row.classList.remove('is-saving');
                 setStatus(row, error.message || 'Ошибка удаления', 'error');
@@ -961,9 +1786,13 @@
 
         document.addEventListener('submit', (event) => {
             const itemForm = event.target.closest('[data-case-item-form]');
+            const inlineForm = event.target.closest('[data-case-inline-form]');
             const addForm = event.target.closest('[data-case-item-add-form]');
             const deleteForm = event.target.closest('[data-case-item-delete]');
-            if (itemForm) {
+            if (inlineForm) {
+                event.preventDefault();
+                submitCaseInlineForm(inlineForm);
+            } else if (itemForm) {
                 event.preventDefault();
                 submitCaseItemForm(itemForm);
             } else if (addForm) {
@@ -977,6 +1806,11 @@
 
         document.addEventListener('keydown', (event) => {
             if (event.key !== 'Escape') return;
+            const itemDialog = Array.from(document.querySelectorAll('[data-case-item-add-dialog]')).find((dialog) => !dialog.hidden);
+            if (itemDialog) {
+                closeCaseItemAddDialog(itemDialog);
+                return;
+            }
             const opened = modals.filter((modal) => modal.classList.contains('is-open'));
             closeModal(opened[opened.length - 1]);
         });

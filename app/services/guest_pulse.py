@@ -113,11 +113,18 @@ def calculate_club(sources, now, previous=None, historical=False):
         f = visit_features(visits, now)
         if not f["visits_total"]:
             continue
-        topups = [
+        topups_90d = [
             float(t["amount"]) for t in grouped["topups"][gid] if now - timedelta(days=90) <= t["topup_at"] <= now
         ]
+        topups_30d = [
+            float(t["amount"]) for t in grouped["topups"][gid] if now - timedelta(days=30) <= t["topup_at"] <= now
+        ]
         f.update(
-            guest_id=gid, revenue_90d=sum(topups), avg_check_90d=sum(topups) / f["visits_90d"] if f["visits_90d"] else 0
+            guest_id=gid,
+            revenue_30d=sum(topups_30d),
+            avg_check_30d=sum(topups_30d) / f["visits_30d"] if f["visits_30d"] else 0,
+            revenue_90d=sum(topups_90d),
+            avg_check_90d=sum(topups_90d) / f["visits_90d"] if f["visits_90d"] else 0,
         )
         h = health(f)
         events = grouped["events"][gid]
@@ -154,7 +161,19 @@ def calculate_club(sources, now, previous=None, historical=False):
     for row in result:
         row["value"] = {
             **value[row["guest_id"]],
-            **{k: row["visits"][k] for k in ("revenue_90d", "played_hours_90d", "visits_90d", "avg_check_90d")},
+            **{
+                k: row["visits"][k]
+                for k in (
+                    "revenue_30d",
+                    "played_hours_30d",
+                    "visits_30d",
+                    "avg_check_30d",
+                    "revenue_90d",
+                    "played_hours_90d",
+                    "visits_90d",
+                    "avg_check_90d",
+                )
+            },
         }
         row["overall"] = overall_score(row)
         row["audience_type"] = audience(row)

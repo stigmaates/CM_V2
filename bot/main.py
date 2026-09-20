@@ -670,6 +670,10 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    from app.services.outbound_policy import ensure_guest_bot_allowed
+
+    ensure_guest_bot_allowed()
+
     builder = ApplicationBuilder().token(BOT_TOKEN)
 
     if TG_PROXY_URL:

@@ -11,6 +11,7 @@ const crmFunnelPeriodBtns = Array.from(document.querySelectorAll(".crm-funnel-pe
 const crmFunnelCustomPeriodEl = document.getElementById("crmFunnelCustomPeriod");
 const crmFunnelDateFromEl = document.getElementById("crmFunnelDateFrom");
 const crmFunnelDateToEl = document.getElementById("crmFunnelDateTo");
+const crmFunnelPeriodLabelEl = document.getElementById("crmFunnelPeriodLabel");
 const crmCampaignModal = document.getElementById("crmCampaignModal");
 const crmCampaignBackdrop = document.getElementById("crmCampaignBackdrop");
 const crmCampaignClose = document.getElementById("crmCampaignClose");
@@ -90,6 +91,18 @@ function crmFormatDateTime(value) {
     const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
     if (!match) return value;
     return `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}`;
+}
+
+function crmCohortIcon(kind) {
+    const paths = {
+        audience: '<path d="M16 20v-1.7c0-2.4-2.2-4.3-5-4.3s-5 1.9-5 4.3V20M11 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM17 12c2.2 0 4 1.5 4 3.4V17M16.5 4.4a3.2 3.2 0 0 1 0 6.2"/>',
+        wallet: '<path d="M4 7.5h14a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11M15 12h5v4h-5a2 2 0 1 1 0-4Z"/>',
+        duration: '<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/>',
+        frequency: '<path d="M5 19v-5M10 19V9M15 19V5M20 19V11"/>',
+        night: '<path d="M19 15.5A8 8 0 0 1 8.5 5 8 8 0 1 0 19 15.5Z"/>',
+        calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h.01M12 14h.01M16 14h.01"/>',
+    };
+    return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind] || paths.frequency}</svg>`;
 }
 
 function crmFormatStatus(status) {
@@ -376,31 +389,34 @@ function crmSetFunnelPeriod(period) {
 function crmRenderAnalysis(analysis) {
     const audience = analysis.audience || {};
     crmAnalysisAudienceEl.innerHTML = `
-        <span>Гостей</span>
-        <strong>${audience.total || 0}</strong>
-        <small>${audience.telegram || 0} с Telegram · ${audience.telegram_percent || 0}%</small>
+        <span class="crm-analysis-audience-icon" aria-hidden="true">${crmCohortIcon("audience")}</span>
+        <div><span>Всего гостей в когорте</span>
+        <strong>${crmEscapeHtml(audience.total || 0)}</strong>
+        <small>${crmEscapeHtml(audience.telegram || 0)} с Telegram · ${crmEscapeHtml(audience.telegram_percent || 0)}%</small></div>
     `;
+    if (crmFunnelPeriodLabelEl) crmFunnelPeriodLabelEl.textContent = analysis.funnel_period_label || "";
 
     const funnel = analysis.funnel || [];
+    const firstStepCount = Number(funnel[0]?.count || 0);
     crmAnalysisFunnelEl.innerHTML = funnel.length
         ? `<div class="crm-funnel-bars">${funnel.map((item, index) => `
-            <div class="crm-funnel-step" style="--bar-height:${item.height}%">
+            <div class="crm-funnel-step" style="--bar-height:${Math.max(8, Math.min(100, Number(item.height) || 0))}%">
                 <div class="crm-funnel-bar-wrap">
-                    <div class="crm-funnel-count">${item.count}</div>
+                    <div class="crm-funnel-value"><strong>${crmEscapeHtml(item.count)}</strong><span>${firstStepCount ? crmEscapeHtml(Math.round(Number(item.count || 0) / firstStepCount * 1000) / 10) : 0}%</span></div>
                     <div class="crm-funnel-bar"></div>
                 </div>
-                <strong>${item.step}</strong>
-                <small>визит</small>
-                ${index < funnel.length - 1 ? `<em>${item.gap_to_next === null ? "—" : item.gap_to_next + " дн."}</em>` : ""}
+                <strong>${crmEscapeHtml(item.step)}-й визит</strong>
+                <small>${index < funnel.length - 1 && item.gap_to_next !== null ? `${crmEscapeHtml(item.gap_to_next)} дн. до ${Number(item.step) + 1}-го` : "—"}</small>
             </div>
         `).join("")}</div>`
         : `<div class="empty-state">По выбранной когорте пока нет визитов.</div>`;
 
-    crmAnalysisMetricsEl.innerHTML = (analysis.metrics || []).map((item) => `
-        <article class="crm-analysis-metric">
-            <span>${item.label}</span>
-            <strong>${item.value}</strong>
-            <small>${item.hint || ""}</small>
+    const metricIcons = ["wallet", "duration", "frequency", "night", "calendar"];
+    crmAnalysisMetricsEl.innerHTML = (analysis.metrics || []).map((item, index) => `
+        <article class="crm-analysis-metric crm-analysis-metric--${index + 1}">
+            <header><span class="crm-analysis-metric-icon">${crmCohortIcon(metricIcons[index])}</span><span>${crmEscapeHtml(item.label)}</span></header>
+            <strong>${crmEscapeHtml(item.value)}</strong>
+            <small>${crmEscapeHtml(item.hint || "")}</small>
         </article>
     `).join("");
 }
@@ -668,7 +684,7 @@ function crmOpenPulseInteraction(key) {
     if (!group) return;
     crmActivePulseGroup = group;
     crmPulseTitle.textContent = `${group.old_label} → ${group.new_label}`;
-    crmPulseSubtitle.textContent = group.source === "guest_pulse" ? "Пульс гостя · выбранная аудитория" : "Пульс базы";
+    crmPulseSubtitle.textContent = group.source === "guest_pulse" ? "Пульс гостя · выбранная аудитория" : "Пульс гостя";
     if (crmPulseDismiss) crmPulseDismiss.hidden = group.source === "guest_pulse";
     crmPulseMessage.value = "";
     crmPulseBonusAmount.value = "0";
@@ -931,3 +947,167 @@ window.crmOpenGuestPulseInteraction = function(group) {
     else crmPulseGroups.push(group);
     crmOpenPulseInteraction(group.key);
 };
+
+(() => {
+    const form = document.querySelector("[data-heatmap-date-range]");
+    const root = document.querySelector("[data-heatmap-period]");
+    if (!form || !root) return;
+
+    const range = window.CRM_HEATMAP_RANGE || {};
+    const today = range.today;
+    const fromInput = document.getElementById("heatmapDateFrom");
+    const toInput = document.getElementById("heatmapDateTo");
+    const trigger = document.getElementById("heatmapCalendarTrigger");
+    const popover = document.getElementById("heatmapCalendarPopover");
+    const calendars = document.getElementById("heatmapCalendars");
+    const applyButton = document.getElementById("heatmapCalendarApply");
+    let calendarView = null;
+    let calendarFrom = null;
+    let calendarTo = null;
+
+    function parseDate(value) {
+        return value ? new Date(`${value}T12:00:00Z`) : null;
+    }
+
+    function isoDate(value) {
+        return value.toISOString().slice(0, 10);
+    }
+
+    function monthStart(value) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1, 12));
+    }
+
+    function addMonths(value, amount) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + amount, 1, 12));
+    }
+
+    function formatDate(value) {
+        if (!value) return "—";
+        const [year, month, day] = value.split("-");
+        return `${day}.${month}.${year}`;
+    }
+
+    function presetStart(preset) {
+        const value = parseDate(today);
+        if (preset === "month") value.setUTCDate(1);
+        else value.setUTCDate(value.getUTCDate() - 6);
+        return isoDate(value);
+    }
+
+    function setActivePreset() {
+        if (!today || !fromInput.value || !toInput.value) return;
+        const preset = toInput.value === today
+            ? (["week", "month"].find((name) => fromInput.value === presetStart(name)) || null)
+            : null;
+        root.querySelectorAll("[data-heatmap-preset]").forEach((button) => {
+            const active = button.dataset.heatmapPreset === preset;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-pressed", String(active));
+        });
+        trigger.classList.toggle("is-active", !preset);
+        document.getElementById("heatmapPeriodSummary").textContent =
+            `${formatDate(fromInput.value)} — ${formatDate(toInput.value)}`;
+    }
+
+    function monthMarkup(firstDay) {
+        const monthNames = [
+            "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+            "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+        ];
+        const year = firstDay.getUTCFullYear();
+        const month = firstDay.getUTCMonth();
+        const offset = (firstDay.getUTCDay() + 6) % 7;
+        const dayCount = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+        const cells = Array.from({length: offset}, () => '<span class="team-calendar-day is-empty"></span>');
+        for (let day = 1; day <= dayCount; day += 1) {
+            const value = isoDate(new Date(Date.UTC(year, month, day, 12)));
+            const classes = ["team-calendar-day"];
+            if (value === today) classes.push("is-today");
+            if (value === calendarFrom) classes.push("is-start");
+            if (value === calendarTo) classes.push("is-end");
+            if (calendarFrom && calendarTo && value > calendarFrom && value < calendarTo) classes.push("is-range");
+            cells.push(`<button class="${classes.join(" ")}" type="button" data-heatmap-calendar-date="${value}"${value > today ? " disabled" : ""}>${day}</button>`);
+        }
+        return `<section class="team-calendar-month">
+            <h3>${monthNames[month]} ${year}</h3>
+            <div class="team-calendar-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+            <div class="team-calendar-days">${cells.join("")}</div>
+        </section>`;
+    }
+
+    function renderCalendars() {
+        calendars.innerHTML = monthMarkup(calendarView) + monthMarkup(addMonths(calendarView, 1));
+        document.getElementById("heatmapCalendarFrom").textContent = formatDate(calendarFrom);
+        document.getElementById("heatmapCalendarTo").textContent = formatDate(calendarTo);
+        applyButton.disabled = !(calendarFrom && calendarTo);
+        const currentMonth = monthStart(parseDate(today));
+        document.getElementById("heatmapCalendarNext").disabled = addMonths(calendarView, 1) >= currentMonth;
+    }
+
+    function openCalendar() {
+        calendarFrom = fromInput.value || null;
+        calendarTo = toInput.value || null;
+        calendarView = addMonths(monthStart(parseDate(calendarTo || today)), -1);
+        renderCalendars();
+        popover.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+    }
+
+    function closeCalendar() {
+        popover.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+    }
+
+    function selectCalendarDate(value) {
+        if (!calendarFrom || calendarTo) {
+            calendarFrom = value;
+            calendarTo = null;
+        } else if (value < calendarFrom) {
+            calendarFrom = value;
+        } else {
+            calendarTo = value;
+        }
+        renderCalendars();
+    }
+
+    setActivePreset();
+    root.querySelectorAll("[data-heatmap-preset]").forEach((button) => {
+        button.addEventListener("click", () => {
+            fromInput.value = presetStart(button.dataset.heatmapPreset);
+            toInput.value = today;
+            closeCalendar();
+            setActivePreset();
+            form.requestSubmit();
+        });
+    });
+    trigger.addEventListener("click", () => {
+        if (popover.hidden) openCalendar();
+        else closeCalendar();
+    });
+    document.getElementById("heatmapCalendarPrev").addEventListener("click", () => {
+        calendarView = addMonths(calendarView, -1);
+        renderCalendars();
+    });
+    document.getElementById("heatmapCalendarNext").addEventListener("click", () => {
+        calendarView = addMonths(calendarView, 1);
+        renderCalendars();
+    });
+    calendars.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-heatmap-calendar-date]");
+        if (button && !button.disabled) selectCalendarDate(button.dataset.heatmapCalendarDate);
+    });
+    applyButton.addEventListener("click", () => {
+        if (!calendarFrom || !calendarTo) return;
+        fromInput.value = calendarFrom;
+        toInput.value = calendarTo;
+        closeCalendar();
+        setActivePreset();
+        form.requestSubmit();
+    });
+    document.addEventListener("click", (event) => {
+        if (!event.composedPath().includes(root)) closeCalendar();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !popover.hidden) closeCalendar();
+    });
+})();

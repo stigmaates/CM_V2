@@ -10,14 +10,19 @@ def test_demo_owner_pages_render_without_authentication():
         ("/demo/cases", "Добавить кейс"),
         ("/demo/guest-pulse", "Отклонения от нормы"),
         ("/demo/cohorts", "Период воронки"),
+        ("/demo/communications", "Аналитика коммуникаций"),
         ("/demo/heatmaps", "Тепловая карта по ПК"),
+        ("/demo/promotions", "Настройте бонусы за пополнение"),
         ("/demo/team", "Возвращаемость новых гостей"),
         ("/demo/mailings", "Ручная рассылка"),
         ("/demo/missions", "Задания клуба"),
     ):
         response = client.get(path)
         assert response.status_code == 200
-        assert marker in response.get_data(as_text=True)
+        html = response.get_data(as_text=True)
+        assert marker in html
+        assert "ДЕМО-РЕЖИМ" in html
+        assert 'href="/demo/' in html
 
 
 def test_demo_guest_case_opening_uses_session_balance_only():

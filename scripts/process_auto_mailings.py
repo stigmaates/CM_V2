@@ -520,6 +520,11 @@ def process_streak_expiring_reminder(conn, setting: dict) -> int:
 
 
 def process_auto_mailings() -> dict:
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return {"created": 0, "processed": [], "skipped": "outbound_disabled"}
+
     conn = get_db_connection()
     total_created = 0
     processed = []

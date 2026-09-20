@@ -1,0 +1,51 @@
+{% extends "owner/base.html" %}
+
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — Акции{% endblock %}
+
+{% block extra_css %}
+<style>
+    .promotions-page {
+        display: grid;
+        gap: 20px;
+    }
+
+    .promotions-heading {
+        padding: 26px 28px;
+    }
+
+    .promotions-heading__eyebrow {
+        margin-bottom: 6px;
+        color: #a572ff;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .promotions-heading h1 {
+        margin: 0;
+        color: var(--text-main);
+        font-size: clamp(26px, 3vw, 34px);
+        line-height: 1.15;
+    }
+
+    .promotions-heading p {
+        margin: 8px 0 0;
+        color: var(--text-muted);
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="content promotions-page">
+    <header class="card promotions-heading">
+        <div class="promotions-heading__eyebrow">Геймификация</div>
+        <h1>Акции</h1>
+        <p>Настройте бонусы за пополнение и награду за первую авторизацию гостя.</p>
+    </header>
+
+    {% set promotions_only = true %}
+    {% include "owner/_settings_wheel.html" %}
+</main>
+{% endblock %}

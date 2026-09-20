@@ -339,10 +339,28 @@ def pulse_client(database, monkeypatch):
 def test_api_filters_counts_and_detail_club_scope(pulse_client):
     data = pulse_client.get("/owner/api/guest-pulse").get_json()
     assert data["ok"] and data["total"] == 1
+    assert "days_since_last_visit" in data["guests"][0]
+    assert "typical_gap_days" in data["guests"][0]
     assert sum(a["count"] for a in data["audiences"]) == data["total"]
     assert all(a["count"] == a["total"] for a in data["audiences"])
     assert pulse_client.get("/owner/api/guest-pulse?health_min=NaN").status_code == 400
     assert pulse_client.get("/owner/api/guest-pulse?metric=invalid").status_code == 400
+    assert pulse_client.get("/owner/api/guest-pulse?deviation_sort=invalid").status_code == 400
+    deviation_sorted = pulse_client.get(
+        "/owner/api/guest-pulse?deviation_sort=overall&deviation_sort_direction=asc"
+    ).get_json()
+    assert deviation_sorted["deviation_sort"] == "overall"
+    assert deviation_sorted["deviation_sort_direction"] == "asc"
+    segmented = pulse_client.get("/owner/api/guest-pulse?segment=high_value_at_risk").get_json()
+    assert segmented["total"] == 0
+    assert sum(audience["count"] for audience in segmented["audiences"]) == 0
+    detail = pulse_client.get("/owner/api/guest-pulse/guests/42").get_json()["guest"]
+    assert detail["visit_pattern"]["period"] in {"День", "Ночь"}
+    assert detail["visit_pattern"]["calendar"] in {"Будни", "Выходные"}
+    assert isinstance(detail["segments"], list)
+    assert detail["value"]["visits_30d"] == 6
+    assert detail["value"]["played_hours_30d"] == 12
+    assert detail["value"]["revenue_30d"] == 0
     assert pulse_client.get("/owner/api/guest-pulse/guests/43").status_code == 404
     with pulse_client.session_transaction() as sess:
         sess["club_id"] = 3
@@ -352,7 +370,40 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
 def test_stage_navigation_and_role_gate(pulse_client):
     response = pulse_client.get("/owner/guest-pulse")
     assert response.status_code == 200
-    assert "Пульс гостя" in response.get_data(as_text=True)
+    html = response.get_data(as_text=True)
+    assert "Пульс гостя" in html
+    assert 'class="gp-audience-cards"' in html
+    assert 'id="gpDistributionTotal"' in html
+    assert 'id="gpDistributionLegend"' in html
+    assert 'id="gpChartSectors"' in html
+    assert 'id="gpChartLabels"' in html
+    assert 'id="gpChartIncludeWithout"' in html
+    assert 'class="gp-chart-column-head"' in html
+    assert "По текущим фильтрам" not in html
+    assert 'id="gpSegments"' in html
+    assert 'id="gpAudienceDialog"' in html
+    assert 'id="gpAudienceSearch"' in html
+    assert 'id="gpAudienceAverage"' in html
+    assert 'id="gpAudienceTelegramPercent"' in html
+    assert 'id="gpAudienceTelegramOnly" checked' in html
+    assert 'id="gpDeviationTelegram" checked' in html
+    assert 'id="gpDeviationDetail"' in html
+    assert 'class="gp-deviation-layout"' in html
+    assert 'id="gpGuestHeaderMeta"' in html
+    assert 'id="gpGuestHeaderScore"' in html
+    assert "Отклонения гостей от личной нормы" in html
+    assert 'class="gp-deviation-title-icon"' not in html
+    assert 'class="gp-deviation-info"' in html
+    assert 'class="gp-deviation-head-actions"' not in html
+    assert html.index('class="gp-deviation-controls"') < html.index('data-range="deviation"')
+    assert 'id="gpAudienceContact"' not in html
+    assert 'data-stat="telegram"' in html
+    assert 'id="gpGuestsPanel"' not in html
+    assert 'id="gpSegment"' not in html
+    assert 'id="gpWithTelegram"' not in html
+    assert 'data-slider="health"' not in html
+    assert 'data-slider="value"' not in html
+    assert 'data-slider="engagement"' not in html
     with pulse_client.session_transaction() as sess:
         sess["role"] = "reception"
     assert pulse_client.get("/owner/api/guest-pulse").status_code == 302
@@ -470,6 +521,10 @@ def test_telegram_counts_and_selection_cover_full_filtered_audience(pulse_client
     assert all(a["telegram_count"] + a["without_telegram_count"] == a["count"] for a in data["audiences"])
     loyal = next(a for a in data["audiences"] if a["key"] == "loyal")
     assert loyal["telegram_count"] == 13 and loyal["without_telegram_count"] == 1
+    assert data["selected_average_score"] is not None
+    assert isinstance(data["guests"][0]["segments"], list)
+    assert "last_visit_date" in data["guests"][0]
+    assert "phone" in data["guests"][0]
     headers = {"X-CSRFToken": "pulse-test-csrf"}
     response = pulse_client.post(
         "/owner/api/guest-pulse/selection",
@@ -479,6 +534,31 @@ def test_telegram_counts_and_selection_cover_full_filtered_audience(pulse_client
     assert response.status_code == 200 and response.get_json()["count"] == 13
     saved = json.loads(sql("SELECT selection_json FROM guest_pulse_selections")[0]["selection_json"])
     assert sorted(saved["guest_ids"]) == mixed_pulse_audience
+
+
+def test_audience_drawer_search_and_contact_filters(pulse_client, mixed_pulse_audience):
+    searched = pulse_client.get("/owner/api/guest-pulse?audience_type=loyal&search=Гость+45").get_json()
+    assert searched["selected_count"] == 1
+    assert searched["guests"][0]["guest_id"] == 45
+    without = pulse_client.get("/owner/api/guest-pulse?audience_type=loyal&contact=without").get_json()
+    assert without["selected_count"] == 1
+    assert without["selected_telegram_count"] == 0
+    assert without["guests"][0]["guest_id"] == 56
+    assert without["audience_summary_count"] == 14
+    assert without["audience_summary_telegram_count"] == 13
+    assert without["audience_summary_without_telegram_count"] == 1
+
+
+def test_audience_drawer_handoff_keeps_search_filter(pulse_client, database, mixed_pulse_audience):
+    response = pulse_client.post(
+        "/owner/api/guest-pulse/selection",
+        headers={"X-CSRFToken": "pulse-test-csrf"},
+        json={"filters": {"audience_type": "loyal", "search": "Гость 45"}},
+    )
+    assert response.status_code == 200
+    _, sql = database
+    saved = json.loads(sql("SELECT selection_json FROM guest_pulse_selections")[0]["selection_json"])
+    assert saved["guest_ids"] == [45]
 
 
 @pytest.mark.parametrize("mode", ["audience", "guest", "deviations"])
@@ -560,6 +640,7 @@ def test_audience_can_sort_all_rows_by_overall_score(pulse_client, database, mix
         )
         for metric in ("health", "value", "engagement"):
             row[metric]["score"] = score
+        row["health"].update(deviation_ratio=0.2, deviation_direction="DOWN")
         sql(
             "UPDATE guest_pulse_current SET detail_json=%s WHERE club_id=2 AND guest_id=%s",
             (json.dumps(row), guest_id),
@@ -576,14 +657,25 @@ def test_audience_can_sort_all_rows_by_overall_score(pulse_client, database, mix
     assert descending["guests"][0]["guest_id"] == 45
     assert descending["guests"][0]["overall"]["score"] == 100
 
+    deviation_ascending = pulse_client.get(
+        "/owner/api/guest-pulse?deviation_sort=overall&deviation_sort_direction=asc"
+    ).get_json()
+    deviation_descending = pulse_client.get(
+        "/owner/api/guest-pulse?deviation_sort=overall&deviation_sort_direction=desc"
+    ).get_json()
+    assert deviation_ascending["deviations"][0]["guest_id"] == 44
+    assert deviation_ascending["deviations"][0]["overall"]["score"] == 0
+    assert deviation_descending["deviations"][0]["guest_id"] == 45
+    assert deviation_descending["deviations"][0]["overall"]["score"] == 100
 
-def test_selection_returns_inline_form_audience_without_stage_block(pulse_client, database, monkeypatch):
-    monkeypatch.setenv('DISABLE_OUTBOUND_MESSAGES', '1')
-    response = pulse_client.get('/owner/guest-pulse')
+
+def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, database, monkeypatch):
+    monkeypatch.setenv("DISABLE_OUTBOUND_MESSAGES", "1")
+    response = pulse_client.get("/owner/guest-pulse")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
     assert 'id="crmPulseModal"' in html
-    assert 'window.CRM_OUTBOUND_DISABLED = false' in html
+    assert "window.CRM_OUTBOUND_DISABLED = true" in html
     assert 'id="crmAnalysisRulesContainer"' not in html
     selection = pulse_client.post(
         "/owner/api/guest-pulse/selection", json={}, headers={"X-CSRFToken": "pulse-test-csrf"}

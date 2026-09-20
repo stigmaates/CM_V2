@@ -353,7 +353,8 @@ def test_managed_drop_tab_renders_search_form_and_history_without_db():
                 "show_all": False,
             },
         )
-    assert html.index("tab=guests") < html.index("tab=managed-drops")
+    assert html.index("tab=managed-drops") < html.index("tab=guests")
+    assert "Геймификация" in html and "Управление" in html
     assert "Номер телефона в системе клуба" in html
     assert "Иван Тестовый" in html and "Редкий" in html
     assert 'name="csrf_token"' in html and 'name="request_key"' in html

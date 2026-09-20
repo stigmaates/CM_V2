@@ -1,6 +1,7 @@
 {% set prize_icon_choices = prize_icon_choices|default(['🎮','🏆','🥤','🍕','🍔','🔥','💎','🪙','🍰','🍪','⚽️','🚗','🔮','🎉','🕓','🎰','👕']) %}
-{% set prob_ok = (wheel_active_prob_sum|float - 100)|abs < 0.06 %}
-{% set active_bonus_editor = bonus_editor|default('wheel') %}
+{% set prob_ok = (wheel_active_prob_sum|default(0)|float - 100)|abs < 0.06 %}
+{% set requested_bonus_editor = bonus_editor|default('', true) %}
+{% set active_bonus_editor = requested_bonus_editor if requested_bonus_editor in ['wheel', 'cases'] else game_mode|default('wheel') %}
 {% set topup_bonus_settings = topup_bonus_settings|default({'is_enabled': 0, 'rules': [], 'message_template': ''}) %}
 {% set welcome_reward_settings = welcome_reward_settings|default({'welcome_reward_enabled': 1, 'welcome_cm_bonus_amount': 0, 'welcome_token_amount': 1}) %}
 {% set topup_bonus_variables = topup_bonus_variables|default([]) %}
@@ -774,7 +775,7 @@
         background: rgba(20, 12, 36, 0.42);
     }
 
-    .bonus-editor-switch a {
+    .bonus-editor-switch button {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -785,18 +786,24 @@
         background: transparent;
         color: var(--text-main);
         text-decoration: none;
+        font: inherit;
         font-weight: 900;
+        cursor: pointer;
         transition: border-color .16s ease, background .16s ease;
     }
 
-    .bonus-editor-switch a:hover {
+    .bonus-editor-switch button:hover {
         border-color: rgba(165, 114, 255, 0.28);
         background: rgba(143, 91, 255, 0.12);
     }
 
-    .bonus-editor-switch a.is-active {
+    .bonus-editor-switch button.is-active {
         border-color: rgba(165, 114, 255, 0.55);
         background: linear-gradient(135deg, rgba(143, 91, 255, 0.16), rgba(255, 212, 105, 0.08));
+    }
+
+    .bonus-editor-panel[hidden] {
+        display: none !important;
     }
 
     .case-list {
@@ -1017,6 +1024,7 @@
 
 <div class="wheel-page">
 <div class="wheel-layout">
+    {% if not promotions_only|default(false) %}
     <div class="bonus-settings-shell">
         <div class="bonus-settings-main">
             <section class="card wheel-section">
@@ -1064,8 +1072,7 @@
                         >
                     </div>
 
-                    {% if active_bonus_editor == 'wheel' %}
-                    <div class="form-group">
+                    <div class="form-group" data-bonus-editor-only="wheel" {% if active_bonus_editor != 'wheel' %}hidden{% endif %}>
                         <label for="spin_cost">Стоимость прокрута колеса</label>
                         <input
                             class="form-input"
@@ -1078,9 +1085,6 @@
                             required
                         >
                     </div>
-                    {% else %}
-                        <input type="hidden" name="spin_cost" value="{{ wheel_settings.spin_cost or 1 }}">
-                    {% endif %}
 
                     <div class="form-group full">
                         <label class="form-check" for="is_enabled">
@@ -1129,20 +1133,6 @@
                     <strong>{% if wheel_settings.tokens_start_date %}{{ wheel_settings.tokens_start_date.strftime('%d.%m.%Y') }}{% else %}не задан{% endif %}</strong>
                 </div>
                 <div class="token-summary-row">
-                    <span>Приветственная награда</span>
-                    <strong>
-                        {% if not welcome_reward_settings.welcome_reward_enabled %}
-                            выключена
-                        {% elif welcome_reward_settings.welcome_cm_bonus_amount and welcome_reward_settings.welcome_token_amount %}
-                            +{{ welcome_reward_settings.welcome_cm_bonus_amount }} КБ · +{{ welcome_reward_settings.welcome_token_amount }} жет.
-                        {% elif welcome_reward_settings.welcome_cm_bonus_amount %}
-                            +{{ welcome_reward_settings.welcome_cm_bonus_amount }} КБ
-                        {% else %}
-                            +{{ welcome_reward_settings.welcome_token_amount }} жет.
-                        {% endif %}
-                    </strong>
-                </div>
-                <div class="token-summary-row">
                     <span>Начисление</span>
                     <strong class="token-summary-status {% if not wheel_settings.is_enabled %}is-off{% endif %}">
                         {% if wheel_settings.is_enabled %}Активно{% else %}Выключено{% endif %}
@@ -1156,7 +1146,9 @@
             </aside>
         </aside>
     </div>
+    {% endif %}
 
+    {% if promotions_only|default(false) %}
     <section class="card wheel-section topup-bonus-section" id="topup-bonuses">
         <form method="POST" action="{{ url_for('owner.settings_topup_bonuses_save') }}" id="topupBonusForm">
             <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
@@ -1303,23 +1295,25 @@
             </div>
         </form>
     </section>
+    {% endif %}
 
-    <section class="card wheel-section bonus-editor-section">
+    {% if not promotions_only|default(false) %}
+    <section class="card wheel-section bonus-editor-section" id="prize-editor">
         <div class="section-title">Редактор механики</div>
         <p class="wheel-subtitle">
             Выбери настройки колеса или кейсов. Этот переключатель не меняет механику, которую видят гости.
         </p>
-        <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики">
-            <a href="{{ url_for('owner.settings', tab='wheel', editor='wheel') }}" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}">
+        <div class="bonus-editor-switch" aria-label="Выбор редактора бонусной механики" role="group">
+            <button type="button" data-bonus-editor-switch="wheel" class="{% if active_bonus_editor == 'wheel' %}is-active{% endif %}" aria-pressed="{{ 'true' if active_bonus_editor == 'wheel' else 'false' }}">
                 Колесо
-            </a>
-            <a href="{{ url_for('owner.settings', tab='wheel', editor='cases') }}" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}">
+            </button>
+            <button type="button" data-bonus-editor-switch="cases" class="{% if active_bonus_editor == 'cases' %}is-active{% endif %}" aria-pressed="{{ 'true' if active_bonus_editor == 'cases' else 'false' }}">
                 Кейсы
-            </a>
+            </button>
         </div>
     </section>
 
-    {% if active_bonus_editor == 'wheel' %}
+    <div class="bonus-editor-panel" data-bonus-editor-panel="wheel" {% if active_bonus_editor != 'wheel' %}hidden{% endif %}>
     <section class="wheel-prize-workspace">
         <div class="card wheel-section wheel-prizes-panel">
             <div class="wheel-prizes-head">
@@ -1443,15 +1437,16 @@
             {% endif %}
         </aside>
     </section>
+    </div>
 
-    {% endif %}
-
-    {% if active_bonus_editor == 'cases' %}
+    <div class="bonus-editor-panel" data-bonus-editor-panel="cases" {% if active_bonus_editor != 'cases' %}hidden{% endif %}>
         {% include "owner/_settings_cases.html" %}
+    </div>
     {% endif %}
 </div>
 </div>
 
+{% if not promotions_only|default(false) %}
 <div class="modal-overlay" id="prizeAddModal" aria-hidden="true">
     <div class="modal-panel modal-panel--prize" role="dialog" aria-modal="true" aria-labelledby="prizeAddModalTitle">
         <div class="modal-header">
@@ -1514,6 +1509,7 @@
         </form>
     </div>
 </div>
+{% endif %}
 
 <script>
     (function () {
@@ -1522,6 +1518,38 @@
         const topupMessage = document.getElementById('topupBonusMessage');
         const topupVariable = document.getElementById('topupBonusVariable');
         const insertTopupVariable = document.getElementById('insertTopupBonusVariable');
+        const bonusEditorButtons = document.querySelectorAll('[data-bonus-editor-switch]');
+        const bonusEditorPanels = document.querySelectorAll('[data-bonus-editor-panel]');
+        const bonusEditorSpecificFields = document.querySelectorAll('[data-bonus-editor-only]');
+
+        function setBonusEditor(editor) {
+            if (!['wheel', 'cases'].includes(editor)) return;
+            bonusEditorButtons.forEach(function (button) {
+                const active = button.dataset.bonusEditorSwitch === editor;
+                button.classList.toggle('is-active', active);
+                button.setAttribute('aria-pressed', String(active));
+            });
+            bonusEditorPanels.forEach(function (panel) {
+                panel.hidden = panel.dataset.bonusEditorPanel !== editor;
+            });
+            bonusEditorSpecificFields.forEach(function (field) {
+                field.hidden = field.dataset.bonusEditorOnly !== editor;
+            });
+            document.querySelectorAll('input[name="bonus_editor"]').forEach(function (input) {
+                input.value = editor;
+            });
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', 'wheel');
+            url.searchParams.set('editor', editor);
+            url.hash = 'prize-editor';
+            history.replaceState(history.state, '', url);
+        }
+
+        bonusEditorButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                setBonusEditor(button.dataset.bonusEditorSwitch);
+            });
+        });
 
         function bindTopupRuleRemove(button) {
             button.addEventListener('click', function () {

@@ -316,8 +316,13 @@ def test_club_local_dates_select_exact_cohort_guest_ids(monkeypatch):
     assert params[:2] == (7, 1)
 
 
-def test_release_does_not_ship_stage_business_mirror():
-    from pathlib import Path
+def test_team_tables_survive_business_mirror():
+    from scripts.mirror_production_to_stage import PRESERVE
 
-    repository_root = Path(__file__).resolve().parents[1]
-    assert not (repository_root / "scripts" / "mirror_production_to_stage.py").exists()
+    assert {
+        "module_registrations",
+        "team_admins",
+        "team_shifts",
+        "team_sync_state",
+        "team_admin_settings",
+    } <= PRESERVE

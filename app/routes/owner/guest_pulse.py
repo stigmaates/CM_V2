@@ -4,13 +4,15 @@ from uuid import uuid4
 
 from flask import abort, jsonify, render_template, request, session, url_for
 
-from app.config import GUEST_PULSE_CONFIG
+from app.config import BALANCE_TOPUP_MAX_AMOUNT, GUEST_PULSE_CONFIG
 from app.core import get_db_connection, owner_required
 from app.services.guest_pulse import dumps, get_current, loads, rows
-from app.services.guest_pulse_filters import parse_filters, score_match, select
+from app.services.guest_pulse_filters import parse_filters, score_match, segment_match, select
 from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS, overall_score
 from app.services.mailing import get_message_variables
-from app.services.timezones import utc_datetime_to_club_local
+from app.services.outbound_policy import outbound_blocked
+from app.services.timezones import get_club_local_now, utc_datetime_to_club_local
+from app.services.visits import collapse_sessions_to_visits
 
 from . import owner_bp
 
@@ -25,7 +27,7 @@ def current_club():
 
 def summary(row):
     row["overall"] = overall_score(row)
-    return {
+    result = {
         k: row[k]
         for k in (
             "guest_id",
@@ -40,6 +42,13 @@ def summary(row):
             "audience_type",
         )
     }
+    result["phone"] = row.get("phone")
+    visits = row.get("visits", {})
+    result["last_visit_date"] = visits.get("last_visit_date")
+    result["days_since_last_visit"] = visits.get("days_since_last_visit")
+    result["typical_gap_days"] = visits.get("typical_gap_days")
+    result["segments"] = [label for key, label in SEGMENTS.items() if segment_match(row, key)]
+    return result
 
 
 @owner_bp.get("/guest-pulse")
@@ -52,7 +61,7 @@ def guest_pulse():
         segments=SEGMENTS,
         pulse_config=GUEST_PULSE_CONFIG,
         message_variables=get_message_variables(),
-        outbound_disabled=False,
+        outbound_disabled=outbound_blocked(),
     )
 
 
@@ -66,10 +75,20 @@ def guest_pulse_data():
         deviation_page = max(1, int(request.args.get("deviation_page", 1)))
         sort_by = request.args.get("sort", "health")
         sort_direction = request.args.get("sort_direction", "asc")
+        deviation_sort_by = request.args.get("deviation_sort", "priority")
+        deviation_sort_direction = request.args.get("deviation_sort_direction", "desc")
+        search = str(request.args.get("search", "")).strip()[:100]
+        contact = request.args.get("contact", "all")
         if sort_by not in ("name", "health", "value", "engagement", "overall"):
             raise ValueError("Неизвестная сортировка")
         if sort_direction not in ("asc", "desc"):
             raise ValueError("Неизвестное направление сортировки")
+        if deviation_sort_by not in ("priority", "health", "value", "engagement", "overall"):
+            raise ValueError("Неизвестная сортировка отклонений")
+        if deviation_sort_direction not in ("asc", "desc"):
+            raise ValueError("Неизвестное направление сортировки отклонений")
+        if contact not in ("all", "with", "without"):
+            raise ValueError("Неизвестный фильтр Telegram")
     except (ValueError, TypeError) as exc:
         return jsonify(ok=False, error=str(exc)), 400
     conn = get_db_connection()
@@ -87,14 +106,48 @@ def guest_pulse_data():
     finally:
         conn.close()
     total = Counter(r["audience_type"] for r in current)
-    filtered_rows = [r for r in current if score_match(r, f)]
+    filtered_rows = [r for r in current if score_match(r, f) and segment_match(r, f["segment"])]
     filtered = Counter(r["audience_type"] for r in filtered_rows)
     connected = Counter(r["audience_type"] for r in filtered_rows if r["has_telegram"])
+    selected = select(current, f)
     for row in current:
         row["overall"] = overall_score(row)
-    selected = select(current, f)
+    audience_summary = list(selected)
+    if search:
+        needle = search.casefold()
+        selected = [
+            row
+            for row in selected
+            if needle in row["name"].casefold()
+            or needle in str(row.get("phone") or "").casefold()
+            or needle in str(row["guest_id"])
+        ]
+    if contact == "with":
+        selected = [row for row in selected if row["has_telegram"]]
+    elif contact == "without":
+        selected = [row for row in selected if not row["has_telegram"]]
     deviating = select(current, f, "deviations")
-    deviating.sort(key=lambda r: max(d["deviation_ratio"] for d in r["deviations"]), reverse=True)
+    if deviation_sort_by == "priority":
+        deviating.sort(
+            key=lambda r: (
+                max(d["deviation_ratio"] for d in r["deviations"]),
+                r["name"].casefold(),
+                r["guest_id"],
+            ),
+            reverse=deviation_sort_direction == "desc",
+        )
+    else:
+        deviation_scored = [r for r in deviating if r[deviation_sort_by]["score"] is not None]
+        deviation_unscored = [r for r in deviating if r[deviation_sort_by]["score"] is None]
+        deviation_scored.sort(
+            key=lambda r: (r[deviation_sort_by]["score"], r["name"].casefold(), r["guest_id"]),
+            reverse=deviation_sort_direction == "desc",
+        )
+        deviating = deviation_scored + sorted(
+            deviation_unscored,
+            key=lambda r: (r["name"].casefold(), r["guest_id"]),
+        )
+
     def sort_group(group):
         if sort_by == "name":
             return sorted(group, key=lambda r: (r["name"].casefold(), r["guest_id"]), reverse=sort_direction == "desc")
@@ -109,6 +162,8 @@ def guest_pulse_data():
     selected = sort_group([r for r in selected if r["has_telegram"]]) + sort_group(
         [r for r in selected if not r["has_telegram"]]
     )
+    scored_selected = [r["overall"]["score"] for r in selected if r["overall"]["score"] is not None]
+    audience_scored = [r["overall"]["score"] for r in audience_summary if r["overall"]["score"] is not None]
     at = utc_datetime_to_club_local(state.get("calculated_at"), state.get("timezone"))
     return jsonify(
         ok=True,
@@ -117,6 +172,13 @@ def guest_pulse_data():
         selected_count=len(selected),
         selected_telegram_count=sum(r["has_telegram"] for r in selected),
         selected_without_telegram_count=sum(not r["has_telegram"] for r in selected),
+        selected_average_score=round(sum(scored_selected) / len(scored_selected), 1) if scored_selected else None,
+        audience_summary_count=len(audience_summary),
+        audience_summary_telegram_count=sum(r["has_telegram"] for r in audience_summary),
+        audience_summary_without_telegram_count=sum(not r["has_telegram"] for r in audience_summary),
+        audience_summary_average_score=(
+            round(sum(audience_scored) / len(audience_scored), 1) if audience_scored else None
+        ),
         audiences=[
             dict(
                 key=k,
@@ -134,6 +196,8 @@ def guest_pulse_data():
         page_size=PAGE_SIZE,
         sort=sort_by,
         sort_direction=sort_direction,
+        deviation_sort=deviation_sort_by,
+        deviation_sort_direction=deviation_sort_direction,
         deviations=[
             {**summary(r), "deviations": r["deviations"]}
             for r in deviating[(deviation_page - 1) * PAGE_SIZE : deviation_page * PAGE_SIZE]
@@ -156,7 +220,7 @@ def guest_pulse_guest(guest_id):
     try:
         result = rows(
             conn,
-            """SELECT p.detail_json,g.telegram_id,
+            """SELECT p.detail_json,p.calculated_at,g.telegram_id,
                    up.favorite_game,up.favorite_game_hours,
                    up.recent_game_14d,up.recent_game_14d_hours,
                    up.steam_game_stats_updated_at
@@ -171,6 +235,8 @@ def guest_pulse_guest(guest_id):
         row = loads(result[0]["detail_json"])
         row["overall"] = overall_score(row)
         row["has_telegram"] = bool(result[0]["telegram_id"])
+        row["segments"] = [label for key, label in SEGMENTS.items() if segment_match(row, key)]
+        row["audience_label"] = dict((key, label) for key, label, _ in AUDIENCES).get(row.get("audience_type"))
         row["games"] = {
             "favorite_game": result[0].get("favorite_game"),
             "favorite_game_hours": (
@@ -205,6 +271,46 @@ def guest_pulse_guest(guest_id):
             (cid, guest_id),
         )
         tz = (rows(conn, "SELECT timezone FROM clubs WHERE club_id=%s", (cid,)) or [{}])[0].get("timezone")
+        visit_rows = rows(
+            conn,
+            """SELECT date_start,date_stop FROM guest_sessions
+            WHERE club_id=%s AND guest_id=%s AND date_start IS NOT NULL AND date_stop>date_start
+            ORDER BY date_start""",
+            (cid, guest_id),
+        )
+        for visit in visit_rows:
+            visit["date_start"] = utc_datetime_to_club_local(visit["date_start"], tz)
+            visit["date_stop"] = utc_datetime_to_club_local(visit["date_stop"], tz)
+        calculated_at = utc_datetime_to_club_local(result[0].get("calculated_at"), tz) or get_club_local_now(tz)
+        visits = [visit for visit in collapse_sessions_to_visits(visit_rows) if visit["date_stop"] <= calculated_at]
+        recent_visits = [visit for visit in visits if visit["date_start"] >= calculated_at - timedelta(days=30)]
+        topup_rows = rows(
+            conn,
+            """SELECT amount,topup_at FROM guest_balance_topups
+            WHERE club_id=%s AND guest_id=%s AND amount>0 AND amount<=%s""",
+            (cid, guest_id, BALANCE_TOPUP_MAX_AMOUNT),
+        )
+        recent_topups = []
+        for topup in topup_rows:
+            topup_at = utc_datetime_to_club_local(topup.get("topup_at"), tz)
+            if topup_at and calculated_at - timedelta(days=30) <= topup_at <= calculated_at:
+                recent_topups.append(float(topup["amount"]))
+        value = row.setdefault("value", {})
+        value.update(
+            revenue_30d=round(sum(recent_topups), 2),
+            played_hours_30d=round(sum(visit["played_hours"] for visit in recent_visits), 2),
+            visits_30d=len(recent_visits),
+            avg_check_30d=(round(sum(recent_topups) / len(recent_visits), 2) if recent_visits else 0),
+        )
+        night_count = sum(v["date_start"].hour >= 22 or v["date_start"].hour < 8 for v in visits)
+        weekend_count = sum(v["date_start"].weekday() >= 5 for v in visits)
+        visit_count = len(visits)
+        row["visit_pattern"] = {
+            "period": "Ночь" if visit_count and night_count / visit_count >= 0.5 else "День",
+            "calendar": "Выходные" if visit_count and weekend_count / visit_count >= 0.5 else "Будни",
+            "night_share": round(night_count / visit_count * 100, 1) if visit_count else None,
+            "weekend_share": round(weekend_count / visit_count * 100, 1) if visit_count else None,
+        }
         for e in events:
             e["changed_at"] = utc_datetime_to_club_local(e["changed_at"], tz).isoformat()
         return jsonify(ok=True, guest=row, history=history, events=events)
@@ -220,7 +326,12 @@ def guest_pulse_selection():
     try:
         if not isinstance(body, dict):
             raise ValueError("Некорректная выборка")
-        f = parse_filters(body.get("filters", {}))
+        raw_filters = body.get("filters", {})
+        f = parse_filters(raw_filters)
+        search = str(raw_filters.get("search", "")).strip()[:100]
+        contact = raw_filters.get("contact", "all")
+        if contact not in ("all", "with", "without"):
+            raise ValueError("Неизвестный фильтр Telegram")
         mode = body.get("mode", "audience")
         if mode not in ("audience", "deviations", "guest"):
             raise ValueError("Неизвестная выборка")
@@ -231,6 +342,17 @@ def guest_pulse_selection():
     try:
         current = get_current(conn, cid)
         selected = [r for r in current if r["guest_id"] == gid] if mode == "guest" else select(current, f, mode)
+        if mode == "audience" and search:
+            needle = search.casefold()
+            selected = [
+                row
+                for row in selected
+                if needle in row["name"].casefold()
+                or needle in str(row.get("phone") or "").casefold()
+                or needle in str(row["guest_id"])
+            ]
+        if mode == "audience" and contact == "without":
+            selected = []
         selected = [r for r in selected if r["has_telegram"]]
         if not selected:
             return jsonify(ok=False, error="В выбранной аудитории нет гостей с Telegram"), 400
@@ -248,7 +370,7 @@ def guest_pulse_selection():
         group = selection_group(conn, key)
     finally:
         conn.close()
-    return jsonify(ok=True, count=len(selected), group=group, url=url_for("owner.crm_analytics", pulse_selection=key))
+    return jsonify(ok=True, count=len(selected), group=group, url=url_for("owner.guest_pulse"))
 
 
 def load_selection(conn, key, *, lock=False):

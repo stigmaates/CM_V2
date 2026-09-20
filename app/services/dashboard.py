@@ -21,6 +21,27 @@ def _round_display(value):
         return 0
 
 
+def _resolve_dashboard_range(period_days: int, current_start=None, current_end=None) -> dict:
+    """Return the selected range and an equally sized preceding comparison range."""
+    if current_start is not None and current_end is not None:
+        duration = current_end - current_start
+        if duration.total_seconds() <= 0:
+            raise ValueError("Dashboard range end must be after its start")
+        resolved_days = max(1, int(duration.total_seconds() // 86400))
+        return {
+            "current_start": current_start,
+            "current_end": current_end,
+            "previous_start": current_start - duration,
+            "previous_end": current_start,
+            "period_days": resolved_days,
+        }
+
+    resolved_days = max(1, int(period_days or 7))
+    ranges = get_period_range(resolved_days)
+    ranges["period_days"] = resolved_days
+    return ranges
+
+
 def _sparkline_path(values, width: int = 140, height: int = 56, padding: int = 6) -> str:
     """Build compact SVG path for KPI sparklines from real dashboard data."""
     clean_values = []
@@ -55,7 +76,7 @@ def _sparkline_path(values, width: int = 140, height: int = 56, padding: int = 6
 def _date_labels_for_period(current_start, current_end):
     labels = []
     current_day = current_start.date()
-    last_day = current_end.date()
+    last_day = (current_end - timedelta(microseconds=1)).date()
     while current_day <= last_day:
         labels.append(current_day)
         current_day += timedelta(days=1)
@@ -370,14 +391,20 @@ def get_unique_guests_chart(club_id: int, period_days: int):
         conn.close()
 
 
-def get_case_openings_chart(club_id: int, period_days: int = 30) -> dict:
+def get_case_openings_chart(
+    club_id: int,
+    period_days: int = 30,
+    current_start=None,
+    current_end=None,
+) -> dict:
     """Return case opening counts for the selected dashboard period."""
     if not club_id:
         return {"items": [], "total_openings": 0, "unique_openers": 0, "period_days": period_days}
 
-    period_days = period_days if period_days in (7, 30, 90) else 30
-    current_end = datetime.now()
-    current_start = current_end - timedelta(days=period_days)
+    ranges = _resolve_dashboard_range(period_days, current_start, current_end)
+    period_days = ranges["period_days"]
+    current_start = ranges["current_start"]
+    current_end = ranges["current_end"]
 
     conn = get_db_connection()
     unique_openers = 0
@@ -635,13 +662,18 @@ def get_case_openings_timeline(
     }
 
 
-def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
+def get_mission_completions_chart(
+    club_id: int,
+    period_days: int = 30,
+    current_start=None,
+    current_end=None,
+) -> dict:
     """Return completion counts by mission for the selected dashboard period."""
     if not club_id:
         return {"items": [], "total_completions": 0, "period_days": period_days}
 
-    period_days = period_days if period_days in (7, 30, 90) else 30
-    ranges = get_period_range(period_days)
+    ranges = _resolve_dashboard_range(period_days, current_start, current_end)
+    period_days = ranges["period_days"]
     current_start = ranges["current_start"]
     current_end = ranges["current_end"]
 
@@ -705,15 +737,22 @@ def get_mission_completions_chart(club_id: int, period_days: int = 30) -> dict:
     }
 
 
-def get_dashboard_stats(club_id: int, period_days: int = 30):
+def get_dashboard_stats(
+    club_id: int,
+    period_days: int = 30,
+    current_start=None,
+    current_end=None,
+    include_chart: bool = True,
+):
     if not club_id:
         return None
 
-    now = datetime.now()
-    current_end = now
-    current_start = now - timedelta(days=period_days)
-    previous_end = current_start
-    previous_start = current_start - timedelta(days=period_days)
+    ranges = _resolve_dashboard_range(period_days, current_start, current_end)
+    period_days = ranges["period_days"]
+    current_start = ranges["current_start"]
+    current_end = ranges["current_end"]
+    previous_start = ranges["previous_start"]
+    previous_end = ranges["previous_end"]
 
     conn = get_db_connection()
     try:
@@ -856,7 +895,7 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
         avg_check_diff = _round_display(avg_check_current - avg_check_previous)
         avg_check_diff_percent = _round_display(calc_percent_change(avg_check_current, avg_check_previous))
 
-        chart_data = get_unique_guests_chart(club_id, period_days)
+        chart_data = get_unique_guests_chart(club_id, period_days) if include_chart else None
 
         result = {
             "period_days": period_days,
@@ -895,11 +934,17 @@ def get_dashboard_stats(club_id: int, period_days: int = 30):
         conn.close()
 
 
-def get_first_visit_feedback_stats(club_id: int, period_days: int = 30) -> dict:
+def get_first_visit_feedback_stats(
+    club_id: int,
+    period_days: int = 30,
+    current_start=None,
+    current_end=None,
+) -> dict:
     """Analytics for first-visit survey responses within selected period."""
-    now = datetime.now()
-    current_end = now
-    current_start = now - timedelta(days=period_days)
+    ranges = _resolve_dashboard_range(period_days, current_start, current_end)
+    period_days = ranges["period_days"]
+    current_start = ranges["current_start"]
+    current_end = ranges["current_end"]
 
     conn = get_db_connection()
     try:
@@ -1523,8 +1568,15 @@ def _get_mission_completion_at_from_preloaded(
     return completed_at
 
 
-def get_dashboard_engagement_stats(club_id: int, period_days: int = 30, all_time: bool = False):
-    ranges = get_period_range(period_days)
+def get_dashboard_engagement_stats(
+    club_id: int,
+    period_days: int = 30,
+    all_time: bool = False,
+    current_start=None,
+    current_end=None,
+):
+    ranges = _resolve_dashboard_range(period_days, current_start, current_end)
+    period_days = ranges["period_days"]
     current_start = ranges["current_start"]
     current_end = ranges["current_end"]
 
@@ -1771,15 +1823,23 @@ def _calculate_hourly_utilization(
 
 
 def get_visit_heatmap_stats(
-    club_id: int, period_days: int = 30, pc_count: int | None = None
+    club_id: int,
+    period_days: int = 30,
+    pc_count: int | None = None,
+    *,
+    current_start: datetime | None = None,
+    current_end: datetime | None = None,
 ) -> dict:
     """Возвращает загрузку клуба по дням недели и часам в процентах."""
-    if period_days not in (7, 30, 90):
-        period_days = 30
-
-    now = datetime.now()
-    current_start = now - timedelta(days=period_days)
-    current_end = now
+    if current_start is None or current_end is None:
+        if period_days not in (7, 30, 90):
+            period_days = 30
+        current_end = datetime.now()
+        current_start = current_end - timedelta(days=period_days)
+    elif current_end <= current_start:
+        raise ValueError("Heatmap range end must be after its start")
+    else:
+        period_days = max(1, (current_end.date() - current_start.date()).days)
 
     days = [
         {"index": 0, "label": "Пн", "full": "Понедельник"},

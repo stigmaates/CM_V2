@@ -2,19 +2,21 @@ const fieldsMeta = window.MAILING_FIELDS || [];
 const messageVariablesMeta = window.MAILING_VARIABLES || [];
 const rulesContainer = document.getElementById("rulesContainer");
 const audienceCountEl = document.getElementById("audienceCount");
-const giveawayAudienceCountEl = document.getElementById("giveawayAudienceCount");
-const giveawayRulesContainer = document.getElementById("giveawayRulesContainer");
-const addGiveawayRuleBtn = document.getElementById("addGiveawayRuleBtn");
-const previewGiveawayBtn = document.getElementById("previewGiveawayBtn");
-const copyMailingRulesToGiveawayBtn = document.getElementById("copyMailingRulesToGiveawayBtn");
+const giveawayAudienceCountEl = audienceCountEl;
+const giveawayRulesContainer = rulesContainer;
+const addGiveawayRuleBtn = null;
+const previewGiveawayBtn = null;
+const copyMailingRulesToGiveawayBtn = null;
+const giveawayBonusEnabledEl = document.getElementById("giveawayBonusEnabled");
+const giveawayTokenEnabledEl = document.getElementById("giveawayTokenEnabled");
 const giveawayBonusAmountEl = document.getElementById("giveawayBonusAmount");
 const giveawayTokenAmountEl = document.getElementById("giveawayTokenAmount");
 const giveawayExpiringBonusEl = document.getElementById("giveawayExpiringBonus");
 const giveawayExpirationControlsEl = document.getElementById("giveawayExpirationControls");
 const giveawayExpiresValueEl = document.getElementById("giveawayExpiresValue");
 const giveawayExpiresUnitEl = document.getElementById("giveawayExpiresUnit");
-const giveawayMessageTextEl = document.getElementById("giveawayMessageText");
-const sendBonusGiveawayBtn = document.getElementById("sendBonusGiveawayBtn");
+const giveawayMessageTextEl = document.getElementById("messageText");
+const sendBonusGiveawayBtn = null;
 const filesListEl = document.getElementById("filesList");
 const messageTextEl = document.getElementById("messageText");
 const messageVariableSelect = document.getElementById("messageVariableSelect");
@@ -26,6 +28,13 @@ const modalRecipientsCountEl = document.getElementById("modalRecipientsCount");
 const modalFilesCountEl = document.getElementById("modalFilesCount");
 const modalMessagePreviewEl = document.getElementById("modalMessagePreview");
 const modalConfirmSendBtn = document.getElementById("modalConfirmSendBtn");
+const messageCharacterCountEl = document.getElementById("messageCharacterCount");
+const campaignMessagePreviewEl = document.getElementById("campaignMessagePreview");
+const summaryAudienceCountEl = document.getElementById("summaryAudienceCount");
+const summaryRewardsEl = document.getElementById("summaryRewards");
+const summaryExpirationEl = document.getElementById("summaryExpiration");
+const summaryCharactersEl = document.getElementById("summaryCharacters");
+const summaryFilesEl = document.getElementById("summaryFiles");
 
 let uploadedFiles = [];
 let currentSegmentId = null;
@@ -52,11 +61,29 @@ function insertAtCursor(textarea, value) {
     const end = textarea.selectionEnd ?? textarea.value.length;
     textarea.setRangeText(value, start, end, "end");
     textarea.focus();
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function insertSelectedVariable(selectEl, textarea) {
     if (!selectEl || !textarea) return;
     insertAtCursor(textarea, selectEl.value);
+}
+
+async function readApiResponse(response, fallbackMessage) {
+    const body = await response.text();
+    if (body) {
+        try {
+            return JSON.parse(body);
+        } catch (_error) {
+            // Nginx and Flask can return an HTML error page. Do not expose its markup in the UI.
+        }
+    }
+    return {
+        ok: false,
+        error: response.status === 413
+            ? "Файл слишком большой для загрузки"
+            : (fallbackMessage || `Ошибка сервера (${response.status})`),
+    };
 }
 
 const OPERATOR_LABELS = {
@@ -246,6 +273,7 @@ async function previewSegment() {
         return;
     }
     audienceCountEl.textContent = data.count;
+    if (summaryAudienceCountEl) summaryAudienceCountEl.textContent = data.count;
 }
 
 async function saveSegment() {
@@ -314,6 +342,7 @@ function renderUploadedFiles() {
         });
         filesListEl.appendChild(row);
     });
+    updateCampaignSummary();
 }
 
 async function getRecipientsPreviewCount(rules = getRules(rulesContainer), targetEl = audienceCountEl) {
@@ -329,6 +358,7 @@ async function getRecipientsPreviewCount(rules = getRules(rulesContainer), targe
     if (targetEl) {
         targetEl.textContent = data.count;
     }
+    if (summaryAudienceCountEl) summaryAudienceCountEl.textContent = data.count;
     return data.count;
 }
 
@@ -349,7 +379,7 @@ function escapeHtml(value) {
 function openMailingModal(recipientsCount, messageText) {
     modalRecipientsCountEl.textContent = recipientsCount;
     modalFilesCountEl.textContent = uploadedFiles.length;
-    modalMessagePreviewEl.innerHTML = escapeHtml(messageText).replaceAll("\n", "<br>");
+    renderTelegramMessagePreview(modalMessagePreviewEl, messageText);
     modalEl.classList.add("is-open");
     modalEl.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -377,16 +407,186 @@ async function openMailingConfirm() {
 
     try {
         const recipientsCount = await getRecipientsPreviewCount(getRules(rulesContainer), audienceCountEl);
+        if (recipientsCount <= 0) {
+            alert("По текущим фильтрам нет гостей с Telegram");
+            return;
+        }
+        getCampaignRewardPayload(true);
         openMailingModal(recipientsCount, messageText);
     } catch (error) {
         alert(error.message || "Не удалось подготовить предпросмотр");
     }
 }
 
-async function createMailing() {
+function getCampaignRewardPayload(validate = false) {
+    const bonusEnabled = Boolean(giveawayBonusEnabledEl && giveawayBonusEnabledEl.checked);
+    const tokenEnabled = Boolean(giveawayTokenEnabledEl && giveawayTokenEnabledEl.checked);
+    const bonusAmount = bonusEnabled ? Number(giveawayBonusAmountEl.value || 0) : 0;
+    const tokenAmount = tokenEnabled ? Number(giveawayTokenAmountEl.value || 0) : 0;
+    const isExpiring = Boolean((bonusEnabled || tokenEnabled) && giveawayExpiringBonusEl && giveawayExpiringBonusEl.checked);
+    const expiresValue = Number(giveawayExpiresValueEl ? giveawayExpiresValueEl.value || 0 : 0);
+    const expiresUnit = giveawayExpiresUnitEl ? giveawayExpiresUnitEl.value : "days";
+
+    if (validate && bonusEnabled && (!Number.isFinite(bonusAmount) || bonusAmount <= 0)) {
+        throw new Error("Укажи количество КБ больше 0");
+    }
+    if (validate && tokenEnabled && (!Number.isFinite(tokenAmount) || tokenAmount <= 0)) {
+        throw new Error("Укажи количество жетонов больше 0");
+    }
+    if (validate && isExpiring && (!Number.isFinite(expiresValue) || expiresValue < 1)) {
+        throw new Error("Укажи срок сгорания больше 0");
+    }
+
+    return {
+        hasRewards: bonusAmount > 0 || tokenAmount > 0,
+        bonusAmount,
+        tokenAmount,
+        isExpiring,
+        expiresValue,
+        expiresUnit,
+    };
+}
+
+function sampleMessageText(value) {
+    const samples = {
+        "{name}": "Алексей",
+        "{first_name}": "Алексей",
+        "{fio}": "Алексей Смирнов",
+        "{club_name}": "Ваш клуб",
+        "{cm_bonus_balance}": "250",
+        "{kb_balance}": "250",
+        "{token_balance}": "3",
+        "{tokens_balance}": "3",
+    };
+    let result = String(value || "");
+    Object.entries(samples).forEach(([token, sample]) => {
+        result = result.replaceAll(token, sample);
+    });
+    return result || "Здесь появится текст сообщения";
+}
+
+function normalizeLinkUrl(value, addMissingScheme = true) {
+    let candidate = String(value || "").trim();
+    if (!candidate) return null;
+    if (addMissingScheme && !/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
+        candidate = `https://${candidate}`;
+    }
+    try {
+        const parsed = new URL(candidate);
+        return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : null;
+    } catch (_error) {
+        return null;
+    }
+}
+
+function escapeTelegramHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+}
+
+function appendTelegramPreviewNode(source, target) {
+    if (source.nodeType === Node.TEXT_NODE) {
+        target.appendChild(document.createTextNode(source.textContent || ""));
+        return;
+    }
+    if (source.nodeType !== Node.ELEMENT_NODE) return;
+
+    const tag = source.tagName.toLowerCase();
+    if (tag === "br") {
+        target.appendChild(document.createElement("br"));
+        return;
+    }
+
+    const allowed = new Set(["b", "strong", "i", "em", "u", "a"]);
+    if (!allowed.has(tag)) {
+        Array.from(source.childNodes).forEach((child) => appendTelegramPreviewNode(child, target));
+        return;
+    }
+
+    const previewTag = tag === "strong" ? "b" : tag === "em" ? "i" : tag;
+    const element = document.createElement(previewTag);
+    if (previewTag === "a") {
+        const href = normalizeLinkUrl(source.getAttribute("href"), false);
+        if (!href) {
+            Array.from(source.childNodes).forEach((child) => appendTelegramPreviewNode(child, target));
+            return;
+        }
+        element.href = href;
+        element.target = "_blank";
+        element.rel = "noopener noreferrer";
+    }
+    Array.from(source.childNodes).forEach((child) => appendTelegramPreviewNode(child, element));
+    target.appendChild(element);
+}
+
+function renderTelegramMessagePreview(target, value) {
+    if (!target) return;
+    const parsed = new DOMParser().parseFromString(sampleMessageText(value), "text/html");
+    const fragment = document.createDocumentFragment();
+    Array.from(parsed.body.childNodes).forEach((node) => appendTelegramPreviewNode(node, fragment));
+    target.replaceChildren(fragment);
+}
+
+function updateCampaignSummary() {
+    const message = messageTextEl ? messageTextEl.value : "";
+    const rewards = getCampaignRewardPayload(false);
+    const rewardParts = [];
+    if (rewards.bonusAmount > 0) rewardParts.push(`${rewards.bonusAmount} КБ`);
+    if (rewards.tokenAmount > 0) rewardParts.push(`${rewards.tokenAmount} жет.`);
+
+    if (messageCharacterCountEl) messageCharacterCountEl.textContent = message.length;
+    if (summaryCharactersEl) summaryCharactersEl.textContent = message.length;
+    if (summaryFilesEl) summaryFilesEl.textContent = uploadedFiles.length;
+    if (summaryRewardsEl) summaryRewardsEl.textContent = rewardParts.length ? rewardParts.join(" · ") : "Без начислений";
+    if (summaryExpirationEl) {
+        const unitLabel = giveawayExpiresUnitEl && giveawayExpiresUnitEl.options[giveawayExpiresUnitEl.selectedIndex]
+            ? giveawayExpiresUnitEl.options[giveawayExpiresUnitEl.selectedIndex].text
+            : "дней";
+        summaryExpirationEl.textContent = rewards.isExpiring ? `Через ${rewards.expiresValue} ${unitLabel}` : "Бессрочно";
+    }
+    renderTelegramMessagePreview(campaignMessagePreviewEl, message);
+}
+
+function syncRewardControls() {
+    const bonusEnabled = Boolean(giveawayBonusEnabledEl && giveawayBonusEnabledEl.checked);
+    const tokenEnabled = Boolean(giveawayTokenEnabledEl && giveawayTokenEnabledEl.checked);
+    const hasRewards = bonusEnabled || tokenEnabled;
+
+    if (giveawayBonusAmountEl) {
+        giveawayBonusAmountEl.disabled = !bonusEnabled;
+        if (bonusEnabled && Number(giveawayBonusAmountEl.value || 0) <= 0) giveawayBonusAmountEl.value = "200";
+        if (!bonusEnabled) giveawayBonusAmountEl.value = "0";
+    }
+    if (giveawayTokenAmountEl) {
+        giveawayTokenAmountEl.disabled = !tokenEnabled;
+        if (tokenEnabled && Number(giveawayTokenAmountEl.value || 0) <= 0) giveawayTokenAmountEl.value = "1";
+        if (!tokenEnabled) giveawayTokenAmountEl.value = "0";
+    }
+    if (giveawayExpiringBonusEl) {
+        giveawayExpiringBonusEl.disabled = !hasRewards;
+        if (!hasRewards) giveawayExpiringBonusEl.checked = false;
+    }
+    if (giveawayExpirationControlsEl) {
+        giveawayExpirationControlsEl.classList.toggle("is-hidden", !hasRewards || !giveawayExpiringBonusEl.checked);
+    }
+    updateCampaignSummary();
+}
+
+async function createCampaign() {
     const messageText = messageTextEl.value.trim();
     if (!messageText) {
         alert("Введи текст сообщения");
+        return;
+    }
+
+    let rewards;
+    try {
+        rewards = getCampaignRewardPayload(true);
+    } catch (error) {
+        alert(error.message);
         return;
     }
 
@@ -394,18 +594,30 @@ async function createMailing() {
     modalConfirmSendBtn.textContent = "Отправляю...";
 
     try {
-        const response = await fetch("/owner/api/mailings/create", {
+        const endpoint = rewards.hasRewards ? "/owner/api/bonus-giveaways/create" : "/owner/api/mailings/create";
+        const payload = {
+            segment_id: currentSegmentId,
+            rules: getRules(rulesContainer),
+            message_text: messageText,
+            attachments: uploadedFiles,
+            start_now: true,
+        };
+        if (rewards.hasRewards) {
+            Object.assign(payload, {
+                bonus_amount: rewards.bonusAmount,
+                token_amount: rewards.tokenAmount,
+                is_expiring: rewards.isExpiring,
+                expires_value: rewards.expiresValue,
+                expires_unit: rewards.expiresUnit,
+            });
+        }
+
+        const response = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                segment_id: currentSegmentId,
-                rules: getRules(rulesContainer),
-                message_text: messageText,
-                attachments: uploadedFiles,
-                start_now: true,
-            }),
+            body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        const data = await readApiResponse(response, "Не удалось создать рассылку");
         if (!data.ok) {
             alert(data.error || "Не удалось создать рассылку");
             return;
@@ -413,103 +625,11 @@ async function createMailing() {
 
         alert(`Рассылка запущена. Получателей: ${data.recipients_count}`);
         window.location.reload();
+    } catch (error) {
+        alert(error.message || "Не удалось запустить рассылку");
     } finally {
         modalConfirmSendBtn.disabled = false;
         modalConfirmSendBtn.textContent = "Отправить";
-    }
-}
-
-
-async function createBonusGiveaway() {
-    if (!giveawayBonusAmountEl || !giveawayMessageTextEl || !sendBonusGiveawayBtn) {
-        return;
-    }
-
-    const bonusAmount = Number(giveawayBonusAmountEl.value || 0);
-    const tokenAmount = Number(giveawayTokenAmountEl ? giveawayTokenAmountEl.value || 0 : 0);
-    const isExpiring = Boolean(giveawayExpiringBonusEl && giveawayExpiringBonusEl.checked);
-    const expiresValue = Number(giveawayExpiresValueEl ? giveawayExpiresValueEl.value || 0 : 0);
-    const expiresUnit = giveawayExpiresUnitEl ? giveawayExpiresUnitEl.value : "days";
-    const messageText = giveawayMessageTextEl.value.trim();
-
-    if (!Number.isFinite(bonusAmount) || bonusAmount < 0) {
-        alert("Количество КБ не может быть отрицательным");
-        return;
-    }
-
-    if (!Number.isFinite(tokenAmount) || tokenAmount < 0) {
-        alert("Количество жетонов не может быть отрицательным");
-        return;
-    }
-
-    if (bonusAmount <= 0 && tokenAmount <= 0) {
-        alert("Укажи КБ или жетоны больше 0");
-        return;
-    }
-
-    if (isExpiring && (!Number.isFinite(expiresValue) || expiresValue < 1)) {
-        alert("Укажи срок сгорания раздачи больше 0");
-        return;
-    }
-
-    if (!messageText) {
-        alert("Введи текст сообщения для гостей");
-        return;
-    }
-
-    let recipientsCount = 0;
-    try {
-        recipientsCount = await previewGiveawayAudience();
-    } catch (error) {
-        alert(error.message || "Не удалось посчитать аудиторию");
-        return;
-    }
-
-    if (recipientsCount <= 0) {
-        alert("По текущим фильтрам нет гостей с Telegram");
-        return;
-    }
-
-    const rewardParts = [];
-    if (bonusAmount > 0) rewardParts.push(`${bonusAmount} КБ`);
-    if (tokenAmount > 0) rewardParts.push(`${tokenAmount} жет.`);
-    const expiringText = isExpiring ? ` Сгорание: через ${expiresValue} ${giveawayExpiresUnitEl.options[giveawayExpiresUnitEl.selectedIndex].text}.` : "";
-    const confirmed = confirm(`Начислить ${rewardParts.join(" и ")} ${recipientsCount} гостям и отправить им сообщение?${expiringText}`);
-    if (!confirmed) {
-        return;
-    }
-
-    sendBonusGiveawayBtn.disabled = true;
-    sendBonusGiveawayBtn.textContent = "Запускаю...";
-
-    try {
-        const response = await fetch("/owner/api/bonus-giveaways/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                rules: getRules(giveawayRulesContainer),
-                bonus_amount: bonusAmount,
-                token_amount: tokenAmount,
-                is_expiring: isExpiring,
-                expires_value: expiresValue,
-                expires_unit: expiresUnit,
-                message_text: messageText,
-                start_now: true,
-            }),
-        });
-        const data = await response.json();
-        if (!data.ok) {
-            alert(data.error || "Не удалось запустить раздачу");
-            return;
-        }
-
-        alert(`Раздача запущена. Получателей: ${data.recipients_count}. КБ: ${data.awarded_count}. Жетоны: ${data.token_awarded_count || 0}.`);
-        window.location.reload();
-    } catch (error) {
-        alert(error.message || "Не удалось запустить раздачу");
-    } finally {
-        sendBonusGiveawayBtn.disabled = false;
-        sendBonusGiveawayBtn.textContent = "Отправить раздачу";
     }
 }
 
@@ -552,49 +672,38 @@ function wrapSelection(tag) {
     const wrapped = `<${tag}>${selected}</${tag}>`;
     textarea.setRangeText(wrapped, start, end, "end");
     textarea.focus();
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function insertLink() {
-    const url = prompt("Вставь ссылку");
-    if (!url) return;
-    const text = prompt("Текст ссылки", "ссылка") || "ссылка";
-
     const textarea = messageTextEl;
     const start = textarea.selectionStart;
-    textarea.setRangeText(`<a href="${url}">${text}</a>`, start, textarea.selectionEnd, "end");
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    const rawUrl = prompt("Адрес ссылки (например, https://cyber-bonus.ru)");
+    if (!rawUrl) return;
+    const url = normalizeLinkUrl(rawUrl);
+    if (!url) {
+        alert("Укажи корректную ссылку с адресом сайта");
+        return;
+    }
+    const linkText = selectedText || prompt("Текст ссылки", "Открыть");
+    if (!linkText) return;
+
+    textarea.setRangeText(
+        `<a href="${escapeTelegramHtml(url)}">${escapeTelegramHtml(linkText)}</a>`,
+        start,
+        end,
+        "end"
+    );
     textarea.focus();
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 document.getElementById("addRuleBtn").addEventListener("click", () => addRule({}, rulesContainer));
 document.getElementById("previewBtn").addEventListener("click", previewSegment);
 document.getElementById("saveSegmentBtn").addEventListener("click", saveSegment);
 document.getElementById("sendMailingBtn").addEventListener("click", openMailingConfirm);
-if (sendBonusGiveawayBtn) {
-    sendBonusGiveawayBtn.addEventListener("click", createBonusGiveaway);
-}
-if (addGiveawayRuleBtn && giveawayRulesContainer) {
-    addGiveawayRuleBtn.addEventListener("click", () => addRule({}, giveawayRulesContainer));
-}
-if (previewGiveawayBtn) {
-    previewGiveawayBtn.addEventListener("click", () => {
-        previewGiveawayAudience().catch((error) => alert(error.message || "Не удалось посчитать получателей раздачи"));
-    });
-}
-if (copyMailingRulesToGiveawayBtn && giveawayRulesContainer) {
-    copyMailingRulesToGiveawayBtn.addEventListener("click", async () => {
-        giveawayRulesContainer.innerHTML = "";
-        const rules = getRules(rulesContainer);
-        rules.forEach((rule) => addRule(rule, giveawayRulesContainer));
-        if (!rules.length) {
-            addRule({}, giveawayRulesContainer);
-        }
-        try {
-            await previewGiveawayAudience();
-        } catch (error) {
-            console.error(error);
-        }
-    });
-}
 document.getElementById("filesInput").addEventListener("change", (e) => uploadFiles(e.target.files));
 
 document.querySelectorAll(".segment-chip__delete").forEach((btn) => {
@@ -639,7 +748,7 @@ document.querySelectorAll(".auto-mailing-variable-insert").forEach((button) => {
         );
     });
 });
-document.getElementById("modalConfirmSendBtn").addEventListener("click", createMailing);
+document.getElementById("modalConfirmSendBtn").addEventListener("click", createCampaign);
 document.getElementById("modalEditBtn").addEventListener("click", closeMailingModal);
 document.getElementById("mailingModalClose").addEventListener("click", closeMailingModal);
 document.getElementById("mailingModalOverlay").addEventListener("click", closeMailingModal);
@@ -756,7 +865,7 @@ function renderCrmInteractionDetail(data) {
     const interaction = data.interaction || {};
     const summary = data.summary || {};
     const typeLabel = interaction.interaction_type === "giveaway"
-        ? "Раздача"
+        ? "Рассылка с начислением"
         : (interaction.interaction_type === "auto_mailing" ? "Авторассылка" : "Рассылка");
     const createdAt = formatDateTime(interaction.created_at);
     const title = `${typeLabel} №${interaction.interaction_id}${createdAt ? ` (${createdAt})` : ""}`;
@@ -875,7 +984,9 @@ function applyCrmInteractionFilters() {
 
     crmInteractionRows.forEach((row) => {
         const rowType = row.dataset.interactionType || "";
-        const matchesType = selectedType === "all" || rowType === selectedType;
+        const matchesType = selectedType === "all"
+            || rowType === selectedType
+            || (selectedType === "campaign" && (rowType === "mailing" || rowType === "giveaway"));
         const matchesAutoFilter = !(hideAuto && rowType === "auto_mailing");
         const isVisible = matchesType && matchesAutoFilter;
         row.classList.toggle("is-filter-hidden", !isVisible);
@@ -1102,14 +1213,18 @@ document.querySelectorAll(".auto-mailing-save").forEach((button) => {
     });
 });
 
-if (giveawayExpiringBonusEl && giveawayExpirationControlsEl) {
-    const syncExpiringControls = () => {
-        giveawayExpirationControlsEl.classList.toggle("is-hidden", !giveawayExpiringBonusEl.checked);
-    };
-    giveawayExpiringBonusEl.addEventListener("change", syncExpiringControls);
-    syncExpiringControls();
-}
+[giveawayBonusEnabledEl, giveawayTokenEnabledEl, giveawayExpiringBonusEl].forEach((element) => {
+    if (element) element.addEventListener("change", syncRewardControls);
+});
+[giveawayBonusAmountEl, giveawayTokenAmountEl, giveawayExpiresValueEl, giveawayExpiresUnitEl].forEach((element) => {
+    if (element) element.addEventListener("input", updateCampaignSummary);
+    if (element) element.addEventListener("change", updateCampaignSummary);
+});
+if (messageTextEl) messageTextEl.addEventListener("input", updateCampaignSummary);
 
-if (giveawayRulesContainer && !giveawayRulesContainer.querySelector(".rule-row")) {
-    addRule({}, giveawayRulesContainer);
-}
+syncRewardControls();
+updateCampaignSummary();
+previewSegment().catch(() => {
+    if (audienceCountEl) audienceCountEl.textContent = "—";
+    if (summaryAudienceCountEl) summaryAudienceCountEl.textContent = "—";
+});

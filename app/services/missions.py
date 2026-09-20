@@ -358,6 +358,16 @@ def _enrich_mission_row(row):
     row["min_hours_label"] = row["metric_info"].get("min_hours_label") or "X — минимум часов за визит"
     row["time_start_label"] = row["metric_info"].get("time_start_label") or "Начало интервала"
     row["time_end_label"] = row["metric_info"].get("time_end_label") or "Конец интервала"
+    local_now = get_club_local_now(row.get("club_timezone"))
+    if not row.get("is_enabled") or (row.get("end_at") and row["end_at"] < local_now):
+        row["status"] = "completed"
+        row["status_label"] = "Завершено"
+    elif row.get("start_at") and row["start_at"] > local_now:
+        row["status"] = "scheduled"
+        row["status_label"] = "Запланировано"
+    else:
+        row["status"] = "active"
+        row["status_label"] = "Активно"
     if row.get("config") is None:
         row["config"] = {}
     return row

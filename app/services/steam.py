@@ -32,6 +32,7 @@ DOTA_MATCH_LIMIT = 5
 DOTA_MATCH_SYNC_LIMIT = 20
 CS2_MATCH_LIMIT = 5
 CS2_SYNC_LIMIT = 5
+CS2_SHARE_CODE_RE = re.compile(r"CSGO-(?:[A-Za-z0-9]{5}-){4}[A-Za-z0-9]{5}", re.IGNORECASE)
 CS2_AUTH_CODE_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 CS2_MAP_IMAGE_ROOT = "/static/images/cs2/maps"
 CS2_MAP_LABELS = {
@@ -279,12 +280,8 @@ def _opendota_api_get(path: str):
             return response.json()
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 429:
-            raise OpenDotaError(
-                "OpenDota временно исчерпал лимит запросов. Покажем сохранённые матчи, если они есть."
-            ) from exc
-        raise OpenDotaError(
-            f"OpenDota временно не отвечает (HTTP {exc.response.status_code})"
-        ) from exc
+            raise OpenDotaError("OpenDota временно исчерпал лимит запросов. Покажем сохранённые матчи, если они есть.") from exc
+        raise OpenDotaError(f"OpenDota временно не отвечает (HTTP {exc.response.status_code})") from exc
     except (httpx.HTTPError, ValueError) as exc:
         raise OpenDotaError("OpenDota временно не отвечает") from exc
 
@@ -377,9 +374,7 @@ def cache_dota_recent_matches(
         with conn.cursor() as cursor:
             for match in matches:
                 try:
-                    started_at = datetime.fromtimestamp(
-                        int(match.get("started_at") or 0), UTC
-                    ).replace(tzinfo=None)
+                    started_at = datetime.fromtimestamp(int(match.get("started_at") or 0), UTC).replace(tzinfo=None)
                 except (TypeError, ValueError, OSError):
                     continue
                 match_id = str(match.get("match_id") or "").strip()
@@ -400,21 +395,11 @@ def cache_dota_recent_matches(
                         raw_stats_json=VALUES(raw_stats_json), source=VALUES(source)
                     """,
                     (
-                        club_id,
-                        guest_id,
-                        steam_id,
-                        match_id,
-                        started_at,
-                        match.get("hero_id"),
-                        match.get("hero_name"),
-                        match.get("kills") or 0,
-                        match.get("deaths") or 0,
-                        match.get("assists") or 0,
-                        match.get("damage") or 0,
-                        match.get("last_hits") or 0,
-                        match.get("gpm") or 0,
-                        match.get("xpm") or 0,
-                        match.get("won"),
+                        club_id, guest_id, steam_id, match_id, started_at,
+                        match.get("hero_id"), match.get("hero_name"), match.get("kills") or 0,
+                        match.get("deaths") or 0, match.get("assists") or 0,
+                        match.get("damage") or 0, match.get("last_hits") or 0,
+                        match.get("gpm") or 0, match.get("xpm") or 0, match.get("won"),
                         json.dumps(match, ensure_ascii=False),
                     ),
                 )

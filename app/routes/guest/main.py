@@ -21,13 +21,6 @@ from app.services.cm_bonuses import (
     get_cm_bonus_redeem_history,
     redeem_cm_bonuses,
 )
-from app.services.guest_auth import (
-    create_guest_login_token,
-    get_guest_by_id,
-    get_guest_login_club,
-    get_guest_login_token,
-)
-from app.services.guest_rewards import get_guest_reward_history
 from app.services.game_contracts import (
     GameContractError,
     accept_weekly_contracts,
@@ -39,6 +32,13 @@ from app.services.game_contracts import (
     reroll_guest_contracts,
     sync_contracts_for_guest,
 )
+from app.services.guest_auth import (
+    create_guest_login_token,
+    get_guest_by_id,
+    get_guest_login_club,
+    get_guest_login_token,
+)
+from app.services.guest_rewards import get_guest_reward_history
 from app.services.maintenance import is_maintenance_enabled
 from app.services.missions import get_guest_missions_with_progress
 from app.services.prize_claims import get_prize_claim_by_spin_id, serialize_prize_claim
@@ -488,14 +488,10 @@ def api_steam_dota_matches():
             exc,
         )
         try:
-            cached_matches = get_cached_dota_recent_matches(
-                club_id=club_id, guest_id=guest_id
-            )
+            cached_matches = get_cached_dota_recent_matches(club_id=club_id, guest_id=guest_id)
         except Exception:
             current_app.logger.exception(
-                "Failed to read cached Dota matches for club=%s guest=%s",
-                club_id,
-                guest_id,
+                "Failed to read cached Dota matches for club=%s guest=%s", club_id, guest_id
             )
             cached_matches = []
         if cached_matches:

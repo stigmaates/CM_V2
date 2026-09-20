@@ -32,9 +32,9 @@
 
     document.addEventListener("submit", (event) => {
         const form = event.target.closest("form");
-        if (!form || form.dataset.noLoading !== undefined) return;
+        if (!form) return;
         const action = new URL(form.action || window.location.href, window.location.origin);
-        if (action.origin !== window.location.origin) return;
+        if (action.origin !== window.location.origin || !action.pathname.startsWith("/demo/action/")) return;
         event.preventDefault();
         showToast();
     }, true);

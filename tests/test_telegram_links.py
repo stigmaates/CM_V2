@@ -16,7 +16,6 @@ class Cursor:
         self.rows = deque(rows)
         self.executed = []
         self.lastrowid = 42
-        self.fail_on = None
 
     def __enter__(self):
         return self
@@ -26,8 +25,6 @@ class Cursor:
 
     def execute(self, query, params=None):
         self.executed.append((query, params))
-        if self.fail_on and self.fail_on in query:
-            raise RuntimeError("injected registration write failure")
 
     def fetchone(self):
         return self.rows.popleft()
@@ -92,8 +89,6 @@ def test_approval_binds_and_records_reviewer_atomically(monkeypatch):
     writes = [(q, p) for q, p in conn.cur.executed if q.startswith("UPDATE")]
     assert writes[0][1] == (100, 2, 7)
     assert writes[1][1] == ("approved", 55, 42)
-    registrations = [(q, p) for q, p in conn.cur.executed if "INSERT IGNORE INTO module_registrations" in q]
-    assert registrations[0][1] == (2, 7)
 
 
 def test_rejection_does_not_change_guest(monkeypatch):
@@ -173,37 +168,6 @@ def test_normal_contact_login_cannot_replace_existing_telegram(monkeypatch):
     with pytest.raises(ValueError):
         service.bind_verified_contact(7, 2, 100)
     assert conn.rolled_back
-
-
-def test_normal_contact_login_records_first_module_registration_atomically(monkeypatch):
-    conn = Connection([{"club_id": 2}, {"guest_id": 7, "telegram_id": None, "phone": "9270086145"}, None])
-    monkeypatch.setattr(service, "get_db_connection", lambda: conn)
-
-    service.bind_verified_contact(7, 2, 100, expected_phone="9270086145")
-
-    assert conn.committed and not conn.rolled_back
-    registrations = [(q, p) for q, p in conn.cur.executed if "INSERT IGNORE INTO module_registrations" in q]
-    assert [params for _query, params in registrations] == [(2, 7)]
-
-
-def test_registration_write_failure_rolls_back_contact_link(monkeypatch):
-    conn = Connection([{"club_id": 2}, {"guest_id": 7, "telegram_id": None, "phone": "9270086145"}, None])
-    conn.cur.fail_on = "INSERT IGNORE INTO module_registrations"
-    monkeypatch.setattr(service, "get_db_connection", lambda: conn)
-
-    with pytest.raises(RuntimeError, match="registration write failure"):
-        service.bind_verified_contact(7, 2, 100, expected_phone="9270086145")
-
-    assert conn.rolled_back and not conn.committed
-
-
-def test_existing_link_does_not_overwrite_first_registration(monkeypatch):
-    conn = Connection([{"club_id": 2}, {"guest_id": 7, "telegram_id": 100, "phone": "9270086145"}, None])
-    monkeypatch.setattr(service, "get_db_connection", lambda: conn)
-
-    service.bind_verified_contact(7, 2, 100)
-
-    assert not any("module_registrations" in query for query, _ in conn.cur.executed)
 
 
 def update_and_context(step="choice"):

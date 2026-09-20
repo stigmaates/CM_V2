@@ -121,20 +121,46 @@ def _audience_from_lifecycle(status: str | None) -> str:
 def _health_distribution(state: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
     thresholds = GUEST_PULSE_CONFIG
     groups = [
-        ("healthy", "Healthy", lambda score: score >= thresholds["healthy_min"]),
-        ("stable", "Stable", lambda score: thresholds["stable_min"] <= score < thresholds["healthy_min"]),
-        ("risk", "Risk", lambda score: thresholds["at_risk_min"] <= score < thresholds["stable_min"]),
-        ("critical", "Critical", lambda score: score < thresholds["at_risk_min"]),
+        (
+            "healthy",
+            "Здоровая база",
+            "80-100",
+            "Гости приходят регулярно, поведение устойчивое.",
+            lambda score: score >= thresholds["healthy_min"],
+        ),
+        (
+            "stable",
+            "Стабильная база",
+            "60-79",
+            "Посещения стабильны, выраженного риска ухода нет.",
+            lambda score: thresholds["stable_min"] <= score < thresholds["healthy_min"],
+        ),
+        (
+            "risk",
+            "Зона риска",
+            "40-59",
+            "Регулярность снизилась: стоит вернуть внимание гостя.",
+            lambda score: thresholds["at_risk_min"] <= score < thresholds["stable_min"],
+        ),
+        (
+            "critical",
+            "Критическая зона",
+            "ниже 40",
+            "Высокий риск ухода или длительное отсутствие.",
+            lambda score: score < thresholds["at_risk_min"],
+        ),
     ]
     scores = [float(row["health_score"]) for row in state.values() if row.get("health_score") is not None]
     return [
         {
             "code": code,
             "label": label,
+            "range": score_range,
+            "description": description,
             "count": sum(check(score) for score in scores),
             "percent": _percent(sum(check(score) for score in scores), len(scores)),
         }
-        for code, label, check in groups
+        for code, label, score_range, description, check in groups
     ]
 
 
@@ -330,19 +356,17 @@ def build_report_from_sources(
     }
     new_funnel["second_percent"] = _percent(new_funnel["second"], new_funnel["first"])
     new_funnel["third_percent"] = _percent(new_funnel["third"], new_funnel["first"])
-    all_funnel = []
-    previous_step_count = len(active)
-    for number in range(1, 6):
-        step_count = sum(count >= number for count in current_counts.values())
-        all_funnel.append(
-            {
-                "visits": number,
-                "count": step_count,
-                "percent": _percent(step_count, len(active)),
-                "step_percent": _percent(step_count, previous_step_count),
-            }
-        )
-        previous_step_count = step_count
+    all_funnel = [
+        {
+            "visits": number,
+            "count": sum(count >= number for count in current_counts.values()),
+            "percent": _percent(sum(count >= number for count in current_counts.values()), len(active)),
+        }
+        for number in range(1, 6)
+    ]
+    for index, level in enumerate(all_funnel):
+        previous_count = all_funnel[index - 1]["count"] if index else len(active)
+        level["step_percent"] = _percent(level["count"], previous_count)
 
     cases = _mechanic_stats(
         [row for row in sources.get("case_openings", []) if _in_period(row.get("created_at"), start, end)], len(active)
@@ -399,9 +423,9 @@ def build_report_from_sources(
 
     quality = []
     if not current_state:
-        quality.append("Нет снимка Пульса на конец месяца: блоки Пульса и Health показаны без значений.")
+        quality.append("Нет снимка Пульса на конец месяца: блоки Пульса и «Посещения» показаны без значений.")
     elif any(row.get("reconstructed") for row in current_state.values()):
-        quality.append("Пульс и Health частично восстановлены по историческим событиям.")
+        quality.append("Пульс и «Посещения» частично восстановлены по историческим событиям.")
     estimated_module = sum(bool(row.get("is_estimated")) for row in new_module)
     if estimated_module:
         quality.append(f"Дата регистрации в Cyber Bonus приблизительно восстановлена для {estimated_module} гостей.")

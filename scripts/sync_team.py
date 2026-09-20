@@ -1,4 +1,4 @@
-"""Read-only Langame staff/shift import and module-registration reconstruction."""
+"""Stage-only, read-only Langame staff/shift import and module-registration reconstruction."""
 
 import argparse
 import re
@@ -12,6 +12,7 @@ import httpx
 
 from app.core import get_db_connection
 from app.services.guest_pulse import rows
+from app.services.stage_mirror import stage_mirror_enabled
 
 
 def parse_time(value):
@@ -150,6 +151,8 @@ def main():
     parser.add_argument("--club-id", type=int)
     parser.add_argument("--langame-club-id", type=int)
     args = parser.parse_args()
+    if not stage_mirror_enabled():
+        raise ValueError("This importer is only enabled on the stage mirror")
     if args.langame_club_id and not args.club_id:
         raise ValueError("--langame-club-id requires --club-id")
     conn = get_db_connection()

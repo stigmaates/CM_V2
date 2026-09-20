@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Guest Pulse after source changes and daily at club-local time
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=15s
+AccuracySec=1s
+Unit=clubmodule-stage-guest-pulse.service
+
+[Install]
+WantedBy=timers.target

@@ -11,9 +11,9 @@ demo_bp = Blueprint("demo", __name__, url_prefix="/demo")
 PAGE_MAP = {
     "overview": ("owner/dashboard.html", "dashboard", {}),
     "dashboard": ("owner/dashboard.html", "dashboard", {}),
-    "cohorts": ("owner/crm_analytics.html", "crm", {}),
-    "heatmaps": ("owner/crm_analytics.html", "crm", {}),
-    "communications": ("owner/crm_analytics.html", "crm", {}),
+    "cohorts": ("owner/crm_analytics.html", "crm", {"analytics_section": "cohorts"}),
+    "heatmaps": ("owner/crm_analytics.html", "crm", {"analytics_section": "heatmaps"}),
+    "communications": ("owner/crm_analytics.html", "crm", {"analytics_section": "communications"}),
     "guest-pulse": ("owner/guest_pulse.html", "pulse", {}),
     "team": ("owner/team.html", "team", {}),
     "mailings": ("owner/mailing.html", "mailing", {}),
@@ -22,7 +22,7 @@ PAGE_MAP = {
     "missions": ("owner/settings.html", "settings", {"tab": "missions"}),
     "contracts": ("owner/settings.html", "settings", {"tab": "contracts"}),
     "cases": ("owner/settings.html", "settings", {"tab": "wheel", "editor": "cases"}),
-    "promotions": ("owner/settings.html", "settings", {"tab": "wheel", "editor": "wheel"}),
+    "promotions": ("owner/promotions.html", "settings", {"tab": "wheel", "editor": "wheel"}),
     "guests": ("owner/settings.html", "settings", {"tab": "guests"}),
     "managed-drops": ("owner/settings.html", "settings", {"tab": "managed-drops"}),
 }
@@ -53,7 +53,9 @@ def _demo_url_for(endpoint: str, **values) -> str:
     if endpoint == "static":
         return flask_url_for(endpoint, **values)
     mapping = {
-        "owner.dashboard": "dashboard", "owner.crm_analytics": "cohorts", "owner.guest_pulse": "guest-pulse",
+        "owner.dashboard": "dashboard", "owner.analytics_cohorts": "cohorts",
+        "owner.analytics_communications": "communications", "owner.analytics_heatmaps": "heatmaps",
+        "owner.guest_pulse": "guest-pulse", "owner.promotions": "promotions",
         "owner.training": "training", "owner.settings": "settings", "owner.team": "team", "owner.mailing_page": "mailings",
     }
     if endpoint in mapping:
@@ -95,10 +97,25 @@ def _message_variables() -> list[dict]:
     return [{"key": "first_name", "label": "Имя", "placeholder": "{first_name}"}, {"key": "club_name", "label": "Клуб", "placeholder": "{club_name}"}]
 
 
+def _demo_date_range(default_days: int = 30):
+    today = datetime.now().date()
+    try:
+        date_from = datetime.strptime(request.args.get("date_from", ""), "%Y-%m-%d").date()
+        date_to = datetime.strptime(request.args.get("date_to", ""), "%Y-%m-%d").date()
+        if date_to < date_from or (date_to - date_from).days > 365:
+            raise ValueError
+    except (TypeError, ValueError):
+        date_to = today
+        date_from = today - timedelta(days=default_days - 1)
+    return date_from, date_to
+
+
 def _dashboard_context() -> dict:
     period = request.args.get("period", 30, type=int)
     if period not in (7, 30, 90):
         period = 30
+    date_from, date_to = _demo_date_range(period)
+    period = (date_to - date_from).days + 1
     stats = {
         "period_days": period, "guests_current": 437, "guests_previous": 398, "guests_diff": 39, "guests_diff_percent": 9.8,
         "retention_current": 67.4, "retention_previous": 62.1, "retention_diff": 5.3,
@@ -118,6 +135,10 @@ def _dashboard_context() -> dict:
     negative = [{"guest_id": 3, "rating": 3, "text": "Долго ждал свободный компьютер.", "short_text": "Долго ждал свободный компьютер.", "date": "16.09.2026 20:05"}]
     return {
         **_common("dashboard"), "selected_period": period, "stats": stats, "engagement": engagement, "engagement_all_time_data": all_time,
+        "selected_date_from": date_from.isoformat(),
+        "selected_date_to": date_to.isoformat(),
+        "selected_period_label": f"{date_from.strftime('%d.%m.%Y')} — {date_to.strftime('%d.%m.%Y')}",
+        "dashboard_max_date": datetime.now().date().isoformat(),
         "case_openings_chart": {"items": [{"case_id": 1, "name": "WALLZ CS2 Case", "image_url": "", "openings": 248, "unique_openers": 183, "width": 100, "prize_drops": []}, {"case_id": 2, "name": "Cyber Bonus Case", "image_url": "", "openings": 164, "unique_openers": 129, "width": 66, "prize_drops": []}], "total_openings": 412, "unique_openers": 274, "period_days": period},
         "mission_completions_chart": {"items": [{"mission_id": 1, "name": "Флеш-рояль", "completions": 129, "width": 100}, {"mission_id": 2, "name": "Кофейный энтузиаст", "completions": 88, "width": 68}, {"mission_id": 3, "name": "Ночная лига", "completions": 61, "width": 47}], "total_completions": 278, "period_days": period},
         "first_visit_feedback": {"avg_rating": 4.6, "avg_rating_display": "4,6", "total_responses": 86, "positive_count": 64, "negative_count": 22, "positive_preview": positive, "negative_preview": negative, "positive_messages": positive, "negative_messages": negative, "period_days": period},
@@ -134,10 +155,12 @@ def _analysis() -> dict:
     }
 
 
-def _crm_context() -> dict:
+def _crm_context(section: str = "cohorts") -> dict:
     period = request.args.get("period", 30, type=int)
     if period not in (7, 30, 90):
         period = 30
+    date_from, date_to = _demo_date_range(period)
+    period = (date_to - date_from).days + 1
     hours = list(range(24))
     days = [("Пн", "Понедельник"), ("Вт", "Вторник"), ("Ср", "Среда"), ("Чт", "Четверг"), ("Пт", "Пятница"), ("Сб", "Суббота"), ("Вс", "Воскресенье")]
     grid = []
@@ -153,7 +176,11 @@ def _crm_context() -> dict:
         hours_value = round(utilization * period * 24 / 100, 1)
         pcs.append({"uuid": f"demo-pc-{index}", "name": f"ПК {index}", "display_name": f"ПК {index}", "hours": hours_value, "hours_display": str(hours_value).replace(".", ","), "sessions_count": 10 + index * 2, "utilization_percent": utilization, "utilization_display": str(utilization).replace(".", ","), "level": min(5, max(1, int(utilization // 20 + 1)))})
     return {
-        **_common("crm-analytics"), "selected_period": period, "telegram_only": False,
+        **_common(section), "analytics_section": section, "selected_period": period, "telegram_only": False,
+        "selected_date_from": date_from.isoformat(),
+        "selected_date_to": date_to.isoformat(),
+        "selected_period_label": f"{date_from.strftime('%d.%m.%Y')} — {date_to.strftime('%d.%m.%Y')}",
+        "heatmap_max_date": datetime.now().date().isoformat(),
         "audience": {"total": 4377, "telegram": 3115}, "heatmap": {"hours": hours, "grid": grid, "utilization_display": "36,8", "peak": {"day": "Суббота", "hour": "21:00", "value": 91}},
         "pc_heatmap": {"pcs": pcs, "total_hours_display": "4 910,2", "utilization_display": "26,2", "peak": max(pcs, key=lambda item: item["utilization_percent"])},
         "filter_fields": _filter_fields(), "message_variables": _message_variables(),
@@ -234,12 +261,13 @@ def owner_page(page: str):
         return render_template("demo/not_found.html"), 404
     template, kind, defaults = config
     if kind == "dashboard": context = _dashboard_context()
-    elif kind == "crm": context = _crm_context()
+    elif kind == "crm": context = _crm_context(defaults.get("analytics_section", page))
     elif kind == "pulse": context = {**_common("guest-pulse"), "segments": {"active": "Активные", "risk": "В зоне риска", "lost": "Потерянные"}, "message_variables": _message_variables(), "outbound_disabled": False}
     elif kind == "team": context = _common("team")
     elif kind == "mailing": context = _mailing_context()
     elif kind == "training": context = {**_common("training"), "videos": []}
     else: context = _settings_context(defaults)
+    context["demo_page"] = page
     return render_template(template, **context)
 
 
@@ -270,9 +298,18 @@ def _guest_rows() -> list[dict]:
 def owner_api(path: str):
     if path == "team": return jsonify(_team_payload())
     if path == "team/admins": return jsonify({"ok": True})
+    if path == "dashboard/engagement":
+        return jsonify({"ok": True, "data": _dashboard_context()["engagement_all_time_data"]})
     if path == "dashboard/case-openings-timeline":
         return jsonify({"ok": True, "cases": [{"id": 1, "name": "WALLZ CS2 Case", "color": "#8f5bff"}, {"id": 2, "name": "Cyber Bonus Case", "color": "#3fc9f2"}], "buckets": [{"label": f"{day:02d}.09", "values": [10 + (day * 7) % 26, 6 + (day * 5) % 18]} for day in range(1, 15)], "group_by": "day", "max_value": 36})
     if path == "crm-analysis/preview": return jsonify({"ok": True, "analysis": _analysis()})
+    if path == "crm-auto-campaigns":
+        date_from, date_to = _demo_date_range(7)
+        campaigns = [
+            {"code": "guest_return", "title": "Возвращение гостя", "unique_recipients": 184, "returned_count": 51, "conversion_percent": 27.7, "topped_up_count": 36, "topup_amount": 48200},
+            {"code": "first_visit", "title": "После первого визита", "unique_recipients": 96, "returned_count": 34, "conversion_percent": 35.4, "topped_up_count": 21, "topup_amount": 26700},
+        ]
+        return jsonify({"ok": True, "date_from": date_from.isoformat(), "date_to": date_to.isoformat(), "campaigns": campaigns})
     if path.startswith("crm-cohorts"): return jsonify({"ok": True, "id": random.randint(10, 99)})
     if path == "guest-pulse":
         rows = _guest_rows()
@@ -283,7 +320,7 @@ def owner_api(path: str):
         return jsonify({"ok": True, "calculated_at": datetime.now().isoformat(timespec="minutes"), "stale": False, "total": 437, "audiences": audiences, "selected_count": 437, "selected_telegram_count": 346, "selected_without_telegram_count": 91, "guests": rows, "deviation_count": len(deviations), "deviation_telegram_count": 3, "deviations": deviations, "page_size": 10})
     if path.startswith("guest-pulse/guests/"):
         guest_id = int(path.rsplit("/", 1)[-1]); row = next((item for item in _guest_rows() if item["guest_id"] == guest_id), _guest_rows()[0])
-        guest = {**row, "health": {"score": row["health"]["score"], "delta_14d": -8, "preliminary": False, "recency": 61, "frequency": 72, "trend": 48, "consistency": 66, "score_7d_ago": 64, "score_14d_ago": 71, "score_30d_ago": 76, "reason_text": "Обычно приходит раз в 4 дня. Последний визит был 11 дней назад."}, "value": {"score": row["value"]["score"], "revenue_90d": 6200, "played_hours_90d": 54, "visits_90d": 12, "avg_check_90d": 517, "percentiles": {"revenue_90d": 68, "played_hours_90d": 71, "visits_90d": 65, "avg_check_90d": 59}, "reference_count": 437}, "engagement": {"score": row["engagement"]["score"], "missions_completed_30d": 3, "contracts_selected_30d": 2, "contracts_completed_30d": 1, "cb_actions_30d": 9, "current_streak": 4, "last_cb_activity_at": datetime.now().isoformat(timespec="minutes")}, "visits": {"last_visit_date": (datetime.now() - timedelta(days=11)).isoformat(timespec="minutes"), "typical_gap_days": 4.1, "visits_total": 38}, "games": {"favorite_game": "cs2", "favorite_game_hours": 219, "recent_game_14d": "cs2", "recent_game_14d_hours": 31, "updated_at": datetime.now().isoformat(timespec="minutes")}}
+        guest = {**row, "health": {"score": row["health"]["score"], "delta_14d": -8, "preliminary": False, "recency": 61, "frequency": 72, "trend": 48, "consistency": 66, "score_7d_ago": 64, "score_14d_ago": 71, "score_30d_ago": 76, "reason_text": "Обычно приходит раз в 4 дня. Последний визит был 11 дней назад."}, "value": {"score": row["value"]["score"], "revenue_90d": 6200, "played_hours_90d": 54, "visits_90d": 12, "avg_check_90d": 517, "percentiles": {"revenue_90d": 68, "played_hours_90d": 71, "visits_90d": 65, "avg_check_90d": 59}, "reference_count": 437}, "engagement": {"score": row["engagement"]["score"], "missions_completed_30d": 3, "contracts_selected_30d": 2, "contracts_completed_30d": 1, "cb_actions_30d": 9, "current_streak": 4, "last_cb_activity_at": datetime.now().isoformat(timespec="minutes")}, "visits": {"last_visit_date": (datetime.now() - timedelta(days=11)).isoformat(timespec="minutes"), "typical_gap_days": 4.1, "visits_total": 38}, "visit_pattern": {"period": "День", "calendar": "Будни", "night_share": 44.0, "weekend_share": 31.5}, "games": {"favorite_game": "cs2", "favorite_game_hours": 219, "recent_game_14d": "cs2", "recent_game_14d_hours": 31, "updated_at": datetime.now().isoformat(timespec="minutes")}}
         history = [{"snapshot_date": (datetime.now() - timedelta(days=i)).date().isoformat(), "health_score": 61 + i % 6, "value_score": 68, "engagement_score": 52 + i % 4, "reconstructed": False} for i in range(10)]
         return jsonify({"ok": True, "guest": guest, "history": history, "events": []})
     if path.startswith("guest-pulse/selection"): return jsonify({"ok": True, "group": {"key": "demo", "title": "Демо-аудитория", "guest_ids": [1, 2, 3], "guests": _guest_rows()[:3], "total_count": 3}})

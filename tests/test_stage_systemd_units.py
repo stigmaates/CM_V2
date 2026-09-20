@@ -15,6 +15,16 @@ def test_stage_backup_systemd_units_are_stage_scoped():
     assert "Persistent=true" in timer
 
 
+def test_stage_data_mirror_runs_once_per_night():
+    timer = (ROOT / "deploy/systemd/clubmodule-stage-data-mirror.timer").read_text(encoding="utf-8")
+
+    assert "OnCalendar=*-*-* 01:30:00 UTC" in timer
+    assert "Persistent=true" in timer
+    assert "RandomizedDelaySec=10min" in timer
+    assert "OnUnitActiveSec" not in timer
+    assert "OnUnitInactiveSec" not in timer
+
+
 def test_production_operational_alert_units_are_production_scoped():
     service = (ROOT / "deploy/systemd/clubmodule-operational-alerts.service").read_text(encoding="utf-8")
     timer = (ROOT / "deploy/systemd/clubmodule-operational-alerts.timer").read_text(encoding="utf-8")
@@ -45,9 +55,21 @@ def test_guest_and_admin_bot_units_are_environment_scoped():
     assert "WorkingDirectory=/root/cm_stage/CM_V2" in stage_guest
     assert "EnvironmentFile=/root/cm_stage/CM_V2/.env" in stage_guest
     assert "ExecStart=/root/cm_stage/CM_V2/venv/bin/python -m bot.main" in stage_guest
+    assert "Environment=ALLOW_STAGE_GUEST_BOT=1" in stage_guest
     assert "/root/cm_v2/CM_V2" not in stage_guest
 
     assert "WorkingDirectory=/root/cm_stage/CM_V2" in stage_admin
     assert "EnvironmentFile=/root/cm_stage/CM_V2/.env" in stage_admin
     assert "ExecStart=/root/cm_stage/CM_V2/venv/bin/python -m bot.admin_main" in stage_admin
+    assert "Environment=ALLOW_STAGE_ADMIN_BOT=1" in stage_admin
     assert "/root/cm_v2/CM_V2" not in stage_admin
+
+
+def test_stage_game_contracts_run_every_fifteen_minutes():
+    service = (ROOT / "deploy/systemd/clubmodule-stage-game-contracts.service").read_text(encoding="utf-8")
+    timer = (ROOT / "deploy/systemd/clubmodule-stage-game-contracts.timer").read_text(encoding="utf-8")
+
+    assert "WorkingDirectory=/root/cm_stage/CM_V2" in service
+    assert "scripts/process_game_contracts.py" in service
+    assert "OnUnitActiveSec=15min" in timer
+    assert "Unit=clubmodule-stage-game-contracts.service" in timer

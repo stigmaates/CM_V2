@@ -260,7 +260,7 @@ def settings_topup_bonuses_save():
     except Exception as exc:
         flash(f"Ошибка сохранения бонусов за пополнения: {exc}", "error")
 
-    return redirect(url_for("owner.settings", tab="wheel") + "#topup-bonuses")
+    return redirect(url_for("owner.promotions") + "#topup-bonuses")
 
 
 @owner_bp.route("/settings/welcome-reward", methods=["POST"])
@@ -300,7 +300,26 @@ def settings_welcome_reward_save():
     except Exception as exc:
         flash(f"Ошибка сохранения приветственной награды: {exc}", "error")
 
-    return redirect(url_for("owner.settings", tab="wheel") + "#welcome-reward")
+    return redirect(url_for("owner.promotions") + "#welcome-reward")
+
+
+@owner_bp.get("/promotions")
+@owner_required
+def promotions():
+    club_id = session.get("club_id")
+    if not club_id:
+        flash("Сначала создайте клуб", "error")
+        return redirect(url_for("owner.club_create"))
+
+    club_id_int = int(club_id)
+    return render_template(
+        "owner/promotions.html",
+        topup_bonus_settings=get_topup_bonus_settings(club_id_int),
+        welcome_reward_settings=get_welcome_reward_settings(club_id_int),
+        topup_bonus_variables=TOPUP_BONUS_VARIABLES,
+        topup_bonus_exclude_from_amount=TOPUP_BONUS_MAX_AMOUNT,
+        topup_bonus_max_rule_amount=TOPUP_BONUS_MAX_AMOUNT - 0.01,
+    )
 
 
 @owner_bp.route("/settings/guest-test", methods=["POST"])
@@ -390,9 +409,9 @@ def settings():
     if active_tab == "profile" and session.get("role") not in OWNER_ACCESS_ROLES:
         flash("Раздел недоступен в режиме просмотра от администратора", "error")
         return redirect(url_for("owner.settings", tab="club"))
-    bonus_editor = request.args.get("editor", "wheel").strip()
+    bonus_editor = request.args.get("editor", "").strip()
     if bonus_editor not in BONUS_EDITORS:
-        bonus_editor = "wheel"
+        bonus_editor = None
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -521,6 +540,7 @@ def settings():
     elif active_tab == "wheel":
         prizes = get_wheel_prizes_for_admin(club_id_int)
         wheel_active_prob_sum = sum(float(p.get("probability") or 0) for p in prizes if int(p.get("is_active") or 0))
+        game_mode = get_game_mode(club_id_int)
         context.update(
             {
                 "wheel_settings": get_wheel_settings_for_admin(club_id_int),
@@ -545,15 +565,10 @@ def settings():
                     "🎰",
                     "👕",
                 ],
-                "game_mode": get_game_mode(club_id_int),
-                "bonus_editor": bonus_editor,
+                "game_mode": game_mode,
+                "bonus_editor": bonus_editor or game_mode,
                 "cases": get_cases_for_admin(club_id_int),
                 "case_upload_usage": get_club_upload_usage_info(club_id_int),
-                "topup_bonus_settings": get_topup_bonus_settings(club_id_int),
-                "welcome_reward_settings": get_welcome_reward_settings(club_id_int),
-                "topup_bonus_variables": TOPUP_BONUS_VARIABLES,
-                "topup_bonus_exclude_from_amount": TOPUP_BONUS_MAX_AMOUNT,
-                "topup_bonus_max_rule_amount": TOPUP_BONUS_MAX_AMOUNT - 0.01,
             }
         )
 

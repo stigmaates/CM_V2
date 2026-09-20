@@ -3,14 +3,17 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Рассылки{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-pulse-3">
 {% endblock %}
 
 {% block content %}
 <div class="mailing-page">
     <div class="mailing-header">
-        <h1 class="mailing-title">Рассылка</h1>
-        <p class="mailing-lead">Собирай аудиторию по фильтрам, сохраняй сегменты и отправляй сообщения гостям с привязанным Telegram.</p>
+        <div>
+            <h1 class="mailing-title">Рассылки</h1>
+            <p class="mailing-lead">Собирайте аудиторию по любым фильтрам, начисляйте бонусы и отправляйте сообщения гостям в Telegram.</p>
+        </div>
+        <button type="button" class="campaign-help" id="mailingAudienceHelpBtn">?<span>Как работает рассылка?</span></button>
     </div>
 
     <div class="mailing-tabs">
@@ -19,159 +22,113 @@
     </div>
 
     <div class="mailing-tab-panel is-active" data-tab-panel="manual">
-    <div class="mailing-layout">
-        <div class="mailing-left">
-            <section class="mailing-box">
-                <div class="filters-header">
-                    <div>
-                        <h3>Группы из CRM-Аналитики</h3>
-                        <div class="crm-segments-hint">Нажми на группу, чтобы быстро подставить её как фильтр аудитории.</div>
+        <div class="campaign-layout">
+            <div class="campaign-main">
+                <section class="mailing-box campaign-segments-box">
+                    <div class="campaign-section-head">
+                        <div>
+                            <h3>Группы из Пульса гостя</h3>
+                            <p>Выберите готовую группу или соберите аудиторию фильтрами ниже.</p>
+                        </div>
                     </div>
-                </div>
-
-                <div class="crm-segments-grid">
-                    {% for segment in crm_segments %}
-                        <button
-                            type="button"
-                            class="crm-segment-card crm-segment-card--{{ segment.key }}"
-                            data-crm-key="{{ segment.key }}"
-                            data-rules='{{ segment.rules | tojson | safe }}'
-                        >
-                            <span class="crm-segment-card__emoji">{{ segment.emoji }}</span>
-                            <span class="crm-segment-card__body">
-                                <span class="crm-segment-card__title">{{ segment.title }}</span>
-                                <span class="crm-segment-card__desc">{{ segment.description }}</span>
-                            </span>
-                        </button>
-                    {% endfor %}
-                </div>
-            </section>
-
-            <section class="mailing-box">
-                <div class="segments-block-head">
-                    <h3>Сохранённые сегменты</h3>
-                </div>
-                <div class="segments-scroller">
-                    <div id="segmentsList" class="segments-list">
-                        {% for segment in segments %}
-                            <div class="segment-chip" data-id="{{ segment.id }}" data-rules='{{ segment.rules_json | tojson | safe }}'>
-                                <button class="segment-chip__use" type="button">{{ segment.name }}</button>
-                                <button class="segment-chip__delete" type="button" data-id="{{ segment.id }}">×</button>
-                            </div>
+                    <div class="crm-segments-grid">
+                        {% for segment in crm_segments %}
+                            <button type="button" class="crm-segment-card crm-segment-card--{{ segment.key }}" data-crm-key="{{ segment.key }}" data-rules='{{ segment.rules | tojson | safe }}'>
+                                <span class="crm-segment-card__emoji">{{ segment.emoji }}</span>
+                                <span class="crm-segment-card__body">
+                                    <span class="crm-segment-card__title">{{ segment.title }}</span>
+                                </span>
+                            </button>
                         {% endfor %}
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section class="mailing-box">
-                <div class="filters-header">
-                    <div class="mailing-filter-title">
-                        <h3>Фильтры</h3>
-                        <span class="mailing-info-chip" tabindex="0" aria-label="Подсказка по фильтрам">
-                            i
-                            <span class="mailing-info-chip__tooltip">Для персональной рассылки выбери фильтр «Номер телефона» и введи несколько номеров через <b>;</b></span>
-                        </span>
+                <section class="mailing-box campaign-saved-box">
+                    <div class="campaign-section-head">
+                        <h3>Сохранённые сегменты</h3>
                     </div>
-                    <button type="button" class="btn btn-secondary" id="addRuleBtn">Добавить фильтр</button>
-                </div>
-
-                <div id="rulesContainer" class="rules-container"></div>
-
-                <div class="segment-save-row">
-                    <input type="text" id="segmentName" placeholder="Название сегмента" autocomplete="off">
-                    <button type="button" class="btn" id="saveSegmentBtn">Сохранить сегмент</button>
-                    <button type="button" class="btn btn-primary" id="previewBtn">Применить</button>
-                </div>
-            </section>
-        </div>
-
-        <div class="mailing-right">
-            <section class="mailing-box">
-                <div class="message-box-head">
-                    <h3>Сообщение</h3>
-                    <div class="message-audience" role="status">
-                        <span class="message-audience__label">Людей в рассылке:</span>
-                        <span class="message-audience__count" id="audienceCount">—</span>
-                        <button type="button" class="help-btn" id="mailingAudienceHelpBtn" title="Кто входит в рассылку" aria-label="Подробнее о количестве людей в рассылке">?</button>
-                    </div>
-                </div>
-
-                <div class="editor-toolbar">
-                    <button type="button" data-tag="b"><b>Ж</b></button>
-                    <button type="button" data-tag="i"><i>К</i></button>
-                    <button type="button" data-tag="u"><u>Ч</u></button>
-                    <button type="button" id="insertLinkBtn">Ссылка</button>
-                </div>
-
-                <div class="message-variable-picker">
-                    <select id="messageVariableSelect" class="message-variable-select" aria-label="Данные гостя для вставки"></select>
-                    <button type="button" class="btn btn-secondary message-variable-insert" id="insertMessageVariableBtn">Вставить</button>
-                </div>
-
-                <textarea id="messageText" class="message-textarea" placeholder="Текст сообщения"></textarea>
-            </section>
-
-            <section class="mailing-box">
-                <h3>Файлы</h3>
-                <input type="file" id="filesInput" multiple>
-                <div id="filesList" class="files-list"></div>
-            </section>
-
-            <section class="mailing-box">
-                <button type="button" class="btn btn-primary btn-send" id="sendMailingBtn">Отправить рассылку</button>
-            </section>
-
-        </div>
-
-    </div>
-
-    <section class="mailing-box bonus-giveaway-box">
-        <div class="message-box-head">
-            <div>
-                <h3>Раздача бонусов и жетонов</h3>
-                <div class="crm-segments-hint">Начислит выбранной аудитории КБ, жетоны или оба типа награды и отправит Telegram-сообщение.</div>
-            </div>
-            <div class="message-audience" role="status">
-                <span class="message-audience__label">Получателей:</span>
-                <span class="message-audience__count" id="giveawayAudienceCount">—</span>
-            </div>
-        </div>
-
-        <div class="bonus-giveaway-layout">
-            <div class="bonus-giveaway-main">
-                <div class="bonus-giveaway-filter-block">
-                    <div class="filters-header">
-                        <div>
-                            <h4>Фильтры раздачи</h4>
-                            <div class="crm-segments-hint">Эти фильтры отдельные от обычной рассылки и влияют только на раздачу бонусов.</div>
+                    <div class="segments-scroller">
+                        <div id="segmentsList" class="segments-list">
+                            {% for segment in segments %}
+                                <div class="segment-chip" data-id="{{ segment.id }}" data-rules='{{ segment.rules_json | tojson | safe }}'>
+                                    <button class="segment-chip__use" type="button">{{ segment.name }}</button>
+                                    <button class="segment-chip__delete" type="button" data-id="{{ segment.id }}" aria-label="Удалить сегмент">×</button>
+                                </div>
+                            {% else %}
+                                <span class="campaign-empty-inline">Сохранённых сегментов пока нет</span>
+                            {% endfor %}
                         </div>
-                        <button type="button" class="btn btn-secondary" id="addGiveawayRuleBtn">Добавить фильтр</button>
+                    </div>
+                </section>
+
+                <section class="mailing-box campaign-audience-box">
+                    <div class="campaign-section-head campaign-section-head--audience">
+                        <div>
+                            <h3>Конструктор аудитории</h3>
+                            <p>Добавляйте фильтры, чтобы собрать нужную аудиторию.</p>
+                        </div>
+                        <div class="campaign-audience-count" role="status">
+                            <span class="campaign-status-dot"></span>
+                            Получателей: <strong id="audienceCount">—</strong>
+                            <small>только с Telegram</small>
+                        </div>
                     </div>
 
-                    <div id="giveawayRulesContainer" class="rules-container"></div>
+                    <div id="rulesContainer" class="rules-container"></div>
 
-                    <div class="bonus-giveaway-filter-actions">
-                        <button type="button" class="btn btn-secondary" id="copyMailingRulesToGiveawayBtn">Скопировать фильтры рассылки</button>
-                        <button type="button" class="btn btn-primary" id="previewGiveawayBtn">Применить фильтры раздачи</button>
+                    <div class="campaign-audience-actions">
+                        <button type="button" class="btn btn-primary" id="addRuleBtn">＋ Добавить фильтр</button>
+                        <button type="button" class="btn btn-secondary" id="previewBtn">Применить</button>
+                        <div class="campaign-save-segment">
+                            <input type="text" id="segmentName" placeholder="Название сегмента" autocomplete="off">
+                            <button type="button" class="btn" id="saveSegmentBtn">Сохранить</button>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </section>
 
-            <div class="bonus-giveaway-side">
-                <div class="bonus-giveaway-form">
-                    <label class="bonus-giveaway-field bonus-giveaway-field--amount">
-                        <span>Кол-во КБ</span>
-                        <input type="number" id="giveawayBonusAmount" min="0" step="1" placeholder="Например, 200" autocomplete="off">
-                    </label>
+                <section class="mailing-box campaign-rewards-box">
+                    <div class="campaign-section-head">
+                        <div>
+                            <h3>Начисления</h3>
+                            <p>Опционально добавьте к рассылке КБ, жетоны или оба вида награды.</p>
+                        </div>
+                    </div>
 
-                    <div class="bonus-giveaway-expiring">
-                        <label class="bonus-giveaway-check">
-                            <input type="checkbox" id="giveawayExpiringBonus">
-                            <span>Сгорающая раздача</span>
+                    <div class="campaign-reward-row">
+                        <label class="campaign-reward-enable">
+                            <input type="checkbox" id="giveawayBonusEnabled">
+                            <span class="campaign-checkbox"></span>
+                            <span class="campaign-reward-icon">КБ</span>
+                            <strong>Бонусные КБ</strong>
+                        </label>
+                        <label class="campaign-reward-amount">
+                            <span>Количество</span>
+                            <input type="number" id="giveawayBonusAmount" min="0" step="1" value="0" autocomplete="off" disabled>
+                        </label>
+                    </div>
+
+                    <div class="campaign-reward-row">
+                        <label class="campaign-reward-enable">
+                            <input type="checkbox" id="giveawayTokenEnabled">
+                            <span class="campaign-checkbox"></span>
+                            <span class="campaign-reward-icon campaign-reward-icon--token">★</span>
+                            <strong>Жетоны</strong>
+                        </label>
+                        <label class="campaign-reward-amount">
+                            <span>Количество</span>
+                            <input type="number" id="giveawayTokenAmount" min="0" step="1" value="0" autocomplete="off" disabled>
+                        </label>
+                    </div>
+
+                    <div class="campaign-expiration-row">
+                        <label class="campaign-expiration-toggle">
+                            <input type="checkbox" id="giveawayExpiringBonus" disabled>
+                            <span class="toggle-switch-visual"></span>
+                            <strong>Сгорающие начисления</strong>
                         </label>
                         <div class="bonus-giveaway-expiration is-hidden" id="giveawayExpirationControls">
                             <label class="bonus-giveaway-field">
-                                <span>Сгорит через</span>
+                                <span>Сгорят через</span>
                                 <input type="number" id="giveawayExpiresValue" min="1" step="1" value="7" autocomplete="off">
                             </label>
                             <label class="bonus-giveaway-field">
@@ -184,42 +141,73 @@
                             </label>
                         </div>
                     </div>
-
-                    <label class="bonus-giveaway-field bonus-giveaway-field--amount">
-                        <span>Кол-во жетонов</span>
-                        <input type="number" id="giveawayTokenAmount" min="0" step="1" placeholder="Например, 1" autocomplete="off">
-                    </label>
-
-                    <label class="bonus-giveaway-field bonus-giveaway-field--message">
-                        <span>Сообщение гостям</span>
-                        <div class="message-variable-picker">
-                            <select id="giveawayVariableSelect" class="message-variable-select" aria-label="Данные гостя для вставки в раздачу"></select>
-                            <button type="button" class="btn btn-secondary message-variable-insert" id="insertGiveawayVariableBtn">Вставить</button>
-                        </div>
-                        <textarea id="giveawayMessageText" class="message-textarea bonus-giveaway-textarea" placeholder="Например: {first_name}, мы начислили тебе 200 КБ и 1 жетон — залетай играть!"></textarea>
-                    </label>
-
-                    <div class="bonus-giveaway-actions">
-                        <button type="button" class="btn btn-primary btn-send" id="sendBonusGiveawayBtn">Отправить раздачу</button>
-                    </div>
-                </div>
+                </section>
             </div>
+
+            <aside class="campaign-sidebar">
+                <section class="mailing-box campaign-message-box">
+                    <div class="campaign-section-head"><h3>Сообщение</h3></div>
+                    <div class="editor-toolbar">
+                        <button type="button" data-tag="b" title="Жирный"><b>Ж</b></button>
+                        <button type="button" data-tag="i" title="Курсив"><i>К</i></button>
+                        <button type="button" data-tag="u" title="Подчёркнутый"><u>Ч</u></button>
+                        <button type="button" id="insertLinkBtn">🔗 Добавить ссылку</button>
+                        <select id="messageVariableSelect" class="message-variable-select" aria-label="Переменная сообщения"></select>
+                        <button type="button" class="message-variable-insert" id="insertMessageVariableBtn">Вставить</button>
+                    </div>
+                    <div class="campaign-message-editor">
+                        <textarea id="messageText" class="message-textarea" maxlength="4000" placeholder="Напишите сообщение гостям..."></textarea>
+                        <span class="campaign-character-count"><b id="messageCharacterCount">0</b>/4000</span>
+                    </div>
+
+                    <label class="campaign-file-drop" for="filesInput">
+                        <span>📎 Добавить файлы</span>
+                        <small>Фото, видео или документы</small>
+                    </label>
+                    <input type="file" id="filesInput" multiple hidden>
+                    <div id="filesList" class="files-list"></div>
+
+                    <div class="campaign-preview">
+                        <div class="campaign-preview__title">▣ Предпросмотр</div>
+                        <div class="campaign-preview__bubble" id="campaignMessagePreview">Здесь появится текст сообщения</div>
+                    </div>
+                </section>
+
+                <section class="mailing-box campaign-summary-box">
+                    <h3>Сводка рассылки</h3>
+                    <div class="campaign-summary-row">
+                        <span>👥 <b>Аудитория</b></span>
+                        <strong><span id="summaryAudienceCount">—</span> чел.</strong>
+                    </div>
+                    <div class="campaign-summary-row">
+                        <span>✦ <b>Начисления</b></span>
+                        <strong id="summaryRewards">Без начислений</strong>
+                    </div>
+                    <div class="campaign-summary-row">
+                        <span>◷ <b>Срок действия</b></span>
+                        <strong id="summaryExpiration">Бессрочно</strong>
+                    </div>
+                    <div class="campaign-summary-row">
+                        <span>▤ <b>Сообщение</b></span>
+                        <strong><span id="summaryCharacters">0</span> символов · <span id="summaryFiles">0</span> файлов</strong>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-send" id="sendMailingBtn">➤ Отправить рассылку</button>
+                </section>
+            </aside>
         </div>
-    </section>
 
     <section class="mailing-box crm-interactions-box">
         <div class="crm-interactions-head">
             <div>
                 <h3>История взаимодействий</h3>
-                <div class="crm-segments-hint">Рассылки и раздачи с доставкой, ошибками и визитами гостей после сообщения.</div>
+                <div class="crm-segments-hint">Все отправленные рассылки, начисления, доставка и визиты гостей после сообщения.</div>
             </div>
             <div class="crm-interactions-filters">
                 <label class="crm-interactions-type-filter">
                     <span>Тип</span>
                     <select id="crmInteractionTypeFilter">
                         <option value="all">Все</option>
-                        <option value="mailing">Рассылка</option>
-                        <option value="giveaway">Раздача</option>
+                        <option value="campaign">Рассылки</option>
                         <option value="auto_mailing">Авторассылка</option>
                     </select>
                 </label>
@@ -240,7 +228,7 @@
                     <div>#{{ item.interaction_id }}</div>
                     <div>
                         {% if item.interaction_type == 'giveaway' %}
-                            Раздача
+                            Рассылка с начислением
                         {% elif item.interaction_type == 'auto_mailing' %}
                             Авторассылка
                         {% else %}
@@ -469,5 +457,5 @@
     window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
     window.MAILING_VARIABLES = {{ message_variables | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/mailing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-pulse-4"></script>
 {% endblock %}

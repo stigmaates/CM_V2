@@ -1,142 +1,100 @@
 {% extends "owner/base.html" %}
 
-{% block title %}{{ header_club_name or 'Cyber Bonus' }} — CRM-Аналитика{% endblock %}
+{% set analytics_section = analytics_section|default('cohorts') %}
+{% set analytics_titles = {
+    'cohorts': 'Анализ по когортам',
+    'communications': 'Анализ коммуникаций',
+    'heatmaps': 'Тепловые карты'
+} %}
+{% block title %}{{ header_club_name or 'Cyber Bonus' }} — {{ analytics_titles.get(analytics_section, 'Аналитика') }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260913-utilization-1') }}">
+{% if analytics_section == 'heatmaps' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='12') }}">{% endif %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260920-heatmap-date-range-1') }}">
 {% endblock %}
 
 {% block content %}
-<main class="content crm-page">
-    {% include "owner/_audience_widget.html" %}
-
-    <section class="crm-analysis-section card">
-        <div class="crm-analysis-head">
-            <div>
-                <div class="section-title">Анализ</div>
-            </div>
-        </div>
+<main class="content crm-page{% if analytics_section == 'cohorts' %} crm-cohorts-page{% elif analytics_section == 'heatmaps' %} crm-heatmaps-page{% endif %}">
+    {% if analytics_section == 'cohorts' %}
+    <section class="crm-analysis-section" id="analytics-cohorts">
+        <header class="crm-cohort-hero">
+            <h1>Анализ по когортам</h1>
+            <p>Изучайте, как ведут себя гости: сколько возвращаются, как часто приходят и какую ценность приносят.</p>
+        </header>
 
         <div class="crm-analysis-layout">
-            <div class="crm-analysis-filters">
+            <aside class="crm-analysis-filters">
+                <header class="crm-cohort-panel-head">
+                    <span class="crm-cohort-panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14M8 5v4M16 10v4M11 15v4"/></svg></span>
+                    <div><h2>Параметры когорты</h2><p>Выберите гостей, для которых нужно построить аналитику.</p></div>
+                </header>
+                <div id="crmAnalysisRulesContainer" class="rules-container"></div>
                 <div class="crm-analysis-toolbar">
-                    <button type="button" class="crm-analysis-button" id="addCrmAnalysisRuleBtn">Добавить фильтр</button>
+                    <button type="button" class="crm-analysis-button crm-analysis-add" id="addCrmAnalysisRuleBtn"><span aria-hidden="true">＋</span> Добавить фильтр</button>
                     <button type="button" class="crm-analysis-button crm-analysis-button--primary" id="applyCrmAnalysisBtn">Применить</button>
                 </div>
-                <div id="crmAnalysisRulesContainer" class="rules-container"></div>
                 <div class="crm-cohort-save">
+                    <label for="crmCohortName">Название когорты</label>
                     <input type="text" id="crmCohortName" placeholder="Название когорты" autocomplete="off">
-                    <button type="button" class="crm-analysis-button" id="saveCrmCohortBtn">Сохранить когорту</button>
+                    <button type="button" class="crm-analysis-button crm-analysis-button--primary" id="saveCrmCohortBtn"><span aria-hidden="true">☆</span> Сохранить когорту</button>
                 </div>
                 {% if cohorts %}
+                    <div class="crm-cohort-list-title"><h3>Сохранённые когорты</h3><span>{{ cohorts|length }}</span></div>
                     <div class="crm-cohort-list">
                         {% for cohort in cohorts %}
                             <span class="crm-cohort-chip">
-                                <button type="button" class="crm-cohort-apply" data-rules='{{ cohort.rules_json | tojson | safe }}'>{{ cohort.name }}</button>
+                                <button type="button" class="crm-cohort-apply" data-rules='{{ cohort.rules_json | tojson | safe }}'><strong>{{ cohort.name }}</strong><small>Условий: {{ cohort.rules_json.rules|default([])|length }}</small></button>
                                 <button type="button" class="crm-cohort-delete" data-cohort-id="{{ cohort.id }}" aria-label="Удалить когорту {{ cohort.name }}">×</button>
                             </span>
                         {% endfor %}
                     </div>
                 {% endif %}
-            </div>
+            </aside>
 
             <div class="crm-analysis-results">
-                <div class="crm-funnel-controls">
-                    <div class="crm-funnel-controls__main">
-                        <div>
-                            <span>Период воронки</span>
-                            <small>За какой период искать 1-й, 2-й, 3-й визит внутри выбранной когорты</small>
+                <div class="crm-analysis-overview">
+                    <section class="crm-funnel-controls">
+                        <div class="crm-funnel-controls__main">
+                            <div class="crm-cohort-panel-head crm-cohort-panel-head--compact">
+                                <span class="crm-cohort-panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 6h12M7 12h12M7 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></span>
+                                <div><h2>Период воронки</h2><p>Период, за который считаются последовательные визиты гостей.</p></div>
+                            </div>
+                            <div class="crm-funnel-periods">
+                                <button type="button" class="crm-funnel-period active" data-period="all">Всё время</button>
+                                <button type="button" class="crm-funnel-period" data-period="7">7 дней</button>
+                                <button type="button" class="crm-funnel-period" data-period="30">30 дней</button>
+                                <button type="button" class="crm-funnel-period" data-period="90">90 дней</button>
+                                <button type="button" class="crm-funnel-period" data-period="custom">Даты</button>
+                            </div>
+                            <div class="crm-funnel-custom" id="crmFunnelCustomPeriod" hidden>
+                                <input type="date" id="crmFunnelDateFrom" aria-label="Дата начала периода воронки">
+                                <input type="date" id="crmFunnelDateTo" aria-label="Дата окончания периода воронки">
+                            </div>
                         </div>
-                        <div class="crm-funnel-periods">
-                            <button type="button" class="crm-funnel-period active" data-period="all">Всё время</button>
-                            <button type="button" class="crm-funnel-period" data-period="7">7 дней</button>
-                            <button type="button" class="crm-funnel-period" data-period="30">30 дней</button>
-                            <button type="button" class="crm-funnel-period" data-period="90">90 дней</button>
-                            <button type="button" class="crm-funnel-period" data-period="custom">Даты</button>
-                        </div>
-                        <div class="crm-funnel-custom" id="crmFunnelCustomPeriod" hidden>
-                            <input type="date" id="crmFunnelDateFrom" aria-label="Дата начала периода воронки">
-                            <input type="date" id="crmFunnelDateTo" aria-label="Дата окончания периода воронки">
-                        </div>
-                    </div>
-                    <div class="crm-analysis-audience" id="crmAnalysisAudience">
-                        <span>Гостей</span>
-                        <strong>{{ initial_analysis.audience.total }}</strong>
-                        <small>{{ initial_analysis.audience.telegram }} с Telegram</small>
-                    </div>
+                    </section>
+                    <aside class="crm-analysis-audience" id="crmAnalysisAudience">
+                        <span class="crm-analysis-audience-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 20v-1.7c0-2.4-2.2-4.3-5-4.3s-5 1.9-5 4.3V20M11 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM17 12c2.2 0 4 1.5 4 3.4V17M16.5 4.4a3.2 3.2 0 0 1 0 6.2"/></svg></span>
+                        <div><span>Всего гостей в когорте</span><strong>{{ initial_analysis.audience.total }}</strong><small>{{ initial_analysis.audience.telegram }} с Telegram · {{ initial_analysis.audience.telegram_percent }}%</small></div>
+                    </aside>
                 </div>
-                <div class="crm-analysis-funnel" id="crmAnalysisFunnel"></div>
+                <section class="crm-funnel-panel">
+                    <header class="crm-funnel-panel-head">
+                        <div class="crm-cohort-panel-head crm-cohort-panel-head--compact">
+                            <span class="crm-cohort-panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 17 5-5 4 3 7-8M16 7h4v4"/></svg></span>
+                            <div><h2>Воронка визитов по когорте</h2><p>Сколько гостей возвращаются на каждый следующий визит.</p></div>
+                        </div>
+                        <span class="crm-funnel-period-label" id="crmFunnelPeriodLabel">{{ initial_analysis.funnel_period_label }}</span>
+                    </header>
+                    <div class="crm-analysis-funnel" id="crmAnalysisFunnel"></div>
+                </section>
                 <div class="crm-analysis-metrics" id="crmAnalysisMetrics"></div>
             </div>
         </div>
     </section>
+    {% endif %}
 
-    <section class="crm-pulse-section card">
-        <div class="crm-campaigns-head">
-            <div>
-                <div class="section-title">Пульс базы</div>
-                <div class="muted crm-hero-text">Гости, у которых на этой неделе изменилась CRM-группа.</div>
-            </div>
-        </div>
-
-        {% if crm_pulse_groups %}
-            <div class="crm-pulse-board">
-                {% for group in crm_pulse_groups %}
-                    <article class="crm-pulse-card crm-pulse-card--{{ group.direction }}">
-                        <div class="crm-pulse-card__top">
-                            <div>
-                                <div class="crm-pulse-transition">
-                                    <span>{{ group.old_label }}</span>
-                                    <b>→</b>
-                                    <span>{{ group.new_label }}</span>
-                                </div>
-                                <div class="crm-pulse-count">
-                                    {{ group.total_count }} гостей с Telegram
-                                </div>
-                            </div>
-                            {% if group.recent_auto_count %}
-                                <span class="crm-pulse-warning" tabindex="0" aria-label="{{ group.recent_auto_count }} гостям недавно уже уходила авторассылка">
-                                    !
-                                    <span class="crm-pulse-tooltip">
-                                        {{ group.recent_auto_count }} гостям недавно уже уходила авторассылка. Проверь сообщение перед повторным контактом.
-                                    </span>
-                                </span>
-                            {% endif %}
-                        </div>
-                        <div class="crm-pulse-guests">
-                            {% for guest in group.guests[:3] %}
-                                <div class="crm-pulse-guest">
-                                    <span>{{ guest.card_label or guest.first_name or guest.fio or ("#" ~ guest.guest_id) }}</span>
-                                    {% if guest.recent_auto_mailing_title %}
-                                        <i class="crm-pulse-warning" tabindex="0" aria-label='Недавно была авторассылка "{{ guest.recent_auto_mailing_title }}"'>
-                                            !
-                                            <span class="crm-pulse-tooltip">
-                                                Недавно была авторассылка «{{ guest.recent_auto_mailing_title }}».
-                                            </span>
-                                        </i>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                            {% if group.total_count > 3 %}
-                                <div class="crm-pulse-more">+ ещё {{ group.total_count - 3 }}</div>
-                            {% endif %}
-                        </div>
-                        <button
-                            type="button"
-                            class="crm-analysis-button crm-analysis-button--primary crm-pulse-action"
-                            data-pulse-key="{{ group.key }}"
-                        >
-                            Взаимодействовать
-                        </button>
-                    </article>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="empty-state">На этой неделе переходов между CRM-группами пока нет.</div>
-        {% endif %}
-    </section>
-
-    <section class="crm-campaigns-section card">
+    {% if analytics_section == 'communications' %}
+    <section class="crm-campaigns-section card" id="analytics-communications">
         <div class="crm-campaigns-head">
             <div>
                 <div class="section-title">Аналитика коммуникаций</div>
@@ -248,24 +206,49 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
-    {% include "owner/_crm_pulse_interaction.html" %}
-
-    <section class="heatmap-section card">
+    {% if analytics_section == 'heatmaps' %}
+    <section class="heatmap-section card" id="analytics-heatmaps">
         <div class="heatmap-head">
             <div>
                 <div class="section-title">Тепловая карта посещений</div>
                 <div class="muted crm-hero-text">Показывает среднюю долю занятых компьютеров по дням недели и часам.</div>
             </div>
 
-            <div class="period-switcher heatmap-switcher">
-                <a href="{{ url_for('owner.crm_analytics', period=7, telegram_only=1 if telegram_only else 0) }}"
-                   class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', period=30, telegram_only=1 if telegram_only else 0) }}"
-                   class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-                <a href="{{ url_for('owner.crm_analytics', period=90, telegram_only=1 if telegram_only else 0) }}"
-                   class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
-            </div>
+            <form class="heatmap-date-filter" method="get" action="{{ url_for('owner.analytics_heatmaps') }}" aria-label="Диапазон дат тепловых карт" data-heatmap-date-range>
+                <div class="team-period" data-heatmap-period>
+                    <div class="team-period__main">
+                        <div class="team-presets" aria-label="Период тепловых карт">
+                            <button type="button" data-heatmap-preset="week" aria-pressed="false">Неделя</button>
+                            <button type="button" data-heatmap-preset="month" aria-pressed="false">Месяц</button>
+                            <button class="team-calendar-trigger" id="heatmapCalendarTrigger" type="button" aria-label="Выбрать даты" aria-expanded="false" aria-controls="heatmapCalendarPopover">
+                                <span class="team-calendar-icon" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        <span class="team-period__summary" id="heatmapPeriodSummary">{{ selected_period_label }}</span>
+                    </div>
+                    <input type="hidden" name="date_from" id="heatmapDateFrom" value="{{ selected_date_from }}">
+                    <input type="hidden" name="date_to" id="heatmapDateTo" value="{{ selected_date_to }}">
+                    <div class="team-calendar-popover" id="heatmapCalendarPopover" hidden data-lenis-prevent>
+                        <header>
+                            <div><strong>Выберите период</strong><small>Сначала начальную, затем конечную дату</small></div>
+                            <div class="team-calendar-nav">
+                                <button id="heatmapCalendarPrev" type="button" aria-label="Предыдущий месяц">‹</button>
+                                <button id="heatmapCalendarNext" type="button" aria-label="Следующий месяц">›</button>
+                            </div>
+                        </header>
+                        <div class="team-calendars" id="heatmapCalendars"></div>
+                        <footer>
+                            <div class="team-calendar-selection">
+                                <span>С <strong id="heatmapCalendarFrom">—</strong></span>
+                                <span>По <strong id="heatmapCalendarTo">—</strong></span>
+                            </div>
+                            <button class="team-calendar-apply" id="heatmapCalendarApply" type="button">Применить</button>
+                        </footer>
+                    </div>
+                </div>
+            </form>
         </div>
 
         <div class="heatmap-summary">
@@ -344,7 +327,12 @@
         </div>
 
         {% if pc_heatmap.pcs %}
-            <div class="pc-heatmap-grid">
+            <div class="pc-heatmap-grid"
+                 tabindex="0"
+                 aria-label="Тепловая карта по компьютерам"
+                 data-lenis-prevent
+                 data-lenis-prevent-wheel
+                 data-lenis-prevent-touch>
                 {% for pc in pc_heatmap.pcs %}
                     <div class="pc-heatmap-cell heatmap-level-{{ pc.level }}" title="{{ pc.name }} — {{ pc.hours_display }} ч, загрузка {{ pc.utilization_display }}%. UUID: {{ pc.uuid }}">
                         <div class="pc-heatmap-cell__name">{{ pc.name }}</div>
@@ -369,16 +357,22 @@
             <span>Выше загрузка</span>
         </div>
     </section>
+    {% endif %}
 
 </main>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    window.CRM_ANALYSIS_FIELDS = {{ filter_fields | tojson | safe }};
-    window.CRM_INITIAL_ANALYSIS = {{ initial_analysis | tojson | safe }};
-    window.CRM_MESSAGE_VARIABLES = {{ message_variables | tojson | safe }};
-    window.CRM_PULSE_GROUPS = {{ crm_pulse_groups | tojson | safe }};
+    window.CRM_ANALYSIS_FIELDS = {{ filter_fields|default([]) | tojson | safe }};
+    window.CRM_INITIAL_ANALYSIS = {{ initial_analysis|default({}) | tojson | safe }};
+    window.CRM_MESSAGE_VARIABLES = [];
+    window.CRM_PULSE_GROUPS = [];
+    window.CRM_HEATMAP_RANGE = {{ {
+        'today': heatmap_max_date|default(''),
+        'dateFrom': selected_date_from|default(''),
+        'dateTo': selected_date_to|default('')
+    } | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260911-pulse-direct-1') }}"></script>
+<script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260920-heatmap-date-range-1') }}"></script>
 {% endblock %}
