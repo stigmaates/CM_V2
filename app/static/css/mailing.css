@@ -1742,33 +1742,6 @@
     gap: 20px;
 }
 
-.campaign-help {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 42px;
-    padding: 8px 14px;
-    border: 1px solid rgba(143, 91, 255, 0.38);
-    border-radius: 13px;
-    background: rgba(143, 91, 255, 0.08);
-    color: var(--text-muted);
-    font: inherit;
-    font-weight: 750;
-    cursor: pointer;
-    transition: 160ms ease;
-}
-
-.campaign-help:hover {
-    color: var(--text-main);
-    border-color: rgba(165, 114, 255, 0.72);
-    background: rgba(143, 91, 255, 0.14);
-}
-
-.campaign-help > span:first-of-type,
-.campaign-help::first-letter {
-    color: var(--text-main);
-}
-
 .campaign-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(470px, 0.95fr);
@@ -2310,10 +2283,6 @@
     .mailing-header {
         align-items: stretch;
         flex-direction: column;
-    }
-
-    .campaign-help {
-        align-self: flex-start;
     }
 
     .campaign-segments-box .crm-segments-grid,

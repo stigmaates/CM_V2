@@ -3,7 +3,7 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Рассылки{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260919-pulse-3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mailing.css') }}?v=20260921-help-removed-1">
 {% endblock %}
 
 {% block content %}
@@ -13,7 +13,6 @@
             <h1 class="mailing-title">Рассылки</h1>
             <p class="mailing-lead">Собирайте аудиторию по любым фильтрам, начисляйте бонусы и отправляйте сообщения гостям в Telegram.</p>
         </div>
-        <button type="button" class="campaign-help" id="mailingAudienceHelpBtn">?<span>Как работает рассылка?</span></button>
     </div>
 
     <div class="mailing-tabs">
@@ -442,20 +441,9 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="mailingAudienceHintModal" aria-hidden="true">
-    <div class="modal-panel" style="width: min(480px, 100%);" role="dialog" aria-modal="true" aria-labelledby="mailingAudienceHintTitle">
-        <div class="modal-header">
-            <h2 class="modal-title" id="mailingAudienceHintTitle">Люди в рассылке</h2>
-            <button type="button" class="modal-close" id="mailingAudienceHintClose" aria-label="Закрыть">×</button>
-        </div>
-        <p class="muted" style="margin: 0 0 20px; line-height: 1.5; font-size: 15px;">Только гости с Telegram и по выбранным фильтрам.</p>
-        <button type="button" class="btn" id="mailingAudienceHintOk" style="width: 100%;">Понятно</button>
-    </div>
-</div>
-
 <script>
     window.MAILING_FIELDS = {{ filter_fields | tojson | safe }};
     window.MAILING_VARIABLES = {{ message_variables | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260919-pulse-4"></script>
+<script src="{{ url_for('static', filename='js/mailing.js') }}?v=20260921-help-removed-1"></script>
 {% endblock %}
