@@ -6320,8 +6320,9 @@ body.modal-open { overflow: hidden; }
 
 .crm-cohorts-page .crm-analysis-audience {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: 42px max-content;
+    place-content: center;
+    align-items: center;
     gap: 12px;
     min-width: 0;
     padding: 16px;
