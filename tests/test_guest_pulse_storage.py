@@ -355,7 +355,6 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
     assert detail["value"]["visits_30d"] == 6
     assert detail["value"]["played_hours_30d"] == 12
     assert detail["value"]["revenue_30d"] == 0
-    assert "percentiles_30d" in detail["value"]
     assert pulse_client.get("/owner/api/guest-pulse/guests/43").status_code == 404
     with pulse_client.session_transaction() as sess:
         sess["club_id"] = 3
@@ -384,6 +383,8 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpDeviationTelegram" checked' in html
     assert 'id="gpDeviationDetail"' in html
     assert 'class="gp-deviation-layout"' in html
+    assert 'id="gpGuestHeaderMeta"' in html
+    assert 'id="gpGuestHeaderScore"' in html
     assert "Отклонения гостей от личной нормы" in html
     assert 'class="gp-deviation-title-icon"' not in html
     assert 'class="gp-deviation-info"' in html

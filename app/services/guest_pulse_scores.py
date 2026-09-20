@@ -231,11 +231,6 @@ def value_scores(rows, config=None):
     cfg = config or GUEST_PULSE_CONFIG
     keys = (("revenue_90d", 0.45), ("played_hours_90d", 0.30), ("visits_90d", 0.20), ("avg_check_90d", 0.05))
     reference = {k: sorted(r[k] for r in rows if r["visits_90d"] >= 2 and r[k] is not None) for k, _ in keys}
-    keys_30d = ("revenue_30d", "played_hours_30d", "visits_30d", "avg_check_30d")
-    reference_30d = {
-        key: sorted(r.get(key) for r in rows if r.get("visits_30d", 0) >= 2 and r.get(key) is not None)
-        for key in keys_30d
-    }
     result = {}
     for row in rows:
         parts = {
@@ -245,14 +240,6 @@ def value_scores(rows, config=None):
                 else None
             )
             for k, _ in keys
-        }
-        parts_30d = {
-            key: (
-                100 * bisect_left(reference_30d[key], row.get(key)) / len(reference_30d[key])
-                if reference_30d[key] and row.get(key) is not None
-                else None
-            )
-            for key in keys_30d
         }
         score = weighted([(parts[k], w) for k, w in keys])
         result[row["guest_id"]] = {
@@ -264,8 +251,6 @@ def value_scores(rows, config=None):
             ),
             "percentiles": parts,
             "reference_count": len(reference["visits_90d"]),
-            "percentiles_30d": parts_30d,
-            "reference_count_30d": len(reference_30d["visits_30d"]),
         }
     return result
 
