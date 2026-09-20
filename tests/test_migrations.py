@@ -328,3 +328,13 @@ def test_migrate_dry_run_lists_pending_without_applying(monkeypatch, capsys):
     assert conn.cursor_obj.applied is False
     assert conn.committed is False
     assert conn.closed is True
+
+
+def test_topup_bonus_admin_notification_migration_exports_revision_and_upgrade():
+    migration = importlib.import_module("migrations.versions.0050_topup_bonus_admin_notifications")
+
+    assert migration.revision == "0050_topup_bonus_admin_notifications"
+    assert callable(migration.upgrade)
+    constants = repr(migration.upgrade.__code__.co_consts)
+    assert "admin_notification_status" in constants
+    assert "reviewed_by_telegram_id" in constants
