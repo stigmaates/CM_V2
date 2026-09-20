@@ -3,13 +3,12 @@
 {% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='12') }}">{% endblock %}
 {% block content %}
 <main class="team" data-team-page>
-    <header class="team-hero">
-        <div class="team-hero__copy">
-            <span class="team-eyebrow">КИБЕР БОНУС</span>
-            <h1>Команда</h1>
-            <p>Регистрации и возвращаемость гостей по сменам администраторов</p>
+    <header class="owner-page-heading team-hero">
+        <div class="owner-page-heading__copy team-hero__copy">
+            <h1 class="owner-page-heading__title">Команда</h1>
+            <p class="owner-page-heading__subtitle">Регистрации и возвращаемость гостей по сменам администраторов.</p>
         </div>
-        <div class="team-hero__actions">
+        <div class="owner-page-heading__actions team-hero__actions">
             <button class="team-settings-button" id="teamAdminSettingsOpen" type="button">
                 <span aria-hidden="true">⚙</span> Настроить администраторов
             </button>

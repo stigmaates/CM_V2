@@ -3,7 +3,7 @@
 {% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260920-deviation-scroll-1') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
-  <header class="gp-heading"><div><span class="gp-eyebrow">ГОСТИ И ОТНОШЕНИЯ</span><h1>Пульс гостя</h1><p>Найдите нужную аудиторию или изменения в привычках гостей.</p><button type="button" class="gp-help-trigger" id="gpHelpOpen" aria-haspopup="dialog" aria-controls="gpHelpDialog" aria-expanded="false"><span aria-hidden="true">?</span> Подробнее о системе показателей</button></div><div class="gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
+  <header class="owner-page-heading gp-heading"><div class="owner-page-heading__copy"><h1 class="owner-page-heading__title">Пульс гостя</h1><p class="owner-page-heading__subtitle">Найдите нужную аудиторию или изменения в привычках гостей.</p><button type="button" class="gp-help-trigger" id="gpHelpOpen" aria-haspopup="dialog" aria-controls="gpHelpDialog" aria-expanded="false"><span aria-hidden="true">?</span> Подробнее о системе показателей</button></div><div class="owner-page-heading__actions gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
   <div id="gpError" role="alert" hidden></div>
   <section class="gp-card" aria-labelledby="gpAudienceTitle">
     <div class="gp-section-head"><div><h2 id="gpAudienceTitle">Группы гостей</h2><p>Выберите группу, чтобы перейти к списку гостей.</p></div><button type="button" class="gp-quiet" id="gpReset">Сбросить фильтры</button></div>

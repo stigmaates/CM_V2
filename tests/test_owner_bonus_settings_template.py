@@ -153,7 +153,7 @@ def test_promotions_page_contains_only_promotion_settings():
             ],
         )
 
-    assert "<h1>Акции</h1>" in html
+    assert '<h1 class="owner-page-heading__title">Акции</h1>' in html
     assert "Бонусы за пополнения" in html
     assert "Подтверждение бонусов за пополнение" in html
     assert "Морозов Дмитрий Антонович" in html
