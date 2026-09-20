@@ -75,12 +75,18 @@ def guest_pulse_data():
         deviation_page = max(1, int(request.args.get("deviation_page", 1)))
         sort_by = request.args.get("sort", "health")
         sort_direction = request.args.get("sort_direction", "asc")
+        deviation_sort_by = request.args.get("deviation_sort", "priority")
+        deviation_sort_direction = request.args.get("deviation_sort_direction", "desc")
         search = str(request.args.get("search", "")).strip()[:100]
         contact = request.args.get("contact", "all")
         if sort_by not in ("name", "health", "value", "engagement", "overall"):
             raise ValueError("Неизвестная сортировка")
         if sort_direction not in ("asc", "desc"):
             raise ValueError("Неизвестное направление сортировки")
+        if deviation_sort_by not in ("priority", "health", "value", "engagement", "overall"):
+            raise ValueError("Неизвестная сортировка отклонений")
+        if deviation_sort_direction not in ("asc", "desc"):
+            raise ValueError("Неизвестное направление сортировки отклонений")
         if contact not in ("all", "with", "without"):
             raise ValueError("Неизвестный фильтр Telegram")
     except (ValueError, TypeError) as exc:
@@ -121,7 +127,27 @@ def guest_pulse_data():
     elif contact == "without":
         selected = [row for row in selected if not row["has_telegram"]]
     deviating = select(current, f, "deviations")
-    deviating.sort(key=lambda r: max(d["deviation_ratio"] for d in r["deviations"]), reverse=True)
+    if deviation_sort_by == "priority":
+        deviating.sort(
+            key=lambda r: (
+                max(d["deviation_ratio"] for d in r["deviations"]),
+                r["name"].casefold(),
+                r["guest_id"],
+            ),
+            reverse=deviation_sort_direction == "desc",
+        )
+    else:
+        deviation_scored = [r for r in deviating if r[deviation_sort_by]["score"] is not None]
+        deviation_unscored = [r for r in deviating if r[deviation_sort_by]["score"] is None]
+        deviation_scored.sort(
+            key=lambda r: (r[deviation_sort_by]["score"], r["name"].casefold(), r["guest_id"]),
+            reverse=deviation_sort_direction == "desc",
+        )
+        deviating = deviation_scored + sorted(
+            deviation_unscored,
+            key=lambda r: (r["name"].casefold(), r["guest_id"]),
+        )
+
     def sort_group(group):
         if sort_by == "name":
             return sorted(group, key=lambda r: (r["name"].casefold(), r["guest_id"]), reverse=sort_direction == "desc")
@@ -170,6 +196,8 @@ def guest_pulse_data():
         page_size=PAGE_SIZE,
         sort=sort_by,
         sort_direction=sort_direction,
+        deviation_sort=deviation_sort_by,
+        deviation_sort_direction=deviation_sort_direction,
         deviations=[
             {**summary(r), "deviations": r["deviations"]}
             for r in deviating[(deviation_page - 1) * PAGE_SIZE : deviation_page * PAGE_SIZE]

@@ -345,6 +345,12 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
     assert all(a["count"] == a["total"] for a in data["audiences"])
     assert pulse_client.get("/owner/api/guest-pulse?health_min=NaN").status_code == 400
     assert pulse_client.get("/owner/api/guest-pulse?metric=invalid").status_code == 400
+    assert pulse_client.get("/owner/api/guest-pulse?deviation_sort=invalid").status_code == 400
+    deviation_sorted = pulse_client.get(
+        "/owner/api/guest-pulse?deviation_sort=overall&deviation_sort_direction=asc"
+    ).get_json()
+    assert deviation_sorted["deviation_sort"] == "overall"
+    assert deviation_sorted["deviation_sort_direction"] == "asc"
     segmented = pulse_client.get("/owner/api/guest-pulse?segment=high_value_at_risk").get_json()
     assert segmented["total"] == 0
     assert sum(audience["count"] for audience in segmented["audiences"]) == 0
@@ -634,6 +640,7 @@ def test_audience_can_sort_all_rows_by_overall_score(pulse_client, database, mix
         )
         for metric in ("health", "value", "engagement"):
             row[metric]["score"] = score
+        row["health"].update(deviation_ratio=0.2, deviation_direction="DOWN")
         sql(
             "UPDATE guest_pulse_current SET detail_json=%s WHERE club_id=2 AND guest_id=%s",
             (json.dumps(row), guest_id),
@@ -649,6 +656,17 @@ def test_audience_can_sort_all_rows_by_overall_score(pulse_client, database, mix
     assert ascending["guests"][0]["overall"]["score"] == 0
     assert descending["guests"][0]["guest_id"] == 45
     assert descending["guests"][0]["overall"]["score"] == 100
+
+    deviation_ascending = pulse_client.get(
+        "/owner/api/guest-pulse?deviation_sort=overall&deviation_sort_direction=asc"
+    ).get_json()
+    deviation_descending = pulse_client.get(
+        "/owner/api/guest-pulse?deviation_sort=overall&deviation_sort_direction=desc"
+    ).get_json()
+    assert deviation_ascending["deviations"][0]["guest_id"] == 44
+    assert deviation_ascending["deviations"][0]["overall"]["score"] == 0
+    assert deviation_descending["deviations"][0]["guest_id"] == 45
+    assert deviation_descending["deviations"][0]["overall"]["score"] == 100
 
 
 def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, database, monkeypatch):
