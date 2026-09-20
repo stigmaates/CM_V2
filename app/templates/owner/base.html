@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260919-owner-nav-6') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260921-owner-nav-fixed') }}">
     {% if demo_mode %}<link rel="stylesheet" href="{{ url_for('static', filename='css/demo_bridge.css') }}">{% endif %}
     {% block head %}{% endblock %}
     {% block extra_css %}{% endblock %}
@@ -49,7 +49,7 @@
     </div>
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='js/page_loading.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/owner_navigation.js', v='20260919-4') }}"></script>
+    <script src="{{ url_for('static', filename='js/owner_navigation.js', v='20260921-fixed') }}"></script>
     {% if demo_mode %}<script src="{{ url_for('static', filename='js/demo_bridge.js') }}"></script>{% endif %}
     {% block scripts %}{% endblock %}
 </body>

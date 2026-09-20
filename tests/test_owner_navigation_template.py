@@ -52,7 +52,7 @@ def test_owner_navigation_groups_existing_owner_pages():
     assert "Коммуникации и состояние базы" not in html
 
 
-def test_owner_base_uses_burger_navigation_assets():
+def test_owner_base_keeps_navigation_fixed_without_collapse_control():
     with app.test_request_context("/owner/dashboard"):
         html = render_template(
             "owner/base.html",
@@ -60,9 +60,9 @@ def test_owner_base_uses_burger_navigation_assets():
             header_user_name="Владелец",
         )
 
-    assert "data-owner-menu-open" in html
-    assert html.count("data-owner-menu-open") == 1
-    assert "owner-menu-trigger__arrow" in html
+    assert "data-owner-menu-open" not in html
+    assert "data-owner-menu-close" not in html
+    assert "owner-menu-trigger__arrow" not in html
     assert 'id="ownerNavigation"' in html
     assert "owner_navigation.js" in html
     assert "owner-topbar" not in html

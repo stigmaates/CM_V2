@@ -14,22 +14,6 @@
 {% set training_active = current_endpoint == 'owner.training' or demo_nav == 'training' %}
 {% set account_role = 'Владелец' if session.get('role') == 'owner' else ('Совладелец' if session.get('role') == 'co-owner' else ('Администратор' if session.get('impersonating_owner') else 'Пользователь')) %}
 
-<button class="owner-navigation-backdrop" type="button" data-owner-menu-close tabindex="-1" aria-label="Закрыть меню"></button>
-<button
-    type="button"
-    class="owner-menu-trigger"
-    data-owner-menu-open
-    aria-label="Свернуть боковую панель"
-    aria-controls="ownerNavigation"
-    aria-expanded="true"
->
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="16" rx="2.5"></rect>
-        <path d="M9 4v16"></path>
-        <path class="owner-menu-trigger__arrow" d="m15 9-3 3 3 3"></path>
-    </svg>
-</button>
-
 <aside class="owner-navigation is-open" id="ownerNavigation" aria-hidden="false" aria-label="Навигация владельца">
     <div class="owner-navigation__head">
         <a class="owner-navigation__brand" href="{{ url_for('owner.dashboard') }}">
