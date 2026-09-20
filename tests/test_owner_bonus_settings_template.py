@@ -219,6 +219,12 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert 'data-open-case-config="caseConfigModal42"' in html
     assert 'id="caseConfigModal42"' in html
     assert "Настроить кейс: Золотой кейс" in html
+    assert "case-workspace-layout" in html
+    assert "Предпросмотр кейса" in html
+    assert 'data-case-items-table="42"' in html
+    assert 'data-case-inline-form' in html
+    assert 'form="case-inline-item-7"' in html
+    assert "Основные значения можно менять прямо в таблице" in html
     assert 'name="badge_label"' in html
     assert 'name="badge_color"' in html
     assert 'type="color"' in html
