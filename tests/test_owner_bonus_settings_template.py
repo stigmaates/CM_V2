@@ -228,6 +228,8 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert 'class="case-toggle" for="case_active_42"' in html
     assert 'class="case-toggle case-table-toggle"' in html
     assert 'class="case-toggle__track"' in html
+    assert 'class="case-preview-card__price-text"' in html
+    assert "Каждый кейс открывается за жетоны" not in html
     assert 'name="badge_label"' in html
     assert 'name="badge_color"' in html
     assert 'type="color"' in html
