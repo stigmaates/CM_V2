@@ -6063,6 +6063,9 @@ body.modal-open { overflow: hidden; }
     color: #b779ff;
     background: linear-gradient(145deg, rgba(135, 66, 230, 0.3), rgba(90, 46, 160, 0.16));
     box-shadow: 0 8px 20px rgba(115, 55, 205, 0.2);
+    box-sizing: border-box;
+    overflow: hidden;
+    line-height: 0;
 }
 
 .crm-cohort-panel-icon svg,
@@ -6075,6 +6078,7 @@ body.modal-open { overflow: hidden; }
     stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;
+    display: block;
 }
 
 .crm-cohorts-page .crm-analysis-filters .rules-container {
@@ -6262,12 +6266,25 @@ body.modal-open { overflow: hidden; }
 }
 
 .crm-cohort-panel-head--compact {
-    align-items: center;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: start;
+    width: 100%;
 }
 
 .crm-cohort-panel-head--compact .crm-cohort-panel-icon {
     width: 40px;
     height: 40px;
+}
+
+.crm-cohort-panel-head--compact .crm-cohort-panel-icon svg {
+    width: 19px;
+    height: 19px;
+}
+
+.crm-cohort-panel-head--compact > div {
+    min-width: 0;
+    padding-top: 1px;
 }
 
 .crm-cohort-panel-head--compact h2 {
@@ -6304,7 +6321,7 @@ body.modal-open { overflow: hidden; }
 .crm-cohorts-page .crm-analysis-audience {
     display: grid;
     grid-template-columns: 48px minmax(0, 1fr);
-    align-items: center;
+    align-items: start;
     gap: 12px;
     min-width: 0;
     padding: 16px;
@@ -6313,8 +6330,18 @@ body.modal-open { overflow: hidden; }
 }
 
 .crm-analysis-audience-icon {
-    width: 48px;
-    height: 48px;
+    width: 42px;
+    height: 42px;
+    margin-top: 1px;
+}
+
+.crm-analysis-audience-icon svg {
+    width: 19px;
+    height: 19px;
+}
+
+.crm-cohorts-page .crm-analysis-audience > div {
+    min-width: 0;
 }
 
 .crm-cohorts-page .crm-analysis-audience > div > span,
@@ -6446,12 +6473,15 @@ body.modal-open { overflow: hidden; }
     min-height: 130px;
     padding: 14px;
     border-radius: 16px;
+    overflow: hidden;
 }
 
 .crm-cohorts-page .crm-analysis-metric header {
-    display: flex;
-    align-items: center;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: start;
     gap: 9px;
+    min-height: 38px;
 }
 
 .crm-cohorts-page .crm-analysis-metric header > span:last-child,
@@ -6466,11 +6496,12 @@ body.modal-open { overflow: hidden; }
     width: 34px;
     height: 34px;
     border-radius: 10px;
+    align-self: start;
 }
 
 .crm-analysis-metric-icon svg {
-    width: 19px;
-    height: 19px;
+    width: 17px;
+    height: 17px;
 }
 
 .crm-cohorts-page .crm-analysis-metric > strong {
