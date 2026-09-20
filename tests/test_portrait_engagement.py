@@ -29,6 +29,10 @@ class Cursor:
             "ON CONFLICT (club_id, guest_id, mission_id) DO UPDATE SET "
             "completed_at = MIN(completed_at, excluded.completed_at)",
         )
+        params = tuple(
+            value.isoformat(sep=" ") if isinstance(value, datetime) else value
+            for value in params
+        )
         self.result = self.db.execute(sql, params)
 
     def fetchall(self):
