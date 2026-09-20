@@ -947,3 +947,167 @@ window.crmOpenGuestPulseInteraction = function(group) {
     else crmPulseGroups.push(group);
     crmOpenPulseInteraction(group.key);
 };
+
+(() => {
+    const form = document.querySelector("[data-heatmap-date-range]");
+    const root = document.querySelector("[data-heatmap-period]");
+    if (!form || !root) return;
+
+    const range = window.CRM_HEATMAP_RANGE || {};
+    const today = range.today;
+    const fromInput = document.getElementById("heatmapDateFrom");
+    const toInput = document.getElementById("heatmapDateTo");
+    const trigger = document.getElementById("heatmapCalendarTrigger");
+    const popover = document.getElementById("heatmapCalendarPopover");
+    const calendars = document.getElementById("heatmapCalendars");
+    const applyButton = document.getElementById("heatmapCalendarApply");
+    let calendarView = null;
+    let calendarFrom = null;
+    let calendarTo = null;
+
+    function parseDate(value) {
+        return value ? new Date(`${value}T12:00:00Z`) : null;
+    }
+
+    function isoDate(value) {
+        return value.toISOString().slice(0, 10);
+    }
+
+    function monthStart(value) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1, 12));
+    }
+
+    function addMonths(value, amount) {
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + amount, 1, 12));
+    }
+
+    function formatDate(value) {
+        if (!value) return "—";
+        const [year, month, day] = value.split("-");
+        return `${day}.${month}.${year}`;
+    }
+
+    function presetStart(preset) {
+        const value = parseDate(today);
+        if (preset === "month") value.setUTCDate(1);
+        else value.setUTCDate(value.getUTCDate() - 6);
+        return isoDate(value);
+    }
+
+    function setActivePreset() {
+        if (!today || !fromInput.value || !toInput.value) return;
+        const preset = toInput.value === today
+            ? (["week", "month"].find((name) => fromInput.value === presetStart(name)) || null)
+            : null;
+        root.querySelectorAll("[data-heatmap-preset]").forEach((button) => {
+            const active = button.dataset.heatmapPreset === preset;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-pressed", String(active));
+        });
+        trigger.classList.toggle("is-active", !preset);
+        document.getElementById("heatmapPeriodSummary").textContent =
+            `${formatDate(fromInput.value)} — ${formatDate(toInput.value)}`;
+    }
+
+    function monthMarkup(firstDay) {
+        const monthNames = [
+            "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+            "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+        ];
+        const year = firstDay.getUTCFullYear();
+        const month = firstDay.getUTCMonth();
+        const offset = (firstDay.getUTCDay() + 6) % 7;
+        const dayCount = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+        const cells = Array.from({length: offset}, () => '<span class="team-calendar-day is-empty"></span>');
+        for (let day = 1; day <= dayCount; day += 1) {
+            const value = isoDate(new Date(Date.UTC(year, month, day, 12)));
+            const classes = ["team-calendar-day"];
+            if (value === today) classes.push("is-today");
+            if (value === calendarFrom) classes.push("is-start");
+            if (value === calendarTo) classes.push("is-end");
+            if (calendarFrom && calendarTo && value > calendarFrom && value < calendarTo) classes.push("is-range");
+            cells.push(`<button class="${classes.join(" ")}" type="button" data-heatmap-calendar-date="${value}"${value > today ? " disabled" : ""}>${day}</button>`);
+        }
+        return `<section class="team-calendar-month">
+            <h3>${monthNames[month]} ${year}</h3>
+            <div class="team-calendar-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+            <div class="team-calendar-days">${cells.join("")}</div>
+        </section>`;
+    }
+
+    function renderCalendars() {
+        calendars.innerHTML = monthMarkup(calendarView) + monthMarkup(addMonths(calendarView, 1));
+        document.getElementById("heatmapCalendarFrom").textContent = formatDate(calendarFrom);
+        document.getElementById("heatmapCalendarTo").textContent = formatDate(calendarTo);
+        applyButton.disabled = !(calendarFrom && calendarTo);
+        const currentMonth = monthStart(parseDate(today));
+        document.getElementById("heatmapCalendarNext").disabled = addMonths(calendarView, 1) >= currentMonth;
+    }
+
+    function openCalendar() {
+        calendarFrom = fromInput.value || null;
+        calendarTo = toInput.value || null;
+        calendarView = addMonths(monthStart(parseDate(calendarTo || today)), -1);
+        renderCalendars();
+        popover.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+    }
+
+    function closeCalendar() {
+        popover.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+    }
+
+    function selectCalendarDate(value) {
+        if (!calendarFrom || calendarTo) {
+            calendarFrom = value;
+            calendarTo = null;
+        } else if (value < calendarFrom) {
+            calendarFrom = value;
+        } else {
+            calendarTo = value;
+        }
+        renderCalendars();
+    }
+
+    setActivePreset();
+    root.querySelectorAll("[data-heatmap-preset]").forEach((button) => {
+        button.addEventListener("click", () => {
+            fromInput.value = presetStart(button.dataset.heatmapPreset);
+            toInput.value = today;
+            closeCalendar();
+            setActivePreset();
+            form.requestSubmit();
+        });
+    });
+    trigger.addEventListener("click", () => {
+        if (popover.hidden) openCalendar();
+        else closeCalendar();
+    });
+    document.getElementById("heatmapCalendarPrev").addEventListener("click", () => {
+        calendarView = addMonths(calendarView, -1);
+        renderCalendars();
+    });
+    document.getElementById("heatmapCalendarNext").addEventListener("click", () => {
+        calendarView = addMonths(calendarView, 1);
+        renderCalendars();
+    });
+    calendars.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-heatmap-calendar-date]");
+        if (button && !button.disabled) selectCalendarDate(button.dataset.heatmapCalendarDate);
+    });
+    applyButton.addEventListener("click", () => {
+        if (!calendarFrom || !calendarTo) return;
+        fromInput.value = calendarFrom;
+        toInput.value = calendarTo;
+        closeCalendar();
+        setActivePreset();
+        form.requestSubmit();
+    });
+    document.addEventListener("click", (event) => {
+        if (!event.composedPath().includes(root)) closeCalendar();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !popover.hidden) closeCalendar();
+    });
+})();

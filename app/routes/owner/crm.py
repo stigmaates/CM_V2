@@ -1,5 +1,5 @@
 import threading
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import HTTPException
@@ -88,6 +88,35 @@ def _analytics_club_id():
     return int(club_id)
 
 
+def _parse_heatmap_range(args):
+    today = date.today()
+    raw_from = str(args.get("date_from") or "").strip()
+    raw_to = str(args.get("date_to") or "").strip()
+
+    if not raw_from and not raw_to:
+        date_from = today.replace(day=1)
+        date_to = today
+    elif not raw_from or not raw_to:
+        raise ValueError("Укажи обе даты диапазона")
+    else:
+        try:
+            date_from = datetime.strptime(raw_from, "%Y-%m-%d").date()
+            date_to = datetime.strptime(raw_to, "%Y-%m-%d").date()
+        except ValueError as exc:
+            raise ValueError("Укажи корректный диапазон дат") from exc
+
+    if date_to < date_from:
+        raise ValueError("Дата окончания раньше даты начала")
+    if date_to > today:
+        raise ValueError("Дата окончания не может быть позже сегодняшней")
+    if (date_to - date_from).days > 365:
+        raise ValueError("Максимальный диапазон — 366 дней")
+
+    current_start = datetime.combine(date_from, time.min)
+    current_end = datetime.combine(date_to + timedelta(days=1), time.min)
+    return date_from, date_to, current_start, current_end
+
+
 @owner_bp.get("/analytics/cohorts")
 @owner_required
 def analytics_cohorts():
@@ -139,16 +168,24 @@ def analytics_heatmaps():
         return redirect(url_for("owner.club_create"))
 
     try:
-        selected_period = int(request.args.get("period", 30))
-    except (TypeError, ValueError):
-        selected_period = 30
+        date_from, date_to, current_start, current_end = _parse_heatmap_range(request.args)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("owner.analytics_heatmaps"))
 
-    if selected_period not in (7, 30, 90):
-        selected_period = 30
-
-    pc_heatmap = get_pc_hours_heatmap_stats(club_id, selected_period)
+    selected_period = (date_to - date_from).days + 1
+    pc_heatmap = get_pc_hours_heatmap_stats(
+        club_id,
+        selected_period,
+        current_start=current_start,
+        current_end=current_end,
+    )
     heatmap = get_visit_heatmap_stats(
-        club_id, selected_period, pc_count=len(pc_heatmap.get("pcs") or [])
+        club_id,
+        selected_period,
+        pc_count=len(pc_heatmap.get("pcs") or []),
+        current_start=current_start,
+        current_end=current_end,
     )
 
     return render_template(
@@ -157,6 +194,10 @@ def analytics_heatmaps():
         heatmap=heatmap,
         pc_heatmap=pc_heatmap,
         selected_period=selected_period,
+        selected_date_from=date_from.isoformat(),
+        selected_date_to=date_to.isoformat(),
+        selected_period_label=f"{date_from.strftime('%d.%m.%Y')} — {date_to.strftime('%d.%m.%Y')}",
+        heatmap_max_date=date.today().isoformat(),
     )
 
 

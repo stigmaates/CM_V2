@@ -153,13 +153,23 @@ def _percent_display(value: float) -> str:
     return str(round(value, 1)).replace(".0", "").replace(".", ",")
 
 
-def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str, Any]:
+def get_pc_hours_heatmap_stats(
+    club_id: int,
+    period_days: int = 30,
+    *,
+    current_start: datetime | None = None,
+    current_end: datetime | None = None,
+) -> dict[str, Any]:
     """Return PC heatmap: one tile per PC with total occupied hours for selected period."""
-    if period_days not in (7, 30, 90):
-        period_days = 30
-
-    current_end = datetime.now()
-    current_start = current_end - timedelta(days=period_days)
+    if current_start is None or current_end is None:
+        if period_days not in (7, 30, 90):
+            period_days = 30
+        current_end = datetime.now()
+        current_start = current_end - timedelta(days=period_days)
+    elif current_end <= current_start:
+        raise ValueError("Heatmap range end must be after its start")
+    else:
+        period_days = max(1, (current_end.date() - current_start.date()).days)
 
     conn = get_db_connection()
     try:
@@ -204,7 +214,7 @@ def get_pc_hours_heatmap_stats(club_id: int, period_days: int = 30) -> dict[str,
     finally:
         conn.close()
 
-    available_hours_per_pc = period_days * 24
+    available_hours_per_pc = (current_end - current_start).total_seconds() / 3600
     max_hours = max((float(row.get("total_hours") or 0) for row in rows), default=0)
     total_hours = sum(float(row.get("total_hours") or 0) for row in rows)
     total_sessions = sum(int(row.get("sessions_count") or 0) for row in rows)

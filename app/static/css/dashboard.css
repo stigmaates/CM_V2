@@ -2301,6 +2301,12 @@ body.crm-modal-lock {
 }
 
 /* CRM heatmap */
+.crm-heatmaps-page {
+    --team-border: rgba(158, 105, 255, 0.3);
+    --team-border-soft: rgba(158, 105, 255, 0.16);
+    --team-accent-bright: #c97cff;
+}
+
 .heatmap-section.card {
     min-height: auto;
     margin-top: 24px;
@@ -2310,6 +2316,8 @@ body.crm-modal-lock {
 }
 
 .heatmap-head {
+    position: relative;
+    z-index: 10;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -2321,9 +2329,24 @@ body.crm-modal-lock {
     margin-bottom: 8px;
 }
 
-.heatmap-switcher {
-    justify-content: flex-end;
+.heatmap-date-filter {
     flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.heatmap-date-filter button {
+    color: #f4ecff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.heatmap-date-filter button:focus-visible {
+    outline: 2px solid var(--team-accent-bright);
+    outline-offset: 3px;
+}
+
+.heatmap-date-filter .team-calendar-popover {
+    z-index: 80;
 }
 
 .heatmap-summary {
@@ -2484,8 +2507,14 @@ body.crm-modal-lock {
         flex-direction: column;
     }
 
-    .heatmap-switcher {
-        justify-content: flex-start;
+    .heatmap-date-filter {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .heatmap-date-filter .team-period,
+    .heatmap-date-filter .team-period__main {
+        width: 100%;
     }
 
     .heatmap-summary {

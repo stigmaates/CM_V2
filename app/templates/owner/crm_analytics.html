@@ -9,11 +9,12 @@
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — {{ analytics_titles.get(analytics_section, 'Аналитика') }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260920-heatmap-scroll-1') }}">
+{% if analytics_section == 'heatmaps' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='12') }}">{% endif %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260920-heatmap-date-range-1') }}">
 {% endblock %}
 
 {% block content %}
-<main class="content crm-page{% if analytics_section == 'cohorts' %} crm-cohorts-page{% endif %}">
+<main class="content crm-page{% if analytics_section == 'cohorts' %} crm-cohorts-page{% elif analytics_section == 'heatmaps' %} crm-heatmaps-page{% endif %}">
     {% if analytics_section == 'cohorts' %}
     <section class="crm-analysis-section" id="analytics-cohorts">
         <header class="crm-cohort-hero">
@@ -215,14 +216,39 @@
                 <div class="muted crm-hero-text">Показывает среднюю долю занятых компьютеров по дням недели и часам.</div>
             </div>
 
-            <div class="period-switcher heatmap-switcher">
-                <a href="{{ url_for('owner.analytics_heatmaps', period=7) }}"
-                   class="period-option {% if selected_period == 7 %}active{% endif %}">7 дней</a>
-                <a href="{{ url_for('owner.analytics_heatmaps', period=30) }}"
-                   class="period-option {% if selected_period == 30 %}active{% endif %}">30 дней</a>
-                <a href="{{ url_for('owner.analytics_heatmaps', period=90) }}"
-                   class="period-option {% if selected_period == 90 %}active{% endif %}">90 дней</a>
-            </div>
+            <form class="heatmap-date-filter" method="get" action="{{ url_for('owner.analytics_heatmaps') }}" aria-label="Диапазон дат тепловых карт" data-heatmap-date-range>
+                <div class="team-period" data-heatmap-period>
+                    <div class="team-period__main">
+                        <div class="team-presets" aria-label="Период тепловых карт">
+                            <button type="button" data-heatmap-preset="week" aria-pressed="false">Неделя</button>
+                            <button type="button" data-heatmap-preset="month" aria-pressed="false">Месяц</button>
+                            <button class="team-calendar-trigger" id="heatmapCalendarTrigger" type="button" aria-label="Выбрать даты" aria-expanded="false" aria-controls="heatmapCalendarPopover">
+                                <span class="team-calendar-icon" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        <span class="team-period__summary" id="heatmapPeriodSummary">{{ selected_period_label }}</span>
+                    </div>
+                    <input type="hidden" name="date_from" id="heatmapDateFrom" value="{{ selected_date_from }}">
+                    <input type="hidden" name="date_to" id="heatmapDateTo" value="{{ selected_date_to }}">
+                    <div class="team-calendar-popover" id="heatmapCalendarPopover" hidden data-lenis-prevent>
+                        <header>
+                            <div><strong>Выберите период</strong><small>Сначала начальную, затем конечную дату</small></div>
+                            <div class="team-calendar-nav">
+                                <button id="heatmapCalendarPrev" type="button" aria-label="Предыдущий месяц">‹</button>
+                                <button id="heatmapCalendarNext" type="button" aria-label="Следующий месяц">›</button>
+                            </div>
+                        </header>
+                        <div class="team-calendars" id="heatmapCalendars"></div>
+                        <footer>
+                            <div class="team-calendar-selection">
+                                <span>С <strong id="heatmapCalendarFrom">—</strong></span>
+                                <span>По <strong id="heatmapCalendarTo">—</strong></span>
+                            </div>
+                            <button class="team-calendar-apply" id="heatmapCalendarApply" type="button">Применить</button>
+                        </footer>
+                    </div>
+                </div>
+            </form>
         </div>
 
         <div class="heatmap-summary">
@@ -342,6 +368,11 @@
     window.CRM_INITIAL_ANALYSIS = {{ initial_analysis|default({}) | tojson | safe }};
     window.CRM_MESSAGE_VARIABLES = [];
     window.CRM_PULSE_GROUPS = [];
+    window.CRM_HEATMAP_RANGE = {{ {
+        'today': heatmap_max_date|default(''),
+        'dateFrom': selected_date_from|default(''),
+        'dateTo': selected_date_to|default('')
+    } | tojson | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260920-cohorts-redesign-1') }}"></script>
+<script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260920-heatmap-date-range-1') }}"></script>
 {% endblock %}

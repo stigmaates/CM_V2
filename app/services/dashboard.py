@@ -1823,15 +1823,23 @@ def _calculate_hourly_utilization(
 
 
 def get_visit_heatmap_stats(
-    club_id: int, period_days: int = 30, pc_count: int | None = None
+    club_id: int,
+    period_days: int = 30,
+    pc_count: int | None = None,
+    *,
+    current_start: datetime | None = None,
+    current_end: datetime | None = None,
 ) -> dict:
     """Возвращает загрузку клуба по дням недели и часам в процентах."""
-    if period_days not in (7, 30, 90):
-        period_days = 30
-
-    now = datetime.now()
-    current_start = now - timedelta(days=period_days)
-    current_end = now
+    if current_start is None or current_end is None:
+        if period_days not in (7, 30, 90):
+            period_days = 30
+        current_end = datetime.now()
+        current_start = current_end - timedelta(days=period_days)
+    elif current_end <= current_start:
+        raise ValueError("Heatmap range end must be after its start")
+    else:
+        period_days = max(1, (current_end.date() - current_start.date()).days)
 
     days = [
         {"index": 0, "label": "Пн", "full": "Понедельник"},

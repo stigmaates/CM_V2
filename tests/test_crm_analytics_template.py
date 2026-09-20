@@ -23,6 +23,10 @@ def _base_template_context():
         "filter_fields": [],
         "message_variables": [],
         "selected_period": 30,
+        "selected_date_from": "2026-09-01",
+        "selected_date_to": "2026-09-20",
+        "selected_period_label": "01.09.2026 — 20.09.2026",
+        "heatmap_max_date": "2026-09-20",
         "telegram_only": False,
     }
 
@@ -173,6 +177,11 @@ def test_crm_analytics_renders_heatmaps_as_a_separate_page():
 
     assert "Тепловая карта посещений" in html
     assert "Тепловая карта по ПК" in html
+    assert 'data-heatmap-date-range' in html
+    assert 'data-heatmap-preset="week"' in html
+    assert 'data-heatmap-preset="month"' in html
+    assert 'value="2026-09-01"' in html
+    assert 'value="2026-09-20"' in html
     assert 'class="pc-heatmap-grid"' in html
     assert "data-lenis-prevent-wheel" in html
     assert 'id="analytics-cohorts"' not in html
