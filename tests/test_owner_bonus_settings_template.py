@@ -225,6 +225,11 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert 'data-case-inline-form' in html
     assert 'form="case-inline-item-7"' in html
     assert "Основные значения можно менять прямо в таблице" in html
+    assert 'data-open-case-item-add="caseItemAddDialog42"' in html
+    assert 'id="caseItemAddDialog42"' in html
+    assert 'data-case-item-add-dialog' in html
+    assert 'data-case-workspace-tab' not in html
+    assert "Добавить предмет в кейс" not in html
     assert 'class="case-toggle" for="case_active_42"' in html
     assert 'class="case-toggle case-table-toggle"' in html
     assert 'class="case-toggle__track"' in html

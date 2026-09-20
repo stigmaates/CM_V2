@@ -277,6 +277,7 @@
 
     /* Full case workspace */
     .case-config-modal .modal-panel--prize.case-workspace {
+        position: relative;
         width: min(1540px, calc(100vw - 32px));
         height: min(940px, calc(100dvh - 32px));
         max-height: calc(100dvh - 32px);
@@ -325,33 +326,26 @@
     .case-workspace-header__status {
         margin-left: 4px;
     }
-    .case-workspace .modal-close {
-        margin-left: auto;
-    }
-    .case-workspace-tabs {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
-        padding: 0 16px 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, .08);
-    }
-    .case-workspace-tab {
-        min-height: 42px;
-        border: 1px solid rgba(165, 114, 255, .14);
+    .case-workspace-add-item {
+        min-height: 40px;
+        padding: 0 16px;
+        border: 1px solid rgba(188, 128, 255, .74);
         border-radius: 11px;
-        background: rgba(13, 7, 25, .42);
-        color: #b8a8cf;
+        background: linear-gradient(135deg, #9c50fa, #7139de);
+        box-shadow: 0 8px 22px rgba(115, 54, 218, .24);
+        color: #fff;
         font: inherit;
         font-size: 13px;
         font-weight: 850;
+        white-space: nowrap;
         cursor: pointer;
     }
-    .case-workspace-tab:hover,
-    .case-workspace-tab.is-active {
-        border-color: rgba(178, 112, 255, .52);
-        background: linear-gradient(135deg, #8f4df1, #6e35d0);
-        color: #fff;
-        box-shadow: 0 8px 22px rgba(118, 54, 213, .22);
+    .case-workspace-add-item:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+    }
+    .case-workspace .modal-close {
+        margin-left: auto;
     }
     .case-workspace-scroll {
         min-height: 0;
@@ -779,6 +773,84 @@
         background: linear-gradient(135deg, #9c50fa, #6f38df);
         box-shadow: 0 10px 24px rgba(115, 54, 218, .22);
     }
+    .case-item-add-dialog {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgba(7, 3, 14, .76);
+        backdrop-filter: blur(10px);
+    }
+    .case-item-add-dialog[hidden] {
+        display: none;
+    }
+    .case-item-add-dialog__panel {
+        width: min(760px, 100%);
+        max-height: min(760px, calc(100dvh - 72px));
+        overflow: auto;
+        overscroll-behavior: contain;
+        border: 1px solid rgba(172, 109, 255, .48);
+        border-radius: 18px;
+        background: linear-gradient(145deg, rgba(39, 22, 67, .99), rgba(20, 11, 37, .99));
+        box-shadow: 0 30px 80px rgba(0, 0, 0, .58);
+    }
+    .case-item-add-dialog__header {
+        position: sticky;
+        z-index: 2;
+        top: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 22px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, .09);
+        background: rgba(31, 18, 55, .96);
+        backdrop-filter: blur(10px);
+    }
+    .case-item-add-dialog__header h3 {
+        margin: 0;
+        color: #fff;
+        font-size: 20px;
+    }
+    .case-item-add-dialog__header p {
+        margin: 5px 0 0;
+        color: #a995bf;
+        font-size: 12px;
+    }
+    .case-item-add-dialog__close {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        border: 1px solid rgba(165, 114, 255, .34);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, .04);
+        color: #e9ddf6;
+        font: inherit;
+        font-size: 22px;
+        cursor: pointer;
+    }
+    .case-item-add-dialog__form {
+        padding: 20px 22px 22px;
+    }
+    .case-item-add-dialog__form .case-item-grid {
+        gap: 14px;
+    }
+    .case-item-add-dialog__form .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 18px;
+    }
+    .case-item-add-dialog__form .actions .btn {
+        min-width: 160px;
+    }
+    .case-item-add-dialog__form .actions .btn-primary {
+        background: linear-gradient(135deg, #9c50fa, #7139de);
+    }
     @media (max-width: 1080px) {
         .case-workspace-layout {
             grid-template-columns: 1fr;
@@ -814,13 +886,20 @@
             height: calc(100dvh - 12px);
             max-height: calc(100dvh - 12px);
         }
-        .case-workspace-tabs {
-            grid-template-columns: 1fr;
-        }
         .case-workspace-side,
         .case-workspace .case-form-grid,
         .case-cover-editor {
             grid-template-columns: 1fr;
+        }
+        .case-workspace-header {
+            flex-wrap: wrap;
+        }
+        .case-workspace-add-item {
+            order: 4;
+            width: 100%;
+        }
+        .case-item-add-dialog {
+            padding: 8px;
         }
         .case-workspace .case-form-grid .case-description-field {
             grid-column: auto;
@@ -913,14 +992,9 @@
                             <span class="prize-active-badge case-workspace-header__status {% if not case.is_active %}prize-active-badge--off{% endif %}">
                                 {% if case.is_active %}активен{% else %}выключен{% endif %}
                             </span>
+                            <button type="button" class="case-workspace-add-item" data-open-case-item-add="caseItemAddDialog{{ case.id }}">+ Добавить предмет</button>
                             <button type="button" class="modal-close" data-close-case-config aria-label="Закрыть">×</button>
                         </div>
-
-                        <nav class="case-workspace-tabs" aria-label="Разделы настройки кейса">
-                            <button type="button" class="case-workspace-tab is-active" data-case-workspace-tab="caseMain{{ case.id }}">⚙ Основное</button>
-                            <button type="button" class="case-workspace-tab" data-case-workspace-tab="caseItems{{ case.id }}">◇ Предметы ({{ case_items|length }})</button>
-                            <button type="button" class="case-workspace-tab" data-case-workspace-tab="casePreview{{ case.id }}">◉ Превью</button>
-                        </nav>
 
                         <div class="case-workspace-scroll" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch>
                             <div class="case-workspace-layout">
@@ -1041,25 +1115,6 @@
                                             </table>
                                         </div>
 
-                                        <details class="case-add-item-details">
-                                            <summary>+ Добавить предмет в кейс</summary>
-                                            <form method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" data-case-item-add-form data-no-loading data-case-id="{{ case.id }}">
-                                                <div class="case-item-grid">
-                                                    <div class="form-group"><label>Название</label><input class="form-input" type="text" name="name" required></div>
-                                                    <div class="form-group"><label>Шанс, %</label><input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" required></div>
-                                                    <div class="form-group"><label>Группа описания</label><select class="form-input" name="rarity_label"><option value="Обычный">Обычный</option><option value="Редкий">Редкий</option><option value="Очень редкий">Очень редкий</option><option value="Ультра редкий">Ультра редкий</option></select></div>
-                                                    <div class="form-group"><label>КБ</label><input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="0"></div>
-                                                    <div class="form-group"><label>Жетоны</label><input class="form-input" type="number" name="token_amount" min="0" step="1" value="0"></div>
-                                                    <div class="form-group"><label>Обновления контрактов</label><input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="0"></div>
-                                                    <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ case_items|length + 1 }}"></div>
-                                                    <div class="form-group full"><label>Картинка предмета</label><input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка"></div>
-                                                    <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="2"></textarea></div>
-                                                    <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" checked><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
-                                                </div>
-                                                <div class="actions"><button type="submit" class="btn">Добавить предмет</button></div>
-                                                <div class="case-inline-status" data-case-add-status></div>
-                                            </form>
-                                        </details>
                                     </section>
                                 </div>
 
@@ -1117,6 +1172,37 @@
                                         </div>
                                     </section>
                                 </aside>
+                            </div>
+                        </div>
+
+                        <div class="case-item-add-dialog" id="caseItemAddDialog{{ case.id }}" data-case-item-add-dialog data-case-id="{{ case.id }}" hidden>
+                            <div class="case-item-add-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="caseItemAddTitle{{ case.id }}" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch>
+                                <div class="case-item-add-dialog__header">
+                                    <div>
+                                        <h3 id="caseItemAddTitle{{ case.id }}">Добавить предмет</h3>
+                                        <p>Настройте награду и вероятность её выпадения из кейса.</p>
+                                    </div>
+                                    <button type="button" class="case-item-add-dialog__close" data-close-case-item-add aria-label="Закрыть">×</button>
+                                </div>
+                                <form class="case-item-add-dialog__form" method="POST" enctype="multipart/form-data" action="{{ url_for('owner.case_item_add', case_id=case.id) }}" data-case-item-add-form data-no-loading data-case-id="{{ case.id }}">
+                                    <div class="case-item-grid">
+                                        <div class="form-group"><label>Название предмета</label><input class="form-input" type="text" name="name" placeholder="Например: 500 КБ" required></div>
+                                        <div class="form-group"><label>Шанс выпадения, %</label><input class="form-input" type="number" name="probability" min="0.0001" step="0.0001" placeholder="0,0001–100" required></div>
+                                        <div class="form-group"><label>Группа описания</label><select class="form-input" name="rarity_label"><option value="Обычный">Обычный</option><option value="Редкий">Редкий</option><option value="Очень редкий">Очень редкий</option><option value="Ультра редкий">Ультра редкий</option></select></div>
+                                        <div class="form-group"><label>КБ</label><input class="form-input" type="number" name="bonus_amount" min="0" step="1" value="0"></div>
+                                        <div class="form-group"><label>Жетоны</label><input class="form-input" type="number" name="token_amount" min="0" step="1" value="0"></div>
+                                        <div class="form-group"><label>Обновления контрактов</label><input class="form-input" type="number" name="contract_refresh_amount" min="0" step="1" value="0"></div>
+                                        <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ case_items|length + 1 }}"></div>
+                                        <div class="form-group full"><label>Картинка предмета</label><input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><div class="muted" style="margin: 6px 0;">JPG, PNG или WEBP до 5 МБ.</div><input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка"></div>
+                                        <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="3" placeholder="Короткое описание награды"></textarea></div>
+                                        <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" checked><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
+                                    </div>
+                                    <div class="case-inline-status" data-case-add-status></div>
+                                    <div class="actions">
+                                        <button type="button" class="btn" data-close-case-item-add>Отмена</button>
+                                        <button type="submit" class="btn btn-primary">Добавить предмет</button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
 
@@ -1242,6 +1328,30 @@
 
         document.querySelectorAll('[data-open-case-config]').forEach((button) => {
             button.addEventListener('click', () => openModal(document.getElementById(button.dataset.openCaseConfig)));
+        });
+
+        function openCaseItemAddDialog(dialog) {
+            if (!dialog) return;
+            dialog.hidden = false;
+            dialog.querySelector('input[name="name"]')?.focus();
+        }
+
+        function closeCaseItemAddDialog(dialog) {
+            if (!dialog) return;
+            dialog.hidden = true;
+        }
+
+        document.querySelectorAll('[data-open-case-item-add]').forEach((button) => {
+            button.addEventListener('click', () => openCaseItemAddDialog(document.getElementById(button.dataset.openCaseItemAdd)));
+        });
+
+        document.querySelectorAll('[data-case-item-add-dialog]').forEach((dialog) => {
+            dialog.querySelectorAll('[data-close-case-item-add]').forEach((button) => {
+                button.addEventListener('click', () => closeCaseItemAddDialog(dialog));
+            });
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog) closeCaseItemAddDialog(dialog);
+            });
         });
 
         modals.forEach((modal) => {
@@ -1374,13 +1484,6 @@
         });
 
         document.querySelectorAll('.case-workspace').forEach((workspace) => {
-            workspace.querySelectorAll('[data-case-workspace-tab]').forEach((button) => {
-                button.addEventListener('click', () => {
-                    workspace.querySelectorAll('[data-case-workspace-tab]').forEach((tab) => tab.classList.toggle('is-active', tab === button));
-                    document.getElementById(button.dataset.caseWorkspaceTab)?.scrollIntoView({behavior: 'smooth', block: 'start'});
-                });
-            });
-
             workspace.querySelectorAll('[data-case-preview-source]').forEach((control) => {
                 const sync = () => {
                     const key = control.dataset.casePreviewSource;
@@ -1605,7 +1708,7 @@
 
         async function submitCaseItemAddForm(form) {
             const caseId = form.dataset.caseId;
-            const details = form.closest('details');
+            const dialog = form.closest('[data-case-item-add-dialog]');
             setStatus(form, 'Добавляем...', '');
             try {
                 const response = await fetch(form.action, {
@@ -1637,7 +1740,7 @@
                 if (tableBody) tableBody.appendChild(buildInlineTableRow(caseId, data.item, updateAction, tableBody.rows.length + 1));
                 selector.dispatchEvent(new Event('change'));
                 form.reset();
-                if (details) details.open = false;
+                closeCaseItemAddDialog(dialog);
                 setStatus(row, data.message || 'Предмет добавлен', 'ok');
                 updateCaseProbabilityTotal(caseId);
             } catch (error) {
@@ -1696,6 +1799,11 @@
 
         document.addEventListener('keydown', (event) => {
             if (event.key !== 'Escape') return;
+            const itemDialog = Array.from(document.querySelectorAll('[data-case-item-add-dialog]')).find((dialog) => !dialog.hidden);
+            if (itemDialog) {
+                closeCaseItemAddDialog(itemDialog);
+                return;
+            }
             const opened = modals.filter((modal) => modal.classList.contains('is-open'));
             closeModal(opened[opened.length - 1]);
         });
