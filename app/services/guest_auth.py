@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.core import get_db_connection
 
@@ -29,7 +29,7 @@ def ensure_guest_login_tokens_club_column(cursor):
 
 def create_guest_login_token(club_id: int | None = None):
     token = secrets.token_urlsafe(32)
-    created_at = datetime.utcnow()
+    created_at = datetime.now(UTC).replace(tzinfo=None)
     expires_at = created_at + timedelta(minutes=10)
     club_id_value = int(club_id) if club_id is not None else None
 

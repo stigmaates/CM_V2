@@ -1,5 +1,5 @@
 import random
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app.core import get_db_connection
@@ -410,7 +410,7 @@ def _add_token_transaction(
             description,
             expires_at,
             expires_status or ("active" if expires_at and amount > 0 else "none"),
-            datetime.utcnow(),
+            datetime.now(UTC).replace(tzinfo=None),
         ),
     )
     return True
@@ -450,7 +450,7 @@ def add_guest_tokens(
     Use unique source_id values for idempotent operations; when source_id is omitted,
     a timestamp-based id is generated so the operation is always inserted.
     """
-    source_id = source_id or f"manual:{datetime.utcnow().isoformat()}"
+    source_id = source_id or f"manual:{datetime.now(UTC).replace(tzinfo=None).isoformat()}"
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -581,7 +581,7 @@ def get_guest_streak_info(guest_id: int, club_id: int):
     finally:
         conn.close()
 
-    today = datetime.utcnow().date()
+    today = datetime.now(UTC).replace(tzinfo=None).date()
     if not rows:
         return {
             **empty,
@@ -910,7 +910,7 @@ def save_guest_wheel_spin(
                 )
                 VALUES (%s, %s, %s, %s, %s)
                 """,
-                (guest_id, club_id, prize_id, spent_tokens, datetime.utcnow()),
+                (guest_id, club_id, prize_id, spent_tokens, datetime.now(UTC).replace(tzinfo=None)),
             )
             spin_id = cursor.lastrowid
             _add_token_transaction(

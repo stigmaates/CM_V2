@@ -1,6 +1,6 @@
 import asyncio
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -200,7 +200,7 @@ def live_token(monkeypatch):
         lambda token: {
             "club_id": 2,
             "is_confirmed": 0,
-            "expires_at": datetime.utcnow() + timedelta(minutes=5),
+            "expires_at": datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=5),
         },
     )
 
@@ -275,7 +275,7 @@ def test_expired_token_clears_flow(monkeypatch):
         "get_login_token_row",
         lambda token: {
             "club_id": 2,
-            "expires_at": datetime.utcnow() - timedelta(seconds=1),
+            "expires_at": datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=1),
         },
     )
     update, context = update_and_context("phone")

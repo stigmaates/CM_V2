@@ -638,7 +638,7 @@ def check_login():
     if not token_row:
         return {"ok": False, "error": "token_not_found"}, 404
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     expires_at = token_row["expires_at"]
     if expires_at and expires_at < now:
         return {"ok": False, "status": "expired"}

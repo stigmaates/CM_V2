@@ -1,6 +1,5 @@
 import importlib
 
-
 migration = importlib.import_module("migrations.versions.0033_reusable_mission_templates")
 
 

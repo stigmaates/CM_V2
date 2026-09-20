@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
@@ -35,7 +35,7 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
     code = setting["code"]
     days_inactive = int(setting.get("days_inactive") or 14)
     bonus_amount = int(setting.get("bonus_amount") or 200)
-    bonus_expires_at = datetime.utcnow() + timedelta(days=7)
+    bonus_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=7)
     repeat_after_days = int(setting.get("repeat_after_days") or 30)
     message_text = setting.get("message_text") or (
         "Привет! Тебя давно не было в клубе 😔\n\n"

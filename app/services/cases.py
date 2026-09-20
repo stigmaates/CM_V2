@@ -1,6 +1,6 @@
 import random
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
@@ -209,7 +209,7 @@ def save_game_mode(club_id: int, mode: str):
                     INSERT INTO club_wheel_settings (club_id, tokens_start_date, spin_cost, is_enabled, game_mode)
                     VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (club_id, datetime.utcnow(), 2, 0, mode),
+                    (club_id, datetime.now(UTC).replace(tzinfo=None), 2, 0, mode),
                 )
         conn.commit()
     finally:
@@ -764,7 +764,7 @@ def get_valuable_case_drops(limit: int = 24, days: int = 90, club_id: int | None
     """Return recent valuable case drops for the guest-facing hype ticker."""
     safe_limit = max(1, min(int(limit or 24), 40))
     safe_days = max(1, min(int(days or 90), 365))
-    since = datetime.utcnow() - timedelta(days=safe_days)
+    since = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=safe_days)
     club_filter = ""
     club_params: tuple[int, ...] = ()
     if club_id is not None:
@@ -922,7 +922,7 @@ def open_case(guest_id: int, club_id: int, case_id: int, *, test_mode: bool = Fa
                 INSERT INTO guest_case_openings (club_id, guest_id, case_id, item_id, spent_tokens, created_at)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (club_id, guest_id, case_id, item["id"], price, datetime.utcnow()),
+                (club_id, guest_id, case_id, item["id"], price, datetime.now(UTC).replace(tzinfo=None)),
             )
             opening_id = int(cursor.lastrowid)
 

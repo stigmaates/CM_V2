@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from html import escape
 from typing import Any
 
@@ -206,7 +206,7 @@ def create_prize_claim(
             prize_name,
             prize_description,
             prize.get("image_url"),
-            datetime.utcnow(),
+            datetime.now(UTC).replace(tzinfo=None),
         ),
     )
 
@@ -382,7 +382,7 @@ def notify_prize_claim_admin_chat(claim_id: int) -> dict[str, Any]:
                     str(chat_id or "") or None,
                     message_id,
                     error_text,
-                    datetime.utcnow(),
+                    datetime.now(UTC).replace(tzinfo=None),
                     claim_id,
                 ),
             )
@@ -465,7 +465,7 @@ def mark_prize_claim_issued_by_telegram(
                     issued_by_username = %s
                 WHERE id = %s
                 """,
-                (datetime.utcnow(), telegram_id, username, claim_id),
+                (datetime.now(UTC).replace(tzinfo=None), telegram_id, username, claim_id),
             )
         conn.commit()
     finally:
@@ -494,7 +494,7 @@ def mark_prize_claim_issued_by_owner(claim_id: int, club_id: int, user_id: int |
                   AND club_id = %s
                   AND status <> 'cancelled'
                 """,
-                (datetime.utcnow(), f"owner:{user_id}" if user_id else "owner", claim_id, club_id),
+                (datetime.now(UTC).replace(tzinfo=None), f"owner:{user_id}" if user_id else "owner", claim_id, club_id),
             )
             affected = cursor.rowcount
         conn.commit()
@@ -523,7 +523,7 @@ def cancel_prize_claim_by_owner(
                   AND status <> 'issued'
                 """,
                 (
-                    datetime.utcnow(),
+                    datetime.now(UTC).replace(tzinfo=None),
                     reason or f"cancelled_by_owner:{user_id}" if user_id else reason,
                     claim_id,
                     club_id,

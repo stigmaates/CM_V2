@@ -2,7 +2,7 @@ import json
 import os
 import re
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Tuple
 
@@ -2551,7 +2551,7 @@ def create_bonus_giveaway(
     )
     recipients_count = len(recipients)
     expires_at = (
-        datetime.utcnow() + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
+        datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=expires_after_seconds) if is_expiring and expires_after_seconds else None
     )
     filters_json = {
         "rules": rules,

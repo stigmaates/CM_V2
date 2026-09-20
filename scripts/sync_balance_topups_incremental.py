@@ -1,7 +1,7 @@
 import argparse
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -154,7 +154,7 @@ def normalize_phone(phone):
 
 def prepare_rows(club_id: int, topups: list):
     rows = []
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     for item in topups:
         topup_at = parse_datetime(item.get("date"))
         if not item.get("id") or not item.get("guest_id") or not topup_at:

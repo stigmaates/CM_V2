@@ -2,7 +2,7 @@ import argparse
 import hashlib
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pymysql
@@ -140,7 +140,7 @@ def build_operation_uid(club_id: int, operation: dict) -> str:
 def prepare_rows(club_id: int, operations: list):
     rows = []
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     for op in operations:
         rows.append(
             (

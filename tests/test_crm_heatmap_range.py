@@ -7,7 +7,6 @@ from flask import session
 from app.main import app
 from app.routes.owner.crm import _parse_heatmap_range
 
-
 crm_route = import_module("app.routes.owner.crm")
 
 

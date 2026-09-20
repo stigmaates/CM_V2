@@ -2,7 +2,7 @@
 
 import logging
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.request import HTTPXRequest
@@ -58,7 +58,7 @@ def _valid_state(context):
         or token.get("is_confirmed")
         or not token.get("club_id")
         or not token.get("expires_at")
-        or token["expires_at"] <= datetime.utcnow()
+        or token["expires_at"] <= datetime.now(UTC).replace(tzinfo=None)
     ):
         context.user_data.pop("phone_link", None)
         raise ValueError("Время входа истекло. Откройте новую ссылку входа на сайте.")
