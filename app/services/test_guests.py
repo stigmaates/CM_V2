@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.core import get_db_connection
 from app.services.wheel import ensure_token_tables
@@ -18,7 +18,7 @@ def ensure_test_guest(club_id: int, club_name: str | None) -> dict:
                 ON DUPLICATE KEY UPDATE
                     fio = VALUES(fio)
                 """,
-                (guest_id, club_id, guest_name, datetime.utcnow(), datetime.utcnow()),
+                (guest_id, club_id, guest_name, datetime.now(UTC).replace(tzinfo=None), datetime.now(UTC).replace(tzinfo=None)),
             )
             cur.execute(
                 """

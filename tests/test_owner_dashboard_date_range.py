@@ -8,7 +8,6 @@ from flask import session
 from app.main import app
 from app.services.dashboard import _date_labels_for_period
 
-
 dashboard_route = import_module("app.routes.owner.dashboard")
 
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from threading import Thread
 
@@ -127,7 +127,7 @@ def create_impersonation_log(club_id: int, club_name: str | None):
                     session.get("login"),
                     club_id,
                     club_name,
-                    datetime.utcnow(),
+                    datetime.now(UTC).replace(tzinfo=None),
                     request.headers.get("X-Forwarded-For", request.remote_addr),
                     request.headers.get("User-Agent"),
                 ),
@@ -150,7 +150,7 @@ def finish_impersonation_log(log_id):
                 WHERE id = %s
                   AND ended_at IS NULL
                 """,
-                (datetime.utcnow(), log_id),
+                (datetime.now(UTC).replace(tzinfo=None), log_id),
             )
         db.commit()
 
@@ -240,7 +240,7 @@ def _format_job_age(dt):
     if not dt:
         return "—"
 
-    delta = datetime.utcnow() - dt
+    delta = datetime.now(UTC).replace(tzinfo=None) - dt
     total_minutes = max(0, int(delta.total_seconds() // 60))
     if total_minutes < 60:
         return f"{total_minutes} мин назад"
@@ -266,7 +266,7 @@ def _job_state(job_type: str, row):
     status = row.get("status") or "unknown"
     started_at = row.get("started_at")
     stale_hours = SYNC_STALE_HOURS.get(job_type, 24)
-    is_stale = bool(started_at and datetime.utcnow() - started_at > timedelta(hours=stale_hours))
+    is_stale = bool(started_at and datetime.now(UTC).replace(tzinfo=None) - started_at > timedelta(hours=stale_hours))
     view_status = "stale" if status == "success" and is_stale else status
     status_labels = {
         "success": "ok",
@@ -404,7 +404,7 @@ def create_sync_log(club_id: int, script_name: str, sync_mode: str, message: str
                 INSERT INTO admin_sync_logs (club_id, script_name, sync_mode, status, message, started_at, created_by)
                 VALUES (%s, %s, %s, 'running', %s, %s, NULL)
                 """,
-                (club_id, script_name, sync_mode, message, datetime.utcnow()),
+                (club_id, script_name, sync_mode, message, datetime.now(UTC).replace(tzinfo=None)),
             )
             log_id = cur.lastrowid
         db.commit()
@@ -422,7 +422,7 @@ def finish_sync_log(log_id: int, status: str, message: str):
                     finished_at = %s
                 WHERE id = %s
                 """,
-                (status, message[:2000] if message else None, datetime.utcnow(), log_id),
+                (status, message[:2000] if message else None, datetime.now(UTC).replace(tzinfo=None), log_id),
             )
         db.commit()
 

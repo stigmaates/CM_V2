@@ -1,6 +1,6 @@
 import logging
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pymysql
 from pymysql.cursors import DictCursor
@@ -220,7 +220,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         expires_at = token_row.get("expires_at")
-        if expires_at and expires_at < datetime.utcnow():
+        if expires_at and expires_at < datetime.now(UTC).replace(tzinfo=None):
             await message.reply_text("Время входа истекло. Вернитесь на сайт и откройте страницу входа заново.")
             return
 
@@ -284,7 +284,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     expires_at = token_row.get("expires_at")
-    if expires_at and expires_at < datetime.utcnow():
+    if expires_at and expires_at < datetime.now(UTC).replace(tzinfo=None):
         await message.reply_text(
             "Время входа истекло. Откройте страницу входа заново.", reply_markup=ReplyKeyboardRemove()
         )

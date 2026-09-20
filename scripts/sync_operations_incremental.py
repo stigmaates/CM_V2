@@ -3,7 +3,7 @@ import hashlib
 import logging
 import re
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -138,7 +138,7 @@ def build_operation_uid(club_id: int, operation: dict) -> str:
 
 def prepare_rows(club_id: int, operations: list):
     rows = []
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     for op in operations:
         rows.append(

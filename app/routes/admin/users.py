@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from flask import flash, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
@@ -209,7 +209,7 @@ def users_create():
                     INSERT INTO users (role, name, login, club_id, created_at, pass_hash)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (role, name, login_value, club_id, datetime.utcnow(), pass_hash),
+                    (role, name, login_value, club_id, datetime.now(UTC).replace(tzinfo=None), pass_hash),
                 )
                 user_id = cursor.lastrowid
 

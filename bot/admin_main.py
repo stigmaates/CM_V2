@@ -14,8 +14,8 @@ from app.services.prize_claims import (
     format_prize_claim_message,
     mark_prize_claim_issued_by_telegram,
 )
-from bot.telegram_link_flow import review_callback
 from bot.support_tickets import TICKET_CALLBACK_PATTERN, chat_id_command, ticket_callback, ticket_command
+from bot.telegram_link_flow import review_callback
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

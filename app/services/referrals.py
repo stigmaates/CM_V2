@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core import get_db_connection
@@ -318,7 +318,7 @@ def process_referral_rewards(club_id: int) -> int:
                         invited_bonus_awarded = %s
                     WHERE id = %s
                     """,
-                    (datetime.utcnow(), inviter_bonus, invited_bonus, link_id),
+                    (datetime.now(UTC).replace(tzinfo=None), inviter_bonus, invited_bonus, link_id),
                 )
                 awarded += 1
         conn.commit()
@@ -373,7 +373,7 @@ def submit_referral(club_id: int, invited_guest_id: int, referrer_phone: str) ->
                     int(referrer["guest_id"]),
                     invited.get("phone"),
                     referrer.get("phone"),
-                    datetime.utcnow(),
+                    datetime.now(UTC).replace(tzinfo=None),
                 ),
             )
             link_id = cursor.lastrowid
@@ -419,7 +419,7 @@ def confirm_referral(club_id: int, referrer_guest_id: int, request_id: int, invi
                 SET status='confirmed', confirmed_at=%s
                 WHERE id=%s
                 """,
-                (datetime.utcnow(), request_id),
+                (datetime.now(UTC).replace(tzinfo=None), request_id),
             )
         conn.commit()
         # Try to award immediately in case hours were already synced.

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import wraps
 
 from flask import flash, redirect, render_template, request, session, url_for
@@ -14,7 +14,7 @@ def _mark_user_last_login(cursor, user_id: int) -> None:
     try:
         cursor.execute(
             "UPDATE users SET last_login_at = %s WHERE user_id = %s",
-            (datetime.utcnow(), user_id),
+            (datetime.now(UTC).replace(tzinfo=None), user_id),
         )
     except Exception:
         # Compatibility for deployments where code is pulled before migrations run.

@@ -1,6 +1,5 @@
 from app.core import get_db_connection
 
-
 GLOBAL_MAINTENANCE_CLUB_ID = 0
 
 
