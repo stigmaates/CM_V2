@@ -8,11 +8,10 @@ production candidate host.
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import sys
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 BRIDGE_DIR = ROOT / "services" / "cs2_gc"

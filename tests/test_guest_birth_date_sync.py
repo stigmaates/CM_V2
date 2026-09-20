@@ -1,7 +1,8 @@
 from datetime import date, datetime
 
 from scripts.sync_guests import parse_date as parse_initial_date
-from scripts.sync_guests_incremental import filter_changed_guests, parse_date as parse_incremental_date
+from scripts.sync_guests_incremental import filter_changed_guests
+from scripts.sync_guests_incremental import parse_date as parse_incremental_date
 
 
 def test_guest_birth_date_parsers_accept_langame_datetime():

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 
 from flask import abort, flash, redirect, render_template, request, send_file, session, url_for
 
@@ -9,6 +10,7 @@ from app.core import admin_required, get_db_connection
 from app.routes.admin import admin_bp
 from app.services.monthly_report_view import build_monthly_report_view
 from app.services.monthly_reports import REPORT_VERSION, month_bounds, previous_month
+
 
 def _clubs(conn):
     with conn.cursor() as cursor:
@@ -111,11 +113,6 @@ def generate_report():
                 """,
                 (club_id, year, month, session.get("user_id"), REPORT_VERSION),
             )
-            cursor.execute(
-                "SELECT id FROM monthly_reports WHERE club_id=%s AND report_year=%s AND report_month=%s AND version=%s",
-                (club_id, year, month, REPORT_VERSION),
-            )
-            report_id = cursor.fetchone()["id"]
         conn.commit()
     except Exception:
         conn.rollback()

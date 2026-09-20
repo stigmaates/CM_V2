@@ -2,7 +2,6 @@ from pathlib import Path
 
 from scripts import process_monthly_reports as worker
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
