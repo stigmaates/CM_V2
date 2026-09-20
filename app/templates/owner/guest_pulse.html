@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Пульс гостя{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260920-deviation-sort-1') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260920-deviation-scroll-1') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
   <header class="gp-heading"><div><span class="gp-eyebrow">ГОСТИ И ОТНОШЕНИЯ</span><h1>Пульс гостя</h1><p>Найдите нужную аудиторию или изменения в привычках гостей.</p><button type="button" class="gp-help-trigger" id="gpHelpOpen" aria-haspopup="dialog" aria-controls="gpHelpDialog" aria-expanded="false"><span aria-hidden="true">?</span> Подробнее о системе показателей</button></div><div class="gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
@@ -23,7 +23,7 @@
     <div class="gp-deviation-info"><span aria-hidden="true">i</span><div><p class="gp-deviation-rule" id="gpDeviationRule">Показаны рост и снижение от 15% до 50% от личной нормы.</p><p class="gp-hint">Нужны минимум 7 ежедневных оценок. Фильтры типов аудитории на этот блок не влияют. История за прошлые дни восстановлена по событиям. Вовлечённость в ней приблизительная.</p></div></div>
     <div class="gp-list-caption gp-deviation-caption"><span id="gpDeviationCount">Загрузка…</span><span>Нажмите на строку, чтобы увидеть изменения</span></div>
     <div class="gp-deviation-layout">
-      <div class="gp-deviation-results"><div id="gpDeviations" class="gp-deviation-table-wrap"></div><div class="gp-pagination" id="gpDeviationPages"></div></div>
+      <div class="gp-deviation-results"><div id="gpDeviations" class="gp-deviation-table-wrap" tabindex="0" aria-label="Таблица отклонений гостей" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch></div><div class="gp-pagination" id="gpDeviationPages"></div></div>
       <aside class="gp-deviation-detail" id="gpDeviationDetail" aria-live="polite"><div class="gp-deviation-detail-empty"><span aria-hidden="true">↗</span><strong>Выберите гостя</strong><p>Справа появятся его баллы и причина отклонения.</p></div></aside>
     </div>
   </section>
