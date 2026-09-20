@@ -348,6 +348,14 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
     segmented = pulse_client.get("/owner/api/guest-pulse?segment=high_value_at_risk").get_json()
     assert segmented["total"] == 0
     assert sum(audience["count"] for audience in segmented["audiences"]) == 0
+    detail = pulse_client.get("/owner/api/guest-pulse/guests/42").get_json()["guest"]
+    assert detail["visit_pattern"]["period"] in {"День", "Ночь"}
+    assert detail["visit_pattern"]["calendar"] in {"Будни", "Выходные"}
+    assert isinstance(detail["segments"], list)
+    assert detail["value"]["visits_30d"] == 6
+    assert detail["value"]["played_hours_30d"] == 12
+    assert detail["value"]["revenue_30d"] == 0
+    assert "percentiles_30d" in detail["value"]
     assert pulse_client.get("/owner/api/guest-pulse/guests/43").status_code == 404
     with pulse_client.session_transaction() as sess:
         sess["club_id"] = 3

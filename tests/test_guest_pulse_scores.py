@@ -161,6 +161,37 @@ def test_value_missing_money_normalizes_available_weights():
     assert scores[1]["percentiles"]["revenue_90d"] is None
 
 
+def test_value_exposes_separate_thirty_day_comparison():
+    rows = [
+        dict(
+            guest_id=1,
+            visits_90d=4,
+            revenue_90d=400,
+            played_hours_90d=8,
+            avg_check_90d=100,
+            visits_30d=2,
+            revenue_30d=100,
+            played_hours_30d=4,
+            avg_check_30d=50,
+        ),
+        dict(
+            guest_id=2,
+            visits_90d=4,
+            revenue_90d=400,
+            played_hours_90d=8,
+            avg_check_90d=100,
+            visits_30d=2,
+            revenue_30d=200,
+            played_hours_30d=6,
+            avg_check_30d=100,
+        ),
+    ]
+    scores = value_scores(rows)
+    assert scores[1]["reference_count_30d"] == 2
+    assert scores[1]["percentiles_30d"]["revenue_30d"] == 0
+    assert scores[2]["percentiles_30d"]["revenue_30d"] == 50
+
+
 def test_engagement_all_components_and_ignores_future():
     events = [{"kind": "mission", "at": NOW - timedelta(days=d)} for d in (0, 1, 2)]
     events += [{"kind": "case", "at": NOW - timedelta(days=d)} for d in (0, 1, 2, 3, 4)]

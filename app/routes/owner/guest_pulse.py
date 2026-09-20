@@ -4,14 +4,15 @@ from uuid import uuid4
 
 from flask import abort, jsonify, render_template, request, session, url_for
 
-from app.config import GUEST_PULSE_CONFIG
+from app.config import BALANCE_TOPUP_MAX_AMOUNT, GUEST_PULSE_CONFIG
 from app.core import get_db_connection, owner_required
 from app.services.guest_pulse import dumps, get_current, loads, rows
 from app.services.guest_pulse_filters import parse_filters, score_match, segment_match, select
 from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS, overall_score
 from app.services.mailing import get_message_variables
 from app.services.outbound_policy import outbound_blocked
-from app.services.timezones import utc_datetime_to_club_local
+from app.services.timezones import get_club_local_now, utc_datetime_to_club_local
+from app.services.visits import collapse_sessions_to_visits
 
 from . import owner_bp
 
@@ -191,7 +192,7 @@ def guest_pulse_guest(guest_id):
     try:
         result = rows(
             conn,
-            """SELECT p.detail_json,g.telegram_id,
+            """SELECT p.detail_json,p.calculated_at,g.telegram_id,
                    up.favorite_game,up.favorite_game_hours,
                    up.recent_game_14d,up.recent_game_14d_hours,
                    up.steam_game_stats_updated_at
@@ -206,6 +207,8 @@ def guest_pulse_guest(guest_id):
         row = loads(result[0]["detail_json"])
         row["overall"] = overall_score(row)
         row["has_telegram"] = bool(result[0]["telegram_id"])
+        row["segments"] = [label for key, label in SEGMENTS.items() if segment_match(row, key)]
+        row["audience_label"] = dict((key, label) for key, label, _ in AUDIENCES).get(row.get("audience_type"))
         row["games"] = {
             "favorite_game": result[0].get("favorite_game"),
             "favorite_game_hours": (
@@ -240,6 +243,46 @@ def guest_pulse_guest(guest_id):
             (cid, guest_id),
         )
         tz = (rows(conn, "SELECT timezone FROM clubs WHERE club_id=%s", (cid,)) or [{}])[0].get("timezone")
+        visit_rows = rows(
+            conn,
+            """SELECT date_start,date_stop FROM guest_sessions
+            WHERE club_id=%s AND guest_id=%s AND date_start IS NOT NULL AND date_stop>date_start
+            ORDER BY date_start""",
+            (cid, guest_id),
+        )
+        for visit in visit_rows:
+            visit["date_start"] = utc_datetime_to_club_local(visit["date_start"], tz)
+            visit["date_stop"] = utc_datetime_to_club_local(visit["date_stop"], tz)
+        calculated_at = utc_datetime_to_club_local(result[0].get("calculated_at"), tz) or get_club_local_now(tz)
+        visits = [visit for visit in collapse_sessions_to_visits(visit_rows) if visit["date_stop"] <= calculated_at]
+        recent_visits = [visit for visit in visits if visit["date_start"] >= calculated_at - timedelta(days=30)]
+        topup_rows = rows(
+            conn,
+            """SELECT amount,topup_at FROM guest_balance_topups
+            WHERE club_id=%s AND guest_id=%s AND amount>0 AND amount<=%s""",
+            (cid, guest_id, BALANCE_TOPUP_MAX_AMOUNT),
+        )
+        recent_topups = []
+        for topup in topup_rows:
+            topup_at = utc_datetime_to_club_local(topup.get("topup_at"), tz)
+            if topup_at and calculated_at - timedelta(days=30) <= topup_at <= calculated_at:
+                recent_topups.append(float(topup["amount"]))
+        value = row.setdefault("value", {})
+        value.update(
+            revenue_30d=round(sum(recent_topups), 2),
+            played_hours_30d=round(sum(visit["played_hours"] for visit in recent_visits), 2),
+            visits_30d=len(recent_visits),
+            avg_check_30d=(round(sum(recent_topups) / len(recent_visits), 2) if recent_visits else 0),
+        )
+        night_count = sum(v["date_start"].hour >= 22 or v["date_start"].hour < 8 for v in visits)
+        weekend_count = sum(v["date_start"].weekday() >= 5 for v in visits)
+        visit_count = len(visits)
+        row["visit_pattern"] = {
+            "period": "Ночь" if visit_count and night_count / visit_count >= 0.5 else "День",
+            "calendar": "Выходные" if visit_count and weekend_count / visit_count >= 0.5 else "Будни",
+            "night_share": round(night_count / visit_count * 100, 1) if visit_count else None,
+            "weekend_share": round(weekend_count / visit_count * 100, 1) if visit_count else None,
+        }
         for e in events:
             e["changed_at"] = utc_datetime_to_club_local(e["changed_at"], tz).isoformat()
         return jsonify(ok=True, guest=row, history=history, events=events)
