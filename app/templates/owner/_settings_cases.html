@@ -691,6 +691,28 @@
         font-weight: 750;
         line-height: 1.25;
     }
+    .case-toggle--case {
+        gap: 13px;
+        min-height: 36px;
+    }
+    .case-toggle--case .case-toggle__track {
+        width: 58px;
+        height: 32px;
+        border-width: 2px;
+    }
+    .case-toggle--case .case-toggle__track::after {
+        top: 3px;
+        left: 3px;
+        width: 22px;
+        height: 22px;
+    }
+    .case-toggle--case input:checked + .case-toggle__track::after {
+        transform: translateX(26px);
+    }
+    .case-toggle--case .case-toggle__label {
+        font-size: 15px;
+        font-weight: 850;
+    }
     .case-table-toggle {
         display: flex;
         width: 44px;
@@ -1029,7 +1051,7 @@
                                                     <textarea class="form-input" id="case_description_{{ case.id }}" name="description" rows="2" data-case-preview-source="description">{{ case.description or '' }}</textarea>
                                                 </div>
                                                 <div class="form-group">
-                                                    <label class="case-toggle" for="case_active_{{ case.id }}">
+                                                    <label class="case-toggle case-toggle--case" for="case_active_{{ case.id }}">
                                                         <input type="checkbox" id="case_active_{{ case.id }}" name="is_active" value="1" data-case-preview-source="active" {% if case.is_active %}checked{% endif %}>
                                                         <span class="case-toggle__track" aria-hidden="true"></span>
                                                         <span class="case-toggle__label">Кейс включён</span>

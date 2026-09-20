@@ -230,7 +230,7 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert 'data-case-item-add-dialog' in html
     assert 'data-case-workspace-tab' not in html
     assert "Добавить предмет в кейс" not in html
-    assert 'class="case-toggle" for="case_active_42"' in html
+    assert 'class="case-toggle case-toggle--case" for="case_active_42"' in html
     assert 'class="case-toggle case-table-toggle"' in html
     assert 'class="case-toggle__track"' in html
     assert 'class="case-preview-card__price-text"' in html
