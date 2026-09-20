@@ -17,12 +17,27 @@ from app.services.visits import collapse_sessions_to_visits
 from . import owner_bp
 
 PAGE_SIZE = 10
+LIFECYCLE_SEGMENT_KEYS = {
+    "REACTIVATED": "reactivated",
+    "NEW": "new",
+    "ACTIVATING": "activating",
+    "HIGH_RISK": "high_risk",
+}
 
 
 def current_club():
     if not session.get("club_id"):
         abort(403)
     return int(session["club_id"])
+
+
+def _segment_labels(row):
+    lifecycle_segment = LIFECYCLE_SEGMENT_KEYS.get(row.get("lifecycle_status"))
+    return [
+        label
+        for key, label in SEGMENTS.items()
+        if key != lifecycle_segment and segment_match(row, key)
+    ]
 
 
 def summary(row):
@@ -47,7 +62,7 @@ def summary(row):
     result["last_visit_date"] = visits.get("last_visit_date")
     result["days_since_last_visit"] = visits.get("days_since_last_visit")
     result["typical_gap_days"] = visits.get("typical_gap_days")
-    result["segments"] = [label for key, label in SEGMENTS.items() if segment_match(row, key)]
+    result["segments"] = _segment_labels(row)
     return result
 
 
@@ -235,7 +250,7 @@ def guest_pulse_guest(guest_id):
         row = loads(result[0]["detail_json"])
         row["overall"] = overall_score(row)
         row["has_telegram"] = bool(result[0]["telegram_id"])
-        row["segments"] = [label for key, label in SEGMENTS.items() if segment_match(row, key)]
+        row["segments"] = _segment_labels(row)
         row["audience_label"] = dict((key, label) for key, label, _ in AUDIENCES).get(row.get("audience_type"))
         row["games"] = {
             "favorite_game": result[0].get("favorite_game"),
