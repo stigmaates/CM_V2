@@ -3,10 +3,13 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 from decimal import Decimal
+from html import escape
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
-from app.config import TOPUP_BONUS_MAX_AMOUNT
+import httpx
+
+from app.config import CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL, TOPUP_BONUS_MAX_AMOUNT
 from app.core import get_db_connection
 from app.services.cm_bonuses import add_cm_bonus_transaction
 from app.services.wheel import add_guest_token_transaction
@@ -100,6 +103,37 @@ def render_topup_bonus_message(template: str, values: dict[str, Any]) -> str:
         return str(replacements.get(key, match.group(0)))
 
     return re.sub(r"\{([a-zA-Z0-9_]+)\}", replace, template or "")
+
+
+def _format_phone(value: Any) -> str:
+    phone = str(value or "").strip()
+    if len(phone) == 10 and phone.isdigit():
+        return "+7" + phone
+    return phone or "не указан"
+
+
+def format_topup_bonus_admin_message(award: dict[str, Any]) -> str:
+    reward_name = "КБ" if award.get("reward_type") == "cm_bonus" else "жет."
+    status = award.get("status") or "pending_approval"
+    status_text = {
+        "pending_approval": "⏳ <b>Ожидает подтверждения</b>",
+        "awarded": "✅ <b>Начислено</b>",
+        "rejected": "❌ <b>Отклонено</b>",
+        "skipped_duplicate": "⚠️ <b>Пропущено как повтор</b>",
+    }.get(status, escape(str(status)))
+    reviewed_by = str(award.get("reviewed_by_username") or "").strip()
+    reviewed_line = f"\nОбработал: <b>{escape(reviewed_by)}</b>" if reviewed_by else ""
+    return (
+        "💳 <b>Бонус за пополнение</b>\n\n"
+        f"Заявка: <code>{int(award['id'])}</code>\n"
+        f"Гость: <b>{escape(str(award.get('fio') or 'Гость'))}</b>\n"
+        f"Телефон: <code>{escape(_format_phone(award.get('phone')))}</code>\n"
+        f"Guest ID: <code>{int(award['guest_id'])}</code>\n\n"
+        f"Пополнение: <b>{_format_money(award.get('topup_amount'))} ₽</b>\n"
+        f"Порог: от {_format_money(award.get('rule_min_amount'))} ₽\n"
+        f"Награда: <b>+{int(award.get('bonus_amount') or 0)} {reward_name}</b>\n\n"
+        f"Статус: {status_text}{reviewed_line}"
+    )
 
 
 def _resolve_enabled_at(
@@ -414,6 +448,161 @@ def get_topup_bonus_approvals(club_id: int, *, limit: int = 100) -> list[dict[st
         conn.close()
 
 
+def get_topup_bonus_approval_by_id(award_id: int) -> dict[str, Any] | None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    a.*, t.topup_at, g.fio, g.phone,
+                    c.name AS club_name, c.cm_bonus_admin_chat_id
+                FROM guest_topup_bonus_awards a
+                JOIN guest_balance_topups t
+                  ON t.club_id = a.club_id AND t.topup_id = a.topup_id
+                JOIN guests g
+                  ON g.club_id = a.club_id AND g.guest_id = a.guest_id
+                JOIN clubs c ON c.club_id = a.club_id
+                WHERE a.id = %s
+                LIMIT 1
+                """,
+                (award_id,),
+            )
+            return cursor.fetchone()
+    finally:
+        conn.close()
+
+
+def _save_admin_notification_result(
+    award_id: int,
+    *,
+    status: str,
+    chat_id: str | None,
+    message_id: int | None = None,
+    error: str | None = None,
+) -> None:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE guest_topup_bonus_awards
+                SET admin_notification_status = %s,
+                    admin_chat_id = %s,
+                    admin_message_id = %s,
+                    admin_notification_error = %s,
+                    admin_notified_at = CASE WHEN %s = 'sent' THEN %s ELSE admin_notified_at END
+                WHERE id = %s
+                """,
+                (status, chat_id, message_id, error, status, _moscow_now(), award_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def notify_topup_bonus_admin_chat(award_id: int) -> dict[str, Any]:
+    """Send one pending top-up approval to the club's configured admin chat."""
+    from app.services.outbound_policy import outbound_blocked
+
+    if outbound_blocked():
+        return {"ok": False, "status": "blocked", "error": "Исходящие сообщения отключены"}
+
+    award = get_topup_bonus_approval_by_id(award_id)
+    if not award:
+        return {"ok": False, "status": "missing", "error": "Заявка не найдена"}
+    if award.get("status") != "pending_approval":
+        return {"ok": False, "status": "processed", "error": "Заявка уже обработана"}
+    if award.get("admin_notification_status") == "sent":
+        return {"ok": True, "status": "already_sent"}
+
+    token = (CM_BONUS_BOT_TOKEN or "").strip()
+    chat_id = str(award.get("cm_bonus_admin_chat_id") or "").strip() or None
+    if not token:
+        error = "CM_BONUS_BOT_TOKEN не заполнен"
+        _save_admin_notification_result(award_id, status="failed", chat_id=chat_id, error=error)
+        return {"ok": False, "status": "failed", "error": error}
+    if not chat_id:
+        error = "В настройках клуба не указан Telegram-чат администратора"
+        _save_admin_notification_result(award_id, status="failed", chat_id=None, error=error)
+        return {"ok": False, "status": "failed", "error": error}
+
+    payload = {
+        "chat_id": chat_id,
+        "text": format_topup_bonus_admin_message(award),
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+        "reply_markup": {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "✅ Подтвердить",
+                        "callback_data": f"topup_bonus_review:{award_id}:approve",
+                    },
+                    {
+                        "text": "❌ Отклонить",
+                        "callback_data": f"topup_bonus_review:{award_id}:reject",
+                    },
+                ]
+            ]
+        },
+    }
+    client_kwargs: dict[str, Any] = {"timeout": 20.0}
+    proxy_url = (CM_BONUS_PROXY_URL or TG_PROXY_URL or "").strip()
+    if proxy_url:
+        client_kwargs["proxy"] = proxy_url
+    try:
+        with httpx.Client(**client_kwargs) as client:
+            response = client.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload)
+        data = response.json()
+        if response.status_code >= 400 or not data.get("ok"):
+            error = str(data)[:2000]
+            _save_admin_notification_result(award_id, status="failed", chat_id=chat_id, error=error)
+            return {"ok": False, "status": "failed", "error": error}
+        message_id = int((data.get("result") or {}).get("message_id") or 0) or None
+        _save_admin_notification_result(
+            award_id,
+            status="sent",
+            chat_id=chat_id,
+            message_id=message_id,
+        )
+        return {"ok": True, "status": "sent", "message_id": message_id}
+    except Exception as exc:
+        error = str(exc)[:2000]
+        _save_admin_notification_result(award_id, status="failed", chat_id=chat_id, error=error)
+        return {"ok": False, "status": "failed", "error": error}
+
+
+def notify_pending_topup_bonus_approvals(club_id: int, *, limit: int = 100) -> dict[str, int]:
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id
+                FROM guest_topup_bonus_awards
+                WHERE club_id = %s
+                  AND status = 'pending_approval'
+                  AND admin_notification_status <> 'sent'
+                ORDER BY id
+                LIMIT %s
+                """,
+                (club_id, max(1, min(int(limit), 500))),
+            )
+            award_ids = [int(row["id"]) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+    sent = failed = 0
+    for award_id in award_ids:
+        result = notify_topup_bonus_admin_chat(award_id)
+        if result.get("ok"):
+            sent += 1
+        else:
+            failed += 1
+    return {"admin_notifications_sent": sent, "admin_notifications_failed": failed}
+
+
 def review_topup_bonus_award(
     *,
     award_id: int,
@@ -421,6 +610,8 @@ def review_topup_bonus_award(
     user_id: int | None,
     approve: bool,
     rejection_reason: str | None = None,
+    telegram_id: int | None = None,
+    telegram_username: str | None = None,
 ) -> dict[str, Any]:
     """Approve or reject a queued reward while keeping the balance update atomic."""
     conn = get_db_connection()
@@ -454,13 +645,17 @@ def review_topup_bonus_award(
                     UPDATE guest_topup_bonus_awards
                     SET status = 'rejected', delivery_status = 'skipped',
                         reviewed_by = %s, reviewed_at = %s,
-                        rejection_reason = %s
+                        rejection_reason = %s,
+                        reviewed_by_telegram_id = %s,
+                        reviewed_by_username = %s
                     WHERE id = %s AND club_id = %s AND status = 'pending_approval'
                     """,
                     (
                         user_id,
                         reviewed_at,
                         (rejection_reason or "").strip()[:500] or None,
+                        telegram_id,
+                        (telegram_username or "").strip()[:255] or None,
                         award_id,
                         club_id,
                     ),
@@ -514,10 +709,21 @@ def review_topup_bonus_award(
                 SET status = 'awarded', delivery_status = %s,
                     message_text = %s, error_text = NULL,
                     reviewed_by = %s, reviewed_at = %s,
-                    rejection_reason = NULL
+                    rejection_reason = NULL,
+                    reviewed_by_telegram_id = %s,
+                    reviewed_by_username = %s
                 WHERE id = %s AND club_id = %s AND status = 'pending_approval'
                 """,
-                (delivery_status, message, user_id, reviewed_at, award_id, club_id),
+                (
+                    delivery_status,
+                    message,
+                    user_id,
+                    reviewed_at,
+                    telegram_id,
+                    (telegram_username or "").strip()[:255] or None,
+                    award_id,
+                    club_id,
+                ),
             )
         conn.commit()
         return {"ok": True, "status": "awarded", "delivery_status": delivery_status}
@@ -526,6 +732,34 @@ def review_topup_bonus_award(
         raise
     finally:
         conn.close()
+
+
+def review_topup_bonus_award_by_telegram(
+    *,
+    award_id: int,
+    chat_id: int | str | None,
+    telegram_id: int | None,
+    telegram_username: str | None,
+    approve: bool,
+) -> dict[str, Any]:
+    award = get_topup_bonus_approval_by_id(award_id)
+    if not award:
+        return {"ok": False, "error": "Заявка не найдена"}
+    configured_chat_id = str(award.get("cm_bonus_admin_chat_id") or "").strip()
+    if not configured_chat_id or configured_chat_id != str(chat_id or ""):
+        return {"ok": False, "error": "Эта беседа не может обрабатывать заявку"}
+
+    result = review_topup_bonus_award(
+        award_id=award_id,
+        club_id=int(award["club_id"]),
+        user_id=None,
+        approve=approve,
+        rejection_reason=None if approve else "Отклонено администратором в Telegram",
+        telegram_id=telegram_id,
+        telegram_username=telegram_username,
+    )
+    result["award"] = get_topup_bonus_approval_by_id(award_id)
+    return result
 
 
 def process_topup_bonus_awards(

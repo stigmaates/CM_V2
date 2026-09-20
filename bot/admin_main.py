@@ -14,6 +14,10 @@ from app.services.prize_claims import (
     format_prize_claim_message,
     mark_prize_claim_issued_by_telegram,
 )
+from app.services.topup_bonuses import (
+    format_topup_bonus_admin_message,
+    review_topup_bonus_award_by_telegram,
+)
 from bot.support_tickets import TICKET_CALLBACK_PATTERN, chat_id_command, ticket_callback, ticket_command
 from bot.telegram_link_flow import review_callback
 
@@ -153,6 +157,56 @@ async def cm_bonus_credited_callback(update: Update, context: ContextTypes.DEFAU
         await query.answer(f"КБ по заявке #{request_id} отмечены как зачисленные", show_alert=False)
 
 
+async def topup_bonus_review_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Approve or reject a top-up reward from the configured club admin chat."""
+    query = update.callback_query
+    if not query:
+        return
+
+    match = re.match(r"^topup_bonus_review:(\d+):(approve|reject)$", query.data or "")
+    if not match:
+        await query.answer("Некорректная кнопка", show_alert=True)
+        return
+
+    award_id = int(match.group(1))
+    approve = match.group(2) == "approve"
+    user = update.effective_user
+    chat = update.effective_chat
+    username = None
+    if user:
+        username = f"@{user.username}" if user.username else user.full_name
+
+    try:
+        result = review_topup_bonus_award_by_telegram(
+            award_id=award_id,
+            chat_id=chat.id if chat else None,
+            telegram_id=user.id if user else None,
+            telegram_username=username,
+            approve=approve,
+        )
+    except Exception as exc:
+        logging.exception("Ошибка обработки бонуса за пополнение #%s", award_id)
+        await query.answer(f"Ошибка: {exc}", show_alert=True)
+        return
+
+    if not result.get("ok"):
+        await query.answer(result.get("error") or "Не удалось обработать заявку", show_alert=True)
+        return
+
+    award = result.get("award") or {}
+    try:
+        await query.edit_message_text(
+            text=format_topup_bonus_admin_message(award),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=None,
+        )
+    except Exception:
+        logging.exception("Не удалось обновить сообщение бонуса за пополнение #%s", award_id)
+
+    await query.answer("Бонус начислен" if approve else "Начисление отклонено", show_alert=False)
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.exception("Ошибка в админском боте:", exc_info=context.error)
 
@@ -195,6 +249,12 @@ def main():
     app.add_handler(CallbackQueryHandler(review_callback, pattern=r"^lg_review:\d+:(yes|no)$"))
     app.add_handler(CallbackQueryHandler(prize_claim_issued_callback, pattern=r"^prize_claim_issued:\d+$"))
     app.add_handler(CallbackQueryHandler(cm_bonus_credited_callback, pattern=r"^cm_bonus_credited:\d+$"))
+    app.add_handler(
+        CallbackQueryHandler(
+            topup_bonus_review_callback,
+            pattern=r"^topup_bonus_review:\d+:(approve|reject)$",
+        )
+    )
     app.add_handler(CommandHandler("ticket", ticket_command))
     app.add_handler(CommandHandler("chatid", chat_id_command))
     app.add_handler(CallbackQueryHandler(ticket_callback, pattern=TICKET_CALLBACK_PATTERN))

@@ -10,7 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.core import get_db_connection
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
-from app.services.topup_bonuses import process_topup_bonus_awards
+from app.services.topup_bonuses import notify_pending_topup_bonus_approvals, process_topup_bonus_awards
 from scripts.process_mailings import tg_request
 
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +77,12 @@ def process_topup_bonuses(
                     current_club_id,
                     send_message=None if is_outbound_blocked else _send_message,
                 )
+                notification_result = (
+                    {"admin_notifications_sent": 0, "admin_notifications_failed": 0}
+                    if is_outbound_blocked
+                    else notify_pending_topup_bonus_approvals(current_club_id)
+                )
+                result.update(notification_result)
                 finish_job_run(
                     job_id,
                     "success",

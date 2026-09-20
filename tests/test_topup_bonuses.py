@@ -9,12 +9,94 @@ from app.services.topup_bonuses import (
     _claim_topup_bonus_award,
     _resolve_enabled_at,
     award_first_authorization_reward,
+    format_topup_bonus_admin_message,
+    notify_topup_bonus_admin_chat,
     render_topup_bonus_message,
     review_topup_bonus_award,
     save_topup_bonus_settings,
     save_welcome_reward_settings,
     select_topup_bonus_rule,
 )
+
+
+def test_admin_approval_message_contains_reward_and_escapes_guest_data():
+    message = format_topup_bonus_admin_message(
+        {
+            "id": 51,
+            "guest_id": 63253,
+            "fio": "Иванов <Иван>",
+            "phone": "9991112233",
+            "topup_amount": Decimal("10000.00"),
+            "rule_min_amount": Decimal("10000.00"),
+            "bonus_amount": 3491,
+            "reward_type": "cm_bonus",
+            "status": "pending_approval",
+        }
+    )
+
+    assert "Заявка: <code>51</code>" in message
+    assert "Иванов &lt;Иван&gt;" in message
+    assert "+79991112233" in message
+    assert "Пополнение: <b>10000 ₽</b>" in message
+    assert "Награда: <b>+3491 КБ</b>" in message
+    assert "Ожидает подтверждения" in message
+
+
+def test_admin_approval_notification_sends_action_buttons(monkeypatch):
+    from app.services import outbound_policy, topup_bonuses
+
+    award = {
+        "id": 51,
+        "club_id": 1,
+        "guest_id": 63253,
+        "fio": "Иван Иванов",
+        "phone": "9991112233",
+        "topup_amount": Decimal("10000.00"),
+        "rule_min_amount": Decimal("10000.00"),
+        "bonus_amount": 3491,
+        "reward_type": "cm_bonus",
+        "status": "pending_approval",
+        "admin_notification_status": "pending",
+        "cm_bonus_admin_chat_id": "-100123",
+    }
+    saved = []
+    payloads = []
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"ok": True, "result": {"message_id": 77}}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, url, json):
+            payloads.append((url, json))
+            return Response()
+
+    monkeypatch.setattr(outbound_policy, "outbound_blocked", lambda: False)
+    monkeypatch.setattr(topup_bonuses, "CM_BONUS_BOT_TOKEN", "token")
+    monkeypatch.setattr(topup_bonuses, "get_topup_bonus_approval_by_id", lambda award_id: award)
+    monkeypatch.setattr(topup_bonuses, "_save_admin_notification_result", lambda *args, **kwargs: saved.append((args, kwargs)))
+    monkeypatch.setattr(topup_bonuses.httpx, "Client", Client)
+
+    result = notify_topup_bonus_admin_chat(51)
+
+    assert result == {"ok": True, "status": "sent", "message_id": 77}
+    keyboard = payloads[0][1]["reply_markup"]["inline_keyboard"][0]
+    assert keyboard[0]["callback_data"] == "topup_bonus_review:51:approve"
+    assert keyboard[1]["callback_data"] == "topup_bonus_review:51:reject"
+    assert saved[0][1]["status"] == "sent"
+    assert saved[0][1]["message_id"] == 77
 
 
 class _TopupClaimCursor:
