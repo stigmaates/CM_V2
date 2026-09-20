@@ -125,7 +125,7 @@ def register_club_service_gate(flask_app: Flask) -> None:
     @flask_app.before_request
     def club_service_gate():
         endpoint = request.endpoint or ""
-        if endpoint.startswith("static") or endpoint.startswith("admin."):
+        if endpoint.startswith("static") or endpoint.startswith("admin.") or endpoint.startswith("demo."):
             return None
         if endpoint in {"auth.logout", "auth.login"}:
             return None
@@ -143,7 +143,7 @@ def register_maintenance_gate(flask_app: Flask) -> None:
     @flask_app.before_request
     def maintenance_gate():
         endpoint = request.endpoint or ""
-        if endpoint.startswith("static") or endpoint.startswith("admin."):
+        if endpoint.startswith("static") or endpoint.startswith("admin.") or endpoint.startswith("demo."):
             return None
         if endpoint in {"auth.login", "auth.logout", "guest.logout"}:
             return None
