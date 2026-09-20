@@ -613,15 +613,70 @@
         font-size: 11px;
         text-align: center;
     }
-    .case-table-toggle {
+    .case-toggle {
+        position: relative;
         display: inline-flex;
         align-items: center;
-        justify-content: center;
+        gap: 10px;
+        min-height: 28px;
+        margin: 0;
+        cursor: pointer;
+        user-select: none;
     }
-    .case-table-toggle input {
-        width: 18px;
-        height: 18px;
-        accent-color: #9250ed;
+    .case-toggle input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .case-toggle__track {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        flex: 0 0 auto;
+        border: 1px solid rgba(165, 114, 255, .48);
+        border-radius: 999px;
+        background: rgba(18, 9, 32, .88);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03);
+        transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .case-toggle__track::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #a994c5;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, .36);
+        transition: transform .18s ease, background .18s ease;
+    }
+    .case-toggle input:checked + .case-toggle__track {
+        border-color: #aa6cff;
+        background: linear-gradient(135deg, #9d55f6, #7138d7);
+        box-shadow: 0 0 14px rgba(144, 77, 241, .24);
+    }
+    .case-toggle input:checked + .case-toggle__track::after {
+        transform: translateX(20px);
+        background: #fff;
+    }
+    .case-toggle input:focus-visible + .case-toggle__track {
+        outline: 2px solid rgba(190, 143, 255, .72);
+        outline-offset: 2px;
+    }
+    .case-toggle__label {
+        color: #cbb9df;
+        font-size: 13px;
+        font-weight: 750;
+        line-height: 1.25;
+    }
+    .case-table-toggle {
+        display: flex;
+        width: 44px;
+        margin: 0 auto;
     }
     .case-table-save {
         min-width: 82px;
@@ -660,15 +715,23 @@
     .case-item-editor-panel .case-item-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 9px;
+        align-items: start;
     }
     .case-item-editor-panel .case-item-grid > .form-group:first-child,
     .case-item-editor-panel .case-item-grid .full {
         grid-column: 1 / -1;
     }
     .case-item-editor-panel .form-input {
+        width: 100%;
         min-height: 38px;
         padding: 8px 10px;
         font-size: 12px;
+    }
+    .case-item-editor-panel .case-item-grid > .form-group:not(.full) > label {
+        display: flex;
+        align-items: flex-end;
+        min-height: 36px;
+        line-height: 1.25;
     }
     .case-item-editor-panel .case-image-preview {
         margin-top: 0;
@@ -870,10 +933,10 @@
                                                     <textarea class="form-input" id="case_description_{{ case.id }}" name="description" rows="2" data-case-preview-source="description">{{ case.description or '' }}</textarea>
                                                 </div>
                                                 <div class="form-group">
-                                                    <label class="form-check" for="case_active_{{ case.id }}">
-                                                        <input type="checkbox" class="form-check-input" id="case_active_{{ case.id }}" name="is_active" value="1" data-case-preview-source="active" {% if case.is_active %}checked{% endif %}>
-                                                        <span class="form-check-box" aria-hidden="true"></span>
-                                                        <span class="form-check-text">Кейс включён</span>
+                                                    <label class="case-toggle" for="case_active_{{ case.id }}">
+                                                        <input type="checkbox" id="case_active_{{ case.id }}" name="is_active" value="1" data-case-preview-source="active" {% if case.is_active %}checked{% endif %}>
+                                                        <span class="case-toggle__track" aria-hidden="true"></span>
+                                                        <span class="case-toggle__label">Кейс включён</span>
                                                     </label>
                                                 </div>
                                             </div>
@@ -940,7 +1003,7 @@
                                                             <td><input class="case-table-input" type="number" name="bonus_amount" min="0" step="1" value="{{ item.bonus_amount or 0 }}" form="case-inline-item-{{ item.id }}" aria-label="Количество КБ"></td>
                                                             <td><input class="case-table-input" type="number" name="token_amount" min="0" step="1" value="{{ item.token_amount or 0 }}" form="case-inline-item-{{ item.id }}" aria-label="Количество жетонов"></td>
                                                             <td><input class="case-table-input" type="number" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}" form="case-inline-item-{{ item.id }}" aria-label="Порядок"></td>
-                                                            <td><label class="case-table-toggle"><input type="checkbox" name="is_active" value="1" form="case-inline-item-{{ item.id }}" {% if item.is_active %}checked{% endif %} aria-label="Предмет активен"></label></td>
+                                                            <td><label class="case-toggle case-table-toggle"><input type="checkbox" name="is_active" value="1" form="case-inline-item-{{ item.id }}" {% if item.is_active %}checked{% endif %} aria-label="Предмет активен"><span class="case-toggle__track" aria-hidden="true"></span></label></td>
                                                             <td>
                                                                 <form id="case-inline-item-{{ item.id }}" method="POST" action="{{ url_for('owner.case_item_update', case_id=case.id, item_id=item.id) }}" data-case-inline-form data-no-loading data-case-id="{{ case.id }}" data-item-id="{{ item.id }}">
                                                                     <input type="hidden" name="description" value="{{ item.description or '' }}">
@@ -969,7 +1032,7 @@
                                                     <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ case_items|length + 1 }}"></div>
                                                     <div class="form-group full"><label>Картинка предмета</label><input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><input class="form-input" type="text" name="image_url" placeholder="или внешняя https:// ссылка"></div>
                                                     <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="2"></textarea></div>
-                                                    <div class="form-group full"><label class="form-check"><input type="checkbox" class="form-check-input" name="is_active" value="1" checked><span class="form-check-box" aria-hidden="true"></span><span class="form-check-text">Предмет активен</span></label></div>
+                                                    <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" checked><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
                                                 </div>
                                                 <div class="actions"><button type="submit" class="btn">Добавить предмет</button></div>
                                                 <div class="case-inline-status" data-case-add-status></div>
@@ -1019,7 +1082,7 @@
                                                             <div class="form-group"><label>Порядок</label><input class="form-input" type="number" name="sort_order" min="0" step="1" value="{{ item.sort_order or loop.index }}"></div>
                                                             <div class="form-group full"><label>Картинка предмета</label>{% if item.image_url %}<div class="case-image-preview case-image-preview--small"><img src="{{ item.image_url }}" alt="{{ item.name }}"><label class="form-check"><input type="checkbox" class="form-check-input" name="remove_image" value="1"><span class="form-check-box" aria-hidden="true"></span><span class="form-check-text">Удалить картинку</span></label></div>{% endif %}<input class="form-input" type="file" name="image_file" accept="image/png,image/jpeg,image/webp"><input class="form-input" type="text" name="image_url" value="{{ item.image_url or '' }}" placeholder="или внешняя https:// ссылка"></div>
                                                             <div class="form-group full"><label>Описание</label><textarea class="form-input" name="description" rows="2">{{ item.description or '' }}</textarea></div>
-                                                            <div class="form-group full"><label class="form-check"><input type="checkbox" class="form-check-input" name="is_active" value="1" {% if item.is_active %}checked{% endif %}><span class="form-check-box" aria-hidden="true"></span><span class="form-check-text">Предмет активен</span></label></div>
+                                                            <div class="form-group full"><label class="case-toggle"><input type="checkbox" name="is_active" value="1" {% if item.is_active %}checked{% endif %}><span class="case-toggle__track" aria-hidden="true"></span><span class="case-toggle__label">Предмет активен</span></label></div>
                                                         </div>
                                                     </form>
                                                     <div class="prize-card-actions">
@@ -1387,10 +1450,10 @@
                             <textarea class="form-input" name="description" rows="2">${escapeHtml(item.description || '')}</textarea>
                         </div>
                         <div class="form-group full">
-                            <label class="form-check">
-                                <input type="checkbox" class="form-check-input" name="is_active" value="1" ${item.is_active ? 'checked' : ''}>
-                                <span class="form-check-box" aria-hidden="true"></span>
-                                <span class="form-check-text">Предмет активен</span>
+                            <label class="case-toggle">
+                                <input type="checkbox" name="is_active" value="1" ${item.is_active ? 'checked' : ''}>
+                                <span class="case-toggle__track" aria-hidden="true"></span>
+                                <span class="case-toggle__label">Предмет активен</span>
                             </label>
                         </div>
                     </div>
@@ -1424,7 +1487,7 @@
                 <td><input class="case-table-input" type="number" name="bonus_amount" min="0" step="1" value="${item.bonus_amount || 0}" form="${formId}" aria-label="Количество КБ"></td>
                 <td><input class="case-table-input" type="number" name="token_amount" min="0" step="1" value="${item.token_amount || 0}" form="${formId}" aria-label="Количество жетонов"></td>
                 <td><input class="case-table-input" type="number" name="sort_order" min="0" step="1" value="${item.sort_order || index}" form="${formId}" aria-label="Порядок"></td>
-                <td><label class="case-table-toggle"><input type="checkbox" name="is_active" value="1" form="${formId}" ${item.is_active ? 'checked' : ''} aria-label="Предмет активен"></label></td>
+                <td><label class="case-toggle case-table-toggle"><input type="checkbox" name="is_active" value="1" form="${formId}" ${item.is_active ? 'checked' : ''} aria-label="Предмет активен"><span class="case-toggle__track" aria-hidden="true"></span></label></td>
                 <td><form id="${formId}" method="POST" action="${escapeHtml(updateAction)}" data-case-inline-form data-no-loading data-case-id="${caseId}" data-item-id="${item.id}"><input type="hidden" name="description" value="${escapeHtml(item.description || '')}"><input type="hidden" name="image_url" value="${escapeHtml(item.image_url || '')}"><input type="hidden" name="contract_refresh_amount" value="${item.contract_refresh_amount || 0}"></form><button class="case-table-save" type="submit" form="${formId}">Сохранить</button><div class="case-table-status" data-case-inline-status></div></td>
             `;
             bindTableRow(row);

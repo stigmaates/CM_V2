@@ -225,6 +225,9 @@ def test_case_settings_use_guest_style_cards_with_config_modals():
     assert 'data-case-inline-form' in html
     assert 'form="case-inline-item-7"' in html
     assert "Основные значения можно менять прямо в таблице" in html
+    assert 'class="case-toggle" for="case_active_42"' in html
+    assert 'class="case-toggle case-table-toggle"' in html
+    assert 'class="case-toggle__track"' in html
     assert 'name="badge_label"' in html
     assert 'name="badge_color"' in html
     assert 'type="color"' in html
