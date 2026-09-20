@@ -1,0 +1,43 @@
+.demo-badge {
+    position: fixed;
+    z-index: 100000;
+    right: 24px;
+    top: 18px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 18px;
+    border: 1px solid rgba(255, 255, 255, .3);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #8f5bff, #5f2bd7);
+    box-shadow: 0 12px 36px rgba(111, 48, 218, .38);
+    color: #fff;
+    font: 800 13px/1 system-ui, sans-serif;
+    letter-spacing: .08em;
+    pointer-events: none;
+}
+
+.demo-toast {
+    position: fixed;
+    z-index: 100001;
+    left: 50%;
+    bottom: 28px;
+    transform: translate(-50%, 16px);
+    max-width: min(460px, calc(100vw - 32px));
+    padding: 13px 18px;
+    border: 1px solid rgba(165, 114, 255, .5);
+    border-radius: 14px;
+    background: rgba(22, 10, 39, .96);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .4);
+    color: #fff;
+    font: 700 14px/1.35 system-ui, sans-serif;
+    opacity: 0;
+    transition: opacity .18s ease, transform .18s ease;
+    pointer-events: none;
+}
+
+.demo-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 760px) {
+    .demo-badge { right: 12px; top: 10px; min-height: 32px; padding: 0 12px; font-size: 11px; }
+}

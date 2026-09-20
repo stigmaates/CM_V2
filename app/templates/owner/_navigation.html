@@ -1,16 +1,17 @@
 {% set current_endpoint = request.endpoint or '' %}
-{% set settings_tab = request.args.get('tab', 'club') if current_endpoint == 'owner.settings' else '' %}
+{% set demo_nav = demo_page|default('') %}
+{% set settings_tab = request.args.get('tab', 'club') if current_endpoint == 'owner.settings' else ({'settings': 'club', 'missions': 'missions', 'contracts': 'contracts', 'cases': 'wheel', 'managed-drops': 'managed-drops', 'guests': 'guests'}.get(demo_nav, '')) %}
 {% set gamification_active = current_endpoint in [
     'owner.missions', 'owner.missions_add', 'owner.missions_update',
     'owner.missions_disable', 'owner.missions_delete', 'owner.wheel_settings',
     'owner.wheel_prize_add', 'owner.wheel_prize_update', 'owner.wheel_prize_delete',
     'owner.promotions'
-] or (current_endpoint == 'owner.settings' and settings_tab in ['missions', 'contracts', 'wheel', 'managed-drops']) %}
-{% set crm_active = current_endpoint in ['owner.mailing_page', 'owner.guest_pulse'] %}
-{% set analytics_active = current_endpoint in ['owner.analytics_cohorts', 'owner.analytics_communications', 'owner.analytics_heatmaps'] %}
-{% set management_active = current_endpoint == 'owner.team' or (current_endpoint == 'owner.settings' and settings_tab in ['club', 'guests']) %}
+] or (current_endpoint == 'owner.settings' and settings_tab in ['missions', 'contracts', 'wheel', 'managed-drops']) or demo_nav in ['cases', 'missions', 'contracts', 'promotions', 'managed-drops'] %}
+{% set crm_active = current_endpoint in ['owner.mailing_page', 'owner.guest_pulse'] or demo_nav in ['mailings', 'guest-pulse'] %}
+{% set analytics_active = current_endpoint in ['owner.analytics_cohorts', 'owner.analytics_communications', 'owner.analytics_heatmaps'] or demo_nav in ['cohorts', 'communications', 'heatmaps'] %}
+{% set management_active = current_endpoint == 'owner.team' or (current_endpoint == 'owner.settings' and settings_tab in ['club', 'guests']) or demo_nav in ['team', 'settings', 'guests'] %}
 {% set profile_active = current_endpoint == 'owner.settings' and settings_tab == 'profile' %}
-{% set training_active = current_endpoint == 'owner.training' %}
+{% set training_active = current_endpoint == 'owner.training' or demo_nav == 'training' %}
 {% set account_role = 'Владелец' if session.get('role') == 'owner' else ('Совладелец' if session.get('role') == 'co-owner' else ('Администратор' if session.get('impersonating_owner') else 'Пользователь')) %}
 
 <button class="owner-navigation-backdrop" type="button" data-owner-menu-close tabindex="-1" aria-label="Закрыть меню"></button>
@@ -59,7 +60,7 @@
     {% endif %}
 
     <nav class="owner-navigation__body" aria-label="Разделы модуля">
-        <a class="owner-navigation__overview {% if current_endpoint == 'owner.dashboard' %}is-active{% endif %}" href="{{ url_for('owner.dashboard') }}" {% if current_endpoint == 'owner.dashboard' %}aria-current="page"{% endif %}>
+        <a class="owner-navigation__overview {% if current_endpoint == 'owner.dashboard' or demo_nav == 'dashboard' %}is-active{% endif %}" href="{{ url_for('owner.dashboard') }}" {% if current_endpoint == 'owner.dashboard' or demo_nav == 'dashboard' %}aria-current="page"{% endif %}>
             <span class="owner-navigation__section-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M4 10.8 12 4l8 6.8V20H4v-9.2Z"></path><path d="M9 20v-6h6v6"></path></svg>
             </span>
@@ -76,12 +77,12 @@
             </button>
             <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if gamification_active else 'true' }}">
                 <div class="owner-navigation__links">
-                    <a href="{{ url_for('owner.settings', tab='wheel') }}#prize-editor" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'wheel' and request.args.get('section') != 'bonuses' %}is-active{% endif %}">Кейсы и колесо фортуны</a>
-                    <a href="{{ url_for('owner.settings', tab='missions') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'missions' %}is-active{% endif %}">Задания</a>
-                    <a href="{{ url_for('owner.settings', tab='contracts') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'contracts' %}is-active{% endif %}">Контракты</a>
-                    <a href="{{ url_for('owner.promotions') }}" class="{% if current_endpoint == 'owner.promotions' %}is-active{% endif %}">Акции</a>
+                    <a href="{{ url_for('owner.settings', tab='wheel') }}#prize-editor" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'wheel' and request.args.get('section') != 'bonuses') or demo_nav == 'cases' %}is-active{% endif %}">Кейсы и колесо фортуны</a>
+                    <a href="{{ url_for('owner.settings', tab='missions') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'missions') or demo_nav == 'missions' %}is-active{% endif %}">Задания</a>
+                    <a href="{{ url_for('owner.settings', tab='contracts') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'contracts') or demo_nav == 'contracts' %}is-active{% endif %}">Контракты</a>
+                    <a href="{{ url_for('owner.promotions') }}" class="{% if current_endpoint == 'owner.promotions' or demo_nav == 'promotions' %}is-active{% endif %}">Акции</a>
                     {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
-                        <a href="{{ url_for('owner.settings', tab='managed-drops') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'managed-drops' %}is-active{% endif %}">Управляемое выпадение</a>
+                        <a href="{{ url_for('owner.settings', tab='managed-drops') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'managed-drops') or demo_nav == 'managed-drops' %}is-active{% endif %}">Управляемое выпадение</a>
                     {% endif %}
                 </div>
             </div>
@@ -97,8 +98,8 @@
             </button>
             <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if crm_active else 'true' }}">
                 <div class="owner-navigation__links">
-                    <a href="{{ url_for('owner.mailing_page') }}" class="{% if current_endpoint == 'owner.mailing_page' %}is-active{% endif %}">Рассылки и авторассылки</a>
-                    <a href="{{ url_for('owner.guest_pulse') }}" class="{% if current_endpoint == 'owner.guest_pulse' %}is-active{% endif %}">Пульс гостя</a>
+                    <a href="{{ url_for('owner.mailing_page') }}" class="{% if current_endpoint == 'owner.mailing_page' or demo_nav == 'mailings' %}is-active{% endif %}">Рассылки и авторассылки</a>
+                    <a href="{{ url_for('owner.guest_pulse') }}" class="{% if current_endpoint == 'owner.guest_pulse' or demo_nav == 'guest-pulse' %}is-active{% endif %}">Пульс гостя</a>
                 </div>
             </div>
         </section>
@@ -113,9 +114,9 @@
             </button>
             <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if analytics_active else 'true' }}">
                 <div class="owner-navigation__links">
-                    <a href="{{ url_for('owner.analytics_cohorts') }}" class="{% if current_endpoint == 'owner.analytics_cohorts' %}is-active{% endif %}">Анализ по когортам</a>
-                    <a href="{{ url_for('owner.analytics_communications') }}" class="{% if current_endpoint == 'owner.analytics_communications' %}is-active{% endif %}">Анализ коммуникаций</a>
-                    <a href="{{ url_for('owner.analytics_heatmaps') }}" class="{% if current_endpoint == 'owner.analytics_heatmaps' %}is-active{% endif %}">Тепловые карты</a>
+                    <a href="{{ url_for('owner.analytics_cohorts') }}" class="{% if current_endpoint == 'owner.analytics_cohorts' or demo_nav == 'cohorts' %}is-active{% endif %}">Анализ по когортам</a>
+                    <a href="{{ url_for('owner.analytics_communications') }}" class="{% if current_endpoint == 'owner.analytics_communications' or demo_nav == 'communications' %}is-active{% endif %}">Анализ коммуникаций</a>
+                    <a href="{{ url_for('owner.analytics_heatmaps') }}" class="{% if current_endpoint == 'owner.analytics_heatmaps' or demo_nav == 'heatmaps' %}is-active{% endif %}">Тепловые карты</a>
                 </div>
             </div>
         </section>
@@ -130,10 +131,10 @@
             </button>
             <div class="owner-navigation__links-shell" aria-hidden="{{ 'false' if management_active else 'true' }}">
                 <div class="owner-navigation__links">
-                    <a href="{{ url_for('owner.team') }}" class="{% if current_endpoint == 'owner.team' %}is-active{% endif %}">Команда</a>
-                    <a href="{{ url_for('owner.settings', tab='club') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab in ['club', 'profile'] %}is-active{% endif %}">Настройки</a>
+                    <a href="{{ url_for('owner.team') }}" class="{% if current_endpoint == 'owner.team' or demo_nav == 'team' %}is-active{% endif %}">Команда</a>
+                    <a href="{{ url_for('owner.settings', tab='club') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab in ['club', 'profile']) or demo_nav == 'settings' %}is-active{% endif %}">Настройки</a>
                     {% if session.get('role') in ['owner', 'co-owner'] or session.get('impersonating_owner') %}
-                        <a href="{{ url_for('owner.settings', tab='guests') }}" class="{% if current_endpoint == 'owner.settings' and settings_tab == 'guests' %}is-active{% endif %}">Управление гостями</a>
+                        <a href="{{ url_for('owner.settings', tab='guests') }}" class="{% if (current_endpoint == 'owner.settings' and settings_tab == 'guests') or demo_nav == 'guests' %}is-active{% endif %}">Управление гостями</a>
                     {% endif %}
                 </div>
             </div>

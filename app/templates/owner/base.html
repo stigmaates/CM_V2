@@ -10,6 +10,7 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon/favicon-512x512.png') }}?v=20260729">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260919-owner-nav-6') }}">
+    {% if demo_mode %}<link rel="stylesheet" href="{{ url_for('static', filename='css/demo_bridge.css') }}">{% endif %}
     {% block head %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
@@ -17,7 +18,9 @@
     <div class="page-loading" data-page-loading aria-hidden="true" role="status" aria-live="polite">
         <span class="page-loading__spinner" aria-label="Загрузка"></span>
     </div>
-    {% if request.host.startswith('stage.') %}
+    {% if demo_mode %}
+    <div class="demo-badge">ДЕМО-РЕЖИМ</div>
+    {% elif request.host.startswith('stage.') %}
     <div class="stage-badge">ТЕСТОВЫЙ СТЕНД</div>
     {% endif %}
     <div class="app-shell app-shell--topnav">
@@ -47,6 +50,7 @@
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='js/page_loading.js') }}"></script>
     <script src="{{ url_for('static', filename='js/owner_navigation.js', v='20260919-4') }}"></script>
+    {% if demo_mode %}<script src="{{ url_for('static', filename='js/demo_bridge.js') }}"></script>{% endif %}
     {% block scripts %}{% endblock %}
 </body>
 <script src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"></script>
