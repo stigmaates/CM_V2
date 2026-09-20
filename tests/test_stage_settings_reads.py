@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from app.services import pc_heatmap, stage_mirror, system_status
 
 
@@ -20,8 +22,20 @@ class ReadOnlyConnection:
         self.sql.append((sql, args))
 
     def fetchall(self):
+        if 'gs.id AS session_id' in self.sql[-1][0]:
+            current_end = self.sql[-1][1][0]
+            return [
+                dict(
+                    uuid='pc-1',
+                    display_name='VIP 1',
+                    sort_order=10,
+                    session_id=1,
+                    date_start=current_end - timedelta(hours=3),
+                    date_stop=current_end,
+                )
+            ]
         if 'club_pc_names' in self.sql[-1][0]:
-            return [dict(uuid='pc-1', display_name='VIP 1', sort_order=10, total_hours=3, sessions_count=2)]
+            return [dict(uuid='pc-1', display_name='VIP 1', sort_order=10)]
         return []
 
     def fetchone(self):

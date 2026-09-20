@@ -153,6 +153,24 @@ def _percent_display(value: float) -> str:
     return str(round(value, 1)).replace(".0", "").replace(".", ",")
 
 
+def _merged_occupied_seconds(intervals: list[tuple[datetime, datetime]]) -> float:
+    """Return occupied time without double-counting overlapping sessions."""
+    valid = sorted((start, end) for start, end in intervals if end > start)
+    if not valid:
+        return 0
+
+    total_seconds = 0.0
+    merged_start, merged_end = valid[0]
+    for start, end in valid[1:]:
+        if start <= merged_end:
+            if end > merged_end:
+                merged_end = end
+            continue
+        total_seconds += (merged_end - merged_start).total_seconds()
+        merged_start, merged_end = start, end
+    return total_seconds + (merged_end - merged_start).total_seconds()
+
+
 def get_pc_hours_heatmap_stats(
     club_id: int,
     period_days: int = 30,
@@ -185,34 +203,63 @@ def get_pc_hours_heatmap_stats(
                     cpn.uuid,
                     cpn.display_name,
                     cpn.sort_order,
-                    COALESCE(SUM(
-                        GREATEST(
-                            0,
-                            TIMESTAMPDIFF(
-                                SECOND,
-                                GREATEST(gs.date_start, %s),
-                                LEAST(COALESCE(gs.date_stop, NOW()), %s)
-                            )
-                        )
-                    ), 0) / 3600 AS total_hours,
-                    COUNT(gs.id) AS sessions_count
+                    gs.id AS session_id,
+                    gs.date_start,
+                    gs.date_stop
                 FROM club_pc_names cpn
                 LEFT JOIN guest_sessions gs
                   ON gs.club_id = cpn.club_id
                  AND gs.uuid = cpn.uuid
                  AND gs.date_start IS NOT NULL
                  AND gs.date_start < %s
-                 AND COALESCE(gs.date_stop, NOW()) > %s
+                 AND COALESCE(gs.date_stop, %s) > %s
                 WHERE cpn.club_id = %s
-                GROUP BY cpn.uuid, cpn.display_name, cpn.sort_order
-                ORDER BY cpn.sort_order, COALESCE(NULLIF(cpn.display_name, ''), cpn.uuid), cpn.uuid
+                ORDER BY cpn.sort_order,
+                         COALESCE(NULLIF(cpn.display_name, ''), cpn.uuid),
+                         cpn.uuid,
+                         gs.date_start,
+                         gs.id
                 """,
-                (current_start, current_end, current_end, current_start, club_id),
+                (current_end, current_end, current_start, club_id),
             )
-            rows = cursor.fetchall() or []
+            session_rows = cursor.fetchall() or []
         conn.commit()
     finally:
         conn.close()
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in session_rows:
+        uuid = row.get("uuid") or ""
+        pc = grouped.setdefault(
+            uuid,
+            {
+                "uuid": uuid,
+                "display_name": row.get("display_name"),
+                "sort_order": row.get("sort_order"),
+                "sessions_count": 0,
+                "intervals": [],
+            },
+        )
+        if row.get("session_id") is None or row.get("date_start") is None:
+            continue
+        clipped_start = max(row["date_start"], current_start)
+        clipped_end = min(row.get("date_stop") or current_end, current_end)
+        if clipped_end <= clipped_start:
+            continue
+        pc["sessions_count"] += 1
+        pc["intervals"].append((clipped_start, clipped_end))
+
+    rows = []
+    for pc in grouped.values():
+        rows.append(
+            {
+                "uuid": pc["uuid"],
+                "display_name": pc["display_name"],
+                "sort_order": pc["sort_order"],
+                "total_hours": _merged_occupied_seconds(pc["intervals"]) / 3600,
+                "sessions_count": pc["sessions_count"],
+            }
+        )
 
     available_hours_per_pc = (current_end - current_start).total_seconds() / 3600
     max_hours = max((float(row.get("total_hours") or 0) for row in rows), default=0)

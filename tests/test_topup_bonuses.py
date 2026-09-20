@@ -85,6 +85,7 @@ def test_topup_bonus_claim_returns_exists_for_already_processed_topup():
 @pytest.mark.parametrize(
     "amount,seconds,club_id,guest_id,expected",
     [
+        (1000, 0, 2, 23210, "duplicate"),
         (1000, 4, 2, 23210, "duplicate"),
         (2000, 4, 2, 23210, "duplicate"),
         (3000, 4, 2, 23210, "duplicate"),
