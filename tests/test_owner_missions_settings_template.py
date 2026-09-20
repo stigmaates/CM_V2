@@ -46,6 +46,8 @@ def test_mission_settings_render_compact_cards_and_edit_modal():
     assert 'data-mission-modal-open="missionEditModal17"' in html
     assert 'id="missionEditModal17" data-mission-modal' in html
     assert 'id="missionEditForm17"' in html
+    assert 'class="mission-card-delete"' in html
+    assert "Вы уверены, что хотите удалить задание?" in html
     assert "Добавить задание" in html
     assert "Посети клуб четыре раза ночью" in html
 
