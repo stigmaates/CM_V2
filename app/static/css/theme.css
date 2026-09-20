@@ -1803,3 +1803,71 @@ a.owner-navigation__account:hover {
         transition-duration: .01ms !important;
     }
 }
+
+/* Shared page heading for every owner workspace screen. */
+.owner-page .owner-page-heading {
+    width: 100%;
+    margin: 0 0 24px;
+    padding: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.owner-page .owner-page-heading__copy {
+    min-width: 0;
+}
+
+.owner-page .owner-page-heading__title {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(32px, 3vw, 46px);
+    font-weight: 900;
+    letter-spacing: -.035em;
+    line-height: 1.05;
+}
+
+.owner-page .owner-page-heading__subtitle {
+    max-width: 880px;
+    margin: 8px 0 0;
+    color: var(--text-muted);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+.owner-page .owner-page-heading__actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .owner-page .owner-page-heading {
+        flex-direction: column;
+    }
+
+    .owner-page .owner-page-heading__actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 680px) {
+    .owner-page .owner-page-heading__title {
+        font-size: 30px;
+    }
+
+    .owner-page .owner-page-heading__subtitle {
+        font-size: 14px;
+    }
+}

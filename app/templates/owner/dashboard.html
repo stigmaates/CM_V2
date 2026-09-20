@@ -29,9 +29,12 @@
 {% set streak_funnel = stats.visit_streak_funnel|default([]) %}
 
 <main class="cb-dashboard content">
-    <div class="cb-dashboard-head">
-        <h1 class="cb-club-title">{{ header_club_name or 'Клуб' }}</h1>
-        <form class="cb-dashboard-date-filter" method="get" action="{{ url_for('owner.dashboard') }}" aria-label="Диапазон дат дашборда" data-dashboard-date-range>
+    <header class="owner-page-heading cb-dashboard-head">
+        <div class="owner-page-heading__copy">
+            <h1 class="owner-page-heading__title">{{ header_club_name or 'Клуб' }}</h1>
+            <p class="owner-page-heading__subtitle">Главные показатели клуба за выбранный период.</p>
+        </div>
+        <form class="owner-page-heading__actions cb-dashboard-date-filter" method="get" action="{{ url_for('owner.dashboard') }}" aria-label="Диапазон дат дашборда" data-dashboard-date-range>
             <div class="team-period" data-dashboard-period>
                 <div class="team-period__main">
                     <div class="team-presets" aria-label="Период дашборда">
@@ -64,7 +67,7 @@
                 </div>
             </div>
         </form>
-    </div>
+    </header>
 
     <section class="cb-kpi-grid" aria-label="Основные показатели">
         <article class="cb-kpi-card">

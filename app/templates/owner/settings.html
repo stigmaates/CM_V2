@@ -734,29 +734,29 @@
 <div class="settings-page settings-page--wide">
     <div class="settings-shell">
         {% set settings_titles = {
-            'club': ('Управление', 'Настройки клуба'),
-            'profile': ('Профиль', 'Профиль владельца'),
-            'guests': ('Управление', 'Управление гостями'),
-            'missions': ('Геймификация', 'Задания'),
-            'contracts': ('Геймификация', 'Контракты'),
-            'wheel': ('Геймификация', 'Кейсы, колесо и бонусы'),
-            'managed-drops': ('Геймификация', 'Управляемое выпадение')
+            'club': ('Настройки клуба', 'Основные параметры клуба, интеграции и ссылка для входа гостей.'),
+            'profile': ('Профиль владельца', 'Управляйте данными профиля и доступом к клубу.'),
+            'guests': ('Управление гостями', 'Находите гостей, меняйте балансы и проверяйте историю операций.'),
+            'missions': ('Задания', 'Создавайте задания клуба и управляйте их расписанием и наградами.'),
+            'contracts': ('Контракты', 'Настраивайте игровые контракты и награды для гостей.'),
+            'wheel': ('Кейсы, колесо и бонусы', 'Управляйте игровыми механиками, призами и правилами начисления.'),
+            'managed-drops': ('Управляемое выпадение', 'Назначайте выпадения и проверяйте историю выдачи призов.')
         } %}
-        {% set settings_context = settings_titles.get(active_tab, ('Управление', 'Настройки')) %}
-        <div class="settings-context card">
-            <div class="settings-context__copy">
-                <div class="settings-context__eyebrow">{{ settings_context[0] }}</div>
-                <div class="settings-context__title">{{ settings_context[1] }}</div>
+        {% set settings_context = settings_titles.get(active_tab, ('Настройки', 'Управляйте параметрами выбранного раздела.')) %}
+        <header class="owner-page-heading settings-context">
+            <div class="owner-page-heading__copy settings-context__copy">
+                <h1 class="owner-page-heading__title">{{ settings_context[0] }}</h1>
+                <p class="owner-page-heading__subtitle">{{ settings_context[1] }}</p>
             </div>
             {% if active_tab in ['club', 'profile'] %}
-                <div class="settings-context__tabs" aria-label="Разделы настроек">
+                <div class="owner-page-heading__actions settings-context__tabs" aria-label="Разделы настроек">
                     <a href="{{ url_for('owner.settings', tab='club') }}" class="settings-context__tab {% if active_tab == 'club' %}active{% endif %}">Клуб</a>
                     {% if session.get('role') in ['owner', 'co-owner'] %}
                         <a href="{{ url_for('owner.settings', tab='profile') }}" class="settings-context__tab {% if active_tab == 'profile' %}active{% endif %}">Профиль</a>
                     {% endif %}
                 </div>
             {% endif %}
-        </div>
+        </header>
 
         {% if active_tab == 'club' %}
             <div class="settings-grid settings-grid--club-centered">

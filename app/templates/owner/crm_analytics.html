@@ -17,9 +17,11 @@
 <main class="content crm-page{% if analytics_section == 'cohorts' %} crm-cohorts-page{% elif analytics_section == 'heatmaps' %} crm-heatmaps-page{% endif %}">
     {% if analytics_section == 'cohorts' %}
     <section class="crm-analysis-section" id="analytics-cohorts">
-        <header class="crm-cohort-hero">
-            <h1>Анализ по когортам</h1>
-            <p>Изучайте, как ведут себя гости: сколько возвращаются, как часто приходят и какую ценность приносят.</p>
+        <header class="owner-page-heading crm-cohort-hero">
+            <div class="owner-page-heading__copy">
+                <h1 class="owner-page-heading__title">Анализ по когортам</h1>
+                <p class="owner-page-heading__subtitle">Изучайте, как ведут себя гости: сколько возвращаются, как часто приходят и какую ценность приносят.</p>
+            </div>
         </header>
 
         <div class="crm-analysis-layout">
@@ -94,6 +96,12 @@
     {% endif %}
 
     {% if analytics_section == 'communications' %}
+    <header class="owner-page-heading">
+        <div class="owner-page-heading__copy">
+            <h1 class="owner-page-heading__title">Анализ коммуникаций</h1>
+            <p class="owner-page-heading__subtitle">Оценивайте доставку рассылок и действия гостей после сообщений.</p>
+        </div>
+    </header>
     <section class="crm-campaigns-section card" id="analytics-communications">
         <div class="crm-campaigns-head">
             <div>
@@ -209,6 +217,12 @@
     {% endif %}
 
     {% if analytics_section == 'heatmaps' %}
+    <header class="owner-page-heading">
+        <div class="owner-page-heading__copy">
+            <h1 class="owner-page-heading__title">Тепловые карты</h1>
+            <p class="owner-page-heading__subtitle">Смотрите загрузку клуба по дням, часам и отдельным компьютерам.</p>
+        </div>
+    </header>
     <section class="heatmap-section card" id="analytics-heatmaps">
         <div class="heatmap-head">
             <div>
