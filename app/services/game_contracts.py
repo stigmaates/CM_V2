@@ -79,24 +79,24 @@ def _load_dota_hero_images() -> dict[int, str]:
 
 DOTA_HERO_IMAGES = _load_dota_hero_images()
 
-CS2_METRIC_BACKGROUNDS = {
-    "kills": "de_dust2",
-    "headshots": "de_ancient",
-    "wins": "de_mirage",
-    "assists": "de_overpass",
-    "mvp": "de_nuke",
-    "kd_ratio": "de_train",
-    "matches_played": "de_inferno",
+CS2_METRIC_ARTWORK = {
+    "kills": "kills",
+    "headshots": "headshots",
+    "wins": "victory",
+    "assists": "assists",
+    "mvp": "mvp",
+    "kd_ratio": "kd",
+    "matches_played": "warmup",
 }
-DOTA_METRIC_HEROES = {
-    "kills": 2,          # Axe
-    "damage": 2,         # Axe
-    "assists": 5,        # Crystal Maiden
-    "last_hits": 73,     # Alchemist
-    "gpm": 73,           # Alchemist
-    "xpm": 74,           # Invoker
-    "wins": 8,           # Juggernaut
-    "matches_played": 8, # Juggernaut
+DOTA_METRIC_ARTWORK = {
+    "kills": "combat",
+    "damage": "combat",
+    "assists": "support",
+    "last_hits": "farm",
+    "gpm": "farm",
+    "xpm": "experience",
+    "wins": "victory",
+    "matches_played": "match",
 }
 
 GAME_METRICS = {
@@ -832,7 +832,7 @@ def _contract_image(row: dict) -> dict[str, str]:
             word in searchable_text for word in ("башн", "тавер", "строен")
         ):
             return {
-                "image_url": "/static/images/contracts/dota2/tower.svg",
+                "image_url": "/static/images/contracts/dota2/tower.webp",
                 "image_fit": "cover",
                 "image_position": "center",
             }
@@ -841,8 +841,14 @@ def _contract_image(row: dict) -> dict[str, str]:
             hero_id = int(conditions.get("hero_id") or 0)
         except (TypeError, ValueError):
             hero_id = 0
-        hero_id = hero_id or DOTA_METRIC_HEROES.get(metric, 8)
-        image_path = DOTA_HERO_IMAGES.get(hero_id) or DOTA_HERO_IMAGES[8]
+        image_path = DOTA_HERO_IMAGES.get(hero_id)
+        if not image_path:
+            artwork = DOTA_METRIC_ARTWORK.get(metric, "victory")
+            return {
+                "image_url": f"/static/images/contracts/dota2/{artwork}.webp",
+                "image_fit": "cover",
+                "image_position": "center",
+            }
         return {
             "image_url": f"{DOTA_IMAGE_BASE_URL}{image_path}",
             "image_fit": "cover",
@@ -851,9 +857,6 @@ def _contract_image(row: dict) -> dict[str, str]:
 
     if game == "cs2":
         map_code = str(conditions.get("map") or "").lower()
-        if map_code not in CS2_MAP_IMAGES:
-            map_code = CS2_METRIC_BACKGROUNDS.get(metric, "de_mirage")
-
         weapon_code = str(conditions.get("weapon") or "").lower()
         known_weapons = {code for code, _name in CS2_WEAPONS}
         if metric == "weapon_kills" and weapon_code in known_weapons:
@@ -862,14 +865,21 @@ def _contract_image(row: dict) -> dict[str, str]:
                 "image_fit": "contain",
                 "image_position": "right center",
             }
+        if metric == "map_kills" and map_code in CS2_MAP_IMAGES:
+            return {
+                "image_url": f"/static/images/cs2/maps/{map_code}.jpg",
+                "image_fit": "cover",
+                "image_position": "center",
+            }
+        artwork = CS2_METRIC_ARTWORK.get(metric, "warmup")
         return {
-            "image_url": f"/static/images/cs2/maps/{map_code}.jpg",
+            "image_url": f"/static/images/contracts/cs2/{artwork}.webp",
             "image_fit": "cover",
             "image_position": "center",
         }
 
     return {
-        "image_url": "/static/images/contracts/dota2/tower.svg",
+        "image_url": "/static/images/contracts/dota2/victory.webp",
         "image_fit": "cover",
         "image_position": "center",
     }

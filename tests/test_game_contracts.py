@@ -119,6 +119,12 @@ def test_contract_images_follow_map_weapon_hero_and_tower_conditions():
     hero_image = game_contracts._contract_image(
         {"game": "dota2", "metric_type": "hero_played", "conditions_json": '{"hero_id":2}'}
     )
+    cs_kills_image = game_contracts._contract_image(
+        {"game": "cs2", "metric_type": "kills", "conditions_json": "{}"}
+    )
+    dota_support_image = game_contracts._contract_image(
+        {"game": "dota2", "metric_type": "assists", "conditions_json": "{}"}
+    )
     tower_image = game_contracts._contract_image(
         {
             "game": "dota2",
@@ -135,7 +141,9 @@ def test_contract_images_follow_map_weapon_hero_and_tower_conditions():
         "image_position": "right center",
     }
     assert hero_image["image_url"].endswith("/dota_react/heroes/axe.png")
-    assert tower_image["image_url"] == "/static/images/contracts/dota2/tower.svg"
+    assert cs_kills_image["image_url"] == "/static/images/contracts/cs2/kills.webp"
+    assert dota_support_image["image_url"] == "/static/images/contracts/dota2/support.webp"
+    assert tower_image["image_url"] == "/static/images/contracts/dota2/tower.webp"
 
 
 @pytest.mark.parametrize(
