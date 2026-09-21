@@ -706,7 +706,7 @@
 .interaction-guest-head,
 .interaction-guest-row {
     display: grid;
-    grid-template-columns: minmax(190px, 1.1fr) 130px minmax(210px, 1.25fr) minmax(210px, 1.25fr) 135px 100px 100px;
+    grid-template-columns: minmax(190px, 1.1fr) minmax(190px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) 125px 90px 90px;
     gap: 10px;
     align-items: center;
     text-align: center;
@@ -735,6 +735,26 @@
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.045);
     font-size: 13px;
+}
+
+.interaction-guest-row > div {
+    min-width: 0;
+}
+
+.interaction-delivery-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+}
+
+.interaction-delivery-error {
+    width: 100%;
+    color: rgba(255, 214, 220, 0.82);
+    font-size: 12px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .interaction-guest-row strong,
