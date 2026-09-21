@@ -142,6 +142,14 @@ def test_mission_activity_uses_club_local_time(monkeypatch):
     assert missions.is_mission_active(mission, now=datetime(2026, 8, 25, 12, 0)) is True
 
 
+def test_mission_remaining_label_shows_days_and_handles_no_deadline():
+    now = datetime(2026, 9, 21, 12, 0)
+
+    assert missions.format_mission_remaining(None, now) == "Без срока"
+    assert missions.format_mission_remaining(datetime(2026, 9, 28, 11, 0), now) == "Осталось 6 дн. 23 ч."
+    assert missions.format_mission_remaining(datetime(2026, 9, 21, 12, 35), now) == "Осталось 35 мин."
+
+
 def test_utc_event_period_uses_club_timezone():
     conditions, params = missions.build_period_filter(
         {
