@@ -1,6 +1,36 @@
-"""Shared completed-visit normalization (a gap of up to two hours is one visit)."""
+"""Shared completed-session and visit normalization."""
 
 from datetime import timedelta
+
+
+MAX_REPORT_SESSION_HOURS = 24
+
+
+def clip_completed_session_to_range(
+    row,
+    range_start,
+    range_end,
+    *,
+    max_hours=MAX_REPORT_SESSION_HOURS,
+):
+    """Clip a trustworthy completed session to a report range.
+
+    Langame can leave stale sessions without ``date_stop``. Treating those as
+    active until the end of a report makes one PC look occupied for the whole
+    selected period. Very long completed rows are rejected for the same reason.
+    """
+    session_start = row.get("date_start")
+    session_end = row.get("date_stop")
+    if not session_start or not session_end or session_end <= session_start:
+        return None
+    if session_end - session_start > timedelta(hours=max_hours):
+        return None
+
+    clipped_start = max(session_start, range_start)
+    clipped_end = min(session_end, range_end)
+    if clipped_end <= clipped_start:
+        return None
+    return clipped_start, clipped_end
 
 
 def collapse_sessions_to_visits(rows, gap_hours=2):
