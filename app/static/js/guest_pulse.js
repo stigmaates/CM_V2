@@ -447,7 +447,8 @@
   const help=$('gpHelpDialog');let helpMotion=null,helpClosing=false;
   $('gpHelpOpen').addEventListener('click',()=>{
     helpMotion?.cancel();helpClosing=false;help.showModal();
-    help.scrollTop=0;$('gpHelpOpen').setAttribute('aria-expanded','true');
+    const helpBody=help.querySelector('.gp-help-body');if(helpBody)helpBody.scrollTop=0;
+    $('gpHelpOpen').setAttribute('aria-expanded','true');
     if(!reducedMotion.matches)helpMotion=help.animate([{transform:'translateX(100%)'},{transform:'translateX(0)'}],{duration:240,easing:'ease-out'});
   });
   function closeHelp(){
