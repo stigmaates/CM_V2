@@ -738,6 +738,103 @@ def get_mission_completions_chart(
     }
 
 
+_CONTRACT_GAME_LABELS = {"cs2": "CS2", "dota2": "Dota 2"}
+_CONTRACT_DIFFICULTY_LABELS = {"easy": "Лёгкие", "medium": "Средние", "hard": "Сложные"}
+_CONTRACT_DIFFICULTY_ORDER = {"easy": 0, "medium": 1, "hard": 2}
+
+
+def get_contract_stats(
+    club_id: int,
+    period_days: int = 30,
+    current_start=None,
+    current_end=None,
+) -> dict:
+    """Return selected contract cohorts and their completion results."""
+    if not club_id:
+        return {
+            "items": [],
+            "total_selected": 0,
+            "unique_guests": 0,
+            "total_completed": 0,
+            "period_days": period_days,
+        }
+
+    ranges = _resolve_dashboard_range(period_days, current_start, current_end)
+    period_days = ranges["period_days"]
+    current_start = ranges["current_start"]
+    current_end = ranges["current_end"]
+    selected_statuses = ("active", "completed", "expired")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    game,
+                    difficulty,
+                    COUNT(*) AS selected_count,
+                    COUNT(DISTINCT guest_id) AS unique_guests_count,
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count
+                FROM guest_game_contracts
+                WHERE club_id = %s
+                  AND started_at >= %s
+                  AND started_at < %s
+                  AND status IN (%s, %s, %s)
+                GROUP BY game, difficulty
+                """,
+                (club_id, current_start, current_end, *selected_statuses),
+            )
+            rows = cursor.fetchall() or []
+            cursor.execute(
+                """
+                SELECT COUNT(DISTINCT guest_id) AS unique_guests
+                FROM guest_game_contracts
+                WHERE club_id = %s
+                  AND started_at >= %s
+                  AND started_at < %s
+                  AND status IN (%s, %s, %s)
+                """,
+                (club_id, current_start, current_end, *selected_statuses),
+            )
+            unique_row = cursor.fetchone() or {}
+    finally:
+        conn.close()
+
+    items = []
+    for row in rows:
+        selected = int(row.get("selected_count") or 0)
+        completed = int(row.get("completed_count") or 0)
+        game = str(row.get("game") or "")
+        difficulty = str(row.get("difficulty") or "")
+        items.append(
+            {
+                "game": game,
+                "game_label": _CONTRACT_GAME_LABELS.get(game, game.upper() or "Игра"),
+                "difficulty": difficulty,
+                "difficulty_label": _CONTRACT_DIFFICULTY_LABELS.get(difficulty, difficulty or "Без типа"),
+                "selected": selected,
+                "unique_guests": int(row.get("unique_guests_count") or 0),
+                "completed": completed,
+                "completion_percent": round((completed / selected) * 100, 1) if selected else 0,
+            }
+        )
+
+    items.sort(
+        key=lambda item: (
+            0 if item["game"] == "cs2" else 1 if item["game"] == "dota2" else 2,
+            _CONTRACT_DIFFICULTY_ORDER.get(item["difficulty"], 99),
+        )
+    )
+    return {
+        "items": items,
+        "total_selected": sum(item["selected"] for item in items),
+        "unique_guests": int(unique_row.get("unique_guests") or 0),
+        "total_completed": sum(item["completed"] for item in items),
+        "period_days": period_days,
+    }
+
+
 def get_dashboard_stats(
     club_id: int,
     period_days: int = 30,
@@ -1409,6 +1506,33 @@ def _get_case_openings_by_guest(club_id: int, guest_ids=None):
         conn.close()
 
 
+def _get_game_contracts_by_guest(club_id: int, guest_ids=None):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            guest_filter_sql, guest_filter_params = _build_guest_filter_sql(guest_ids)
+            cursor.execute(
+                f"""
+                SELECT guest_id, status, started_at, completed_at
+                FROM guest_game_contracts
+                WHERE club_id = %s
+                  AND started_at IS NOT NULL
+                  AND status IN ('active', 'completed', 'expired')
+                  {guest_filter_sql}
+                ORDER BY guest_id, started_at
+                """,
+                [club_id] + guest_filter_params,
+            )
+            rows = cursor.fetchall() or []
+
+        contracts_by_guest = defaultdict(list)
+        for row in rows:
+            contracts_by_guest[row["guest_id"]].append(row)
+        return contracts_by_guest
+    finally:
+        conn.close()
+
+
 def _has_later_collapsed_visit(guest_sessions, event_at) -> bool:
     if not event_at:
         return False
@@ -1591,6 +1715,7 @@ def get_dashboard_engagement_stats(
     sessions_by_guest = _get_sessions_by_guest(club_id, guest_ids)
     spins_by_guest = _get_wheel_spins_by_guest(club_id, guest_ids)
     case_openings_by_guest = _get_case_openings_by_guest(club_id, guest_ids)
+    contracts_by_guest = _get_game_contracts_by_guest(club_id, guest_ids)
 
     # -------------------------
     # WHEEL
@@ -1665,6 +1790,21 @@ def get_dashboard_engagement_stats(
         _round_display((mission_completed_guests / total_guests) * 100) if total_guests > 0 else 0
     )
 
+    # -------------------------
+    # CONTRACTS
+    # -------------------------
+    contract_selected_guests = len(contracts_by_guest)
+    selected_contracts = sum(len(rows) for rows in contracts_by_guest.values())
+    completed_contracts = sum(
+        1
+        for rows in contracts_by_guest.values()
+        for row in rows
+        if row.get("status") == "completed"
+    )
+    contract_completion_percent = (
+        _round_display((completed_contracts / selected_contracts) * 100) if selected_contracts > 0 else 0
+    )
+
     return {
         "scope": "all_time" if all_time else "period",
         "period_days": period_days,
@@ -1685,6 +1825,13 @@ def get_dashboard_engagement_stats(
             "involved_guests": mission_completed_guests,
             "engagement_percent": mission_engagement_percent,
             "returned_guests": mission_returned_guests,
+        },
+        "contracts": {
+            "total_guests": total_guests,
+            "involved_guests": contract_selected_guests,
+            "selected_contracts": selected_contracts,
+            "completed_contracts": completed_contracts,
+            "completion_percent": contract_completion_percent,
         },
     }
 
