@@ -802,6 +802,31 @@ function formatDeliveryStatus(status) {
     return labels[status] || status || "—";
 }
 
+function formatDeliveryError(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+
+    let description = raw;
+    try {
+        const payload = JSON.parse(raw);
+        description = payload && payload.description ? String(payload.description) : raw;
+    } catch (error) {
+        const match = raw.match(/["']description["']\s*:\s*["']([^"']+)["']/i);
+        if (match) description = match[1];
+    }
+
+    const normalized = description.toLowerCase();
+    if (normalized.includes("user is deactivated")) return "Аккаунт Telegram удалён";
+    if (normalized.includes("bot was blocked by the user")) return "Пользователь заблокировал бота";
+    if (normalized.includes("chat not found")) return "Чат Telegram не найден";
+    if (normalized.includes("bot can't initiate conversation with a user")) {
+        return "Пользователь не запускал Telegram-бота";
+    }
+    if (normalized.includes("message is too long")) return "Сообщение слишком длинное";
+
+    return description.replace(/^forbidden:\s*/i, "");
+}
+
 function renderVisitCell(dateTime, duration) {
     if (!dateTime) {
         return `<span class="interaction-muted">Не было</span>`;
@@ -818,7 +843,7 @@ function renderFailureReasons(reasons) {
     }
     return reasons.map((item) => `
         <div class="interaction-reason-row">
-            <span>${escapeHtml(item.reason)}</span>
+            <span>${escapeHtml(formatDeliveryError(item.reason))}</span>
             <strong>${escapeHtml(item.count)}</strong>
         </div>
     `).join("");
@@ -837,7 +862,7 @@ function renderInteractionRecipients(recipients) {
         if (Number(row.recipient_bonus_amount || 0) > 0) rewardParts.push(`+${row.recipient_bonus_amount} КБ`);
         if (Number(row.recipient_token_amount || 0) > 0) rewardParts.push(`+${row.recipient_token_amount} жет.`);
         const deliveryDetail = row.error_text
-            ? `<span>${escapeHtml(row.error_text)}</span>`
+            ? `<span class="interaction-delivery-error" title="${escapeHtml(row.error_text)}">${escapeHtml(formatDeliveryError(row.error_text))}</span>`
             : (rewardParts.length ? `<span>${escapeHtml(rewardParts.join(" · "))}</span>` : "");
         return `
             <div class="interaction-guest-row">
@@ -845,7 +870,7 @@ function renderInteractionRecipients(recipients) {
                     <strong>${escapeHtml(name)}</strong>
                     <span>${escapeHtml(row.phone || `ID ${row.guest_id}`)}</span>
                 </div>
-                <div>
+                <div class="interaction-delivery-cell">
                     <span class="interaction-status ${deliveryClass}">${escapeHtml(formatDeliveryStatus(row.delivery_status))}</span>
                     ${deliveryDetail}
                 </div>
