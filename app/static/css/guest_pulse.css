@@ -237,6 +237,44 @@ html:has(.gp-audience-dialog[open]),body:has(.gp-audience-dialog[open]){overflow
 .gp-dialog .gp-detail-card{min-height:390px;padding:18px}.gp-dialog .gp-detail-card>header{grid-template-columns:44px minmax(0,1fr) auto;gap:12px;margin-bottom:16px;padding-bottom:14px}.gp-dialog .gp-detail-card>header h3{font-size:17px}.gp-dialog .gp-detail-card>header>div small{font-size:11px}.gp-dialog .gp-detail-card>header>strong{font-size:34px}.gp-detail-icon{display:grid;place-items:center;width:42px;height:42px;border:1px solid #784ca0;border-radius:11px;background:#38204f;color:#c788ff}.gp-detail-icon svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.gp-detail-icon-value{border-color:#8d6639;background:#422c25;color:#ffb75e}.gp-detail-icon-engagement{border-color:#385e8e;background:#1f314c;color:#75b8ff}.gp-detail-icon-engagement svg{fill:currentColor;stroke:none}.gp-detail-bars{gap:14px}.gp-detail-bars>div{grid-template-columns:84px minmax(55px,1fr) 66px;gap:10px;font-size:12px}.gp-detail-bars strong{font-size:13px!important}.gp-detail-bars strong small{font-size:9px!important}.gp-detail-bars i{height:6px}.gp-detail-snapshots{gap:8px;padding-top:18px}.gp-detail-snapshots span{padding:10px}.gp-detail-snapshots small{font-size:10px!important}.gp-detail-snapshots b{font-size:17px}.gp-dialog .gp-detail-list>div{min-height:34px;padding:8px 0;font-size:12px}.gp-dialog .gp-detail-list dt{line-height:1.35}.gp-dialog .gp-detail-list dd{font-size:12.5px}.gp-detail-alert{font-size:13px}.gp-detail-alert b{font-size:13px}.gp-guest-context h3{font-size:15px}.gp-dialog .gp-detail-history summary{font-size:12px}
 @media(max-width:700px){.gp-dialog>.gp-guest-dialog-header{grid-template-columns:minmax(0,1fr) 40px}.gp-dialog>.gp-guest-dialog-header>button{grid-column:2}.gp-guest-rating{grid-column:1/-1;grid-row:2;justify-self:start;text-align:left}.gp-guest-rating>div{justify-content:flex-start}.gp-guest-rating>b{justify-self:start}.gp-dialog .gp-detail-card>header{grid-template-columns:42px minmax(0,1fr) auto}}
 
+/* Keep the P/C/V help as a self-contained side panel. These rules belong at
+   the end so later guest-card dialog refinements cannot override them. */
+.gp-dialog.gp-help-dialog[open]{
+  inset:0 0 0 auto;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  width:min(560px,100vw);
+  max-width:100vw;
+  height:100dvh;
+  max-height:100dvh;
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  border-radius:20px 0 0 20px;
+  background:#211430;
+}
+.gp-dialog.gp-help-dialog>header{
+  position:relative;
+  top:auto;
+  z-index:2;
+  margin:0;
+  padding:24px;
+  background:#211430;
+}
+.gp-dialog.gp-help-dialog>.gp-help-body{
+  min-height:0;
+  padding:24px;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+@media(max-width:600px){
+  .gp-dialog.gp-help-dialog[open]{border-radius:0}
+  .gp-dialog.gp-help-dialog>header{padding:18px}
+  .gp-dialog.gp-help-dialog>.gp-help-body{padding:18px}
+}
+
 /* Full-width guest facts panel. */
 .gp-guest-context{display:block;margin-top:14px;padding:18px 20px;border:1px solid #51366a;border-radius:13px;background:#1d122b}.gp-guest-context>header{display:grid;grid-template-columns:32px auto minmax(0,1fr);align-items:center;gap:14px;padding-bottom:14px}.gp-guest-context>header h3{margin:0;padding-right:17px;border-right:1px solid #4b315f;font-size:16px}.gp-guest-context>header p{color:#e1d5eb;font-size:12px;line-height:1.4}.gp-guest-context-icon,.gp-guest-facts>div>span{display:grid;place-items:center;color:#b26cff}.gp-guest-context svg,.gp-game-context svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.gp-guest-context>.gp-guest-facts{display:grid;grid-template-columns:1fr 1fr;padding:0;border:0;border-radius:0;background:transparent}.gp-guest-facts>div{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:43px;padding:5px 14px 5px 0}.gp-guest-facts>div:nth-child(even){padding-right:0;padding-left:18px;border-left:1px solid #432d56}.gp-guest-facts>div:nth-child(-n+2){border-bottom:1px solid #432d56}.gp-guest-facts b{color:#bba8ca;font-size:11px;font-weight:500}.gp-guest-facts strong{font-size:12px}.gp-game-context{margin-top:12px;padding:16px 18px;border:1px solid #49315e;border-radius:12px;background:#1d122b}.gp-game-context h3{margin-bottom:10px;font-size:15px}
 @media(max-width:700px){.gp-guest-context{padding:15px}.gp-guest-context>header{grid-template-columns:30px 1fr;gap:10px}.gp-guest-context>header h3{border:0;padding:0}.gp-guest-context>header p{grid-column:1/-1}.gp-guest-context>.gp-guest-facts{grid-template-columns:1fr}.gp-guest-facts>div,.gp-guest-facts>div:nth-child(even){padding:7px 0;border-left:0;border-bottom:1px solid #432d56}.gp-guest-facts>div:last-child{border-bottom:0}}
