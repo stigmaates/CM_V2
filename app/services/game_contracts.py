@@ -1058,6 +1058,7 @@ def _serialize_contract(row: dict, now: datetime) -> dict:
             "remaining_label": _remaining_label(row["expires_at"], now),
             "is_waiting_for_sync": row.get("status") == "active" and row["expires_at"] <= now,
             "conditions": _json_loads(row.get("conditions_json")),
+            **_contract_image(row),
         }
     )
     return result

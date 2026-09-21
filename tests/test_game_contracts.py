@@ -1,4 +1,5 @@
 import random
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -144,6 +145,27 @@ def test_contract_images_follow_map_weapon_hero_and_tower_conditions():
     assert cs_kills_image["image_url"] == "/static/images/contracts/cs2/kills.webp"
     assert dota_support_image["image_url"] == "/static/images/contracts/dota2/support.webp"
     assert tower_image["image_url"] == "/static/images/contracts/dota2/tower.webp"
+
+
+def test_active_contract_serialization_keeps_its_contextual_image():
+    now = game_contracts._utcnow()
+    contract = game_contracts._serialize_contract(
+        {
+            "id": 17,
+            "game": "cs2",
+            "metric_type": "headshots",
+            "conditions_json": "{}",
+            "current_value": 4,
+            "target_value": 15,
+            "difficulty": "medium",
+            "status": "active",
+            "expires_at": now + timedelta(days=6),
+        },
+        now,
+    )
+
+    assert contract["image_url"] == "/static/images/contracts/cs2/headshots.webp"
+    assert contract["image_fit"] == "cover"
 
 
 @pytest.mark.parametrize(
