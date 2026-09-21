@@ -109,6 +109,35 @@ def test_dota_hero_contracts_use_full_catalog_and_scale_matches_by_difficulty():
     assert hero_ids <= {hero_id for hero_id, _hero_name in DOTA_HEROES}
 
 
+def test_contract_images_follow_map_weapon_hero_and_tower_conditions():
+    map_image = game_contracts._contract_image(
+        {"game": "cs2", "metric_type": "map_kills", "conditions_json": '{"map":"de_cache"}'}
+    )
+    weapon_image = game_contracts._contract_image(
+        {"game": "cs2", "metric_type": "weapon_kills", "conditions_json": '{"weapon":"awp"}'}
+    )
+    hero_image = game_contracts._contract_image(
+        {"game": "dota2", "metric_type": "hero_played", "conditions_json": '{"hero_id":2}'}
+    )
+    tower_image = game_contracts._contract_image(
+        {
+            "game": "dota2",
+            "metric_type": "damage",
+            "title": "Урон по таверам",
+            "conditions_json": "{}",
+        }
+    )
+
+    assert map_image["image_url"] == "/static/images/cs2/maps/de_cache.jpg"
+    assert weapon_image == {
+        "image_url": "/static/images/cs2/weapons/awp.png",
+        "image_fit": "contain",
+        "image_position": "right center",
+    }
+    assert hero_image["image_url"].endswith("/dota_react/heroes/axe.png")
+    assert tower_image["image_url"] == "/static/images/contracts/dota2/tower.svg"
+
+
 @pytest.mark.parametrize(
     ("row", "expected"),
     [

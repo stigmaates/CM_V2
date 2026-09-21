@@ -48,6 +48,9 @@ CS2_MAPS = (
     ("de_overpass", "Overpass"),
 )
 DOTA_HERO_CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "dota_heroes.json"
+DOTA_IMAGE_BASE_URL = "https://cdn.cloudflare.steamstatic.com"
+CS2_MAP_IMAGE_DIR = Path(__file__).resolve().parents[1] / "static" / "images" / "cs2" / "maps"
+CS2_MAP_IMAGES = frozenset(path.stem for path in CS2_MAP_IMAGE_DIR.glob("*.jpg"))
 
 
 def _load_dota_heroes() -> tuple[tuple[int, str], ...]:
@@ -63,6 +66,38 @@ def _load_dota_heroes() -> tuple[tuple[int, str], ...]:
 
 
 DOTA_HEROES = _load_dota_heroes()
+
+
+def _load_dota_hero_images() -> dict[int, str]:
+    payload = json.loads(DOTA_HERO_CATALOG_PATH.read_text(encoding="utf-8"))
+    return {
+        int(hero["id"]): str(hero["image_path"])
+        for hero in payload.get("heroes", [])
+        if hero.get("id") and hero.get("image_path")
+    }
+
+
+DOTA_HERO_IMAGES = _load_dota_hero_images()
+
+CS2_METRIC_BACKGROUNDS = {
+    "kills": "de_dust2",
+    "headshots": "de_ancient",
+    "wins": "de_mirage",
+    "assists": "de_overpass",
+    "mvp": "de_nuke",
+    "kd_ratio": "de_train",
+    "matches_played": "de_inferno",
+}
+DOTA_METRIC_HEROES = {
+    "kills": 2,          # Axe
+    "damage": 2,         # Axe
+    "assists": 5,        # Crystal Maiden
+    "last_hits": 73,     # Alchemist
+    "gpm": 73,           # Alchemist
+    "xpm": 74,           # Invoker
+    "wins": 8,           # Juggernaut
+    "matches_played": 8, # Juggernaut
+}
 
 GAME_METRICS = {
     "cs2": {
@@ -783,6 +818,63 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
     return get_guest_contract_pool(club_id, guest_id, game)["contracts"]
 
 
+def _contract_image(row: dict) -> dict[str, str]:
+    game = str(row.get("game") or "").lower()
+    metric = str(row.get("metric_type") or "").lower()
+    conditions = _json_loads(row.get("conditions_json"))
+    searchable_text = " ".join(
+        str(row.get(key) or "").lower()
+        for key in ("title", "description", "description_template")
+    )
+
+    if game == "dota2":
+        if metric in {"tower_damage", "building_damage", "buildings_destroyed"} or any(
+            word in searchable_text for word in ("башн", "тавер", "строен")
+        ):
+            return {
+                "image_url": "/static/images/contracts/dota2/tower.svg",
+                "image_fit": "cover",
+                "image_position": "center",
+            }
+
+        try:
+            hero_id = int(conditions.get("hero_id") or 0)
+        except (TypeError, ValueError):
+            hero_id = 0
+        hero_id = hero_id or DOTA_METRIC_HEROES.get(metric, 8)
+        image_path = DOTA_HERO_IMAGES.get(hero_id) or DOTA_HERO_IMAGES[8]
+        return {
+            "image_url": f"{DOTA_IMAGE_BASE_URL}{image_path}",
+            "image_fit": "cover",
+            "image_position": "center",
+        }
+
+    if game == "cs2":
+        map_code = str(conditions.get("map") or "").lower()
+        if map_code not in CS2_MAP_IMAGES:
+            map_code = CS2_METRIC_BACKGROUNDS.get(metric, "de_mirage")
+
+        weapon_code = str(conditions.get("weapon") or "").lower()
+        known_weapons = {code for code, _name in CS2_WEAPONS}
+        if metric == "weapon_kills" and weapon_code in known_weapons:
+            return {
+                "image_url": f"/static/images/cs2/weapons/{weapon_code}.png",
+                "image_fit": "contain",
+                "image_position": "right center",
+            }
+        return {
+            "image_url": f"/static/images/cs2/maps/{map_code}.jpg",
+            "image_fit": "cover",
+            "image_position": "center",
+        }
+
+    return {
+        "image_url": "/static/images/contracts/dota2/tower.svg",
+        "image_fit": "cover",
+        "image_position": "center",
+    }
+
+
 def _serialize_pool_contract(row: dict) -> dict:
     return {
         "id": int(row["id"]),
@@ -793,6 +885,7 @@ def _serialize_pool_contract(row: dict) -> dict:
         "target_display": _format_number(row.get("target_value")),
         "reward_tokens": int(row.get("reward_tokens") or 0),
         "reward_bonus": int(row.get("reward_bonus") or 0),
+        **_contract_image(row),
     }
 
 
