@@ -663,6 +663,7 @@ def _guest_context() -> dict:
                 "progress_percent": 60,
                 "is_completed": False,
                 "reward_display": "+10 жет.",
+                "remaining_label": "Осталось 12 дн.",
             },
             {
                 "id": 2,
@@ -673,6 +674,7 @@ def _guest_context() -> dict:
                 "progress_percent": 100,
                 "is_completed": True,
                 "reward_display": "+50 КБ",
+                "remaining_label": "Осталось 4 дн.",
             },
         ],
     }

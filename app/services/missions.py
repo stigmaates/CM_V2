@@ -259,6 +259,20 @@ def build_guest_mission_reward_display(reward_text, token_reward: int, cm_bonus_
     return " · ".join(parts)
 
 
+def format_mission_remaining(end_at: datetime | None, now: datetime) -> str:
+    if end_at is None:
+        return "Без срока"
+    seconds = max(int((end_at - now).total_seconds()), 0)
+    days, remainder = divmod(seconds, 86400)
+    hours = remainder // 3600
+    if days:
+        return f"Осталось {days} дн." + (f" {hours} ч." if hours else "")
+    if hours:
+        return f"Осталось {hours} ч."
+    minutes = max(seconds // 60, 1)
+    return f"Осталось {minutes} мин."
+
+
 _BONUS_QUANTITY_IN_REWARD_TEXT = re.compile(
     r"(?i)\d[\d\s.,]*\s*(бонус(?:ов|а|ы)?|bonus(?:es)?)\b" r"|\b(бонус(?:ов|а|ы)?|bonus(?:es)?)\s*[:\-–+]?\s*\d"
 )
@@ -1168,6 +1182,7 @@ def get_guest_missions_with_progress(guest_id: int, club_id: int):
         progress = calculate_mission_progress(guest_id, club_id, mission)
         target = mission["target_amount"] or 0
         progress_percent = round(min(progress / target, 1) * 100) if target > 0 else 0
+        local_now = get_club_local_now(mission.get("club_timezone"))
 
         reward_text = mission.get("reward_text")
         token_reward = int(mission.get("token_reward") or 0)
@@ -1188,6 +1203,7 @@ def get_guest_missions_with_progress(guest_id: int, club_id: int):
                 "is_completed": progress >= target if target > 0 else False,
                 "start_at": mission.get("start_at"),
                 "end_at": mission.get("end_at"),
+                "remaining_label": format_mission_remaining(mission.get("end_at"), local_now),
             }
         )
 
