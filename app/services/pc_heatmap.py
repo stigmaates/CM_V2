@@ -5,6 +5,7 @@ from typing import Any
 
 from app.core import get_db_connection
 from app.services.stage_mirror import stage_mirror_enabled
+from app.services.visits import clip_completed_session_to_range
 
 _pc_names_table_ready = False
 
@@ -228,6 +229,7 @@ def get_pc_hours_heatmap_stats(
         conn.close()
 
     grouped: dict[str, dict[str, Any]] = {}
+    ignored_sessions_count = 0
     for row in session_rows:
         uuid = row.get("uuid") or ""
         pc = grouped.setdefault(
@@ -242,10 +244,11 @@ def get_pc_hours_heatmap_stats(
         )
         if row.get("session_id") is None or row.get("date_start") is None:
             continue
-        clipped_start = max(row["date_start"], current_start)
-        clipped_end = min(row.get("date_stop") or current_end, current_end)
-        if clipped_end <= clipped_start:
+        interval = clip_completed_session_to_range(row, current_start, current_end)
+        if interval is None:
+            ignored_sessions_count += 1
             continue
+        clipped_start, clipped_end = interval
         pc["sessions_count"] += 1
         pc["intervals"].append((clipped_start, clipped_end))
 
@@ -302,6 +305,7 @@ def get_pc_hours_heatmap_stats(
         "total_hours": round(total_hours, 1),
         "total_hours_display": str(round(total_hours, 1)).replace(".0", "").replace(".", ","),
         "total_sessions": total_sessions,
+        "ignored_sessions_count": ignored_sessions_count,
         "utilization_percent": utilization_percent,
         "utilization_display": _percent_display(utilization_percent),
         "peak": peak_pc

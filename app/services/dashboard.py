@@ -11,6 +11,7 @@ from app.services.missions import (
     get_club_missions,
 )
 from app.services.timezones import club_local_datetime_to_utc
+from app.services.visits import clip_completed_session_to_range
 
 
 def _round_display(value):
@@ -1772,15 +1773,12 @@ def _calculate_hourly_utilization(
 
     for row in rows:
         uuid = str(row.get("uuid") or "").strip()
-        session_start = row.get("date_start")
-        session_end = row.get("date_stop") or current_end
-        if not uuid or not isinstance(session_start, datetime) or not isinstance(session_end, datetime):
+        if not uuid:
             continue
-
-        session_start = max(session_start, current_start)
-        session_end = min(session_end, current_end)
-        if session_end <= session_start:
+        interval = clip_completed_session_to_range(row, current_start, current_end)
+        if interval is None:
             continue
+        session_start, session_end = interval
 
         intervals_by_pc[uuid].append((session_start, session_end))
         valid_sessions += 1
