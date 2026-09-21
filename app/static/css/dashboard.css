@@ -3566,6 +3566,63 @@ body.modal-open { overflow: hidden; }
     filter: blur(1px);
 }
 
+.cb-contract-art {
+    position: relative;
+    width: 190px;
+    height: 180px;
+    margin: auto;
+    filter: drop-shadow(0 18px 34px rgba(143, 91, 255, 0.32));
+}
+
+.cb-contract-art__sheet {
+    position: absolute;
+    width: 132px;
+    height: 164px;
+    border: 2px solid rgba(181, 139, 255, 0.64);
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(74, 43, 137, 0.98), rgba(27, 15, 50, 0.98));
+    box-shadow: inset 0 0 24px rgba(165, 114, 255, 0.14), 0 0 28px rgba(143, 91, 255, 0.22);
+}
+
+.cb-contract-art__sheet--back {
+    left: 12px;
+    top: 4px;
+    transform: rotate(-9deg);
+    opacity: .64;
+}
+
+.cb-contract-art__sheet--front {
+    right: 8px;
+    bottom: 0;
+    padding: 34px 24px;
+}
+
+.cb-contract-art__sheet--front i {
+    display: block;
+    height: 8px;
+    margin-bottom: 15px;
+    border-radius: 999px;
+    background: rgba(235, 224, 255, 0.36);
+}
+
+.cb-contract-art__sheet--front i:nth-child(2) { width: 78%; }
+.cb-contract-art__sheet--front i:nth-child(3) { width: 58%; }
+
+.cb-contract-art__sheet--front b {
+    position: absolute;
+    right: 18px;
+    bottom: 16px;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a572ff, #6f48d6);
+    color: #fff;
+    font-size: 24px;
+    box-shadow: 0 0 18px rgba(165, 114, 255, 0.54);
+}
+
 .cb-scope-toggle {
     display: inline-flex;
     align-items: center;
@@ -5357,6 +5414,100 @@ body.modal-open { overflow: hidden; }
     background: rgba(165, 114, 255, 0.22);
 }
 
+.cb-contract-stats-table {
+    display: grid;
+    gap: 8px;
+}
+
+.cb-contract-stats-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(86px, .28fr));
+    align-items: center;
+    gap: 18px;
+    min-height: 74px;
+    padding: 12px 18px;
+    border: 1px solid rgba(143, 91, 255, 0.20);
+    border-radius: 18px;
+    background: rgba(18, 10, 33, 0.58);
+}
+
+.cb-contract-stats-row > b {
+    color: #f4ecff;
+    font-size: 20px;
+    font-weight: 900;
+    text-align: right;
+}
+
+.cb-contract-stats-row--head {
+    min-height: 36px;
+    padding-block: 0;
+    border: 0;
+    background: transparent;
+}
+
+.cb-contract-stats-row--head span {
+    color: #8f80b0;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .04em;
+    text-align: right;
+    text-transform: uppercase;
+}
+
+.cb-contract-stats-row--head span:first-child {
+    text-align: left;
+}
+
+.cb-contract-stats-type {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.cb-contract-stats-type > div {
+    min-width: 0;
+}
+
+.cb-contract-stats-type b,
+.cb-contract-stats-type small {
+    display: block;
+}
+
+.cb-contract-stats-type b {
+    color: #eee7fb;
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.cb-contract-stats-type small {
+    margin-top: 5px;
+    color: #9f91bd;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.cb-contract-game-badge {
+    min-width: 74px;
+    min-height: 38px;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    padding: 0 12px;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.cb-contract-game-badge--cs2 {
+    background: linear-gradient(135deg, #d97831, #9d431d);
+}
+
+.cb-contract-game-badge--dota2 {
+    background: linear-gradient(135deg, #a64d54, #65242c);
+}
+
 @media (max-width: 1320px) {
     .cb-engagement-panel {
         grid-template-columns: 1fr;
@@ -5403,8 +5554,37 @@ body.modal-open { overflow: hidden; }
         grid-column: 1 / -1;
     }
 
+    .cb-contract-stats-row {
+        grid-template-columns: minmax(180px, 1fr) repeat(3, 62px);
+        gap: 10px;
+    }
+
+    .cb-contract-stats-row--head span {
+        font-size: 9px;
+    }
+
+    .cb-contract-stats-row > b {
+        font-size: 17px;
+    }
+
     .cb-case-prize-drop {
         grid-template-columns: minmax(0, 1fr) 68px 42px 52px 68px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cb-engagement-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cb-contract-stats-table {
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .cb-contract-stats-row {
+        min-width: 620px;
     }
 }
 

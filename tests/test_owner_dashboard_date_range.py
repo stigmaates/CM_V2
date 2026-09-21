@@ -67,6 +67,7 @@ def test_dashboard_does_not_eagerly_calculate_all_time_engagement(monkeypatch):
     )
     monkeypatch.setattr(dashboard_route, "get_case_openings_chart", lambda club_id, **kwargs: {})
     monkeypatch.setattr(dashboard_route, "get_mission_completions_chart", lambda club_id, **kwargs: {})
+    monkeypatch.setattr(dashboard_route, "get_contract_stats", lambda club_id, **kwargs: {})
     monkeypatch.setattr(dashboard_route, "get_first_visit_feedback_stats", lambda club_id, **kwargs: {})
     monkeypatch.setattr(dashboard_route, "render_template", lambda template, **context: context)
 

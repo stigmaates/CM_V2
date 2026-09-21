@@ -7,6 +7,7 @@ from app.services.clubs import get_club_info
 from app.services.dashboard import (
     get_case_openings_chart,
     get_case_openings_timeline,
+    get_contract_stats,
     get_dashboard_engagement_stats,
     get_dashboard_stats,
     get_first_visit_feedback_stats,
@@ -72,6 +73,7 @@ def dashboard():
     engagement = get_dashboard_engagement_stats(int(club_id), all_time=False, **service_args)
     case_openings_chart = get_case_openings_chart(int(club_id), **service_args)
     mission_completions_chart = get_mission_completions_chart(int(club_id), **service_args)
+    contract_stats = get_contract_stats(int(club_id), **service_args)
     first_visit_feedback = get_first_visit_feedback_stats(int(club_id), **service_args)
     period_label = f"{date_from.strftime('%d.%m.%Y')} — {date_to.strftime('%d.%m.%Y')}"
 
@@ -83,6 +85,7 @@ def dashboard():
         engagement_all_time_data=None,
         case_openings_chart=case_openings_chart,
         mission_completions_chart=mission_completions_chart,
+        contract_stats=contract_stats,
         first_visit_feedback=first_visit_feedback,
         selected_period=period_days,
         selected_date_from=date_from.isoformat(),

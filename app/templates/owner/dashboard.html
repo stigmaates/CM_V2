@@ -4,15 +4,17 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='12') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260919-date-range-2') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260921-contract-stats-1') }}">
 {% endblock %}
 
 {% block content %}
 {% set engagement_data = engagement|default({
     "wheel": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
     "cases": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
-    "missions": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0}
+    "missions": {"total_guests": 0, "involved_guests": 0, "engagement_percent": 0, "returned_guests": 0},
+    "contracts": {"total_guests": 0, "involved_guests": 0, "selected_contracts": 0, "completed_contracts": 0, "completion_percent": 0}
 }) %}
+{% set contract_engagement = engagement_data.contracts|default({"total_guests": 0, "involved_guests": 0, "selected_contracts": 0, "completed_contracts": 0, "completion_percent": 0}) %}
 {% set survey = first_visit_feedback|default({
     "avg_rating": 0,
     "avg_rating_display": "0",
@@ -27,6 +29,7 @@
 }) %}
 {% set spark = stats.kpi_sparklines|default({"guests_path": "", "retention_path": "", "avg_check_path": ""}) %}
 {% set streak_funnel = stats.visit_streak_funnel|default([]) %}
+{% set contract_data = contract_stats|default({"items": [], "total_selected": 0, "unique_guests": 0, "total_completed": 0}) %}
 
 <main class="cb-dashboard content">
     <header class="owner-page-heading cb-dashboard-head">
@@ -267,6 +270,12 @@
                 <div class="cb-trophy-art__line cb-trophy-art__line--two"></div>
             </div>
         </div>
+        <div class="cb-engagement-visual cb-engagement-visual--contracts hidden-block" data-engagement-visual="contracts" aria-hidden="true">
+            <div class="cb-contract-art">
+                <span class="cb-contract-art__sheet cb-contract-art__sheet--back"></span>
+                <span class="cb-contract-art__sheet cb-contract-art__sheet--front"><i></i><i></i><i></i><b>✓</b></span>
+            </div>
+        </div>
 
         <div class="cb-engagement-content">
             <div class="cb-engagement-top">
@@ -274,6 +283,7 @@
                     <button type="button" class="cb-engagement-tab is-active" data-engagement-tab="wheel" aria-selected="true">Колесо</button>
                     <button type="button" class="cb-engagement-tab" data-engagement-tab="cases" aria-selected="false">Кейсы</button>
                     <button type="button" class="cb-engagement-tab" data-engagement-tab="missions" aria-selected="false">Задания</button>
+                    <button type="button" class="cb-engagement-tab" data-engagement-tab="contracts" aria-selected="false">Контракты</button>
                 </div>
                 <button type="button" class="cb-scope-toggle" id="engagementScopeToggle" aria-pressed="false" title="По умолчанию блок считает только гостей, зарегистрированных за выбранный период. Включи, чтобы показать всех гостей за всё время.">
                     <span class="cb-scope-toggle__track"><span class="cb-scope-toggle__knob"></span></span>
@@ -301,6 +311,13 @@
                 <div class="cb-metric-card"><div class="cb-metric-icon">☑</div><div><span>Выполнили задание</span><b data-engagement-value="missions.involved_guests">{{ engagement_data.missions.involved_guests }}</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Вовлеченность</span><b><span data-engagement-value="missions.engagement_percent">{{ engagement_data.missions.engagement_percent }}</span>%</b></div></div>
                 <div class="cb-metric-card"><div class="cb-metric-icon">↻</div><div><span>Вернулись после выполнения</span><b data-engagement-value="missions.returned_guests">{{ engagement_data.missions.returned_guests }}</b></div></div>
+            </div>
+
+            <div id="contractMetrics" class="cb-metric-grid hidden-block" data-engagement-metrics="contracts">
+                <div class="cb-metric-card"><div class="cb-metric-icon">👥</div><div><span>Выбирали контракты</span><b data-engagement-value="contracts.involved_guests">{{ contract_engagement.involved_guests }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">📋</div><div><span>Контрактов взяли</span><b data-engagement-value="contracts.selected_contracts">{{ contract_engagement.selected_contracts }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">✓</div><div><span>Контрактов выполнили</span><b data-engagement-value="contracts.completed_contracts">{{ contract_engagement.completed_contracts }}</b></div></div>
+                <div class="cb-metric-card"><div class="cb-metric-icon">✦</div><div><span>Доля выполненных</span><b><span data-engagement-value="contracts.completion_percent">{{ contract_engagement.completion_percent }}</span>%</b></div></div>
             </div>
         </div>
     </section>
@@ -500,6 +517,79 @@
                     <div>
                         <b>{{ completed_missions_count }}</b>
                         <span>заданий выполняли</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <section
+        class="cb-panel cb-case-openings-panel hidden-block"
+        id="contractStatsPanel"
+        data-engagement-extra="contracts"
+        aria-label="Статистика игровых контрактов"
+    >
+        <div class="cb-case-openings-layout">
+            <div class="cb-case-openings-list-panel">
+                <div class="cb-panel-head cb-case-openings-head">
+                    <div>
+                        <h2>Игровые контракты</h2>
+                        <p>Выбор и выполнение контрактов, начатых за выбранный период</p>
+                    </div>
+                </div>
+
+                {% if contract_data['items'] %}
+                <div class="cb-contract-stats-table" role="table" aria-label="Контракты по игре и сложности">
+                    <div class="cb-contract-stats-row cb-contract-stats-row--head" role="row">
+                        <span role="columnheader">Тип контракта</span>
+                        <span role="columnheader">Взяли</span>
+                        <span role="columnheader">Гостей</span>
+                        <span role="columnheader">Выполнили</span>
+                    </div>
+                    {% for item in contract_data['items'] %}
+                    <div class="cb-contract-stats-row" role="row">
+                        <div class="cb-contract-stats-type" role="cell">
+                            <span class="cb-contract-game-badge cb-contract-game-badge--{{ item.game }}">{{ item.game_label }}</span>
+                            <div>
+                                <b>{{ item.difficulty_label }}</b>
+                                <small>Выполнено {{ item.completion_percent }}%</small>
+                            </div>
+                        </div>
+                        <b role="cell">{{ item.selected }}</b>
+                        <b role="cell">{{ item.unique_guests }}</b>
+                        <b role="cell">{{ item.completed }}</b>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="cb-case-openings-empty">
+                    За выбранный период гости ещё не выбирали игровые контракты.
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="cb-case-openings-summary">
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">📋</div>
+                    <div>
+                        <b>{{ contract_data.total_selected }}</b>
+                        <span>контрактов взяли</span>
+                    </div>
+                </div>
+                <div class="cb-case-openings-summary-separator"></div>
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">👥</div>
+                    <div>
+                        <b>{{ contract_data.unique_guests }}</b>
+                        <span>уникальных гостей</span>
+                    </div>
+                </div>
+                <div class="cb-case-openings-summary-separator"></div>
+                <div class="cb-case-openings-summary-row">
+                    <div class="cb-case-openings-summary-icon">✓</div>
+                    <div>
+                        <b>{{ contract_data.total_completed }}</b>
+                        <span>контрактов выполнили</span>
                     </div>
                 </div>
             </aside>
