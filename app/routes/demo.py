@@ -6,7 +6,19 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, render_template, request, session
 from flask import url_for as flask_url_for
 
+from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS
+
 demo_bp = Blueprint("demo", __name__, url_prefix="/demo")
+
+DEMO_AUDIENCE_COUNTS = {
+    "new": (2056, 14),
+    "churned": (1043, 38),
+    "valuable_risk": (11, 5),
+    "low_engagement": (580, 11),
+    "loyal": (22, 22),
+    "risk": (115, 15),
+    "other": (9, 9),
+}
 
 PAGE_MAP = {
     "overview": ("owner/dashboard.html", "dashboard", {}),
@@ -704,7 +716,7 @@ def owner_page(page: str):
     elif kind == "pulse":
         context = {
             **_common("guest-pulse"),
-            "segments": {"active": "Активные", "risk": "В зоне риска", "lost": "Потерянные"},
+            "segments": SEGMENTS,
             "message_variables": _message_variables(),
             "outbound_disabled": False,
         }
@@ -850,38 +862,15 @@ def owner_api(path: str):
     if path == "guest-pulse":
         rows = _guest_rows()
         audiences = [
-            {
-                "key": "active",
-                "label": "Активные",
-                "color": "#65e7ad",
-                "count": 182,
-                "telegram_count": 149,
-                "without_telegram_count": 33,
-            },
-            {
-                "key": "loyal",
-                "label": "Лояльные",
-                "color": "#9d6cff",
-                "count": 141,
-                "telegram_count": 118,
-                "without_telegram_count": 23,
-            },
-            {
-                "key": "risk",
-                "label": "В зоне риска",
-                "color": "#ff9e64",
-                "count": 76,
-                "telegram_count": 54,
-                "without_telegram_count": 22,
-            },
-            {
-                "key": "lost",
-                "label": "Потерянные",
-                "color": "#ff708f",
-                "count": 38,
-                "telegram_count": 25,
-                "without_telegram_count": 13,
-            },
+            dict(
+                key=key,
+                label=label,
+                color=color,
+                count=DEMO_AUDIENCE_COUNTS[key][0],
+                telegram_count=DEMO_AUDIENCE_COUNTS[key][1],
+                without_telegram_count=DEMO_AUDIENCE_COUNTS[key][0] - DEMO_AUDIENCE_COUNTS[key][1],
+            )
+            for key, label, color in AUDIENCES
         ]
         deviations = []
         for row in rows[:4]:
@@ -904,11 +893,13 @@ def owner_api(path: str):
                 "ok": True,
                 "calculated_at": datetime.now().isoformat(timespec="minutes"),
                 "stale": False,
-                "total": 437,
+                "total": sum(audience["count"] for audience in audiences),
                 "audiences": audiences,
-                "selected_count": 437,
-                "selected_telegram_count": 346,
-                "selected_without_telegram_count": 91,
+                "selected_count": sum(audience["count"] for audience in audiences),
+                "selected_telegram_count": sum(audience["telegram_count"] for audience in audiences),
+                "selected_without_telegram_count": sum(
+                    audience["without_telegram_count"] for audience in audiences
+                ),
                 "guests": rows,
                 "deviation_count": len(deviations),
                 "deviation_telegram_count": 3,
