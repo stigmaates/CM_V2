@@ -719,6 +719,7 @@ def owner_page(page: str):
             "segments": SEGMENTS,
             "message_variables": _message_variables(),
             "outbound_disabled": False,
+            "guest_pulse_api_base": "/demo/api/owner/guest-pulse",
         }
     elif kind == "team":
         context = _common("team")

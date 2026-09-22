@@ -65,6 +65,7 @@ def test_demo_guest_pulse_uses_current_audiences_and_icon_keys():
     page = client.get("/demo/guest-pulse")
     assert page.status_code == 200
     html = page.get_data(as_text=True)
+    assert 'window.GUEST_PULSE_API_BASE = "/demo/api/owner/guest-pulse"' in html
     for label in SEGMENTS.values():
         assert label in html
 

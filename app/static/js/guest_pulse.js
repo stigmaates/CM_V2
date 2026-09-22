@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
+  const guestPulseApiBase = window.GUEST_PULSE_API_BASE || '/owner/api/guest-pulse';
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num = (v) => v == null ? '—' : new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(v);
   const date = (s) => {
@@ -221,7 +222,7 @@
   async function load({animate=true}={}){
     clearTimeout(timer);controller?.abort();controller=new AbortController();const own=controller;
     error('');setLoading(true,animate);
-    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams({...filters,page,deviation_page:deviationPage,sort,sort_direction:sortDirection,deviation_sort:deviationSort,deviation_sort_direction:deviationSortDirection}),{signal:own.signal});if(own===controller){render(data,animate||ringPending);setLoading(false);}}
+    try{const data=await api(guestPulseApiBase+'?'+new URLSearchParams({...filters,page,deviation_page:deviationPage,sort,sort_direction:sortDirection,deviation_sort:deviationSort,deviation_sort_direction:deviationSortDirection}),{signal:own.signal});if(own===controller){render(data,animate||ringPending);setLoading(false);}}
     catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;ringAnimation?.cancel();setLoading(false);error(e.message);}}
   }
   const audienceDialog=$('gpAudienceDialog');
@@ -249,7 +250,7 @@
     if(!modalAudience)return;
     audienceController?.abort();audienceController=new AbortController();const own=audienceController;
     $('gpAudienceDialog').classList.add('is-loading');$('gpInteract').disabled=true;
-    try{const data=await api('/owner/api/guest-pulse?'+new URLSearchParams(audienceQuery()),{signal:own.signal});if(own===audienceController)renderAudience(data);}
+    try{const data=await api(guestPulseApiBase+'?'+new URLSearchParams(audienceQuery()),{signal:own.signal});if(own===audienceController)renderAudience(data);}
     catch(e){if(e.name!=='AbortError')$('gpGuests').innerHTML=`<div class="gp-empty">${esc(e.message)}</div>`;}
     finally{if(own===audienceController)$('gpAudienceDialog').classList.remove('is-loading');}
   }
@@ -371,7 +372,7 @@
     if(mode==='guest'?!selectedGuestConnected:loading||!responseData)return;
     const buttons=[$('gpMail'),$('gpInteract'),$('gpDeviationInteract'),$('gpGuestInteract')];buttons.forEach(b=>b.disabled=true);
     const selectionFilters=mode==='audience'&&audienceDialog.open?audienceQuery():filters;
-    try{const result=await api('/owner/api/guest-pulse/selection',{method:'POST',body:JSON.stringify({filters:selectionFilters,mode,guest_id:selectedGuest})});$('gpGuestDialog').close();if(audienceDialog.open){audienceDialog.close();modalAudience='';audienceData=null;}window.crmOpenGuestPulseInteraction(result.group);updateButtons();}
+    try{const result=await api(guestPulseApiBase+'/selection',{method:'POST',body:JSON.stringify({filters:selectionFilters,mode,guest_id:selectedGuest})});$('gpGuestDialog').close();if(audienceDialog.open){audienceDialog.close();modalAudience='';audienceData=null;}window.crmOpenGuestPulseInteraction(result.group);updateButtons();}
     catch(e){error(e.message);$('gpGuestDialog').close();updateButtons();}
   }
   $('gpMail').addEventListener('click',()=>handoff('audience'));$('gpInteract').addEventListener('click',()=>handoff('audience'));$('gpDeviationInteract').addEventListener('click',()=>handoff('deviations'));$('gpGuestInteract').addEventListener('click',()=>handoff('guest'));
@@ -395,7 +396,7 @@
     selectedGuestConnected=false;selectedGuest=Number(id);detailController?.abort();detailController=new AbortController();const own=detailController;
     $('gpGuestName').textContent='Карточка гостя';$('gpGuestHeaderMeta').textContent='';$('gpGuestHeaderScore').textContent='';$('gpGuestDetail').textContent='Загрузка…';$('gpGuestInteract').disabled=true;dialog.showModal();
     try{
-      const data=await api(`/owner/api/guest-pulse/guests/${id}`,{signal:own.signal});if(own!==detailController)return;
+      const data=await api(`${guestPulseApiBase}/guests/${id}`,{signal:own.signal});if(own!==detailController)return;
       const r=data.guest,h=r.health,v=r.value,e=r.engagement,o=r.overall||{},f=r.visits,g=r.games||{},pattern=r.visit_pattern||{}; $('gpGuestName').textContent=r.name;
       const gameName=value=>value==='cs2'?'Counter-Strike 2':value==='dota2'?'Dota 2':'—';
       const gameValue=(slug,hours)=>slug?`${gameName(slug)}${hours==null?'':` · ${num(hours)} ч`}`:'—';
