@@ -3,10 +3,20 @@ from __future__ import annotations
 import random
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, render_template, request, session
+from flask import Blueprint, current_app, jsonify, render_template, request, session
 from flask import url_for as flask_url_for
 
+from app.services.cases import get_cases, serialize_case
+from app.services.game_contracts import (
+    DIFFICULTIES,
+    GAMES,
+    _contract_image,
+    _format_number,
+    generate_system_contract_pool,
+    get_contract_reward_settings,
+)
 from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS
+from app.services.missions import build_guest_mission_reward_display, get_club_missions
 
 demo_bp = Blueprint("demo", __name__, url_prefix="/demo")
 
@@ -19,6 +29,7 @@ DEMO_AUDIENCE_RANGES = {
     "risk": (80, 220, 0.28, 0.56),
     "other": (35, 130, 0.25, 0.55),
 }
+DEMO_SOURCE_CLUB_ID = 1
 
 PAGE_MAP = {
     "overview": ("owner/dashboard.html", "dashboard", {}),
@@ -44,7 +55,7 @@ DEMO_CASES = [
         "id": 1,
         "name": "WALLZ CS2 Case",
         "description": "Кейс с игровыми призами и бонусами клуба.",
-        "image_url": None,
+        "image_url": "https://cyber-bonus.ru/uploads/cases/1/covers/502ed09c17c44892b9fb50c131ea8260.webp",
         "badge_label": "Игровой",
         "badge_color": "#d7b900",
         "price_tokens": 3,
@@ -144,6 +155,33 @@ DEMO_CASES = [
     },
 ]
 
+DEMO_MISSIONS = [
+    {
+        "id": 1,
+        "name": "DONKED",
+        "description": "Открой CS2 WALLZ Case 5 раз",
+        "target": 5,
+        "token_reward": 3,
+        "cm_bonus_reward": 150,
+    },
+    {
+        "id": 2,
+        "name": "Флеш-рояль",
+        "description": "Посети клуб 5 дней подряд",
+        "target": 5,
+        "token_reward": 10,
+        "cm_bonus_reward": 0,
+    },
+    {
+        "id": 3,
+        "name": "Трудимся в компах",
+        "description": "Посети клуб 3 раза в будние дни, минимум на 2 часа",
+        "target": 3,
+        "token_reward": 3,
+        "cm_bonus_reward": 0,
+    },
+]
+
 
 def _demo_url_for(endpoint: str, **values) -> str:
     if endpoint == "static":
@@ -203,6 +241,147 @@ def _demo_random(namespace: str) -> random.Random:
         seed = random.SystemRandom().randrange(1, 2**63)
         session["demo_random_seed"] = seed
     return random.Random(f"{seed}:{namespace}")
+
+
+def _demo_cases() -> list[dict]:
+    if current_app.config.get("TESTING"):
+        source = DEMO_CASES
+    else:
+        try:
+            source = [serialize_case(case) for case in get_cases(DEMO_SOURCE_CLUB_ID)] or DEMO_CASES
+        except Exception:
+            current_app.logger.exception("Failed to load public case content for guest demo")
+            source = DEMO_CASES
+    result = []
+    for case_index, source_case in enumerate(source, start=1):
+        case_image = str(source_case.get("image_url") or "")
+        if case_image.startswith("/uploads/"):
+            case_image = f"https://cyber-bonus.ru{case_image}"
+        case = {**source_case, "id": case_index, "image_url": case_image or None}
+        case["items"] = [
+            {
+                **item,
+                "id": case_index * 100 + item_index,
+                "case_id": case_index,
+                "is_active": True,
+                "image_url": (
+                    f"https://cyber-bonus.ru{item['image_url']}"
+                    if str(item.get("image_url") or "").startswith("/uploads/")
+                    else item.get("image_url")
+                ),
+            }
+            for item_index, item in enumerate(source_case.get("items") or [], start=1)
+        ]
+        result.append(case)
+    return result
+
+
+def _demo_missions() -> list[dict]:
+    if current_app.config.get("TESTING"):
+        source = DEMO_MISSIONS
+    else:
+        try:
+            club_missions = get_club_missions(DEMO_SOURCE_CLUB_ID)
+            source = [
+                {
+                    "id": mission.get("id"),
+                    "name": mission.get("display_name") or mission.get("name"),
+                    "description": (mission.get("custom_description") or mission.get("short_description") or "").strip(),
+                    "target": int(mission.get("target_amount") or 0),
+                    "reward_text": mission.get("reward_text"),
+                    "token_reward": int(mission.get("token_reward") or 0),
+                    "cm_bonus_reward": int(mission.get("cm_bonus_reward") or 0),
+                }
+                for mission in club_missions
+            ] or DEMO_MISSIONS
+        except Exception:
+            current_app.logger.exception("Failed to load public mission content for guest demo")
+            source = DEMO_MISSIONS
+
+    rng = _demo_random("guest-missions")
+    result = []
+    for index, mission in enumerate(source, start=1):
+        target = max(int(mission.get("target") or 1), 1)
+        progress = rng.randint(0, max(target - 1, 0))
+        result.append(
+            {
+                "id": index,
+                "name": mission.get("name") or f"Задание {index}",
+                "description": mission.get("description") or "",
+                "progress": progress,
+                "target": target,
+                "progress_percent": round(progress / target * 100),
+                "is_completed": False,
+                "reward_display": build_guest_mission_reward_display(
+                    mission.get("reward_text"),
+                    int(mission.get("token_reward") or 0),
+                    int(mission.get("cm_bonus_reward") or 0),
+                ),
+                "remaining_label": "Осталось 6 дн. 23 ч.",
+            }
+        )
+    return result
+
+
+def _demo_contracts_state() -> dict:
+    default_rewards = {
+        "easy": {"reward_tokens": 1, "reward_bonus": 0},
+        "medium": {"reward_tokens": 3, "reward_bonus": 0},
+        "hard": {"reward_tokens": 5, "reward_bonus": 100},
+    }
+    if current_app.config.get("TESTING"):
+        rewards = default_rewards
+    else:
+        try:
+            rewards = get_contract_reward_settings(DEMO_SOURCE_CLUB_ID)
+        except Exception:
+            current_app.logger.exception("Failed to load contract rewards for guest demo")
+            rewards = default_rewards
+
+    games = {}
+    contract_id = 1
+    for game, label in GAMES.items():
+        rng = _demo_random(f"guest-contracts-{game}")
+        pool = generate_system_contract_pool(game, rng=rng)
+        contracts = []
+        for difficulty in DIFFICULTIES:
+            source = next(contract for contract in pool if contract["difficulty"] == difficulty)
+            target = float(source.get("target_value") or 1)
+            progress_percent = rng.randint(0, 42)
+            current_value = round(target * progress_percent / 100)
+            reward = rewards.get(difficulty) or default_rewards[difficulty]
+            artwork_source = {**source, "game": game}
+            contracts.append(
+                {
+                    "id": contract_id,
+                    "title": source.get("title") or "Игровой контракт",
+                    "description": source.get("description_template") or "",
+                    "difficulty": difficulty,
+                    "difficulty_label": DIFFICULTIES[difficulty],
+                    "current_display": _format_number(current_value),
+                    "target_display": _format_number(target),
+                    "progress_percent": progress_percent,
+                    "reward_tokens": int(reward.get("reward_tokens") or 0),
+                    "reward_bonus": int(reward.get("reward_bonus") or 0),
+                    "remaining_label": "6 дн. 23 ч.",
+                    "status": "active",
+                    "is_waiting_for_sync": False,
+                    **_contract_image(artwork_source),
+                }
+            )
+            contract_id += 1
+        games[game] = {
+            "key": game,
+            "label": label,
+            "available": True,
+            "contracts": contracts,
+            "offer": None,
+            "can_generate": False,
+            "can_refresh": False,
+            "next_label": "6 дн. 23 ч.",
+            "sync": {},
+        }
+    return {"steam_linked": True, "refresh_balance": 0, "games": games}
 
 
 def _demo_audiences() -> list[dict]:
@@ -666,6 +845,8 @@ def _mailing_context() -> dict:
 def _guest_context() -> dict:
     session.setdefault("demo_guest_tokens", 24)
     session.setdefault("demo_guest_bonus", 350)
+    cases = _demo_cases()
+    missions = _demo_missions()
     return {
         **_common("guest"),
         "session": {},
@@ -680,7 +861,7 @@ def _guest_context() -> dict:
         "wheel_settings": {"spin_cost": 2, "is_enabled": 1},
         "wheel_prizes": [],
         "game_mode": "cases",
-        "cases": DEMO_CASES,
+        "cases": cases,
         "valuable_case_drops": [],
         "valuable_drops_duration": 90,
         "token_balance": int(session["demo_guest_tokens"]),
@@ -689,34 +870,11 @@ def _guest_context() -> dict:
         "cm_bonus_balance": int(session["demo_guest_bonus"]),
         "cm_bonus_history": [],
         "cm_bonus_redeem_history": [],
-        "steam_account": None,
-        "game_contracts_enabled": False,
-        "game_contracts_state": {"steam_linked": False, "games": {}},
+        "steam_account": {"persona_name": "Demo Player", "avatar_url": None},
+        "game_contracts_enabled": True,
+        "game_contracts_state": _demo_contracts_state(),
         "contracts_state": {},
-        "guest_missions": [
-            {
-                "id": 1,
-                "name": "Флеш-рояль",
-                "description": "Посети клуб 5 дней подряд",
-                "progress": 3,
-                "target": 5,
-                "progress_percent": 60,
-                "is_completed": False,
-                "reward_display": "+10 жет.",
-                "remaining_label": "Осталось 12 дн.",
-            },
-            {
-                "id": 2,
-                "name": "Кофейный энтузиаст",
-                "description": "Купи 5 напитков",
-                "progress": 5,
-                "target": 5,
-                "progress_percent": 100,
-                "is_completed": True,
-                "reward_display": "+50 КБ",
-                "remaining_label": "Осталось 4 дн.",
-            },
-        ],
+        "guest_missions": missions,
     }
 
 
@@ -1033,7 +1191,7 @@ def guest_reset():
 
 
 def _open_case(case_id: int):
-    case = next((item for item in DEMO_CASES if item["id"] == case_id), None)
+    case = next((item for item in _demo_cases() if item["id"] == case_id), None)
     if not case:
         return jsonify({"error": "case_not_found"}), 404
     balance, price = int(session.get("demo_guest_tokens", 24)), int(case["price_tokens"])
