@@ -378,7 +378,14 @@
   $('gpMail').addEventListener('click',()=>handoff('audience'));$('gpInteract').addEventListener('click',()=>handoff('audience'));$('gpDeviationInteract').addEventListener('click',()=>handoff('deviations'));$('gpGuestInteract').addEventListener('click',()=>handoff('guest'));
   const dl = (items) => `<dl class="gp-detail-list">${items.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
   const metricBars = (items) => `<div class="gp-detail-bars">${items.map(([label,value])=>{const width=value==null?0:Math.max(0,Math.min(100,Number(value)));return `<div><span>${esc(label)}</span><i><b style="width:${width}%"></b></i><strong>${num(value)} <small>/ 100</small></strong></div>`;}).join('')}</div>`;
-  const detailTags = (items) => `<div class="gp-guest-tags">${[...new Set(items.filter(Boolean))].map(item=>`<span>${esc(item)}</span>`).join('')}</div>`;
+  const detailTags = (items) => {
+    const seen=new Set();
+    const tags=items.filter(Boolean).map(item=>typeof item==='string'?{label:item,className:''}:item).filter(item=>{
+      if(!item.label||seen.has(item.label))return false;
+      seen.add(item.label);return true;
+    });
+    return `<div class="gp-guest-tags">${tags.map(item=>`<span${item.className?` class="${esc(item.className)}"`:''}>${esc(item.label)}</span>`).join('')}</div>`;
+  };
   const detailIcon = (type) => ({
     health:'<span class="gp-detail-icon gp-detail-icon-health" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h3M8 17h6"/></svg></span>',
     value:'<span class="gp-detail-icon gp-detail-icon-value" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 11v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></svg></span>',
@@ -408,7 +415,8 @@
       };
       const visitSummary=`${f.typical_gap_days==null?'Обычный интервал пока не определён.':`Обычно приходит каждые ${num(f.typical_gap_days)} дн.`} ${f.days_since_last_visit==null?'Последний визит не указан.':`Последний визит — ${num(f.days_since_last_visit)} дн. назад.`}`;
       const deviations=responseData?.deviations.find(x=>x.guest_id===Number(id))?.deviations||[];
-      $('gpGuestHeaderMeta').innerHTML=`<div class="gp-guest-meta"><span>ID ${esc(r.guest_id)}</span><span>${esc(r.phone||'Номер не указан')}</span><span class="${r.has_telegram?'is-connected':'is-muted'}">${r.has_telegram?'Telegram подключён':'Без Telegram'}</span><span>Последний визит: ${esc(date(f.last_visit_date))}</span></div>${detailTags([r.lifecycle_label,r.audience_label,pattern.period,pattern.calendar,...(r.segments||[]),confidence.label?`${confidence.label} уверенность`:null])}`;
+      const confidenceLevel=['HIGH','MEDIUM','LOW'].includes(confidence.level)?confidence.level.toLowerCase():'low';
+      $('gpGuestHeaderMeta').innerHTML=`<div class="gp-guest-meta"><span>ID ${esc(r.guest_id)}</span><span>${esc(r.phone||'Номер не указан')}</span><span class="${r.has_telegram?'is-connected':'is-muted'}">${r.has_telegram?'Telegram подключён':'Без Telegram'}</span><span>Последний визит: ${esc(date(f.last_visit_date))}</span></div>${detailTags([r.lifecycle_label,r.audience_label,pattern.period,pattern.calendar,...(r.segments||[]),confidence.label?{label:`${confidence.label} уверенность`,className:`gp-confidence-tag is-${confidenceLevel}`}:null])}`;
       $('gpGuestHeaderScore').innerHTML=`<span>Оценка гостя</span><div><strong>${num(o.score)}</strong>${o.score==null?'':'<small>/ 100</small>'}</div><b>${esc(o.label||'Недостаточно данных')}</b>`;
       $('gpGuestDetail').innerHTML=`${deviations.length?`<div class="gp-detail-note gp-detail-alert"><b>Причина попадания в отклонения</b>${deviations.map(change).join('')}</div>`:''}
         <div class="gp-detail-scores">
