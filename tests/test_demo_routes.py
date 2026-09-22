@@ -75,6 +75,11 @@ def test_demo_guest_pulse_uses_current_audiences_and_icon_keys():
     assert [audience["key"] for audience in payload["audiences"]] == [item[0] for item in AUDIENCES]
     assert [audience["label"] for audience in payload["audiences"]] == [item[1] for item in AUDIENCES]
     assert payload["selected_count"] == sum(audience["count"] for audience in payload["audiences"])
+    assert all(guest["name"].startswith("Демо-гость ") for guest in payload["guests"])
+
+    repeated = client.get("/demo/api/owner/guest-pulse").get_json()
+    assert repeated["audiences"] == payload["audiences"]
+    assert repeated["guests"] == payload["guests"]
 
 
 def test_demo_skips_real_club_checks_for_existing_owner_session(monkeypatch):
