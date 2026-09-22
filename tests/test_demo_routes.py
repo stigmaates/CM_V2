@@ -1,4 +1,5 @@
 from app.main import app
+from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS
 
 
 def test_demo_owner_pages_render_without_authentication():
@@ -55,6 +56,24 @@ def test_unknown_demo_page_returns_404():
     app.config.update(TESTING=True)
     response = app.test_client().get("/demo/does-not-exist")
     assert response.status_code == 404
+
+
+def test_demo_guest_pulse_uses_current_audiences_and_icon_keys():
+    app.config.update(TESTING=True)
+    client = app.test_client()
+
+    page = client.get("/demo/guest-pulse")
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    for label in SEGMENTS.values():
+        assert label in html
+
+    response = client.get("/demo/api/owner/guest-pulse")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert [audience["key"] for audience in payload["audiences"]] == [item[0] for item in AUDIENCES]
+    assert [audience["label"] for audience in payload["audiences"]] == [item[1] for item in AUDIENCES]
+    assert payload["selected_count"] == sum(audience["count"] for audience in payload["audiences"])
 
 
 def test_demo_skips_real_club_checks_for_existing_owner_session(monkeypatch):
