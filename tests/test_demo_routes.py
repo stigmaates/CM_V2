@@ -32,8 +32,14 @@ def test_demo_guest_case_opening_uses_session_balance_only():
 
     page = client.get("/demo/guest")
     assert page.status_code == 200
-    assert "Кабинет гостя" in page.get_data(as_text=True)
-    assert "WALLZ CS2 Case" in page.get_data(as_text=True)
+    html = page.get_data(as_text=True)
+    assert "Кабинет гостя" in html
+    assert "WALLZ CS2 Case" in html
+    assert "502ed09c17c44892b9fb50c131ea8260.webp" in html
+    assert "DONKED" in html
+    assert "Трудимся в компах" in html
+    assert "Игровые контракты" in html
+    assert "/static/images/contracts/" in html or "/static/images/cs2/" in html
 
     with client.session_transaction() as demo_session:
         csrf_token = demo_session["_csrf_token"]
