@@ -34,6 +34,9 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
     club_id = setting["club_id"]
     code = setting["code"]
     days_inactive = int(setting.get("days_inactive") or 14)
+    smart_inactive_enabled = bool(setting.get("smart_inactive_enabled"))
+    smart_inactive_days = int(setting.get("smart_inactive_days") or days_inactive)
+    smart_interval_multiplier = float(setting.get("smart_interval_multiplier") or 3)
     bonus_amount = int(setting.get("bonus_amount") or 200)
     bonus_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=7)
     repeat_after_days = int(setting.get("repeat_after_days") or 30)
@@ -47,6 +50,9 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
         club_id=club_id,
         automation_code=code,
         days_inactive=days_inactive,
+        smart_inactive_enabled=smart_inactive_enabled,
+        smart_inactive_days=smart_inactive_days,
+        smart_interval_multiplier=smart_interval_multiplier,
         repeat_after_days=repeat_after_days,
     )
 
@@ -73,6 +79,10 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
         filters_json={
             "auto_mailing": code,
             "days_inactive": days_inactive,
+            "smart_inactive_enabled": smart_inactive_enabled,
+            "smart_inactive_days": smart_inactive_days,
+            "smart_interval_multiplier": smart_interval_multiplier,
+            "confidence_threshold": 50,
             "bonus_amount": bonus_amount,
             "is_expiring": True,
             "expires_after_seconds": 7 * 24 * 60 * 60,

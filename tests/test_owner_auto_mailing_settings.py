@@ -37,6 +37,9 @@ def test_owner_can_save_club_local_auto_mailing_window(monkeypatch):
             "is_enabled": True,
             "send_start_time": "09:15",
             "send_end_time": "21:45",
+            "smart_inactive_enabled": True,
+            "smart_inactive_days": 21,
+            "smart_interval_multiplier": 3,
         },
     ):
         session.update(user_id=1, role="owner", club_id=7)
@@ -46,6 +49,9 @@ def test_owner_can_save_club_local_auto_mailing_window(monkeypatch):
     assert response.get_json()["auto_mailing"]["send_start_time"] == "09:15"
     assert saved[0][2]["send_start_time"] == "09:15"
     assert saved[0][2]["send_end_time"] == "21:45"
+    assert saved[0][2]["smart_inactive_enabled"] is True
+    assert saved[0][2]["smart_inactive_days"] == 21
+    assert saved[0][2]["smart_interval_multiplier"] == 3
     assert conn.committed is True
     assert conn.closed is True
 
@@ -65,6 +71,19 @@ def test_owner_cannot_save_empty_auto_mailing_window():
 
     assert status == 400
     assert "должны отличаться" in response.get_json()["error"]
+
+
+def test_owner_rejects_invalid_smart_interval_multiplier():
+    with app.test_request_context(
+        "/owner/api/auto-mailings/inactive_14_bonus/toggle",
+        method="POST",
+        json={"is_enabled": False, "smart_interval_multiplier": 0},
+    ):
+        session.update(user_id=1, role="owner", club_id=7)
+        response, status = owner_mailing.api_auto_mailing_toggle("inactive_14_bonus")
+
+    assert status == 400
+    assert "Множитель интервала" in response.get_json()["error"]
 
 
 def test_stage_manual_mode_rejects_enabling_auto_mailing(monkeypatch):

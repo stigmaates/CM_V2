@@ -162,7 +162,7 @@ def database(tmp_path):
         "CREATE TABLE cm_bonus_redeem_requests (club_id INT,guest_id BIGINT,status VARCHAR(32),processed_at DATETIME)",
         "CREATE TABLE guest_prize_claims (club_id INT,guest_id BIGINT,status VARCHAR(32),issued_at DATETIME)",
         "CREATE TABLE guest_game_contracts (club_id INT,guest_id BIGINT,status VARCHAR(32),started_at DATETIME,completed_at DATETIME)",
-        "CREATE TABLE user_portrait (club_id INT,guest_id BIGINT,favorite_game VARCHAR(16),favorite_game_hours DECIMAL(12,1),recent_game_14d VARCHAR(16),recent_game_14d_hours DECIMAL(12,1),steam_game_stats_updated_at DATETIME,PRIMARY KEY(club_id,guest_id))",
+        "CREATE TABLE user_portrait (club_id INT,guest_id BIGINT,favorite_game VARCHAR(16),favorite_game_hours DECIMAL(12,1),recent_game_14d VARCHAR(16),recent_game_14d_hours DECIMAL(12,1),steam_game_stats_updated_at DATETIME,profile_confidence_score DECIMAL(6,2),usual_interval_days DECIMAL(8,2),PRIMARY KEY(club_id,guest_id))",
         "INSERT INTO clubs VALUES (2,'Asia/Yekaterinburg',1),(3,'Europe/Moscow',1)",
         "INSERT INTO guests VALUES (2,42,'Тест',NULL,100),(3,42,'Другой клуб',NULL,NULL),(2,43,'Без визитов',NULL,NULL)",
         "INSERT INTO user_portrait (club_id,guest_id) VALUES (2,42),(3,42)",
@@ -355,6 +355,9 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
     assert segmented["total"] == 0
     assert sum(audience["count"] for audience in segmented["audiences"]) == 0
     detail = pulse_client.get("/owner/api/guest-pulse/guests/42").get_json()["guest"]
+    assert detail["confidence"]["score"] >= 0
+    assert detail["confidence"]["label"] in {"Низкая", "Средняя", "Высокая"}
+    assert detail["confidence"]["typical_interval_days"] == 5
     assert detail["visit_pattern"]["period"] in {"День", "Ночь"}
     assert detail["visit_pattern"]["calendar"] in {"Будни", "Выходные"}
     assert isinstance(detail["segments"], list)

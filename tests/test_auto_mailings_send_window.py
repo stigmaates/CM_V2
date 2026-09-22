@@ -129,3 +129,44 @@ def test_processor_skips_every_auto_mailing_type_outside_window(monkeypatch):
     assert checked_windows == [("Asia/Yekaterinburg", None, None)] * 3
     assert "c.timezone" in conn.cursor_obj.query
     assert conn.closed is True
+
+
+def test_inactive_worker_forwards_smart_settings(monkeypatch):
+    class Conn:
+        def __init__(self):
+            self.cursor_obj = _Cursor([])
+            self.commits = 0
+
+        def cursor(self):
+            return self.cursor_obj
+
+        def commit(self):
+            self.commits += 1
+
+    captured = []
+    monkeypatch.setattr(
+        process_auto_mailings,
+        "get_inactive_auto_mailing_recipients",
+        lambda **kwargs: captured.append(kwargs) or [],
+    )
+    conn = Conn()
+
+    created = process_auto_mailings.process_inactive_14_bonus(
+        conn,
+        {
+            "id": 9,
+            "club_id": 7,
+            "code": "inactive_14_bonus",
+            "days_inactive": 14,
+            "smart_inactive_enabled": 1,
+            "smart_inactive_days": 21,
+            "smart_interval_multiplier": 3,
+            "bonus_amount": 200,
+            "repeat_after_days": 30,
+        },
+    )
+
+    assert created == 0
+    assert captured[0]["smart_inactive_enabled"] is True
+    assert captured[0]["smart_inactive_days"] == 21
+    assert captured[0]["smart_interval_multiplier"] == 3

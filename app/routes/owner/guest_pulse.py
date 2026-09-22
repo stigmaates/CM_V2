@@ -8,7 +8,7 @@ from app.config import BALANCE_TOPUP_MAX_AMOUNT, GUEST_PULSE_CONFIG
 from app.core import get_db_connection, owner_required
 from app.services.guest_pulse import dumps, get_current, loads, rows
 from app.services.guest_pulse_filters import parse_filters, score_match, segment_match, select
-from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS, overall_score
+from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS, overall_score, profile_confidence, visit_features
 from app.services.mailing import get_message_variables
 from app.services.outbound_policy import outbound_blocked
 from app.services.timezones import get_club_local_now, utc_datetime_to_club_local
@@ -283,6 +283,7 @@ def guest_pulse_guest(guest_id):
             visit["date_stop"] = utc_datetime_to_club_local(visit["date_stop"], tz)
         calculated_at = utc_datetime_to_club_local(result[0].get("calculated_at"), tz) or get_club_local_now(tz)
         visits = [visit for visit in collapse_sessions_to_visits(visit_rows) if visit["date_stop"] <= calculated_at]
+        row["confidence"] = profile_confidence(visit_features(visits, calculated_at))
         recent_visits = [visit for visit in visits if visit["date_start"] >= calculated_at - timedelta(days=30)]
         topup_rows = rows(
             conn,

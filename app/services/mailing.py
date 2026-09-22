@@ -276,6 +276,9 @@ AUTO_MAILING_DEFAULTS = {
             "Мы начислили тебе 200 бонусов на 7 дней — приходи играть, будем ждать!"
         ),
         "days_inactive": 14,
+        "smart_inactive_enabled": False,
+        "smart_inactive_days": 14,
+        "smart_interval_multiplier": 3,
         "bonus_amount": 200,
         "delay_minutes": None,
         "repeat_after_days": 30,
@@ -2023,6 +2026,9 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                 description TEXT NULL,
                 message_text TEXT NOT NULL,
                 days_inactive INT NOT NULL DEFAULT 14,
+                smart_inactive_enabled TINYINT(1) NOT NULL DEFAULT 0,
+                smart_inactive_days INT NOT NULL DEFAULT 14,
+                smart_interval_multiplier DECIMAL(5,2) NOT NULL DEFAULT 3.00,
                 bonus_amount INT NOT NULL DEFAULT 200,
                 delay_minutes INT NULL,
                 repeat_after_days INT NOT NULL DEFAULT 30,
@@ -2039,6 +2045,9 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
         _ensure_auto_mailing_column(cur, "days_inactive", "INT NOT NULL DEFAULT 14")
+        _ensure_auto_mailing_column(cur, "smart_inactive_enabled", "TINYINT(1) NOT NULL DEFAULT 0")
+        _ensure_auto_mailing_column(cur, "smart_inactive_days", "INT NOT NULL DEFAULT 14")
+        _ensure_auto_mailing_column(cur, "smart_interval_multiplier", "DECIMAL(5,2) NOT NULL DEFAULT 3.00")
         _ensure_auto_mailing_column(cur, "bonus_amount", "INT NOT NULL DEFAULT 200")
         _ensure_auto_mailing_column(cur, "delay_minutes", "INT NULL")
         _ensure_auto_mailing_column(cur, "repeat_after_days", "INT NOT NULL DEFAULT 30")
@@ -2057,12 +2066,15 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                     description,
                     message_text,
                     days_inactive,
+                    smart_inactive_enabled,
+                    smart_inactive_days,
+                    smart_interval_multiplier,
                     bonus_amount,
                     delay_minutes,
                     repeat_after_days,
                     is_enabled
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0)
                 ON DUPLICATE KEY UPDATE
                     id = id
                 """,
@@ -2073,6 +2085,9 @@ def ensure_auto_mailings(conn, club_id: int) -> None:
                     defaults["description"],
                     defaults["message_text"],
                     defaults["days_inactive"],
+                    int(defaults.get("smart_inactive_enabled", False)),
+                    defaults.get("smart_inactive_days", defaults["days_inactive"]),
+                    defaults.get("smart_interval_multiplier", 3),
                     defaults["bonus_amount"],
                     defaults.get("delay_minutes"),
                     defaults["repeat_after_days"],
@@ -2094,6 +2109,9 @@ def list_auto_mailings(conn, club_id: int):
                 description,
                 message_text,
                 days_inactive,
+                smart_inactive_enabled,
+                smart_inactive_days,
+                smart_interval_multiplier,
                 bonus_amount,
                 delay_minutes,
                 repeat_after_days,
@@ -2122,6 +2140,9 @@ def update_auto_mailing_settings(
     code: str,
     is_enabled: bool | None = None,
     days_inactive: int | None = None,
+    smart_inactive_enabled: bool | None = None,
+    smart_inactive_days: int | None = None,
+    smart_interval_multiplier: float | None = None,
     bonus_amount: int | None = None,
     delay_minutes: int | None = None,
     title: str | None = None,
@@ -2144,6 +2165,20 @@ def update_auto_mailing_settings(
         days_inactive = max(int(days_inactive or 0), 1)
         fields.append("days_inactive = %s")
         params.append(days_inactive)
+
+    if smart_inactive_enabled is not None:
+        fields.append("smart_inactive_enabled = %s")
+        params.append(1 if smart_inactive_enabled else 0)
+
+    if smart_inactive_days is not None:
+        smart_inactive_days = max(int(smart_inactive_days or 0), 1)
+        fields.append("smart_inactive_days = %s")
+        params.append(smart_inactive_days)
+
+    if smart_interval_multiplier is not None:
+        smart_interval_multiplier = max(float(smart_interval_multiplier or 0), 0.1)
+        fields.append("smart_interval_multiplier = %s")
+        params.append(smart_interval_multiplier)
 
     if delay_minutes is not None:
         delay_minutes = max(int(delay_minutes or 0), 1)
@@ -2204,6 +2239,9 @@ def update_auto_mailing_settings(
                 description,
                 message_text,
                 days_inactive,
+                smart_inactive_enabled,
+                smart_inactive_days,
+                smart_interval_multiplier,
                 bonus_amount,
                 delay_minutes,
                 repeat_after_days,
@@ -2227,6 +2265,9 @@ def get_inactive_auto_mailing_recipients(
     club_id: int,
     automation_code: str,
     days_inactive: int = 14,
+    smart_inactive_enabled: bool = False,
+    smart_inactive_days: int = 14,
+    smart_interval_multiplier: float = 3,
     repeat_after_days: int = 30,
 ) -> List[Dict[str, Any]]:
     """Получатели авторассылки: были в клубе давно и не получали эту авторассылку недавно."""
@@ -2238,6 +2279,9 @@ def get_inactive_auto_mailing_recipients(
             c.name AS club_name,
             COALESCE(cbb.balance, 0) AS cm_bonus_balance,
             COALESCE(gwtb.balance, 0) AS token_balance,
+            up.days_since_last_visit,
+            up.profile_confidence_score,
+            up.usual_interval_days,
             (
                 SELECT COUNT(*)
                 FROM guest_sessions gs7
@@ -2276,7 +2320,24 @@ def get_inactive_auto_mailing_recipients(
          AND gwtb.guest_id = up.guest_id
         WHERE up.club_id = %s
           AND g.telegram_id IS NOT NULL
-          AND up.days_since_last_visit >= %s
+          AND (
+              (%s = 0 AND up.days_since_last_visit >= %s)
+              OR
+              (%s = 1 AND (
+                  (
+                      up.profile_confidence_score >= 50
+                      AND up.usual_interval_days IS NOT NULL
+                      AND up.usual_interval_days > 0
+                      AND up.days_since_last_visit >= CEIL(up.usual_interval_days * %s)
+                  )
+                  OR
+                  (
+                      (up.profile_confidence_score < 50 OR up.profile_confidence_score IS NULL
+                       OR up.usual_interval_days IS NULL OR up.usual_interval_days <= 0)
+                      AND up.days_since_last_visit >= %s
+                  )
+              ))
+          )
           AND NOT EXISTS (
               SELECT 1
               FROM auto_mailing_logs aml
@@ -2289,7 +2350,20 @@ def get_inactive_auto_mailing_recipients(
     with conn.cursor() as cur:
         ensure_cm_bonus_tables(cur)
         ensure_token_tables(cur)
-        cur.execute(sql, (club_id, days_inactive, automation_code, repeat_after_days))
+        smart_enabled = 1 if smart_inactive_enabled else 0
+        cur.execute(
+            sql,
+            (
+                club_id,
+                smart_enabled,
+                days_inactive,
+                smart_enabled,
+                smart_interval_multiplier,
+                smart_inactive_days,
+                automation_code,
+                repeat_after_days,
+            ),
+        )
         return cur.fetchall()
 
 

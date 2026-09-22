@@ -19,6 +19,9 @@ def test_auto_mailing_card_renders_its_club_local_send_window():
                     "description": "Описание",
                     "message_text": "Привет!",
                     "days_inactive": 14,
+                    "smart_inactive_enabled": 1,
+                    "smart_inactive_days": 21,
+                    "smart_interval_multiplier": 3,
                     "bonus_amount": 200,
                     "delay_minutes": None,
                     "send_start_time": "09:15",
@@ -36,6 +39,11 @@ def test_auto_mailing_card_renders_its_club_local_send_window():
     assert 'value="09:15"' in html
     assert 'class="auto-mailing-send-end"' in html
     assert 'value="21:45"' in html
+    assert 'class="auto-mailing-smart-toggle"' in html
+    assert 'class="auto-mailing-smart-days"' in html
+    assert 'value="21"' in html
+    assert 'class="auto-mailing-smart-multiplier"' in html
+    assert "Уверенность 50+" in html
 
 
 def test_manual_mailing_uses_one_audience_message_and_reward_form():
