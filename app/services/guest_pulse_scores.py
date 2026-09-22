@@ -2,7 +2,8 @@
 
 from bisect import bisect_left
 from datetime import timedelta
-from statistics import mean, median, pstdev
+from math import log1p
+from statistics import mean, median, pstdev, quantiles
 
 # Versioned product rules, independent of UI. Per-deployment overrides live in config.
 from app.config import GUEST_PULSE_CONFIG
@@ -38,6 +39,7 @@ SEGMENTS = {
 }
 OVERALL_WEIGHTS = {"health": 0.35, "value": 0.40, "engagement": 0.25}
 OVERALL_LEVELS = ((80, "VERY_HIGH", "Очень высокий"), (65, "HIGH", "Высокий"), (45, "MEDIUM", "Средний"), (25, "LOW", "Низкий"), (0, "VERY_LOW", "Очень низкий"))
+CONFIDENCE_LEVELS = ((65, "HIGH", "Высокая"), (40, "MEDIUM", "Средняя"), (0, "LOW", "Низкая"))
 
 
 def weighted(parts):
@@ -68,9 +70,15 @@ def visit_features(visits, now, config=None):
     visits = [v for v in visits if v["date_stop"] <= now]
     starts = [v["date_start"] for v in visits]
     recent = [v for v in visits if v["date_start"] >= now - timedelta(days=cfg["history_days"])]
+    all_gaps = [(b - a).total_seconds() / 86400 for a, b in zip(starts, starts[1:])]
+    all_gaps = [g for g in all_gaps if g > 0]
     gaps = [(b["date_start"] - a["date_start"]).total_seconds() / 86400 for a, b in zip(recent, recent[1:])]
     gaps = [g for g in gaps if g > 0]
     typical = median(gaps) if len(gaps) >= 3 else mean(gaps) if gaps else None
+    cadence_stability = 0
+    if len(all_gaps) >= 4:
+        lower, _, upper = quantiles(all_gaps, n=4, method="inclusive")
+        cadence_stability = 1 - min((upper - lower) / median(all_gaps), 1)
     days = (now.date() - starts[-1].date()).days if starts else None
     features = {
         "visits_total": len(visits),
@@ -82,12 +90,48 @@ def visit_features(visits, now, config=None):
         "avg_gap_days": mean(gaps) if gaps else None,
         "gap_ratio": days / typical if typical else None,
         "gap_cv": pstdev(gaps) / mean(gaps) if len(gaps) >= 4 else None,
+        "observed_intervals": len(all_gaps),
+        "cadence_stability": cadence_stability,
+        "lifetime_typical_gap_days": median(all_gaps) if all_gaps else None,
     }
     for period in (30, 60, 90):
         window = [v for v in visits if v["date_start"] >= now - timedelta(days=period)]
         features[f"visits_{period}d"] = len(window)
         features[f"played_hours_{period}d"] = sum(v["played_hours"] for v in window)
     return features
+
+
+def profile_confidence(features):
+    """How much visit history supports a stable behavioral portrait.
+
+    This is evidence strength, not a prediction of churn or a guest rating.
+    """
+    visits_total = max(0, int(features.get("visits_total") or 0))
+    age_days = max(0, int(features.get("age_days") or 0))
+    volume = min(log1p(visits_total) / log1p(20), 1) if visits_total else 0
+    history = min(age_days / 180, 1)
+    intervals = max(0, int(features.get("observed_intervals") or 0))
+    cadence = float(features.get("cadence_stability") or 0) if intervals >= 4 else 0
+    raw_score = 100 * (0.50 * volume + 0.30 * history + 0.20 * cadence)
+    cap = 25 if visits_total <= 1 else 45 if visits_total <= 3 else 100
+    score = round(min(raw_score, cap), 1)
+    _, level, label = next(item for item in CONFIDENCE_LEVELS if score >= item[0])
+    return {
+        "score": score,
+        "level": level,
+        "label": label,
+        "visits_total": visits_total,
+        "history_days": age_days,
+        "observed_intervals": intervals,
+        "typical_interval_days": round(float(features["lifetime_typical_gap_days"]), 2)
+        if features.get("lifetime_typical_gap_days") is not None
+        else None,
+        "components": {
+            "volume": round(volume * 100, 1),
+            "history": round(history * 100, 1),
+            "cadence_stability": round(cadence * 100, 1),
+        },
+    }
 
 
 def health(features, config=None):

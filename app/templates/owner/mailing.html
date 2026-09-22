@@ -301,7 +301,7 @@
                                         </div>
                                     {% else %}
                                         <label class="auto-mailing-field">
-                                            <span>Дней неактива</span>
+                                            <span>Дней отсутствия · обычный режим</span>
                                             <input
                                                 type="number"
                                                 min="1"
@@ -349,6 +349,49 @@
                                         >
                                     </label>
                                 </div>
+
+                                {% if item.code == 'inactive_14_bonus' %}
+                                    <div class="auto-mailing-smart">
+                                        <div class="auto-mailing-smart__head">
+                                            <div>
+                                                <strong>Умная настройка</strong>
+                                                <small>Для уверенности 50+ учитывает личный интервал посещений</small>
+                                            </div>
+                                            <label class="toggle-switch auto-mailing-smart-switch" title="Использовать личный интервал посещений">
+                                                <input
+                                                    type="checkbox"
+                                                    class="auto-mailing-smart-toggle"
+                                                    {% if item.smart_inactive_enabled %}checked{% endif %}
+                                                >
+                                                <span></span>
+                                            </label>
+                                        </div>
+                                        <div class="auto-mailing-smart__settings" {% if not item.smart_inactive_enabled %}hidden{% endif %}>
+                                            <label class="auto-mailing-field">
+                                                <span>Уверенность ниже 50 · дней отсутствия</span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="3650"
+                                                    step="1"
+                                                    class="auto-mailing-smart-days"
+                                                    value="{{ item.smart_inactive_days or item.days_inactive or 14 }}"
+                                                >
+                                            </label>
+                                            <label class="auto-mailing-field">
+                                                <span>Уверенность 50+ · обычных интервалов</span>
+                                                <input
+                                                    type="number"
+                                                    min="0.5"
+                                                    max="30"
+                                                    step="0.5"
+                                                    class="auto-mailing-smart-multiplier"
+                                                    value="{{ item.smart_interval_multiplier or 3 }}"
+                                                >
+                                            </label>
+                                        </div>
+                                    </div>
+                                {% endif %}
 
                                 <label class="auto-mailing-field auto-mailing-field--full auto-mailing-message-field">
                                     <span>Сообщение</span>

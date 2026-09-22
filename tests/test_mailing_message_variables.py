@@ -63,6 +63,49 @@ def test_mailing_recipients_require_real_telegram_id_not_cached_portrait_flag():
     assert params == [1]
 
 
+def test_smart_inactive_recipients_use_confidence_and_personal_interval(monkeypatch):
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, query, params=()):
+            self.query = query
+            self.params = params
+
+        def fetchall(self):
+            return []
+
+    class Connection:
+        def __init__(self):
+            self.cursor_obj = Cursor()
+
+        def cursor(self):
+            return self.cursor_obj
+
+    conn = Connection()
+    monkeypatch.setattr(mailing_service, "ensure_cm_bonus_tables", lambda _cursor: None)
+    monkeypatch.setattr(mailing_service, "ensure_token_tables", lambda _cursor: None)
+
+    result = mailing_service.get_inactive_auto_mailing_recipients(
+        conn,
+        club_id=7,
+        automation_code="inactive_14_bonus",
+        days_inactive=14,
+        smart_inactive_enabled=True,
+        smart_inactive_days=21,
+        smart_interval_multiplier=3,
+        repeat_after_days=30,
+    )
+
+    assert result == []
+    assert "up.profile_confidence_score >= 50" in conn.cursor_obj.query
+    assert "CEIL(up.usual_interval_days * %s)" in conn.cursor_obj.query
+    assert conn.cursor_obj.params == (7, 1, 14, 1, 3, 21, "inactive_14_bonus", 30)
+
+
 def test_mailing_filters_can_be_combined_with_or_without_escaping_club_scope():
     where_sql, params = build_where_clause(
         7,

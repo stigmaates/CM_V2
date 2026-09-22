@@ -1054,6 +1054,9 @@ function getAutoMailingPayload(card) {
     const messageInput = card.querySelector(".auto-mailing-message-text");
     const sendStartInput = card.querySelector(".auto-mailing-send-start");
     const sendEndInput = card.querySelector(".auto-mailing-send-end");
+    const smartToggle = card.querySelector(".auto-mailing-smart-toggle");
+    const smartDaysInput = card.querySelector(".auto-mailing-smart-days");
+    const smartMultiplierInput = card.querySelector(".auto-mailing-smart-multiplier");
 
     const code = card.dataset.autoMailingCode || "";
     const payload = {
@@ -1069,7 +1072,18 @@ function getAutoMailingPayload(card) {
     if (delayInput) {
         payload.delay_minutes = Number(delayInput.value);
     }
+    if (code === "inactive_14_bonus") {
+        payload.smart_inactive_enabled = Boolean(smartToggle && smartToggle.checked);
+        payload.smart_inactive_days = Number(smartDaysInput ? smartDaysInput.value : payload.days_inactive);
+        payload.smart_interval_multiplier = Number(smartMultiplierInput ? smartMultiplierInput.value : 3);
+    }
     return payload;
+}
+
+function syncAutoMailingSmartSettings(card) {
+    const toggle = card.querySelector(".auto-mailing-smart-toggle");
+    const settings = card.querySelector(".auto-mailing-smart__settings");
+    if (settings) settings.hidden = !(toggle && toggle.checked);
 }
 
 function setAutoMailingStatus(card, text, isError = false) {
@@ -1099,6 +1113,9 @@ async function saveAutoMailing(card, options = {}) {
     const messageInput = card.querySelector(".auto-mailing-message-text");
     const sendStartInput = card.querySelector(".auto-mailing-send-start");
     const sendEndInput = card.querySelector(".auto-mailing-send-end");
+    const smartToggle = card.querySelector(".auto-mailing-smart-toggle");
+    const smartDaysInput = card.querySelector(".auto-mailing-smart-days");
+    const smartMultiplierInput = card.querySelector(".auto-mailing-smart-multiplier");
     const previousChecked = toggle ? !toggle.checked : false;
 
     if (!code) return;
@@ -1113,6 +1130,18 @@ async function saveAutoMailing(card, options = {}) {
         setAutoMailingStatus(card, "Укажи бонусы больше 0", true);
         if (toggle && options.fromToggle) toggle.checked = previousChecked;
         return;
+    }
+    if (code === "inactive_14_bonus" && payload.smart_inactive_enabled) {
+        if (!Number.isFinite(payload.smart_inactive_days) || payload.smart_inactive_days < 1) {
+            setAutoMailingStatus(card, "Укажи дни отсутствия для низкой уверенности", true);
+            if (toggle && options.fromToggle) toggle.checked = previousChecked;
+            return;
+        }
+        if (!Number.isFinite(payload.smart_interval_multiplier) || payload.smart_interval_multiplier < 0.5 || payload.smart_interval_multiplier > 30) {
+            setAutoMailingStatus(card, "Множитель интервала должен быть от 0,5 до 30", true);
+            if (toggle && options.fromToggle) toggle.checked = previousChecked;
+            return;
+        }
     }
     if (code === "first_visit_survey" && (!Number.isFinite(payload.delay_minutes) || payload.delay_minutes < 1)) {
         setAutoMailingStatus(card, "Укажи задержку отправки больше 0", true);
@@ -1140,7 +1169,7 @@ async function saveAutoMailing(card, options = {}) {
         return;
     }
 
-    [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput, sendStartInput, sendEndInput].forEach((el) => {
+    [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput, sendStartInput, sendEndInput, smartToggle, smartDaysInput, smartMultiplierInput].forEach((el) => {
         if (el) el.disabled = true;
     });
     setAutoMailingStatus(card, "Сохраняем...");
@@ -1168,13 +1197,17 @@ async function saveAutoMailing(card, options = {}) {
             if (messageInput) messageInput.value = data.auto_mailing.message_text || payload.message_text;
             if (sendStartInput) sendStartInput.value = data.auto_mailing.send_start_time || payload.send_start_time;
             if (sendEndInput) sendEndInput.value = data.auto_mailing.send_end_time || payload.send_end_time;
+            if (smartToggle) smartToggle.checked = Boolean(Number(data.auto_mailing.smart_inactive_enabled));
+            if (smartDaysInput) smartDaysInput.value = data.auto_mailing.smart_inactive_days || payload.smart_inactive_days;
+            if (smartMultiplierInput) smartMultiplierInput.value = data.auto_mailing.smart_interval_multiplier || payload.smart_interval_multiplier;
+            syncAutoMailingSmartSettings(card);
         }
         setAutoMailingStatus(card, "Сохранено");
     } catch (error) {
         if (toggle && options.fromToggle) toggle.checked = previousChecked;
         setAutoMailingStatus(card, "Не удалось сохранить", true);
     } finally {
-        [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput, sendStartInput, sendEndInput].forEach((el) => {
+        [toggle, saveBtn, daysInput, bonusInput, delayInput, titleInput, descriptionInput, messageInput, sendStartInput, sendEndInput, smartToggle, smartDaysInput, smartMultiplierInput].forEach((el) => {
             if (el) el.disabled = false;
         });
     }
@@ -1184,6 +1217,15 @@ document.querySelectorAll(".auto-mailing-toggle").forEach((input) => {
     input.addEventListener("change", () => {
         const card = input.closest(".auto-mailing-card");
         if (card) saveAutoMailing(card, { fromToggle: true });
+    });
+});
+
+document.querySelectorAll(".auto-mailing-smart-toggle").forEach((input) => {
+    const card = input.closest(".auto-mailing-card");
+    if (card) syncAutoMailingSmartSettings(card);
+    input.addEventListener("change", () => {
+        const currentCard = input.closest(".auto-mailing-card");
+        if (currentCard) syncAutoMailingSmartSettings(currentCard);
     });
 });
 

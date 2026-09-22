@@ -194,6 +194,26 @@ def api_auto_mailing_toggle(code):
         if days_inactive > 3650:
             return jsonify({"ok": False, "error": "Слишком большое количество дней неактива"}), 400
 
+    smart_inactive_enabled = bool(data.get("smart_inactive_enabled")) if "smart_inactive_enabled" in data else None
+
+    smart_inactive_days = None
+    if "smart_inactive_days" in data:
+        try:
+            smart_inactive_days = int(data.get("smart_inactive_days") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Порог дней для умной настройки должен быть числом"}), 400
+        if not 1 <= smart_inactive_days <= 3650:
+            return jsonify({"ok": False, "error": "Порог дней для умной настройки должен быть от 1 до 3650"}), 400
+
+    smart_interval_multiplier = None
+    if "smart_interval_multiplier" in data:
+        try:
+            smart_interval_multiplier = float(data.get("smart_interval_multiplier") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Множитель интервала должен быть числом"}), 400
+        if not 0.5 <= smart_interval_multiplier <= 30:
+            return jsonify({"ok": False, "error": "Множитель интервала должен быть от 0,5 до 30"}), 400
+
     bonus_amount = None
     if "bonus_amount" in data:
         try:
@@ -247,6 +267,9 @@ def api_auto_mailing_toggle(code):
             code,
             is_enabled=is_enabled,
             days_inactive=days_inactive,
+            smart_inactive_enabled=smart_inactive_enabled,
+            smart_inactive_days=smart_inactive_days,
+            smart_interval_multiplier=smart_interval_multiplier,
             bonus_amount=bonus_amount,
             delay_minutes=delay_minutes,
             title=title,

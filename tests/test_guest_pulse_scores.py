@@ -12,6 +12,7 @@ from app.services.guest_pulse_scores import (
     health,
     lifecycle,
     overall_score,
+    profile_confidence,
     value_scores,
     visit_features,
 )
@@ -54,6 +55,17 @@ def test_overall_score_uses_pcv_weights_and_requires_all_scores():
     assert result["level"] == "MEDIUM"
     assert result["label"] == "Средний"
     assert overall_score(row(None, 80, 40))["score"] is None
+
+
+def test_profile_confidence_uses_history_volume_and_stable_cadence():
+    low = profile_confidence(visit_features(visits([0]), NOW))
+    medium = profile_confidence(visit_features(visits([30, 20, 10]), NOW))
+    high = profile_confidence(visit_features(visits(range(0, 181, 10)), NOW))
+    assert low["score"] <= 25 and low["label"] == "Низкая"
+    assert medium["score"] <= 45
+    assert high["score"] >= 65 and high["label"] == "Высокая"
+    assert high["observed_intervals"] >= 4
+    assert high["typical_interval_days"] == 10
 
 
 @pytest.mark.parametrize(

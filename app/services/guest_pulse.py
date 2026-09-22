@@ -12,6 +12,7 @@ from app.services.guest_pulse_scores import (
     health,
     lifecycle,
     overall_score,
+    profile_confidence,
     value_scores,
     visit_features,
 )
@@ -149,6 +150,7 @@ def calculate_club(sources, now, previous=None, historical=False):
                 **state,
                 "health": h,
                 "engagement": e,
+                "confidence": profile_confidence(f),
                 "visits": f,
                 "history_note": (
                     "Восстановлено по событиям. Вовлечённость приблизительная: Telegram считается подключённым с первой сохранённой авторизации или активности."
@@ -329,6 +331,12 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False):
                 """UPDATE user_portrait up LEFT JOIN guest_pulse_current p ON p.club_id=up.club_id AND p.guest_id=up.guest_id
                 SET up.health_score=p.health_score, up.value_score=p.value_score, up.engagement_score=p.engagement_score,
                     up.lifecycle_status=p.lifecycle_status, up.pulse_updated_at=p.calculated_at,
+                    up.profile_confidence_score=CASE
+                        WHEN JSON_TYPE(JSON_EXTRACT(p.detail_json,'$.confidence.score'))='NULL' THEN NULL
+                        ELSE JSON_UNQUOTE(JSON_EXTRACT(p.detail_json,'$.confidence.score')) END,
+                    up.usual_interval_days=CASE
+                        WHEN JSON_TYPE(JSON_EXTRACT(p.detail_json,'$.confidence.typical_interval_days'))='NULL' THEN NULL
+                        ELSE JSON_UNQUOTE(JSON_EXTRACT(p.detail_json,'$.confidence.typical_interval_days')) END,
                     up.health_delta_14d=CASE WHEN JSON_TYPE(JSON_EXTRACT(p.detail_json,'$.health.delta_14d'))='NULL' THEN NULL
                         ELSE JSON_UNQUOTE(JSON_EXTRACT(p.detail_json,'$.health.delta_14d')) END
                 WHERE up.club_id=%s""",
