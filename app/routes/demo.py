@@ -10,14 +10,14 @@ from app.services.guest_pulse_scores import AUDIENCES, SEGMENTS
 
 demo_bp = Blueprint("demo", __name__, url_prefix="/demo")
 
-DEMO_AUDIENCE_COUNTS = {
-    "new": (2056, 14),
-    "churned": (1043, 38),
-    "valuable_risk": (11, 5),
-    "low_engagement": (580, 11),
-    "loyal": (22, 22),
-    "risk": (115, 15),
-    "other": (9, 9),
+DEMO_AUDIENCE_RANGES = {
+    "new": (260, 620, 0.32, 0.58),
+    "churned": (120, 360, 0.20, 0.42),
+    "valuable_risk": (28, 92, 0.45, 0.72),
+    "low_engagement": (90, 240, 0.38, 0.64),
+    "loyal": (70, 190, 0.58, 0.82),
+    "risk": (80, 220, 0.28, 0.56),
+    "other": (35, 130, 0.25, 0.55),
 }
 
 PAGE_MAP = {
@@ -195,6 +195,34 @@ def _common(page: str) -> dict:
         "url_for": _demo_url_for,
         "session": {"role": "owner", "name": "Демо-пользователь"},
     }
+
+
+def _demo_random(namespace: str) -> random.Random:
+    seed = session.get("demo_random_seed")
+    if seed is None:
+        seed = random.SystemRandom().randrange(1, 2**63)
+        session["demo_random_seed"] = seed
+    return random.Random(f"{seed}:{namespace}")
+
+
+def _demo_audiences() -> list[dict]:
+    rng = _demo_random("guest-pulse-audiences")
+    audiences = []
+    for key, label, color in AUDIENCES:
+        count_min, count_max, telegram_min, telegram_max = DEMO_AUDIENCE_RANGES[key]
+        count = rng.randint(count_min, count_max)
+        telegram_count = round(count * rng.uniform(telegram_min, telegram_max))
+        audiences.append(
+            {
+                "key": key,
+                "label": label,
+                "color": color,
+                "count": count,
+                "telegram_count": telegram_count,
+                "without_telegram_count": count - telegram_count,
+            }
+        )
+    return audiences
 
 
 def _filter_fields() -> list[dict]:
@@ -779,25 +807,19 @@ def _team_payload() -> dict:
 
 
 def _guest_rows() -> list[dict]:
+    rng = _demo_random("guest-pulse-guests")
     rows = []
-    for index, name in enumerate(
-        [
-            "Терентьев Пётр Александрович",
-            "Никушин Максим Александрович",
-            "Сергеева Виктория Борисовна",
-            "Мещеряков Алексей Михайлович",
-            "Хусаинов Бекбулат Бержанович",
-        ],
-        1,
-    ):
-        health, value, engagement = 48 + index * 7, round(43 + index * 6.4, 1), 20 + index * 8
+    for index in range(1, 11):
+        health = rng.randint(32, 94)
+        value = round(rng.uniform(28, 96), 1)
+        engagement = rng.randint(18, 92)
         rows.append(
             {
-                "guest_id": index,
-                "name": name,
-                "phone": f"+7 999 000 0{index:03d}",
+                "guest_id": 9000 + index,
+                "name": f"Демо-гость {index:02d}",
+                "phone": f"+7 900 000 {index:02d} {index:02d}",
                 "lifecycle_label": ["Потерянный", "Активный", "Лояльный"][index % 3],
-                "has_telegram": index != 4,
+                "has_telegram": rng.random() > 0.25,
                 "health": {"score": health},
                 "value": {"score": value},
                 "engagement": {"score": engagement},
@@ -862,17 +884,7 @@ def owner_api(path: str):
         return jsonify({"ok": True, "id": random.randint(10, 99)})
     if path == "guest-pulse":
         rows = _guest_rows()
-        audiences = [
-            dict(
-                key=key,
-                label=label,
-                color=color,
-                count=DEMO_AUDIENCE_COUNTS[key][0],
-                telegram_count=DEMO_AUDIENCE_COUNTS[key][1],
-                without_telegram_count=DEMO_AUDIENCE_COUNTS[key][0] - DEMO_AUDIENCE_COUNTS[key][1],
-            )
-            for key, label, color in AUDIENCES
-        ]
+        audiences = _demo_audiences()
         deviations = []
         for row in rows[:4]:
             copy = dict(row)
