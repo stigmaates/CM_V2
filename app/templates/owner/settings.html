@@ -340,8 +340,8 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-        "sort uuid"
-        "sort name";
+        "order uuid"
+        "order name";
     gap: 8px 10px;
     align-items: stretch;
     min-width: 0;
@@ -351,12 +351,13 @@
     border: 1px solid rgba(165, 114, 255, 0.20);
 }
 
-.settings-card--pc-names .pc-name-row__sort {
-    grid-area: sort;
+.settings-card--pc-names .pc-name-row__order {
+    grid-area: order;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
+    width: 68px;
 }
 
 .settings-card--pc-names .pc-name-row__uuid {
@@ -370,7 +371,8 @@
 }
 
 .settings-card--pc-names .pc-name-row__uuid span,
-.settings-card--pc-names .pc-name-row__name label {
+.settings-card--pc-names .pc-name-row__name label,
+.settings-card--pc-names .pc-name-row__order label {
     display: block;
     margin: 0 0 5px;
     color: var(--text-muted);
@@ -400,20 +402,12 @@
     font-size: 13px;
 }
 
-.settings-card--pc-names .pc-order-btn {
-    width: 28px;
-    height: 26px;
-    border: 1px solid rgba(165, 114, 255, 0.28);
-    border-radius: 8px;
-    background: rgba(143, 91, 255, 0.22);
-    color: #fff;
-    font-size: 12px;
+.settings-card--pc-names .pc-name-row__order .form-input {
+    min-height: 36px;
+    padding: 8px;
+    text-align: center;
+    font-size: 13px;
     font-weight: 900;
-    cursor: pointer;
-}
-
-.settings-card--pc-names .pc-order-btn:hover {
-    background: rgba(143, 91, 255, 0.36);
 }
 
 .settings-card--pc-names .btn[type="submit"] {
@@ -892,7 +886,7 @@
                     <div class="card settings-card settings-card--pc-names" id="pc-names">
                         <div class="section-title">Названия ПК</div>
                         <div class="muted pc-names-note">
-                            Назови компьютеры так, как удобно клубу. Порядок используется в тепловой карте по ПК.
+                            Назови компьютеры так, как удобно клубу, и укажи их порядок в тепловой карте.
                         </div>
 
                         <form method="POST" action="{{ url_for('owner.settings_pc_names_save') }}" class="pc-names-form">
@@ -900,9 +894,9 @@
                                 <div class="pc-names-list" id="pcNamesList" tabindex="0" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch aria-label="Список названий компьютеров">
                                     {% for pc in pc_name_settings %}
                                         <div class="pc-name-row" data-pc-row>
-                                            <div class="pc-name-row__sort">
-                                                <button type="button" class="pc-order-btn" data-pc-up title="Поднять выше">↑</button>
-                                                <button type="button" class="pc-order-btn" data-pc-down title="Опустить ниже">↓</button>
+                                            <div class="pc-name-row__order">
+                                                <label for="pc-order-{{ loop.index }}">Порядок</label>
+                                                <input class="form-input" id="pc-order-{{ loop.index }}" type="number" name="pc_sort_order" value="{{ loop.index }}" min="1" step="1" inputmode="numeric" required>
                                             </div>
                                             <div class="pc-name-row__uuid" title="{{ pc.uuid }}">
                                                 <span>UUID</span>
@@ -912,7 +906,6 @@
                                                 <label>Название ПК</label>
                                                 <input class="form-input" type="text" name="pc_name" value="{{ pc.display_name }}" placeholder="ПК 1 / VIP 2">
                                                 <input type="hidden" name="pc_uuid" value="{{ pc.uuid }}">
-                                                <input type="hidden" name="pc_sort_order" value="{{ pc.sort_order }}" data-pc-sort-order>
                                             </div>
                                         </div>
                                     {% endfor %}
@@ -1169,35 +1162,5 @@
     });
 })();
 
-(function () {
-    const list = document.getElementById('pcNamesList');
-    if (!list) return;
-
-    function refreshOrderInputs() {
-        list.querySelectorAll('[data-pc-row]').forEach((row, index) => {
-            const input = row.querySelector('[data-pc-sort-order]');
-            if (input) input.value = String((index + 1) * 10);
-        });
-    }
-
-    list.addEventListener('click', (event) => {
-        const up = event.target.closest('[data-pc-up]');
-        const down = event.target.closest('[data-pc-down]');
-        if (!up && !down) return;
-
-        const row = event.target.closest('[data-pc-row]');
-        if (!row) return;
-
-        if (up && row.previousElementSibling) {
-            list.insertBefore(row, row.previousElementSibling);
-        }
-        if (down && row.nextElementSibling) {
-            list.insertBefore(row.nextElementSibling, row);
-        }
-        refreshOrderInputs();
-    });
-
-    refreshOrderInputs();
-})();
 </script>
 {% endblock %}
