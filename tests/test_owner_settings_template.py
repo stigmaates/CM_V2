@@ -50,6 +50,35 @@ def test_owner_settings_renders_guest_login_copy_link():
     assert 'id="pcNamesList"' in html
     assert "data-lenis-prevent-wheel" in html
     assert 'aria-label="Список названий компьютеров"' in html
+    assert '>Порядок</label>' in html
+    assert 'type="number" name="pc_sort_order" value="1"' in html
+    assert "data-pc-up" not in html
+    assert "data-pc-down" not in html
+
+
+def test_pc_name_manual_order_is_sorted_and_normalized():
+    from app.routes.owner.settings import _normalize_pc_name_items
+
+    items = _normalize_pc_name_items(
+        ["pc-a", "pc-b", "pc-c", "pc-d"],
+        ["ПК A", "ПК B", "ПК C", "ПК D"],
+        ["3", "1", "2", "2"],
+    )
+
+    assert [item["uuid"] for item in items] == ["pc-b", "pc-c", "pc-d", "pc-a"]
+    assert [item["sort_order"] for item in items] == [10, 20, 30, 40]
+
+
+def test_pc_name_manual_order_rejects_invalid_position():
+    from app.routes.owner.settings import _normalize_pc_name_items
+
+    for value in ("0", "-1", "не число"):
+        try:
+            _normalize_pc_name_items(["pc-a"], ["ПК A"], [value])
+        except ValueError as exc:
+            assert "Порядок ПК" in str(exc)
+        else:
+            raise AssertionError(f"Order {value!r} must be rejected")
 
 
 def test_owner_settings_renders_profile_tab_and_linked_club():

@@ -38,6 +38,36 @@ SETTINGS_TABS = {"club", "missions", "contracts", "wheel", "profile", "guests", 
 BONUS_EDITORS = {"wheel", "cases"}
 
 
+def _normalize_pc_name_items(uuids, names, orders):
+    requested = []
+    for idx, uuid in enumerate(uuids):
+        uuid = (uuid or "").strip()
+        if not uuid:
+            continue
+        raw_order = orders[idx] if idx < len(orders) else idx + 1
+        try:
+            requested_order = int(raw_order)
+        except (TypeError, ValueError):
+            raise ValueError("Порядок ПК должен быть указан целым числом") from None
+        if requested_order < 1:
+            raise ValueError("Порядок ПК должен быть не меньше 1")
+        requested.append(
+            (
+                requested_order,
+                idx,
+                {
+                    "uuid": uuid,
+                    "display_name": names[idx] if idx < len(names) else "",
+                },
+            )
+        )
+
+    items = []
+    for position, (_, _, item) in enumerate(sorted(requested, key=lambda value: (value[0], value[1])), start=1):
+        items.append({**item, "sort_order": position * 10})
+    return items
+
+
 @owner_bp.route("/settings/managed-drops", methods=["POST"])
 @owner_required
 def settings_managed_drop_create():
@@ -414,17 +444,8 @@ def settings_pc_names_save():
     names = request.form.getlist("pc_name")
     orders = request.form.getlist("pc_sort_order")
 
-    items = []
-    for idx, uuid in enumerate(uuids):
-        items.append(
-            {
-                "uuid": uuid,
-                "display_name": names[idx] if idx < len(names) else "",
-                "sort_order": orders[idx] if idx < len(orders) else (idx + 1) * 10,
-            }
-        )
-
     try:
+        items = _normalize_pc_name_items(uuids, names, orders)
         save_pc_name_settings(int(club_id), items)
         record_audit_event(
             action="owner.pc_names.update",
@@ -433,6 +454,8 @@ def settings_pc_names_save():
             details={"items_count": len(items)},
         )
         flash("Названия ПК сохранены", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
     except Exception as exc:
         flash(f"Ошибка сохранения ПК: {exc}", "error")
 
