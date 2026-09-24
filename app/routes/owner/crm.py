@@ -336,7 +336,11 @@ def api_crm_pulse_interact():
     data = request.get_json(force=True)
     guest_ids = data.get("guest_ids") or []
     message_text = (data.get("message_text") or "").strip()
+    attachments = data.get("attachments") or []
     transition = data.get("transition") or {}
+
+    if not isinstance(attachments, list):
+        return jsonify({"ok": False, "error": "Некорректный список файлов"}), 400
 
     try:
         bonus_amount = int(data.get("bonus_amount") or 0)
@@ -418,6 +422,7 @@ def api_crm_pulse_interact():
                 parse_mode="HTML",
                 recipient_rows=recipients,
                 filters_json_extra=filters_json,
+                attachments=attachments,
             )
         else:
             result = create_mailing_for_recipients(
@@ -427,6 +432,7 @@ def api_crm_pulse_interact():
                 message_text=message_text,
                 parse_mode="HTML",
                 filters_json=filters_json,
+                attachments=attachments,
             )
         if pulse_selection:
             with conn.cursor() as cur:

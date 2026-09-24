@@ -222,11 +222,11 @@
   async function load({animate=true}={}){
     clearTimeout(timer);controller?.abort();controller=new AbortController();const own=controller;
     error('');setLoading(true,animate);
-    try{const data=await api(guestPulseApiBase+'?'+new URLSearchParams({...filters,page,deviation_page:deviationPage,sort,sort_direction:sortDirection,deviation_sort:deviationSort,deviation_sort_direction:deviationSortDirection}),{signal:own.signal});if(own===controller){render(data,animate||ringPending);setLoading(false);}}
+    try{const data=await api(guestPulseApiBase+'?'+new URLSearchParams({...filters,view:'overview',deviation_page:deviationPage,deviation_sort:deviationSort,deviation_sort_direction:deviationSortDirection}),{signal:own.signal});if(own===controller){render(data,animate||ringPending);setLoading(false);}}
     catch(e){if(own===controller&&e.name!=='AbortError'){responseData=null;ringAnimation?.cancel();setLoading(false);error(e.message);}}
   }
   const audienceDialog=$('gpAudienceDialog');
-  const audienceQuery=()=>({...filters,...audienceFilters,audience_type:modalAudience,page,sort,sort_direction:sortDirection});
+  const audienceQuery=()=>({...filters,...audienceFilters,view:'audience',audience_type:modalAudience,page,sort,sort_direction:sortDirection});
   const audienceTags=(items)=>items.length?items.map(label=>`<span>${esc(label)}</span>`).join(''):'<span class="is-muted">Без быстрого сегмента</span>';
   function renderAudience(data){
     audienceData=data;

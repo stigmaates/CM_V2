@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Пульс гостя{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260921-help-dialog-scroll-1') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='20260924-pulse-editor-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/guest_pulse.css', v='20260921-help-dialog-scroll-1') }}">{% endblock %}
 {% block content %}
 <main class="gp" id="guestPulse">
   <header class="owner-page-heading gp-heading"><div class="owner-page-heading__copy"><h1 class="owner-page-heading__title">Пульс гостя</h1><p class="owner-page-heading__subtitle">Найдите нужную аудиторию или изменения в привычках гостей.</p><button type="button" class="gp-help-trigger" id="gpHelpOpen" aria-haspopup="dialog" aria-controls="gpHelpDialog" aria-expanded="false"><span aria-hidden="true">?</span> Подробнее о системе показателей</button></div><div class="owner-page-heading__actions gp-sync"><span id="gpUpdated">Загрузка данных…</span><button type="button" id="gpRefresh">Обновить</button></div></header>
@@ -47,4 +47,4 @@ window.CRM_MESSAGE_VARIABLES = {{ message_variables | tojson }};
 window.CRM_PULSE_GROUPS = [];
 window.CRM_OUTBOUND_DISABLED = {{ outbound_disabled | tojson }};
 window.GUEST_PULSE_API_BASE = {{ (guest_pulse_api_base or '/owner/api/guest-pulse') | tojson }};
-</script><script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260911-pulse-inline-1') }}" defer></script><script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260922-demo-api-1') }}" defer></script>{% endblock %}
+</script><script src="{{ url_for('static', filename='js/crm_analytics.js', v='20260924-pulse-editor-1') }}" defer></script><script src="{{ url_for('static', filename='js/guest_pulse.js', v='20260924-pulse-performance-1') }}" defer></script>{% endblock %}

@@ -17,13 +17,27 @@
                     </section>
                     <section class="crm-campaign-passport-block">
                         <h3>Сообщение и награда</h3>
-                        <label class="crm-pulse-field">
-                            <span>Сообщение</span>
-                            <textarea id="crmPulseMessage" placeholder="{first_name}, привет! Есть повод заглянуть к нам на этой неделе."></textarea>
-                        </label>
-                        <div class="crm-pulse-variable-row">
+                        <div class="crm-pulse-editor-toolbar" aria-label="Форматирование сообщения">
+                            <button type="button" data-crm-pulse-tag="b" title="Жирный"><b>Ж</b></button>
+                            <button type="button" data-crm-pulse-tag="i" title="Курсив"><i>К</i></button>
+                            <button type="button" data-crm-pulse-tag="u" title="Подчёркнутый"><u>Ч</u></button>
+                            <button type="button" id="crmPulseInsertLink">🔗 Добавить ссылку</button>
                             <select id="crmPulseVariableSelect" aria-label="Данные гостя для вставки"></select>
-                            <button type="button" class="crm-analysis-button" id="crmPulseInsertVariable">Вставить</button>
+                            <button type="button" id="crmPulseInsertVariable">Вставить</button>
+                        </div>
+                        <div class="crm-pulse-message-editor">
+                            <textarea id="crmPulseMessage" maxlength="4000" placeholder="Напишите сообщение гостям..."></textarea>
+                            <span class="crm-pulse-character-count"><b id="crmPulseCharacterCount">0</b>/4000</span>
+                        </div>
+                        <label class="crm-pulse-file-drop" for="crmPulseFilesInput">
+                            <span>📎 Добавить файлы</span>
+                            <small>Фото, видео или документы</small>
+                        </label>
+                        <input type="file" id="crmPulseFilesInput" multiple hidden>
+                        <div class="crm-pulse-files-list" id="crmPulseFilesList"></div>
+                        <div class="crm-pulse-message-preview">
+                            <span>Предпросмотр</span>
+                            <div id="crmPulseMessagePreview">Здесь появится текст сообщения</div>
                         </div>
                         <div class="crm-pulse-reward-grid">
                             <label class="crm-pulse-field">

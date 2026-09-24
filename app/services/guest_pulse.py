@@ -3,6 +3,8 @@
 import json
 from collections import defaultdict
 from datetime import UTC, datetime, time, timedelta
+from threading import Lock
+from time import monotonic
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT
 from app.services.guest_pulse_scores import (
@@ -20,6 +22,11 @@ from app.services.timezones import club_local_datetime_to_utc, utc_datetime_to_c
 from app.services.visits import collapse_sessions_to_visits
 
 
+CURRENT_CACHE_TTL_SECONDS = 120
+_current_cache = {}
+_current_cache_lock = Lock()
+
+
 def dumps(value):
     return json.dumps(value, ensure_ascii=False, default=lambda v: v.isoformat(), allow_nan=False)
 
@@ -32,6 +39,23 @@ def rows(conn, sql, params=()):
     with conn.cursor() as cur:
         cur.execute(sql, params)
         return list(cur.fetchall())
+
+
+def _current_cache_scope(conn):
+    """Keep caches isolated per database and disabled for lightweight test adapters."""
+    database = getattr(conn, "db", None)
+    if not isinstance(database, (str, bytes)):
+        return None
+    if isinstance(database, bytes):
+        database = database.decode("utf-8", errors="replace")
+    return (getattr(conn, "host", None), getattr(conn, "port", None), database)
+
+
+def invalidate_current_cache(club_id):
+    club_id = int(club_id)
+    with _current_cache_lock:
+        for key in [key for key in _current_cache if key[1] == club_id]:
+            _current_cache.pop(key, None)
 
 
 def load_sources(conn, club_id, timezone_name):
@@ -357,6 +381,7 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False):
             if dirty is not None:
                 cur.execute("DELETE FROM guest_pulse_dirty WHERE club_id=%s AND generation=%s", (club_id, dirty))
         conn.commit()
+        invalidate_current_cache(club_id)
         return {"club_id": club_id, "status": "updated", "guests": len(values)}
     except Exception:
         conn.rollback()
@@ -368,12 +393,54 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False):
 
 
 def get_current(conn, club_id):
-    return [
-        {**loads(r["detail_json"]), "has_telegram": bool(r["telegram_id"])}
-        for r in rows(
+    club_id = int(club_id)
+    scope = _current_cache_scope(conn)
+    cache_key = (scope, club_id) if scope is not None else None
+    state = (
+        rows(
             conn,
-            """SELECT p.detail_json,g.telegram_id FROM guest_pulse_current p
-        JOIN guests g ON g.club_id=p.club_id AND g.guest_id=p.guest_id WHERE p.club_id=%s ORDER BY p.guest_id""",
+            "SELECT calculated_at,guest_count FROM guest_pulse_clubs WHERE club_id=%s",
             (club_id,),
         )
+        or [{}]
+    )[0]
+    version = (state.get("calculated_at"), int(state.get("guest_count") or 0))
+    cached_rows = None
+    if cache_key is not None:
+        with _current_cache_lock:
+            cached = _current_cache.get(cache_key)
+            if (
+                cached
+                and cached["version"] == version
+                and monotonic() - cached["stored_at"] <= CURRENT_CACHE_TTL_SECONDS
+            ):
+                cached_rows = cached["rows"]
+
+    if cached_rows is None:
+        cached_rows = [
+            loads(row["detail_json"])
+            for row in rows(
+                conn,
+                "SELECT detail_json FROM guest_pulse_current WHERE club_id=%s ORDER BY guest_id",
+                (club_id,),
+            )
+        ]
+        if cache_key is not None:
+            with _current_cache_lock:
+                _current_cache[cache_key] = {
+                    "version": version,
+                    "stored_at": monotonic(),
+                    "rows": cached_rows,
+                }
+                if len(_current_cache) > 32:
+                    oldest = min(_current_cache, key=lambda key: _current_cache[key]["stored_at"])
+                    _current_cache.pop(oldest, None)
+
+    telegram_by_guest = {
+        int(row["guest_id"]): bool(row.get("telegram_id"))
+        for row in rows(conn, "SELECT guest_id,telegram_id FROM guests WHERE club_id=%s", (club_id,))
+    }
+    return [
+        {**row, "has_telegram": telegram_by_guest.get(int(row["guest_id"]), False)}
+        for row in cached_rows
     ]

@@ -310,6 +310,8 @@
     max-height: 560px;
     overflow-y: scroll;
     overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
     scrollbar-gutter: stable;
     padding-right: 6px;
 }
@@ -895,7 +897,7 @@
 
                         <form method="POST" action="{{ url_for('owner.settings_pc_names_save') }}" class="pc-names-form">
                             {% if pc_name_settings %}
-                                <div class="pc-names-list" id="pcNamesList">
+                                <div class="pc-names-list" id="pcNamesList" tabindex="0" data-lenis-prevent data-lenis-prevent-wheel data-lenis-prevent-touch aria-label="Список названий компьютеров">
                                     {% for pc in pc_name_settings %}
                                         <div class="pc-name-row" data-pc-row>
                                             <div class="pc-name-row__sort">

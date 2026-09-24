@@ -40,8 +40,13 @@ const crmPulseSubtitle = document.getElementById("crmPulseSubtitle");
 const crmPulseRecipientSummary = document.getElementById("crmPulseRecipientSummary");
 const crmPulseRecipientList = document.getElementById("crmPulseRecipientList");
 const crmPulseMessage = document.getElementById("crmPulseMessage");
+const crmPulseCharacterCount = document.getElementById("crmPulseCharacterCount");
+const crmPulseInsertLink = document.getElementById("crmPulseInsertLink");
 const crmPulseVariableSelect = document.getElementById("crmPulseVariableSelect");
 const crmPulseInsertVariable = document.getElementById("crmPulseInsertVariable");
+const crmPulseFilesInput = document.getElementById("crmPulseFilesInput");
+const crmPulseFilesList = document.getElementById("crmPulseFilesList");
+const crmPulseMessagePreview = document.getElementById("crmPulseMessagePreview");
 const crmPulseBonusAmount = document.getElementById("crmPulseBonusAmount");
 const crmPulseTokenAmount = document.getElementById("crmPulseTokenAmount");
 const crmPulseExpiringBonus = document.getElementById("crmPulseExpiringBonus");
@@ -56,6 +61,7 @@ let crmFunnelPeriod = "all";
 let crmCampaignScrollY = 0;
 let crmPulseScrollY = 0;
 let crmActivePulseGroup = null;
+let crmPulseUploadedFiles = [];
 let crmAutoCampaignsLoaded = false;
 
 const CRM_OPERATOR_LABELS = {
@@ -687,6 +693,13 @@ function crmOpenPulseInteraction(key) {
     crmPulseSubtitle.textContent = group.source === "guest_pulse" ? "Пульс гостя · выбранная аудитория" : "Пульс гостя";
     if (crmPulseDismiss) crmPulseDismiss.hidden = group.source === "guest_pulse";
     crmPulseMessage.value = "";
+    crmPulseUploadedFiles = [];
+    crmRenderPulseFiles();
+    if (crmPulseFilesInput) {
+        crmPulseFilesInput.value = "";
+        crmPulseFilesInput.disabled = Boolean(window.CRM_OUTBOUND_DISABLED);
+    }
+    crmUpdatePulseMessage();
     crmPulseBonusAmount.value = "0";
     crmPulseTokenAmount.value = "0";
     crmPulseExpiringBonus.checked = false;
@@ -708,6 +721,163 @@ function crmInsertPulseVariable() {
     crmPulseMessage.focus();
     const nextPosition = start + token.length;
     crmPulseMessage.setSelectionRange(nextPosition, nextPosition);
+    crmPulseMessage.dispatchEvent(new Event("input", {bubbles: true}));
+}
+
+function crmNormalizeLinkUrl(value) {
+    let candidate = String(value || "").trim();
+    if (!candidate) return null;
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) candidate = `https://${candidate}`;
+    try {
+        const parsed = new URL(candidate);
+        return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : null;
+    } catch (_error) {
+        return null;
+    }
+}
+
+function crmEscapeTelegramAttribute(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+}
+
+function crmUpdatePulseMessage() {
+    if (!crmPulseMessage) return;
+    const value = crmPulseMessage.value || "";
+    if (crmPulseCharacterCount) crmPulseCharacterCount.textContent = value.length;
+    if (!crmPulseMessagePreview) return;
+    const samples = {
+        "{name}": "Алексей",
+        "{first_name}": "Алексей",
+        "{fio}": "Алексей Смирнов",
+        "{club_name}": "Ваш клуб",
+        "{cm_bonus_balance}": "250",
+        "{kb_balance}": "250",
+        "{token_balance}": "3",
+        "{tokens_balance}": "3",
+    };
+    let preview = value;
+    Object.entries(samples).forEach(([token, sample]) => {
+        preview = preview.replaceAll(token, sample);
+    });
+    if (!preview) {
+        crmPulseMessagePreview.textContent = "Здесь появится текст сообщения";
+        return;
+    }
+    const parsed = new DOMParser().parseFromString(preview, "text/html");
+    const fragment = document.createDocumentFragment();
+    const appendNode = (source, target) => {
+        if (source.nodeType === Node.TEXT_NODE) {
+            target.appendChild(document.createTextNode(source.textContent || ""));
+            return;
+        }
+        if (source.nodeType !== Node.ELEMENT_NODE) return;
+        const tag = source.tagName.toLowerCase();
+        if (tag === "br") {
+            target.appendChild(document.createElement("br"));
+            return;
+        }
+        const allowed = new Set(["b", "strong", "i", "em", "u", "a"]);
+        if (!allowed.has(tag)) {
+            Array.from(source.childNodes).forEach((child) => appendNode(child, target));
+            return;
+        }
+        const targetTag = tag === "strong" ? "b" : tag === "em" ? "i" : tag;
+        const element = document.createElement(targetTag);
+        if (targetTag === "a") {
+            const href = crmNormalizeLinkUrl(source.getAttribute("href"));
+            if (!href) {
+                Array.from(source.childNodes).forEach((child) => appendNode(child, target));
+                return;
+            }
+            element.href = href;
+            element.target = "_blank";
+            element.rel = "noopener noreferrer";
+        }
+        Array.from(source.childNodes).forEach((child) => appendNode(child, element));
+        target.appendChild(element);
+    };
+    Array.from(parsed.body.childNodes).forEach((node) => appendNode(node, fragment));
+    crmPulseMessagePreview.replaceChildren(fragment);
+}
+
+function crmWrapPulseSelection(tag) {
+    if (!crmPulseMessage) return;
+    const start = crmPulseMessage.selectionStart ?? crmPulseMessage.value.length;
+    const end = crmPulseMessage.selectionEnd ?? start;
+    const selected = crmPulseMessage.value.slice(start, end);
+    crmPulseMessage.setRangeText(`<${tag}>${selected}</${tag}>`, start, end, "end");
+    crmPulseMessage.focus();
+    crmPulseMessage.dispatchEvent(new Event("input", {bubbles: true}));
+}
+
+function crmInsertPulseLink() {
+    if (!crmPulseMessage) return;
+    const start = crmPulseMessage.selectionStart ?? crmPulseMessage.value.length;
+    const end = crmPulseMessage.selectionEnd ?? start;
+    const selected = crmPulseMessage.value.slice(start, end);
+    const rawUrl = prompt("Адрес ссылки (например, https://cyber-bonus.ru)");
+    if (!rawUrl) return;
+    const url = crmNormalizeLinkUrl(rawUrl);
+    if (!url) {
+        alert("Укажи корректную ссылку с адресом сайта");
+        return;
+    }
+    const linkText = selected || prompt("Текст ссылки", "Открыть");
+    if (!linkText) return;
+    const safeText = String(linkText).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    crmPulseMessage.setRangeText(
+        `<a href="${crmEscapeTelegramAttribute(url)}">${safeText}</a>`,
+        start,
+        end,
+        "end",
+    );
+    crmPulseMessage.focus();
+    crmPulseMessage.dispatchEvent(new Event("input", {bubbles: true}));
+}
+
+function crmRenderPulseFiles() {
+    if (!crmPulseFilesList) return;
+    crmPulseFilesList.replaceChildren();
+    crmPulseUploadedFiles.forEach((file, index) => {
+        const row = document.createElement("div");
+        row.className = "crm-pulse-file-item";
+        const label = document.createElement("span");
+        label.textContent = file.original_name || "Файл";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Удалить";
+        remove.addEventListener("click", () => {
+            crmPulseUploadedFiles.splice(index, 1);
+            crmRenderPulseFiles();
+        });
+        row.append(label, remove);
+        crmPulseFilesList.appendChild(row);
+    });
+}
+
+async function crmUploadPulseFiles(files) {
+    if (!files?.length) return;
+    const formData = new FormData();
+    Array.from(files).forEach((file) => formData.append("files", file));
+    crmPulseStatus.textContent = "Загружаем файлы...";
+    try {
+        const response = await fetch("/owner/api/mailings/upload", {method: "POST", body: formData});
+        const body = await response.text();
+        let data = null;
+        try { data = body ? JSON.parse(body) : null; } catch (_error) { data = null; }
+        if (!response.ok || !data?.ok) throw new Error(data?.error || "Не удалось загрузить файлы");
+        crmPulseUploadedFiles.push(...(data.files || []));
+        crmRenderPulseFiles();
+        crmPulseStatus.textContent = "";
+    } catch (error) {
+        crmPulseStatus.textContent = error.message || "Не удалось загрузить файлы";
+    } finally {
+        if (crmPulseFilesInput) crmPulseFilesInput.value = "";
+    }
 }
 
 async function crmSubmitPulseInteraction() {
@@ -723,6 +893,7 @@ async function crmSubmitPulseInteraction() {
                 transition: crmPulseTransitionPayload(crmActivePulseGroup),
                 pulse_selection: crmActivePulseGroup.selection_id || null,
                 message_text: crmPulseMessage.value,
+                attachments: crmPulseUploadedFiles,
                 bonus_amount: crmPulseBonusAmount.value,
                 token_amount: crmPulseTokenAmount.value,
                 is_expiring: crmPulseExpiringBonus.checked,
@@ -907,6 +1078,12 @@ if (crmPulseBackdrop) crmPulseBackdrop.addEventListener("click", crmClosePulseMo
 if (crmPulseClose) crmPulseClose.addEventListener("click", crmClosePulseModal);
 if (crmPulseModal) crmPulseModal.addEventListener("wheel", crmRoutePulseModalWheel, {passive: false});
 if (crmPulseInsertVariable) crmPulseInsertVariable.addEventListener("click", crmInsertPulseVariable);
+if (crmPulseInsertLink) crmPulseInsertLink.addEventListener("click", crmInsertPulseLink);
+if (crmPulseMessage) crmPulseMessage.addEventListener("input", crmUpdatePulseMessage);
+if (crmPulseFilesInput) crmPulseFilesInput.addEventListener("change", (event) => crmUploadPulseFiles(event.target.files));
+document.querySelectorAll("[data-crm-pulse-tag]").forEach((button) => {
+    button.addEventListener("click", () => crmWrapPulseSelection(button.dataset.crmPulseTag));
+});
 if (crmPulseSubmit) crmPulseSubmit.addEventListener("click", crmSubmitPulseInteraction);
 if (crmPulseDismiss) crmPulseDismiss.addEventListener("click", crmDismissPulseInteraction);
 if (crmPulseExpiringBonus) {
