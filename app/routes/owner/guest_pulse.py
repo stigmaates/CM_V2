@@ -94,6 +94,7 @@ def guest_pulse_data():
         deviation_sort_direction = request.args.get("deviation_sort_direction", "desc")
         search = str(request.args.get("search", "")).strip()[:100]
         contact = request.args.get("contact", "all")
+        view = request.args.get("view", "all")
         if sort_by not in ("name", "health", "value", "engagement", "overall"):
             raise ValueError("Неизвестная сортировка")
         if sort_direction not in ("asc", "desc"):
@@ -104,6 +105,8 @@ def guest_pulse_data():
             raise ValueError("Неизвестное направление сортировки отклонений")
         if contact not in ("all", "with", "without"):
             raise ValueError("Неизвестный фильтр Telegram")
+        if view not in ("all", "overview", "audience"):
+            raise ValueError("Неизвестный режим загрузки")
     except (ValueError, TypeError) as exc:
         return jsonify(ok=False, error=str(exc)), 400
     conn = get_db_connection()
@@ -141,27 +144,29 @@ def guest_pulse_data():
         selected = [row for row in selected if row["has_telegram"]]
     elif contact == "without":
         selected = [row for row in selected if not row["has_telegram"]]
-    deviating = select(current, f, "deviations")
-    if deviation_sort_by == "priority":
-        deviating.sort(
-            key=lambda r: (
-                max(d["deviation_ratio"] for d in r["deviations"]),
-                r["name"].casefold(),
-                r["guest_id"],
-            ),
-            reverse=deviation_sort_direction == "desc",
-        )
-    else:
-        deviation_scored = [r for r in deviating if r[deviation_sort_by]["score"] is not None]
-        deviation_unscored = [r for r in deviating if r[deviation_sort_by]["score"] is None]
-        deviation_scored.sort(
-            key=lambda r: (r[deviation_sort_by]["score"], r["name"].casefold(), r["guest_id"]),
-            reverse=deviation_sort_direction == "desc",
-        )
-        deviating = deviation_scored + sorted(
-            deviation_unscored,
-            key=lambda r: (r["name"].casefold(), r["guest_id"]),
-        )
+    deviating = []
+    if view != "audience":
+        deviating = select(current, f, "deviations")
+        if deviation_sort_by == "priority":
+            deviating.sort(
+                key=lambda r: (
+                    max(d["deviation_ratio"] for d in r["deviations"]),
+                    r["name"].casefold(),
+                    r["guest_id"],
+                ),
+                reverse=deviation_sort_direction == "desc",
+            )
+        else:
+            deviation_scored = [r for r in deviating if r[deviation_sort_by]["score"] is not None]
+            deviation_unscored = [r for r in deviating if r[deviation_sort_by]["score"] is None]
+            deviation_scored.sort(
+                key=lambda r: (r[deviation_sort_by]["score"], r["name"].casefold(), r["guest_id"]),
+                reverse=deviation_sort_direction == "desc",
+            )
+            deviating = deviation_scored + sorted(
+                deviation_unscored,
+                key=lambda r: (r["name"].casefold(), r["guest_id"]),
+            )
 
     def sort_group(group):
         if sort_by == "name":
@@ -174,9 +179,10 @@ def guest_pulse_data():
         )
         return scored + sorted(unscored, key=lambda r: (r["name"].casefold(), r["guest_id"]))
 
-    selected = sort_group([r for r in selected if r["has_telegram"]]) + sort_group(
-        [r for r in selected if not r["has_telegram"]]
-    )
+    if view != "overview":
+        selected = sort_group([r for r in selected if r["has_telegram"]]) + sort_group(
+            [r for r in selected if not r["has_telegram"]]
+        )
     scored_selected = [r["overall"]["score"] for r in selected if r["overall"]["score"] is not None]
     audience_scored = [r["overall"]["score"] for r in audience_summary if r["overall"]["score"] is not None]
     at = utc_datetime_to_club_local(state.get("calculated_at"), state.get("timezone"))
@@ -206,7 +212,11 @@ def guest_pulse_data():
             )
             for k, label, c in AUDIENCES
         ],
-        guests=[summary(r) for r in selected[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]],
+        guests=(
+            [summary(r) for r in selected[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]]
+            if view != "overview"
+            else []
+        ),
         page=page,
         page_size=PAGE_SIZE,
         sort=sort_by,

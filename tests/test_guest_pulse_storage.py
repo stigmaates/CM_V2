@@ -22,6 +22,45 @@ from app.services.guest_pulse import get_current, refresh_club
 NOW = datetime(2026, 9, 11, 8)
 
 
+def test_current_snapshot_cache_reuses_parsed_details_but_keeps_telegram_live(monkeypatch):
+    from app.services import guest_pulse
+
+    class ProductionLikeConnection:
+        host = "cache-test-host"
+        port = 3306
+        db = "cache-test-db"
+
+    calls = {"details": 0, "loads": 0}
+    telegram = {"value": 12345}
+
+    def fake_rows(_conn, sql, _params=()):
+        if "guest_pulse_clubs" in sql:
+            return [{"calculated_at": NOW, "guest_count": 1}]
+        if "SELECT detail_json" in sql:
+            calls["details"] += 1
+            return [{"detail_json": '{"guest_id": 777, "name": "Кэш"}'}]
+        if "SELECT guest_id,telegram_id" in sql:
+            return [{"guest_id": 777, "telegram_id": telegram["value"]}]
+        raise AssertionError(sql)
+
+    original_loads = guest_pulse.loads
+
+    def counted_loads(value):
+        calls["loads"] += 1
+        return original_loads(value)
+
+    guest_pulse.invalidate_current_cache(777)
+    monkeypatch.setattr(guest_pulse, "rows", fake_rows)
+    monkeypatch.setattr(guest_pulse, "loads", counted_loads)
+    connection = ProductionLikeConnection()
+
+    assert guest_pulse.get_current(connection, 777)[0]["has_telegram"] is True
+    telegram["value"] = None
+    assert guest_pulse.get_current(connection, 777)[0]["has_telegram"] is False
+    assert calls == {"details": 1, "loads": 1}
+    guest_pulse.invalidate_current_cache(777)
+
+
 class Cursor:
     def __init__(self, conn):
         self.conn = conn
@@ -388,6 +427,9 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'id="gpAudienceSearch"' in html
     assert 'id="gpAudienceAverage"' in html
     assert 'id="gpAudienceTelegramPercent"' in html
+    assert 'id="crmPulseInsertLink"' in html
+    assert 'id="crmPulseFilesInput"' in html
+    assert 'id="crmPulseMessagePreview"' in html
     assert 'id="gpAudienceTelegramOnly" checked' in html
     assert 'id="gpDeviationTelegram" checked' in html
     assert 'id="gpDeviationDetail"' in html
@@ -447,11 +489,18 @@ def test_crm_handoff_idempotent_and_cannot_use_other_clubs_selection(pulse_clien
     headers = {"X-CSRFToken": "pulse-test-csrf"}
     pulse_client.post("/owner/api/guest-pulse/selection", json={}, headers=headers)
     key = sql("SELECT id FROM guest_pulse_selections")[0]["id"]
-    payload = {"pulse_selection": key, "guest_ids": [999], "message_text": "Тест без отправки"}
+    attachments = [{"path": "uploads/mailings/2/example.jpg", "original_name": "example.jpg"}]
+    payload = {
+        "pulse_selection": key,
+        "guest_ids": [999],
+        "message_text": "Тест без отправки",
+        "attachments": attachments,
+    }
     assert pulse_client.post("/owner/api/crm-pulse/interact", json=payload, headers=headers).status_code == 200
     assert pulse_client.post("/owner/api/crm-pulse/interact", json=payload, headers=headers).status_code == 200
     assert len(calls) == 1 and calls[0]["recipients"][0]["guest_id"] == 42
     assert calls[0]["filters_json"]["type"] == "guest_pulse"
+    assert calls[0]["attachments"] == attachments
     with pulse_client.session_transaction() as sess:
         sess["club_id"] = 3
     assert pulse_client.post("/owner/api/crm-pulse/interact", json=payload, headers=headers).status_code == 404
@@ -550,6 +599,21 @@ def test_audience_drawer_search_and_contact_filters(pulse_client, mixed_pulse_au
     assert without["audience_summary_count"] == 14
     assert without["audience_summary_telegram_count"] == 13
     assert without["audience_summary_without_telegram_count"] == 1
+
+
+def test_api_load_modes_only_return_data_needed_by_each_screen(pulse_client, mixed_pulse_audience):
+    overview = pulse_client.get("/owner/api/guest-pulse?view=overview").get_json()
+    assert overview["ok"] is True
+    assert overview["guests"] == []
+    assert "deviations" in overview
+
+    audience = pulse_client.get("/owner/api/guest-pulse?view=audience&audience_type=loyal").get_json()
+    assert audience["ok"] is True
+    assert audience["guests"]
+    assert audience["deviations"] == []
+    assert audience["deviation_count"] == 0
+
+    assert pulse_client.get("/owner/api/guest-pulse?view=unknown").status_code == 400
 
 
 def test_audience_drawer_handoff_keeps_search_filter(pulse_client, database, mixed_pulse_audience):

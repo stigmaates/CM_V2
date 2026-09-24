@@ -24,7 +24,9 @@ def test_owner_settings_renders_guest_login_copy_link():
                 two_gis_url="",
             ),
             guest_login_url="https://cyber-bonus.ru/guest/login?club_id=1",
-            pc_name_settings=[],
+            pc_name_settings=[
+                {"uuid": "pc-uuid-1", "display_name": "ПК 1", "sort_order": 0},
+            ],
             system_status={
                 "timezone_label": "время клуба: Екатеринбург / Уфа — UTC+5",
                 "updates": [],
@@ -45,6 +47,9 @@ def test_owner_settings_renders_guest_login_copy_link():
     assert 'value="Asia/Yekaterinburg" selected' in html
     assert "Екатеринбург / Уфа — UTC+5" in html
     assert "время клуба: Екатеринбург / Уфа — UTC+5" in html
+    assert 'id="pcNamesList"' in html
+    assert "data-lenis-prevent-wheel" in html
+    assert 'aria-label="Список названий компьютеров"' in html
 
 
 def test_owner_settings_renders_profile_tab_and_linked_club():
