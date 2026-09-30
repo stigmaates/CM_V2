@@ -318,6 +318,10 @@ time {
     margin-top: 14px;
 }
 
+.prize-panel {
+    margin-bottom: 14px;
+}
+
 .redeem-row {
     grid-template-columns: minmax(0, 1fr) 220px;
 }

@@ -42,7 +42,7 @@
                     <button type="submit">Проверить</button>
                 </div>
             </form>
-            <p>Показываем только данные гостя из текущего клуба: балансы, Telegram, транзакции и заявки на перевод КБ.</p>
+            <p>Показываем только данные гостя из текущего клуба: балансы, Telegram, призы, транзакции и заявки на перевод КБ.</p>
         </section>
 
         {% if setup_error %}
@@ -72,6 +72,28 @@
                     <strong>{{ 'Привязан' if guest.has_telegram else 'Не привязан' }}</strong>
                     <small>{% if guest.telegram_id %}ID {{ guest.telegram_id }}{% else %}рассылки не дойдут{% endif %}</small>
                 </div>
+            </section>
+
+            <section class="history-panel prize-panel">
+                <div class="history-head">
+                    <h2>Призы и выдача</h2>
+                    <span>{{ lookup.prize_claims|length }}</span>
+                </div>
+                {% for item in lookup.prize_claims %}
+                    <div class="redeem-row">
+                        <div>
+                            <strong>{{ item.prize_name }}</strong>
+                            <small>Заявка №{{ item.id }} · {{ item.status_label }}</small>
+                        </div>
+                        <div>
+                            <time>создана: {{ item.created_at }}</time>
+                            {% if item.issued_at %}<time>выдан: {{ item.issued_at }}</time>{% endif %}
+                            {% if item.cancelled_at %}<time>отменена: {{ item.cancelled_at }}</time>{% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="empty">Заявок на выдачу призов нет.</div>
+                {% endfor %}
             </section>
 
             <section class="history-grid">
