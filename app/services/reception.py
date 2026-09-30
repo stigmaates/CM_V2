@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from app.core import get_db_connection
+from app.services.prize_claims import STATUS_LABELS as PRIZE_STATUS_LABELS
 
 PHONE_NORMALIZED_SQL = (
     "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone, ''), '+', ''), "
@@ -193,6 +194,22 @@ def get_reception_guest_lookup(*, club_id: int, phone: str, limit: int = 30) -> 
                 """,
                 (club_id, guest_id, int(limit)),
             )
+            # Read existing claims as well as new ones. Do not limit pending
+            # prizes to the transaction history window or create claims here.
+            cursor.execute(
+                """
+                SELECT id, prize_name, status, created_at, issued_at, cancelled_at
+                FROM guest_prize_claims
+                WHERE club_id = %s AND guest_id = %s
+                ORDER BY CASE WHEN status IN ('issued', 'cancelled') THEN 1 ELSE 0 END,
+                         created_at DESC, id DESC
+                """,
+                (club_id, guest_id),
+            )
+            prize_claims = [
+                {**row, "status_label": PRIZE_STATUS_LABELS.get(row["status"], row["status"])}
+                for row in (cursor.fetchall() or [])
+            ]
 
         return {
             "found": True,
@@ -206,6 +223,7 @@ def get_reception_guest_lookup(*, club_id: int, phone: str, limit: int = 30) -> 
             "bonus_transactions": _decorate_transactions(bonus_transactions),
             "token_transactions": _decorate_transactions(token_transactions),
             "redeem_requests": _decorate_redeem_requests(redeem_requests),
+            "prize_claims": prize_claims,
         }
     finally:
         conn.close()
