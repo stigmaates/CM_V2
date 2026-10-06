@@ -335,3 +335,35 @@ def test_registration_merge_is_optional_until_production_migration(monkeypatch):
     monkeypatch.setattr(mirror, 'query', lambda connection, sql, args=(): [{'cnt': int(connection is stage)}])
     assert mirror.merge_exact_module_registrations(source, stage) == 0
     assert stage.commits == 0
+
+
+def test_stage_gizmo_club_rows_survive_mirroring_and_pulse_reset():
+    source, stage = Connection(0), Connection(0)
+    for conn in (source, stage):
+        for table in ('clubs', 'guests', *mirror.PULSE_TABLES):
+            conn.db.execute(f'DROP TABLE {table}')
+            conn.db.execute(f'CREATE TABLE {table} (id INTEGER, club_id INTEGER)')
+        conn.db.commit()
+    source.db.execute('INSERT INTO clubs VALUES (1,1)')
+    source.db.execute('INSERT INTO guests VALUES (10,1)')
+    stage.db.execute('INSERT INTO guests VALUES (20,1)')
+    stage.db.execute('INSERT INTO guests VALUES (30,900001)')
+    for table in mirror.PULSE_TABLES:
+        stage.db.execute(f'INSERT INTO {table} VALUES (30,900001)')
+        stage.db.execute(f'INSERT INTO {table} VALUES (20,1)')
+    source.db.commit()
+    stage.db.commit()
+    mirror.replace_tables(source,stage,{'guests':['id','club_id']},reset_pulse=True,protected_clubs=(900001,))
+    assert sorted(stage.values('guests')) == [(10,1),(30,900001)]
+    assert all(stage.values(table) == [(30,900001)] for table in mirror.PULSE_TABLES)
+
+
+def test_source_club_collision_refuses_mirror_before_deleting_pilot():
+    source, stage = Connection(0), Connection(0)
+    for conn in (source,stage):
+        conn.db.execute('ALTER TABLE clubs ADD COLUMN club_id INTEGER')
+        conn.db.execute('UPDATE clubs SET club_id=900001')
+        conn.db.commit()
+    with pytest.raises(ValueError, match='collides'):
+        mirror.replace_tables(source,stage,{'guests':['id']},protected_clubs=(900001,))
+    assert stage.values('guests') == [(0,)] and stage.commits == 0

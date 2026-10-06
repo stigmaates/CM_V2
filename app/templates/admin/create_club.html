@@ -5,7 +5,7 @@
 <section class="admin-page-head">
     <div>
         <h1>Создание клуба</h1>
-        <p>Добавь клуб и данные для подключения к LANGAME API. Новый клуб создается выключенным.</p>
+        <p>Выбери систему клуба и укажи данные подключения. Новый клуб создается выключенным.</p>
     </div>
 </section>
 
@@ -17,11 +17,27 @@
         </div>
 
         <div>
+            <label for="integration_provider">Система клуба</label>
+            <select id="integration_provider" name="integration_provider">
+                <option value="langame">Langame</option>
+                {% if gizmo_pilot_enabled %}<option value="gizmo">Gizmo — пилот</option>{% endif %}
+            </select>
+        </div>
+        <div>
+            <label for="timezone">Часовой пояс</label>
+            <select id="timezone" name="timezone">
+                {% for value, label in timezone_choices %}
+                <option value="{{ value }}" {{ 'selected' if value == 'Europe/Moscow' else '' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <p id="gizmoHelp" hidden>Подключение Gizmo настраивается отдельно на сервере. До проверки импорта обслуживание будет выключено.</p>
+        <div data-langame>
             <label for="api_key">LANGAME API key</label>
-            <input type="text" id="api_key" name="api_key" required>
+            <input type="password" autocomplete="new-password" id="api_key" name="api_key" required>
         </div>
 
-        <div>
+        <div data-langame>
             <label for="secret">Secret / tenant</label>
             <input type="text" id="secret" name="secret" placeholder="620" required>
         </div>
@@ -29,4 +45,18 @@
         <button class="admin-btn" type="submit">Создать клуб</button>
     </form>
 </section>
+<script>
+const providerSelect = document.getElementById('integration_provider');
+function updateProviderFields() {
+    const gizmo = providerSelect.value === 'gizmo';
+    document.querySelectorAll('[data-langame]').forEach(field => {
+        field.hidden = gizmo;
+        field.querySelector('input').required = !gizmo;
+        field.querySelector('input').disabled = gizmo;
+    });
+    document.getElementById('gizmoHelp').hidden = !gizmo;
+}
+providerSelect.addEventListener('change', updateProviderFields);
+updateProviderFields();
+</script>
 {% endblock %}

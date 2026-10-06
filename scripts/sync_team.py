@@ -167,7 +167,7 @@ def main():
             return 0
         clubs = rows(
             conn,
-            "SELECT club_id,secret,lg_api_key FROM clubs WHERE service_enabled=1"
+            "SELECT club_id,secret,lg_api_key FROM clubs WHERE service_enabled=1 AND integration_provider='langame'"
             + (" AND club_id=%s" if args.club_id else ""),
             (args.club_id,) if args.club_id else (),
         )

@@ -17,7 +17,8 @@ from app.config import (
     DB_USER,
     DB_WRITE_TIMEOUT,
 )
-from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
+from app.integrations.providers import supports_langame_sync
+from scripts.sync_utils import integration_provider_select_expr, is_service_enabled, service_enabled_select_expr
 
 logging.basicConfig(level=logging.INFO)
 
@@ -46,13 +47,14 @@ def get_club_data(club_id: int):
     try:
         with conn.cursor() as cursor:
             service_enabled_expr = service_enabled_select_expr(cursor)
+            provider_expr = integration_provider_select_expr(cursor)
             cursor.execute(
                 """
-                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}, {provider_expr}
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
-            """.format(service_enabled_expr=service_enabled_expr),
+            """.format(service_enabled_expr=service_enabled_expr, provider_expr=provider_expr),
                 (club_id,),
             )
             return cursor.fetchone()
@@ -65,11 +67,12 @@ def get_clubs():
     try:
         with conn.cursor() as cursor:
             service_enabled_expr = service_enabled_select_expr(cursor)
+            provider_expr = integration_provider_select_expr(cursor)
             cursor.execute("""
-                SELECT club_id, lg_api_key, secret, {service_enabled_expr}
+                SELECT club_id, lg_api_key, secret, {service_enabled_expr}, {provider_expr}
                 FROM clubs
                 ORDER BY club_id
-            """.format(service_enabled_expr=service_enabled_expr))
+            """.format(service_enabled_expr=service_enabled_expr, provider_expr=provider_expr))
             return cursor.fetchall()
     finally:
         conn.close()
@@ -238,6 +241,9 @@ def sync_guests(club_id: int, progress: Callable[[str], None] | None = None):
     if not is_service_enabled(club):
         logging.info("Клуб %s выключен, initial sync гостей пропущен", club_id)
         return {"club_id": club_id, "status": "skipped_disabled"}
+
+    if not supports_langame_sync(club):
+        return {"club_id": club_id, "status": "skipped_provider"}
 
     api_key = club["lg_api_key"]
     secret = club["secret"]

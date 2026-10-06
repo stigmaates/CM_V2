@@ -25,3 +25,10 @@ def is_service_enabled(row: dict) -> bool:
     if value is None:
         return True
     return bool(int(value))
+
+
+def integration_provider_select_expr(cursor, table_alias=None):
+    prefix = f"{table_alias}." if table_alias else ""
+    if table_has_column(cursor, "clubs", "integration_provider"):
+        return f"{prefix}integration_provider AS integration_provider"
+    return "'langame' AS integration_provider"

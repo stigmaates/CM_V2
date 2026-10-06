@@ -8,6 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.integrations.providers import supports_langame_sync
 from scripts.sync_balance_topups_incremental import (
     fetch_topups,
     get_clubs,
@@ -45,6 +46,9 @@ def sync_balance_topups_initial(club_id: int, date_from: str, date_to: str):
             "date_from": date_from,
             "date_to": date_to,
         }
+
+    if not supports_langame_sync(club):
+        return {"club_id": club_id, "status": "skipped_provider"}
 
     api_key = club["lg_api_key"]
     secret = club["secret"]

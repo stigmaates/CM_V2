@@ -52,3 +52,25 @@ def test_insert_admin_club_raises_for_duplicate_club_id():
         assert "уже существует" in str(exc)
     else:
         raise AssertionError("expected duplicate club_id to fail")
+
+
+def test_gizmo_club_is_disabled_without_langame_credentials_on_stage(monkeypatch):
+    from app.routes.admin import clubs
+    monkeypatch.setattr(clubs, 'APP_ENV', 'stage')
+    cursor = FakeCursor()
+    clubs._insert_admin_club(cursor, 900001, 'Next, Уфа', '', '', provider='gizmo', timezone_name='Asia/Yekaterinburg')
+    insert_sql, params = cursor.queries[-2]
+    assert "NULL,0,'gizmo',0" in insert_sql
+    assert params == (900001, 'Next, Уфа', 'Asia/Yekaterinburg')
+    assert 'club_integrations' in cursor.queries[-1][0]
+
+
+def test_gizmo_creation_is_not_enabled_in_production(monkeypatch):
+    import pytest
+
+    from app.routes.admin import clubs
+    monkeypatch.setattr(clubs, 'APP_ENV', 'production')
+    cursor = FakeCursor()
+    with pytest.raises(ValueError, match='стейдже'):
+        clubs._insert_admin_club(cursor, 900001, 'Next', '', '', provider='gizmo')
+    assert not any('INSERT INTO' in sql for sql, _ in cursor.queries)
