@@ -136,3 +136,63 @@ def test_disabled_login_page_never_creates_token(monkeypatch):
 
     monkeypatch.setattr(routes, "create_guest_login_token", forbidden)
     assert app.test_client().get(f"/guest/login?club_id={CLUB}").status_code == 403
+
+
+@pytest.mark.parametrize("target_enabled", [0, 1])
+def test_stale_disabled_session_does_not_override_login_target(monkeypatch, target_enabled):
+    from app import core
+
+    app = Flask(__name__)
+    app.secret_key = "test"
+    app.register_blueprint(guest_bp)
+    core.register_club_service_gate(app)
+    monkeypatch.setattr(core, "is_club_service_enabled", lambda cid: int(cid) == 2)
+    monkeypatch.setattr(routes, "is_maintenance_enabled", lambda cid: False)
+    monkeypatch.setattr(routes, "get_guest_login_club", lambda cid: {"club_id": 2, "service_enabled": target_enabled})
+    monkeypatch.setattr(routes, "create_guest_login_token", lambda cid: "new-token")
+    monkeypatch.setattr(routes, "render_template", lambda template, **kwargs: template)
+    with app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=10, guest_club_id=1)
+        response = client.get("/guest/login?club_id=2")
+        assert response.status_code == (200 if target_enabled else 403)
+        if target_enabled:
+            assert b"guest/guest_login.html" in response.data
+            with client.session_transaction() as sess:
+                assert not sess.get("guest_logged_in")
+
+
+def test_stale_session_can_confirm_new_club_and_logout(monkeypatch):
+    from app import core
+
+    app = Flask(__name__)
+    app.secret_key = "test"
+    app.register_blueprint(guest_bp)
+    core.register_club_service_gate(app)
+    monkeypatch.setattr(core, "is_club_service_enabled", lambda cid: int(cid) == 2)
+    monkeypatch.setattr(routes, "is_rate_limited", lambda *args, **kwargs: False)
+    monkeypatch.setattr(routes, "get_guest_login_club", lambda cid: {"club_id": 2, "service_enabled": 1})
+    monkeypatch.setattr(
+        routes,
+        "get_guest_login_token",
+        lambda token: dict(
+            club_id=2,
+            guest_id=20,
+            is_confirmed=1,
+            expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=5),
+        ),
+    )
+    monkeypatch.setattr(routes, "get_guest_by_id", lambda *args: dict(club_id=2, guest_id=20, telegram_id=123))
+    with app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess.update(guest_logged_in=True, guest_id=10, guest_club_id=1)
+        response = client.get("/guest/check-login?token=confirmed")
+        assert response.json["status"] == "confirmed"
+        with client.session_transaction() as sess:
+            assert sess["guest_club_id"] == 2
+            sess["guest_club_id"] = 1
+        # Protected guest pages remain blocked; exit is still possible.
+        assert client.get("/guest/api/tokens", headers={"Accept": "application/json"}).status_code == 403
+        assert client.get("/guest/logout").status_code == 302
+        with client.session_transaction() as sess:
+            assert not sess.get("guest_logged_in")

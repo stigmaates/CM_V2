@@ -127,7 +127,9 @@ def register_club_service_gate(flask_app: Flask) -> None:
         endpoint = request.endpoint or ""
         if endpoint.startswith("static") or endpoint.startswith("admin.") or endpoint.startswith("demo."):
             return None
-        if endpoint in {"auth.logout", "auth.login"}:
+        # Guest login/check-login validate the target club themselves. A stale
+        # session from another paused club must not block changing clubs or logout.
+        if endpoint in {"auth.logout", "auth.login", "guest.login", "guest.check_login", "guest.logout"}:
             return None
 
         club_id = _service_gate_club_id()
