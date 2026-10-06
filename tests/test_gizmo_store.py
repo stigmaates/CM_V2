@@ -295,3 +295,19 @@ def test_archived_pc_is_hidden_in_settings_but_visible_in_its_historical_heatmap
         900001, current_start=datetime(2026, 10, 2), current_end=datetime(2026, 10, 3)
     )
     assert later["pcs"] == []
+
+
+def test_subsecond_session_keeps_its_positive_duration_on_reimport(sample):
+    conn = Connection()
+    start = datetime(2026, 10, 1, 10, 0, 0, 100000)
+    stop = datetime(2026, 10, 1, 10, 0, 0, 400000)
+    sample["sessions"][0].update(date_start=start, date_stop=stop)
+    save(conn, 900001, sample)
+    # Simulate the previous whole-second MySQL storage, then reconcile from API.
+    conn.db.execute("UPDATE guest_sessions SET date_start='2026-10-01 10:00:00',date_stop='2026-10-01 10:00:00'")
+    conn.commit()
+    save(conn, 900001, sample)
+    row = conn.records("guest_sessions")[0]
+    assert datetime.fromisoformat(row["date_start"]) == start
+    assert datetime.fromisoformat(row["date_stop"]) == stop
+    assert datetime.fromisoformat(row["date_stop"]) > datetime.fromisoformat(row["date_start"])

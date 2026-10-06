@@ -85,6 +85,19 @@ def columns(conn, table):
         ORDER BY ORDINAL_POSITION""", (table,))
 
 
+def compatible_column_type(source_type, stage_type):
+    if source_type == stage_type:
+        return True
+    # An additive stage migration can preserve fractional session timestamps.
+    # Widening DATETIME precision loses no production data; narrowing is refused.
+    import re
+
+    source_match = re.fullmatch(r"datetime(?:\(([0-6])\))?", source_type.lower())
+    stage_match = re.fullmatch(r"datetime(?:\(([0-6])\))?", stage_type.lower())
+    return bool(source_match and stage_match
+                and int(stage_match.group(1) or 0) >= int(source_match.group(1) or 0))
+
+
 def make_plan(source, stage):
     source_tables, stage_tables = inventory(source), inventory(stage)
     if "clubs" not in source_tables or "clubs" not in stage_tables:
@@ -102,7 +115,7 @@ def make_plan(source, stage):
         source_columns = {r["COLUMN_NAME"]: r for r in columns(source, name)}
         stage_columns = {r["COLUMN_NAME"]: r for r in columns(stage, name)}
         for key, column in source_columns.items():
-            if key not in stage_columns or column["COLUMN_TYPE"] != stage_columns[key]["COLUMN_TYPE"]:
+            if key not in stage_columns or not compatible_column_type(column["COLUMN_TYPE"], stage_columns[key]["COLUMN_TYPE"]):
                 raise ValueError(f"Incompatible stage column: {name}.{key}")
         if name in PRESERVE:
             continue
