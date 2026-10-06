@@ -185,7 +185,8 @@ def _campaigns(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     topups_by_guest: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in topups:
-        topups_by_guest[int(row["guest_id"])].append(row)
+        if row.get("guest_id") is not None:
+            topups_by_guest[int(row["guest_id"])].append(row)
     grouped: dict[tuple[str, str | int], dict[int, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     meta: dict[tuple[str, str | int], dict[str, Any]] = {}
     for row in recipients:
@@ -391,7 +392,8 @@ def build_report_from_sources(
     ]
     topup_by_guest = defaultdict(float)
     for row in topups:
-        topup_by_guest[int(row["guest_id"])] += float(row.get("amount") or 0)
+        if row.get("guest_id") is not None:
+            topup_by_guest[int(row["guest_id"])] += float(row.get("amount") or 0)
     qualifying_topups = {guest_id: topup_by_guest[guest_id] for guest_id in qualifying if topup_by_guest[guest_id] > 0}
     engaged_sum = round(sum(qualifying_topups.values()), 2)
 

@@ -118,6 +118,8 @@ def synchronize(conn, club_id, *, directory=DIRECTORY):
             save(conn, club_id, data)
             status.update(
                 counts=data["counts"],
+                excluded_accounts=data.get("excluded_accounts", {}),
+                nonpersonal_activity=data.get("nonpersonal_activity", {}),
                 data_saved_at_utc=datetime.now(UTC).isoformat(),
                 first_session_utc=min((r["date_start"].isoformat() for r in data.get("sessions", [])), default=None),
                 first_topup_utc=min((r["topup_at"].isoformat() for r in data.get("topups", [])), default=None),

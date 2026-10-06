@@ -15,6 +15,12 @@ class GizmoError(ValueError):
     pass
 
 
+class GizmoHTTPError(GizmoError):
+    def __init__(self, resource, status):
+        self.status = status
+        super().__init__(f"Gizmo {resource}: HTTP {status}")
+
+
 class GizmoClient:
     def __init__(self, *, address, server_name, certificate_pem, fingerprint, api_key, port=443):
         ipaddress.ip_address(address)
@@ -58,7 +64,7 @@ class GizmoClient:
             conn.request("GET", path, headers={"Accept": "application/json", "X-API-KEY": self.api_key})
             response = conn.getresponse()
             if response.status != 200:
-                raise GizmoError(f"Gizmo {resource}: HTTP {response.status}")
+                raise GizmoHTTPError(resource, response.status)
             raw = response.read(8 * 1024 * 1024 + 1)
             if len(raw) > 8 * 1024 * 1024:
                 raise GizmoError("Response too large; use a smaller time window")
