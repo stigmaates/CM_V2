@@ -165,11 +165,38 @@ def process_one_mailing(conn, mailing_id: int):
             )
             attachments = cur.fetchall()
 
+        conn.commit()
+        with conn.cursor() as cur:
+            has_service_flag = table_has_column(cur, "clubs", "service_enabled")
         success_count = 0
         failed_count = 0
 
         try:
             for rec in recipients:
+                if has_service_flag:
+                    # Every recipient sees fresh service state, including jobs
+                    # already selected before an administrator disabled a club.
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT service_enabled FROM clubs WHERE club_id=%s", (mailing["club_id"],))
+                        club = cur.fetchone()
+                    conn.commit()
+                    if not club or not int(club.get("service_enabled") or 0):
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """UPDATE mailings SET status='queued', finished_at=NULL,
+                                success_count=(SELECT COUNT(*) FROM mailing_recipients WHERE mailing_id=%s AND status='sent'),
+                                failed_count=(SELECT COUNT(*) FROM mailing_recipients WHERE mailing_id=%s AND status='failed')
+                                WHERE id=%s""",
+                                (mailing_id, mailing_id, mailing_id),
+                            )
+                        conn.commit()
+                        finish_job_run(
+                            job_run_id,
+                            "success",
+                            rows_saved=success_count,
+                            metadata={"mailing_id": mailing_id, "outcome": "service_disabled"},
+                        )
+                        return
                 recipient_id = rec["id"]
                 telegram_id = rec["telegram_id"]
 

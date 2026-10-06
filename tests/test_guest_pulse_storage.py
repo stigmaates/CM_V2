@@ -760,7 +760,7 @@ def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, d
         ("gizmo", 0, 0, True),
         ("langame", 0, 0, False),
         ("gizmo", 1, 0, False),
-        ("gizmo", 0, 1, False),
+        ("gizmo", 0, 1, True),
     ],
 )
 def test_stage_gizmo_preview_populates_disabled_pilot_without_history(

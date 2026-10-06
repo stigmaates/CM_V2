@@ -22,7 +22,10 @@ def target(club_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT club_id, name, integration_provider FROM clubs WHERE club_id=%s", (club_id,))
+            cur.execute(
+                "SELECT club_id, name, integration_provider, service_enabled, integration_ready FROM clubs WHERE club_id=%s",
+                (club_id,),
+            )
             club = cur.fetchone()
         if not club or club["integration_provider"] != "gizmo":
             abort(404)
@@ -40,7 +43,22 @@ def gizmo_setup(club_id):
     try:
         if request.method == "POST":
             try:
-                if request.form.get("action") == "pause":
+                if request.form.get("action") in {"activate", "disable"}:
+                    from app.integrations.gizmo_lifecycle import set_service
+
+                    enabled = request.form["action"] == "activate"
+                    set_service(conn, club_id, enabled)
+                    from app.services.audit import record_audit_event
+
+                    record_audit_event(
+                        action="admin.club_service.toggle",
+                        club_id=club_id,
+                        entity_type="club",
+                        entity_id=club_id,
+                        details={"service_enabled": enabled},
+                    )
+                    flash("Обслуживание включено." if enabled else "Обслуживание выключено.", "success")
+                elif request.form.get("action") == "pause":
                     pause_sync(conn, club_id)
                     flash("Обновления Gizmo приостановлены.", "success")
                 else:
@@ -49,7 +67,7 @@ def gizmo_setup(club_id):
             except (GizmoError, OSError, ValueError) as exc:
                 flash(public_error(exc), "error")
             return redirect(url_for("admin.gizmo_setup", club_id=club_id))
-        settings = read_target(conn, club_id, allow_initial=True)
+        settings = read_target(conn, club_id, allow_initial=True, lifecycle=True)
         state = public_status(club_id)
         return render_template(
             "admin/gizmo_setup.html",

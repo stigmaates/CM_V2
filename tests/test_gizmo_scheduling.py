@@ -142,7 +142,7 @@ def test_scheduler_checks_environment_before_connecting(tmp_path, monkeypatch):
     assert not list(tmp_path.iterdir())
 
 
-def test_scheduler_uses_only_explicit_disabled_gizmo_previews():
+def test_scheduler_selects_previews_and_ready_clubs_for_per_club_service_checks():
     class Cursor:
         def __enter__(self):
             return self
@@ -152,7 +152,7 @@ def test_scheduler_uses_only_explicit_disabled_gizmo_previews():
 
         def execute(self, sql):
             assert "c.integration_provider = 'gizmo'" in sql
-            assert "c.service_enabled = 0 AND c.integration_ready = 0" in sql
+            assert "c.service_enabled = 0 OR c.integration_ready = 1" in sql
             assert "JOIN club_integrations" in sql
 
         def fetchall(self):

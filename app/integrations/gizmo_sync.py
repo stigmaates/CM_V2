@@ -13,6 +13,7 @@ from pathlib import Path
 from app.integrations.gizmo import GizmoClient, GizmoError
 from app.integrations.gizmo_certificate import discover, endpoint
 from app.integrations.gizmo_import import check_target, collect, save
+from app.integrations.gizmo_lifecycle import SyncPaused, assert_mode, mode_for, read_club
 from app.integrations.stage import require_stage_environment
 from app.integrations.sync_jobs import GIZMO_SYNC_JOB
 from app.services.guest_pulse import refresh_club
@@ -58,10 +59,10 @@ def run_lock(path):
         os.close(fd)
 
 
-def read_target(conn, club_id, *, allow_initial=False):
+def read_target(conn, club_id, *, allow_initial=False, lifecycle=False):
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM clubs WHERE club_id=%s", (club_id,))
-        check_target(cur.fetchone())
+        check_target(cur.fetchone(), lifecycle=lifecycle)
         cur.execute("SELECT settings FROM club_integrations WHERE club_id=%s", (club_id,))
         row = cur.fetchone()
     conn.rollback()
@@ -101,6 +102,9 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
         credentials = private_json(directory / f"sync-{club_id}.json")
         if credentials.get("enabled") is not True:
             return {"club_id": club_id, "status": "paused"}
+        mode = mode_for(read_club(conn, club_id), credentials)
+        if mode == "paused":
+            return {"club_id": club_id, "status": "paused"}
         end = datetime.now(UTC)
         status_path = directory / f"status-{club_id}.json"
         previous = private_json(status_path) if status_path.exists() else {}
@@ -116,7 +120,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
         atomic_json(status_path, status)
         job_id = start_job_run(GIZMO_SYNC_JOB, club_id=club_id, metadata={"provider": "gizmo", "stage_preview": True})
         try:
-            settings = read_target(conn, club_id, allow_initial=bool(credentials.get("connection")))
+            settings = read_target(conn, club_id, allow_initial=bool(credentials.get("connection")), lifecycle=True)
             source = settings.get("source") or credentials["connection"]
             if not source.get("fingerprint"):
                 if settings or credentials.get("bootstrap_tls") is not True:
@@ -164,6 +168,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             status["phase"] = "collect"
 
             def progress(resource, count):
+                assert_mode(read_club(conn, club_id), credentials, mode)
                 status["progress"] = {"resource": resource, "records": count}
                 atomic_json(status_path, status)
 
@@ -190,7 +195,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             logging.getLogger(__name__).info("Gizmo: проверка пройдена, сохраняем данные в stage...")
             status["phase"] = "save"
             atomic_json(status_path, status)
-            save(conn, club_id, data)
+            save(conn, club_id, data, target_check=lambda club: assert_mode(club, credentials, mode))
             status.update(
                 counts=data["counts"],
                 excluded_accounts=data.get("excluded_accounts", {}),
@@ -203,6 +208,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             logging.getLogger(__name__).info("Gizmo: строим CRM-портреты клуба...")
             status["phase"] = "portraits"
             atomic_json(status_path, status)
+            assert_mode(read_club(conn, club_id), credentials, mode)
             portrait = rebuild_club_portrait(conn, club_id)
             if portrait["status"] != "updated":
                 raise GizmoError("Data saved but CRM portrait refresh did not complete; retry sync")
@@ -212,7 +218,8 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             logging.getLogger(__name__).info("Gizmo: данные сохранены, пересчитываем Пульс...")
             status["phase"] = "pulse"
             atomic_json(status_path, status)
-            pulse = refresh_club(conn, club_id, stage_gizmo_preview=True)
+            assert_mode(read_club(conn, club_id), credentials, mode)
+            pulse = refresh_club(conn, club_id, stage_gizmo_preview=mode != "service")
             if pulse["status"] != "updated":
                 raise GizmoError("Data saved but Guest Pulse refresh did not complete; retry sync")
             status.update(
@@ -220,6 +227,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             )
             status["finished_at_utc"] = status["last_success_at_utc"]
             atomic_json(status_path, status)
+            credentials.pop("refresh_disabled", None)
             if credentials.pop("requested_at_utc", None):
                 atomic_json(directory / f"sync-{club_id}.json", credentials)
             finish_job_run(
@@ -234,6 +242,11 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                     "pulse": pulse,
                 },
             )
+            return status
+        except SyncPaused:
+            status.update(status="paused", phase="paused", finished_at_utc=datetime.now(UTC).isoformat())
+            atomic_json(status_path, status)
+            finish_job_run(job_id, "success", metadata={"provider": "gizmo", "outcome": "paused"})
             return status
         except Exception as exc:
             # No driver arguments, API key or guest data in status/logs.
