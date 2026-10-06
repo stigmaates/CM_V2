@@ -6,6 +6,7 @@ poller, or enable outbound delivery in other processes. Does not test login.
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -31,6 +32,10 @@ TEXT = (
 
 
 def api(client, method, payload):
+    # Application imports can enable INFO globally. HTTP request URLs contain
+    # the bot token, so suppress HTTP client diagnostics before every call.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     try:
         response = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/{method}", json=payload)
         data = response.json()

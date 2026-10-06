@@ -89,3 +89,16 @@ def test_unknown_delivery_is_not_retried_and_override_closes(setup, monkeypatch)
     assert "secret" not in str(report)
     with pytest.raises(ValueError):
         outbound_policy.ensure_outbound_allowed()
+
+
+def test_api_does_not_log_bot_token_when_application_enables_info(caplog):
+    import logging
+    caplog.set_level(logging.INFO, logger="httpx")
+
+    class Client:
+        def post(self, url, json):
+            logging.getLogger("httpx").info("HTTP Request: POST %s", url)
+            return SimpleNamespace(status_code=200, json=lambda: {"ok": True, "result": {"id": 123}})
+
+    assert check.api(Client(), "getMe", {}) == {"id": 123}
+    assert not caplog.records
