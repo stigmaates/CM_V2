@@ -146,7 +146,7 @@ def review_link_request(request_id, chat_id, reviewer_id, approve):
             if approve:
                 guest = _check_link(cur, row["club_id"], row["guest_id"], row["telegram_id"])
                 if guest["phone"] != row["lg_phone"]:
-                    raise ValueError("Номер LG изменился. Гостю нужно отправить новую заявку.")
+                    raise ValueError("Номер гостя изменился. Гостю нужно отправить новую заявку.")
                 cur.execute(
                     "UPDATE guests SET telegram_id = %s WHERE club_id = %s AND guest_id = %s",
                     (row["telegram_id"], row["club_id"], row["guest_id"]),

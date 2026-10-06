@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 import httpx
 
 from app.config import BOT_TOKEN, TG_PROXY_URL
+from app.services.club_service import ClubServiceDisabled, require_club_service
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.wheel import ensure_token_tables
 
@@ -243,6 +244,11 @@ def get_first_visit_survey_candidates(
 def create_first_visit_survey(conn, setting: dict, candidate: dict) -> int | None:
     with conn.cursor() as cur:
         ensure_first_visit_survey_tables(cur)
+        try:
+            require_club_service(cur, int(candidate["club_id"]), lock=True)
+        except ClubServiceDisabled:
+            conn.rollback()
+            return None
         cur.execute(
             """
             INSERT IGNORE INTO first_visit_surveys (
@@ -304,6 +310,13 @@ def send_first_visit_survey_invite(conn, survey_id: int, message_text: str) -> b
     if not survey:
         return False
 
+    conn.rollback()  # Candidate selection may have used an older snapshot.
+    try:
+        with conn.cursor() as cur:
+            require_club_service(cur, int(survey["club_id"]))
+    except ClubServiceDisabled:
+        return False
+
     payload = {
         "chat_id": int(survey["telegram_id"]),
         "text": message_text,
@@ -352,32 +365,49 @@ def get_survey_for_callback(conn, survey_id: int, telegram_id: int | None = None
         return cur.fetchone()
 
 
+def _lock_survey_club(cur, survey_id):
+    cur.execute("SELECT club_id FROM first_visit_surveys WHERE id = %s", (survey_id,))
+    ref = cur.fetchone()
+    if ref:
+        require_club_service(cur, ref["club_id"], lock=True)
+
+
 def mark_survey_started(conn, survey_id: int) -> None:
-    with conn.cursor() as cur:
-        ensure_first_visit_survey_tables(cur)
-        cur.execute(
-            """
-            UPDATE first_visit_surveys
-            SET status = 'in_progress', started_at = COALESCE(started_at, NOW())
-            WHERE id = %s AND status IN ('created', 'invited', 'in_progress')
-            """,
-            (survey_id,),
-        )
-    conn.commit()
+    try:
+        with conn.cursor() as cur:
+            ensure_first_visit_survey_tables(cur)
+            _lock_survey_club(cur, survey_id)
+            cur.execute(
+                """
+                UPDATE first_visit_surveys
+                SET status = 'in_progress', started_at = COALESCE(started_at, NOW())
+                WHERE id = %s AND status IN ('created', 'invited', 'in_progress')
+                """,
+                (survey_id,),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def save_survey_rating(conn, survey_id: int, rating: int) -> None:
-    with conn.cursor() as cur:
-        ensure_first_visit_survey_tables(cur)
-        cur.execute(
-            """
-            UPDATE first_visit_surveys
-            SET rating = %s, status = 'awaiting_feedback', updated_at = NOW()
-            WHERE id = %s AND status IN ('invited', 'in_progress', 'awaiting_feedback')
-            """,
-            (int(rating), survey_id),
-        )
-    conn.commit()
+    try:
+        with conn.cursor() as cur:
+            ensure_first_visit_survey_tables(cur)
+            _lock_survey_club(cur, survey_id)
+            cur.execute(
+                """
+                UPDATE first_visit_surveys
+                SET rating = %s, status = 'awaiting_feedback', updated_at = NOW()
+                WHERE id = %s AND status IN ('invited', 'in_progress', 'awaiting_feedback')
+                """,
+                (int(rating), survey_id),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def find_waiting_survey(conn, telegram_id: int) -> Dict[str, Any] | None:
@@ -398,44 +428,52 @@ def find_waiting_survey(conn, telegram_id: int) -> Dict[str, Any] | None:
 
 
 def complete_survey_and_award(conn, survey_id: int, feedback_text: str) -> Dict[str, Any]:
-    with conn.cursor() as cur:
-        ensure_first_visit_survey_tables(cur)
-        cur.execute("SELECT * FROM first_visit_surveys WHERE id = %s FOR UPDATE", (survey_id,))
-        survey = cur.fetchone()
-        if not survey:
-            conn.rollback()
-            return {"ok": False, "message": "Опрос не найден"}
+    try:
+        with conn.cursor() as cur:
+            ensure_first_visit_survey_tables(cur)
+            _lock_survey_club(cur, survey_id)
+            cur.execute("SELECT * FROM first_visit_surveys WHERE id = %s FOR UPDATE", (survey_id,))
+            survey = cur.fetchone()
+            if not survey:
+                conn.rollback()
+                return {"ok": False, "message": "Опрос не найден"}
 
-        if survey.get("status") == "completed":
-            conn.commit()
-            return {"ok": True, "already_done": True, "survey": survey}
+            if survey.get("status") == "completed":
+                conn.commit()
+                return {"ok": True, "already_done": True, "survey": survey}
 
-        bonus_amount = int(survey.get("bonus_amount") or 0)
-        awarded = False
-        if bonus_amount > 0 and not int(survey.get("bonus_awarded") or 0):
-            awarded = add_cm_bonus_transaction(
-                cursor=cur,
-                guest_id=int(survey["guest_id"]),
-                club_id=int(survey["club_id"]),
-                amount=bonus_amount,
-                source_type="first_visit_survey",
-                source_id=str(survey_id),
-                description="Бонусы за опрос после первого визита",
-                status="done",
+            bonus_amount = int(survey.get("bonus_amount") or 0)
+            awarded = False
+            if bonus_amount > 0 and not int(survey.get("bonus_awarded") or 0):
+                awarded = add_cm_bonus_transaction(
+                    cursor=cur,
+                    guest_id=int(survey["guest_id"]),
+                    club_id=int(survey["club_id"]),
+                    amount=bonus_amount,
+                    source_type="first_visit_survey",
+                    source_id=str(survey_id),
+                    description="Бонусы за опрос после первого визита",
+                    status="done",
+                )
+
+            cur.execute(
+                """
+                UPDATE first_visit_surveys
+                SET status = 'completed',
+                    feedback_text = %s,
+                    bonus_awarded = 1,
+                    completed_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                ((feedback_text or "").strip()[:5000], survey_id),
             )
-
-        cur.execute(
-            """
-            UPDATE first_visit_surveys
-            SET status = 'completed',
-                feedback_text = %s,
-                bonus_awarded = 1,
-                completed_at = NOW(),
-                updated_at = NOW()
-            WHERE id = %s
-            """,
-            ((feedback_text or "").strip()[:5000], survey_id),
-        )
-    conn.commit()
-    survey["bonus_awarded"] = 1
-    return {"ok": True, "survey": survey, "awarded": awarded}
+        conn.commit()
+        survey["bonus_awarded"] = 1
+        return {"ok": True, "survey": survey, "awarded": awarded}
+    except ClubServiceDisabled as exc:
+        conn.rollback()
+        return {"ok": False, "message": str(exc), "code": "service_disabled"}
+    except Exception:
+        conn.rollback()
+        raise

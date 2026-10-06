@@ -11,7 +11,7 @@ import httpx
 
 from app.config import CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL, TOPUP_BONUS_MAX_AMOUNT
 from app.core import get_db_connection
-from app.services.club_service import require_club_service
+from app.services.club_service import ClubServiceDisabled, require_club_service
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.wheel import add_guest_token_transaction, ensure_token_tables
 
@@ -457,7 +457,7 @@ def get_topup_bonus_approval_by_id(award_id: int) -> dict[str, Any] | None:
                 """
                 SELECT
                     a.*, t.topup_at, g.fio, g.phone,
-                    c.name AS club_name, c.cm_bonus_admin_chat_id
+                    c.name AS club_name, c.cm_bonus_admin_chat_id, c.service_enabled
                 FROM guest_topup_bonus_awards a
                 JOIN guest_balance_topups t
                   ON t.club_id = a.club_id AND t.topup_id = a.topup_id
@@ -512,6 +512,8 @@ def notify_topup_bonus_admin_chat(award_id: int) -> dict[str, Any]:
     award = get_topup_bonus_approval_by_id(award_id)
     if not award:
         return {"ok": False, "status": "missing", "error": "Заявка не найдена"}
+    if award.get("service_enabled") is not None and not int(award["service_enabled"]):
+        return {"ok": False, "status": "service_disabled", "error": str(ClubServiceDisabled())}
     if award.get("status") != "pending_approval":
         return {"ok": False, "status": "processed", "error": "Заявка уже обработана"}
     if award.get("admin_notification_status") == "sent":
@@ -618,6 +620,9 @@ def review_topup_bonus_award(
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            ensure_cm_bonus_tables(cursor)
+            ensure_token_tables(cursor)
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 """
                 SELECT
@@ -728,6 +733,9 @@ def review_topup_bonus_award(
             )
         conn.commit()
         return {"ok": True, "status": "awarded", "delivery_status": delivery_status}
+    except ClubServiceDisabled as exc:
+        conn.rollback()
+        return {"ok": False, "error": str(exc), "code": "service_disabled"}
     except Exception:
         conn.rollback()
         raise
@@ -818,6 +826,7 @@ def process_topup_bonus_awards(
                 continue
             try:
                 with conn.cursor() as cursor:
+                    require_club_service(cursor, club_id, lock=True)
                     awarded_at = _moscow_now()
                     claim_status = _claim_topup_bonus_award(
                         cursor,
@@ -827,6 +836,7 @@ def process_topup_bonus_awards(
                         awarded_at=awarded_at,
                     )
                     if claim_status == "exists":
+                        conn.rollback()
                         continue
                     if claim_status == "duplicate":
                         conn.commit()
@@ -834,6 +844,9 @@ def process_topup_bonus_awards(
                         continue
                 conn.commit()
                 pending_approval += 1
+            except ClubServiceDisabled:
+                conn.rollback()
+                break
             except Exception:
                 conn.rollback()
                 raise
@@ -852,6 +865,12 @@ def process_topup_bonus_awards(
                 )
                 pending = cursor.fetchall()
             for item in pending:
+                conn.rollback()  # Discard the candidate-selection snapshot.
+                try:
+                    with conn.cursor() as cursor:
+                        require_club_service(cursor, club_id)
+                except ClubServiceDisabled:
+                    break
                 ok, error_text = send_message(int(item["telegram_id"]), item.get("message_text") or "")
                 with conn.cursor() as cursor:
                     cursor.execute(
