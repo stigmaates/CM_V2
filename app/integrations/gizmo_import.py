@@ -7,6 +7,7 @@ It is deliberately not called by the Langame scheduler.
 import json
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 
 from app.integrations import gizmo_normalize as normalize
 from app.integrations.gizmo import GizmoError, iter_pages
@@ -27,6 +28,28 @@ def all_rows(client, resource, params=None):
         if len(records) > 200000:
             raise GizmoError("Pilot export exceeds 200000 records")
     return records
+
+
+def closed_session_detail(raw, usage):
+    """Guard the same-ID mapping observed on the Next Gizmo 3.0.92 pilot.
+
+    usageSessionId is NOT a usersessions ID on this installation. Equal IDs
+    alone are insufficient: require the same guest, exact finite duration and
+    a terminal state. Do not guess another join when any check fails.
+    """
+    session_id = normalize.external_id(raw.get("id"))
+    detail = usage.get(session_id)
+    if detail is None or normalize.external_id(detail.get("userId")) != normalize.external_id(raw.get("userId")):
+        raise GizmoError(f"Session {session_id}: same-ID linkage missing or belongs to a different user")
+    try:
+        spans = [Decimal(str(record.get("span"))) for record in (raw, detail)]
+    except (InvalidOperation, ValueError):
+        raise GizmoError(f"Session {session_id}: invalid duration for linkage verification") from None
+    if any(not span.is_finite() or span < 0 for span in spans) or spans[0] != spans[1]:
+        raise GizmoError(f"Session {session_id}: duration mismatch in same-ID linkage")
+    if raw.get("endTime") is None or detail.get("state") not in (2, 17):
+        raise GizmoError(f"Session {session_id}: linkage requires a completed session")
+    return detail
 
 
 def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=True):
@@ -54,9 +77,10 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
     topups = [row for row in topups if row is not None]
     sessions = {}
     skipped_unlinked = 0
+    skipped_open = 0
     if include_sessions:
-        # Verified on Gizmo 3.0.92: report route is forbidden for this key,
-        # while both paginated resources and usageSessionId are available.
+        # Next 3.0.92 diagnostics: same ID + user + span match;
+        # usageSessionId points elsewhere and must not be used as a join.
         # Fetch complete resources: /sessions has no documented date filter.
         usage = {normalize.external_id(row["id"]): row for row in all_rows(client, "usersessions")}
         for raw in all_rows(client, "sessions"):
@@ -72,15 +96,12 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             user_id = normalize.external_id(raw.get("userId"))
             if user_id not in guest_ids:
                 continue
-            usage_id = raw.get("usageSessionId")
-            if usage_id is None:
-                skipped_unlinked += 1
+            if stop_at is None:
+                skipped_open += 1
                 continue
-            detail = usage.get(normalize.external_id(usage_id))
-            if detail is None or normalize.external_id(detail.get("userId")) != user_id:
-                raise GizmoError("Session linkage is incomplete or belongs to a different user")
+            detail = closed_session_detail(raw, usage)
             row = normalize.session(
-                dict(raw, hostId=detail["hostId"], state=2 if stop_at is not None else detail["state"]),
+                dict(raw, hostId=detail["hostId"], state=detail["state"]),
                 host_ids=host_ids,
                 guest_ids=guest_ids,
             )
@@ -97,7 +118,8 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             "end": end.isoformat(),
             "cash_method_ids": sorted(cash_method_ids),
             "sessions_included": include_sessions,
-            "session_source": "sessions+usersessions",
+            "session_source": "sessions+usersessions:same-id-user-span:v1",
+            "completed_sessions_only": True,
             "event_timezone": "UTC",
         },
         "counts": {
@@ -105,7 +127,8 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             "hosts": len(hosts),
             "topups": len(topups),
             "sessions": len(sessions),
-            "sessions_without_usage_link_or_time": skipped_unlinked,
+            "sessions_without_start_time": skipped_unlinked,
+            "open_sessions_skipped": skipped_open,
             "deposit_operations_read": len(raw_topups),
         },
     }
