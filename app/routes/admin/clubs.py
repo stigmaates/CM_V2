@@ -29,7 +29,9 @@ def _next_club_id(cursor) -> int:
     return int(row.get("club_id") or 1)
 
 
-def _insert_admin_club(cursor, club_id: int, name: str, api_key: str, secret: str, *, provider="langame", timezone_name=None) -> None:
+def _insert_admin_club(
+    cursor, club_id: int, name: str, api_key: str, secret: str, *, provider="langame", timezone_name=None
+) -> None:
     provider = validate_provider(provider)
     cursor.execute("SELECT club_id FROM clubs WHERE club_id = %s LIMIT 1", (club_id,))
     if cursor.fetchone():
@@ -40,11 +42,13 @@ def _insert_admin_club(cursor, club_id: int, name: str, api_key: str, secret: st
             raise ValueError("Пилот Gizmo доступен только на стейдже")
         if not _column_exists(cursor, "clubs", "integration_provider"):
             raise ValueError("Сначала примените миграцию интеграций")
-        cursor.execute("""INSERT INTO clubs
+        cursor.execute(
+            """INSERT INTO clubs
             (club_id, name, timezone, lg_api_key, secret, owner_id, service_enabled,
              integration_provider, integration_ready)
             VALUES (%s,%s,%s,'','',NULL,0,'gizmo',0)""",
-            (club_id, name, validate_club_timezone(timezone_name)))
+            (club_id, name, validate_club_timezone(timezone_name)),
+        )
         cursor.execute("INSERT INTO club_integrations (club_id) VALUES (%s)", (club_id,))
         return
 
@@ -100,6 +104,10 @@ def create_club():
                 return redirect(url_for("admin.create_club"))
 
         flash(f"Клуб создан выключенным. Внутренний ID: {club_id}. Включи обслуживание после проверки API.", "success")
+        if provider == "gizmo":
+            return redirect(url_for("admin.gizmo_setup", club_id=club_id))
         return redirect("/admin/clubs")
 
-    return render_template("admin/create_club.html", gizmo_pilot_enabled=stage_pilot_available(), timezone_choices=CLUB_TIMEZONE_CHOICES)
+    return render_template(
+        "admin/create_club.html", gizmo_pilot_enabled=stage_pilot_available(), timezone_choices=CLUB_TIMEZONE_CHOICES
+    )

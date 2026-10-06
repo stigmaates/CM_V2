@@ -57,7 +57,7 @@ def run_lock(path):
         os.close(fd)
 
 
-def read_target(conn, club_id):
+def read_target(conn, club_id, *, allow_initial=False):
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM clubs WHERE club_id=%s", (club_id,))
         check_target(cur.fetchone())
@@ -65,6 +65,8 @@ def read_target(conn, club_id):
         row = cur.fetchone()
     conn.rollback()
     settings = json.loads(row["settings"]) if row and isinstance(row["settings"], str) else (row or {}).get("settings")
+    if allow_initial and row and not settings:
+        return {}
     if not settings or not settings.get("source"):
         raise GizmoError("A successful verified pilot import is required before enabling sync")
     if settings.get("session_source") != "sessions+usersessions:same-id-user-span:v1":
@@ -75,7 +77,7 @@ def read_target(conn, club_id):
 def sync_is_due(previous, now):
     # The file lock decides whether a "running" process is alive. Once acquired,
     # an interrupted run can resume immediately, without waiting for a timeout.
-    if previous.get("status") == "running":
+    if previous.get("status") in {"running", "queued"}:
         return True
     stamp = previous.get("finished_at_utc") or previous.get("last_success_at_utc")
     if not stamp:
@@ -113,10 +115,11 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
         atomic_json(status_path, status)
         job_id = start_job_run(GIZMO_SYNC_JOB, club_id=club_id, metadata={"provider": "gizmo", "stage_preview": True})
         try:
-            settings = read_target(conn, club_id)
-            source = settings["source"]
+            settings = read_target(conn, club_id, allow_initial=bool(credentials.get("connection")))
+            source = settings.get("source") or credentials["connection"]
             certificate_pem = credentials.get("certificate_pem") or (directory / "server.pem").read_text()
             client = GizmoClient(
+                port=source.get("port", 443),
                 address=source["address"],
                 server_name=source["server_name"],
                 fingerprint=source["fingerprint"],
@@ -128,6 +131,22 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                 # club credentials carry their own certificate from onboarding.
                 credentials["certificate_pem"] = certificate_pem
                 atomic_json(directory / f"sync-{club_id}.json", credentials)
+            if not settings or credentials.get("requested_at_utc"):
+                from app.integrations.gizmo_onboarding import inspect_connection
+
+                status["phase"] = "connect"
+                atomic_json(status_path, status)
+                verified = inspect_connection(client)
+                if settings and int(settings["branch_id"]) != verified["branch_id"]:
+                    raise GizmoError("Cannot change the branch of an imported club")
+                if not settings:
+                    settings = verified
+            status["phase"] = "collect"
+
+            def progress(resource, count):
+                status["progress"] = {"resource": resource, "records": count}
+                atomic_json(status_path, status)
+
             data = collect(
                 client,
                 branch_id=int(settings["branch_id"]),
@@ -135,6 +154,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                 end=end,
                 cash_method_ids=set(settings["cash_method_ids"]),
                 full_history=True,
+                progress=progress,
             )
             data["scope"]["source"] = source
             rejected = data.get("rejected_sessions", [])
@@ -180,6 +200,8 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             )
             status["finished_at_utc"] = status["last_success_at_utc"]
             atomic_json(status_path, status)
+            if credentials.pop("requested_at_utc", None):
+                atomic_json(directory / f"sync-{club_id}.json", credentials)
             finish_job_run(
                 job_id,
                 "success",
@@ -196,6 +218,9 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
         except Exception as exc:
             # No driver arguments, API key or guest data in status/logs.
             status.update(status="error", error=str(exc) if isinstance(exc, GizmoError) else type(exc).__name__)
+            from app.integrations.gizmo_onboarding import public_error
+
+            status["error_message"] = public_error(exc)
             status["finished_at_utc"] = datetime.now(UTC).isoformat()
             finish_job_run(
                 job_id,

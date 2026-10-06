@@ -983,3 +983,11 @@
         width: 100%;
     }
 }
+
+.admin-btn[hidden] {
+    display: none;
+}
+
+.gizmo-pause-form {
+    margin-top: 16px;
+}

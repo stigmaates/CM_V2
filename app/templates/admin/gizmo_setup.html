@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+{% block title %}Gizmo — {{ club.name }}{% endblock %}
+{% block content %}
+<section class="admin-page-head">
+  <div><h1>Gizmo · {{ club.name }}</h1><p>Подключение и обновление данных клуба на стейдже.</p></div>
+  <a class="admin-btn" href="{{ url_for('admin.clubs_list') }}">К списку клубов</a>
+</section>
+<section class="admin-card" aria-live="polite">
+  <h2 id="gizmoStatus">Проверяем состояние…</h2>
+  <p id="gizmoProgress"></p>
+  <p id="gizmoCounts"></p>
+  <p id="gizmoSuccess"></p>
+  <p id="gizmoError" role="alert"></p>
+  <p class="muted">Обслуживание остаётся выключенным до приёмки. Проверка не отправляет гостям сообщения и не выдаёт награды.</p>
+</section>
+<section class="admin-card admin-form-card">
+  <form class="admin-form" method="post" enctype="multipart/form-data" autocomplete="off">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+    <div><label for="address">Внешний IP-адрес Gizmo</label><input id="address" name="address" value="{{ connection.address or '' }}" placeholder="213.59.152.72" required></div>
+    <div><label for="port">HTTPS-порт</label><input type="number" id="port" name="port" min="1" max="65535" value="{{ connection.port or 443 }}" required></div>
+    <div><label for="server_name">Имя сервера в сертификате</label><input id="server_name" name="server_name" value="{{ connection.server_name or 'gizmo.local' }}" required></div>
+    <div><label for="api_key">API-ключ Gizmo</label><input type="password" id="api_key" name="api_key" autocomplete="new-password" maxlength="4096" {% if not state.configured %}required{% endif %}><small>{{ 'Оставьте пустым, чтобы использовать сохранённый ключ.' if state.configured else 'Ключ должен разрешать чтение гостей, ПК, сессий и пополнений.' }}</small></div>
+    <div><label for="certificate">Публичный HTTPS-сертификат (.pem)</label><input type="file" id="certificate" name="certificate" accept=".pem,.crt" {% if not state.configured %}required{% endif %}><small>{{ 'Сертификат сохранён. Для повторной проверки загружать его не нужно.' if state.configured else 'Получите у клуба сертификат сервера Gizmo. Закрытый ключ не нужен.' }}</small></div>
+    <p>Система сама определит филиал, загрузит гостей, ПК, историю сессий и пополнений наличными и картой. Пока поддерживается Gizmo 3 с одним филиалом на сервере.</p>
+    <button class="admin-btn" type="submit" name="action" value="configure">Проверить и загрузить данные</button>
+  </form>
+  {% if state.configured %}
+  <form method="post" class="gizmo-pause-form">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+    <button class="admin-btn" type="submit" name="action" value="pause">Приостановить обновления</button>
+  </form>
+  {% endif %}
+</section>
+<script>
+(() => {
+  const statusUrl = {{ url_for('admin.gizmo_status', club_id=club.club_id)|tojson }};
+  const phases = {queued:'Ожидает запуска', connect:'Проверяем подключение', collect:'Читаем данные Gizmo', save:'Сохраняем историю', portraits:'Строим CRM-портреты', pulse:'Обновляем Пульс гостя', complete:'Данные обновлены'};
+  const resources = {branches:'Филиалы', paymentmethods:'Способы оплаты', users:'Гости', hosts:'ПК', deposittransactions:'Пополнения', sessions:'Сессии', usersessions:'Связи сессий с ПК'};
+  function render(state) {
+    document.getElementById('gizmoStatus').textContent = ({unconfigured:'Укажите данные подключения', paused:'Обновления приостановлены', error:'Обновление не завершено'})[state.status] || phases[state.phase] || 'Ожидает запуска';
+    document.getElementById('gizmoProgress').textContent = state.status === 'running' && state.phase === 'collect' && state.progress ? `${resources[state.progress.resource] || 'Записи'}: прочитано ${Number(state.progress.records).toLocaleString('ru-RU')}` : '';
+    document.getElementById('gizmoCounts').textContent = state.counts ? `Гостей: ${state.counts.guests} · ПК: ${state.counts.hosts} · Сессий: ${state.counts.sessions} · Пополнений: ${state.counts.topups}` : '';
+    document.getElementById('gizmoSuccess').textContent = state.last_success_at_utc ? `Последнее успешное обновление: ${new Date(state.last_success_at_utc).toLocaleString('ru-RU')} (ваше время)` : '';
+    document.getElementById('gizmoError').textContent = state.status === 'error' ? state.error_message || 'Проверьте настройки и повторите загрузку.' : '';
+  }
+  render({{ state|tojson }});
+  async function poll() {
+    try {
+      const response = await fetch(statusUrl, {cache:'no-store', headers:{Accept:'application/json'}});
+      if (!response.ok) throw new Error();
+      render(await response.json());
+    } catch (_) {
+      document.getElementById('gizmoError').textContent = 'Не удалось обновить состояние. Проверка продолжится автоматически.';
+    } finally {
+      window.setTimeout(poll, 4000);
+    }
+  }
+  window.setTimeout(poll, 4000);
+})();
+</script>
+{% endblock %}
