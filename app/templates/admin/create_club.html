@@ -10,28 +10,29 @@
 </section>
 
 <section class="admin-card admin-form-card">
-    <form class="admin-form" method="POST">
+    <form class="admin-form" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
         <div>
             <label for="name">Название клуба</label>
-            <input type="text" id="name" name="name" placeholder="ClubName" required>
+            <input type="text" id="name" name="name" value="{{ values.name }}" placeholder="ClubName" required>
         </div>
 
         <div>
             <label for="integration_provider">Система клуба</label>
             <select id="integration_provider" name="integration_provider">
-                <option value="langame">Langame</option>
-                {% if gizmo_pilot_enabled %}<option value="gizmo">Gizmo — пилот</option>{% endif %}
+                <option value="langame" {{ 'selected' if values.integration_provider != 'gizmo' else '' }}>Langame</option>
+                {% if gizmo_pilot_enabled %}<option value="gizmo" {{ 'selected' if values.integration_provider == 'gizmo' else '' }}>Gizmo — пилот</option>{% endif %}
             </select>
         </div>
         <div>
             <label for="timezone">Часовой пояс</label>
             <select id="timezone" name="timezone">
                 {% for value, label in timezone_choices %}
-                <option value="{{ value }}" {{ 'selected' if value == 'Europe/Moscow' else '' }}>{{ label }}</option>
+                <option value="{{ value }}" {{ 'selected' if value == (values.timezone or 'Europe/Moscow') else '' }}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
-        <p id="gizmoHelp" hidden>После создания клуба укажите адрес, API-ключ и HTTPS-сертификат. Система проверит подключение и загрузит данные в фоне.</p>
+        <p id="gizmoHelp" hidden>Укажите доступ к Gizmo. После создания система проверит подключение и загрузит данные в фоне. Можно закрыть страницу — загрузка продолжится.</p>
         <div data-langame>
             <label for="api_key">LANGAME API key</label>
             <input type="password" autocomplete="new-password" id="api_key" name="api_key" required>
@@ -42,7 +43,30 @@
             <input type="text" id="secret" name="secret" placeholder="620" required>
         </div>
 
-        <button class="admin-btn" type="submit">Создать клуб</button>
+        {% if gizmo_pilot_enabled %}
+        <div data-gizmo hidden>
+            <label for="address">Внешний IP-адрес Gizmo</label>
+            <input id="address" name="address" value="{{ values.address }}" placeholder="213.59.152.72" disabled>
+        </div>
+        <div data-gizmo hidden>
+            <label for="port">HTTPS-порт</label>
+            <input type="number" id="port" name="port" min="1" max="65535" value="{{ values.port or 443 }}" disabled>
+        </div>
+        <div data-gizmo hidden>
+            <label for="server_name">Имя сервера в сертификате</label>
+            <input id="server_name" name="server_name" value="{{ values.server_name or 'gizmo.local' }}" disabled>
+        </div>
+        <div data-gizmo hidden>
+            <label for="gizmo_api_key">API-ключ Gizmo</label>
+            <input type="password" id="gizmo_api_key" name="gizmo_api_key" autocomplete="new-password" maxlength="4096" disabled>
+        </div>
+        <div data-gizmo hidden>
+            <label for="certificate">Публичный HTTPS-сертификат (.pem)</label>
+            <input type="file" id="certificate" name="certificate" accept=".pem,.crt" disabled>
+            <small>Получите у клуба сертификат сервера Gizmo. Закрытый ключ не нужен.</small>
+        </div>
+        {% endif %}
+        <button class="admin-btn" id="createClubButton" type="submit">Создать клуб</button>
     </form>
 </section>
 <script>
@@ -54,7 +78,13 @@ function updateProviderFields() {
         field.querySelector('input').required = !gizmo;
         field.querySelector('input').disabled = gizmo;
     });
+    document.querySelectorAll('[data-gizmo]').forEach(field => {
+        field.hidden = !gizmo;
+        field.querySelector('input').required = gizmo;
+        field.querySelector('input').disabled = !gizmo;
+    });
     document.getElementById('gizmoHelp').hidden = !gizmo;
+    document.getElementById('createClubButton').textContent = gizmo ? 'Создать клуб и загрузить данные' : 'Создать клуб';
 }
 providerSelect.addEventListener('change', updateProviderFields);
 updateProviderFields();

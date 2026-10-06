@@ -4,7 +4,14 @@ from flask import abort, flash, jsonify, redirect, render_template, request, url
 
 from app.core import admin_required, get_db_connection
 from app.integrations.gizmo import GizmoError
-from app.integrations.gizmo_onboarding import pause_sync, public_connection, public_error, public_status, queue_setup
+from app.integrations.gizmo_onboarding import (
+    pause_sync,
+    public_connection,
+    public_error,
+    public_status,
+    queue_setup,
+    read_certificate_upload,
+)
 from app.integrations.gizmo_sync import read_target
 from app.integrations.stage import stage_pilot_available
 from app.routes.admin import admin_bp
@@ -38,14 +45,7 @@ def gizmo_setup(club_id):
                     pause_sync(conn, club_id)
                     flash("Обновления Gizmo приостановлены.", "success")
                 else:
-                    upload = request.files.get("certificate")
-                    certificate = None
-                    if upload and upload.filename:
-                        raw = upload.read(16385)
-                        try:
-                            certificate = raw.decode("utf-8")
-                        except UnicodeError:
-                            raise GizmoError("Нужен текстовый сертификат в формате PEM.") from None
+                    certificate = read_certificate_upload(request.files.get("certificate"))
                     queue_setup(conn, club_id, request.form, certificate_pem=certificate)
                     flash("Проверка и загрузка поставлены в очередь. Можно закрыть страницу.", "success")
             except (GizmoError, OSError, ValueError) as exc:
