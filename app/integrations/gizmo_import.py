@@ -10,7 +10,21 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 
 from app.integrations import gizmo_normalize as normalize
-from app.integrations.gizmo import GizmoError, iter_pages
+from app.integrations.gizmo import GizmoError, GizmoHTTPError, iter_pages
+
+
+def referenced_record(client, resource, identity):
+    """Resolve history omitted from list endpoints; never fabricate its owner."""
+    try:
+        row = client.get(f"{resource}/{identity}")
+    except GizmoHTTPError as exc:
+        if exc.status == 404:
+            return None
+        raise
+    _, model = normalize.payload(row, (0, 1))
+    if normalize.external_id(model.get("Id")) != identity:
+        raise GizmoError(f"{resource}/{identity}: detail response has an unexpected identity")
+    return row
 
 
 def all_rows(client, resource, params=None):
@@ -65,7 +79,8 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
     available_methods = {int(row["id"]) for row in methods}
     if not cash_method_ids or not set(cash_method_ids).issubset(available_methods):
         raise GizmoError("Explicit, existing money payment method IDs are required")
-    guests = [normalize.guest(row) for row in all_rows(client, "users", {"IsGuest": "false"})]
+    raw_guests = all_rows(client, "users", {"IsGuest": "false"})
+    guests = [normalize.guest(row) for row in raw_guests]
     guests = [row for row in guests if row is not None]
     guest_ids = {row["guest_id"] for row in guests}
     hosts = [normalize.host(row) for row in all_rows(client, "hosts", {"BranchId": branch_id})]
@@ -74,8 +89,35 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
     if not full_history:
         topup_params.update(DateFrom=start.isoformat(), DateTo=end.isoformat())
     raw_topups = all_rows(client, "deposittransactions", topup_params)
+    raw_sessions = all_rows(client, "sessions") if include_sessions else []
+    # The live list can omit both guest accounts and deleted members. Resolve
+    # referenced IDs once before normalizing payments or personal visits.
+    shared_accounts = {normalize.external_id(row["Model"]["Id"]) for row in raw_guests if row["Type"] == 1}
+    referenced_users = {
+        normalize.external_id(row.get("userId")) for row in raw_sessions if row.get("startTime") is not None
+    }
+    referenced_users.update(
+        normalize.external_id(row.get("userId"))
+        for row in raw_topups
+        if row.get("type") == 0
+        and row.get("isVoid") is False
+        and row.get("branchId") == branch_id
+        and row.get("paymentMethodId") in cash_method_ids
+    )
+    missing_accounts = set()
+    for user_id in sorted(referenced_users - guest_ids - shared_accounts):
+        raw_user = referenced_record(client, "users", user_id)
+        if raw_user is None:
+            missing_accounts.add(user_id)
+        elif raw_user["Type"] == 1:
+            shared_accounts.add(user_id)
+        else:
+            guests.append(normalize.guest(raw_user))
+            guest_ids.add(user_id)
     topups = [
-        normalize.topup(row, branch_id=branch_id, cash_method_ids=cash_method_ids, guest_ids=guest_ids)
+        normalize.topup(
+            row, branch_id=branch_id, cash_method_ids=cash_method_ids, guest_ids=guest_ids | shared_accounts
+        )
         for row in raw_topups
     ]
     end_utc = end.astimezone(UTC).replace(tzinfo=None)
@@ -85,18 +127,23 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
         for row in topups
         if row is not None and row["topup_at"] < end_utc and (start_utc is None or row["topup_at"] >= start_utc)
     ]
+    for row in topups:
+        if row["guest_id"] in shared_accounts:
+            row["source_guest_id"], row["guest_id"] = row["guest_id"], None
     sessions = {}
     skipped_unlinked = 0
     skipped_open = 0
     skipped_nonmember = 0
     skipped_unknown_host = 0
     rejected_sessions = []
+    missing_hosts = set()
+    shared_sessions = 0
     if include_sessions:
         # Next 3.0.92 diagnostics: same ID + user + span match;
         # usageSessionId points elsewhere and must not be used as a join.
         # Fetch complete resources: /sessions has no documented date filter.
         usage = {normalize.external_id(row["id"]): row for row in all_rows(client, "usersessions")}
-        for raw in all_rows(client, "sessions"):
+        for raw in raw_sessions:
             if raw.get("startTime") is None:
                 skipped_unlinked += 1
                 continue
@@ -107,7 +154,7 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             if start_utc is not None and stop_at is not None and stop_at < start_utc:
                 continue
             user_id = normalize.external_id(raw.get("userId"))
-            if user_id not in guest_ids:
+            if user_id not in guest_ids | shared_accounts:
                 skipped_nonmember += 1
                 continue
             if stop_at is None:
@@ -134,12 +181,23 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
                     raise GizmoError("Session detail response has an unexpected identity")
                 usage[normalize.external_id(raw["id"])] = detail
             detail = closed_session_detail(raw, usage)
+            host_id = normalize.external_id(detail.get("hostId"))
+            if host_id not in host_ids and host_id not in missing_hosts:
+                raw_host = referenced_record(client, "hosts", host_id)
+                if raw_host is None:
+                    missing_hosts.add(host_id)
+                else:
+                    hosts.append(normalize.host(raw_host))
+                    host_ids.add(host_id)
             row = normalize.session(
-                dict(raw, hostId=detail["hostId"], state=detail["state"]),
+                dict(raw, hostId=detail["hostId"], state=detail["state"], userIsGuest=False),
                 host_ids=host_ids,
-                guest_ids=guest_ids,
+                guest_ids=guest_ids | shared_accounts,
             )
             if row:
+                if user_id in shared_accounts:
+                    row["source_guest_id"], row["guest_id"] = user_id, None
+                    shared_sessions += 1
                 sessions[row["id"]] = row
             else:
                 skipped_unknown_host += 1
@@ -149,12 +207,23 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             len(rejected_sessions),
             ", ".join(str(row["id"]) for row in rejected_sessions[:10]),
         )
+    shared_topups = [row for row in topups if row["guest_id"] is None]
     return {
         "rejected_sessions": rejected_sessions,
         "guests": guests,
         "hosts": hosts,
         "topups": topups,
         "sessions": list(sessions.values()),
+        "excluded_accounts": {
+            "shared_account_ids": sorted(shared_accounts),
+            "missing_account_ids": sorted(missing_accounts),
+            "missing_host_ids": sorted(missing_hosts),
+        },
+        "nonpersonal_activity": {
+            "sessions": shared_sessions,
+            "topups": len(shared_topups),
+            "topup_amount": str(sum((row["amount"] for row in shared_topups), Decimal(0))),
+        },
         "scope": {
             "branch_id": branch_id,
             "start": None if full_history else start.isoformat(),
@@ -169,11 +238,16 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
         "counts": {
             "guests": len(guests),
             "hosts": len(hosts),
+            "active_hosts": sum(not row["deleted"] for row in hosts),
+            "archived_hosts": sum(row["deleted"] for row in hosts),
             "topups": len(topups),
             "sessions": len(sessions),
             "sessions_without_start_time": skipped_unlinked,
             "open_sessions_skipped": skipped_open,
             "sessions_unregistered_guest_skipped": skipped_nonmember,
+            "sessions_shared_account_imported": shared_sessions,
+            "personal_sessions": len(sessions) - shared_sessions,
+            "personal_topups": len(topups) - len(shared_topups),
             "sessions_unknown_host_skipped": skipped_unknown_host,
             "sessions_invalid_time_skipped": len(rejected_sessions),
             "deposit_operations_read": len(raw_topups),
@@ -267,8 +341,8 @@ def save(conn, club_id, data):
 
             write_batches(
                 "ПК",
-                """INSERT INTO club_pc_names (id,club_id,uuid,display_name,sort_order)
-                VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid)""",
+                """INSERT INTO club_pc_names (id,club_id,uuid,display_name,sort_order,is_archived)
+                VALUES (%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE is_archived=VALUES(is_archived)""",
                 [
                     (
                         surrogate("club_pc_names", "uuid", h["uuid"]),
@@ -276,6 +350,7 @@ def save(conn, club_id, data):
                         h["uuid"],
                         h["display_name"],
                         h["sort_order"],
+                        int(h.get("deleted", False)),
                     )
                     for h in data["hosts"]
                 ],
@@ -288,20 +363,30 @@ def save(conn, club_id, data):
                 cur.execute(f"DELETE FROM guest_sessions WHERE club_id=%s AND id IN ({placeholders})", (club_id, *ids))
             write_batches(
                 "сессий",
-                """INSERT INTO guest_sessions (club_id,id,guest_id,uuid,date_start,date_stop)
-                VALUES (%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
-                guest_id=VALUES(guest_id),uuid=VALUES(uuid),date_start=VALUES(date_start),date_stop=VALUES(date_stop)""",
+                """INSERT INTO guest_sessions (club_id,id,guest_id,uuid,date_start,date_stop,source_guest_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
+                guest_id=VALUES(guest_id),uuid=VALUES(uuid),date_start=VALUES(date_start),date_stop=VALUES(date_stop),
+                source_guest_id=VALUES(source_guest_id)""",
                 [
-                    (club_id, r["id"], r["guest_id"], r["uuid"], r["date_start"], r["date_stop"])
+                    (
+                        club_id,
+                        r["id"],
+                        r["guest_id"],
+                        r["uuid"],
+                        r["date_start"],
+                        r["date_stop"],
+                        r.get("source_guest_id", r["guest_id"]),
+                    )
                     for r in data["sessions"]
                 ],
             )
             write_batches(
                 "пополнений",
                 """INSERT INTO guest_balance_topups
-                (id,club_id,topup_id,guest_id,amount,topup_at,created_at,updated_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
-                guest_id=VALUES(guest_id),amount=VALUES(amount),topup_at=VALUES(topup_at),updated_at=VALUES(updated_at)""",
+                (id,club_id,topup_id,guest_id,amount,topup_at,created_at,updated_at,source_guest_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
+                guest_id=VALUES(guest_id),amount=VALUES(amount),topup_at=VALUES(topup_at),updated_at=VALUES(updated_at),
+                source_guest_id=VALUES(source_guest_id)""",
                 [
                     (
                         surrogate("guest_balance_topups", "topup_id", r["topup_id"]),
@@ -312,6 +397,7 @@ def save(conn, club_id, data):
                         r["topup_at"],
                         now,
                         now,
+                        r.get("source_guest_id", r["guest_id"]),
                     )
                     for r in data["topups"]
                 ],

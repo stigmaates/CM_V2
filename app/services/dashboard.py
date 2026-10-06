@@ -182,6 +182,7 @@ def _get_visit_streak_funnel(cursor, club_id: int, current_start, current_end) -
         SELECT guest_id, COUNT(DISTINCT DATE(date_start)) AS visit_days
         FROM guest_sessions
         WHERE club_id = %s
+          AND guest_id IS NOT NULL
           AND date_start >= %s
           AND date_start < %s
         GROUP BY guest_id
@@ -234,6 +235,7 @@ def _count_guests_with_min_collapsed_visits(
                 ) AS previous_stop
             FROM guest_sessions
             WHERE club_id = %s
+              AND guest_id IS NOT NULL
               AND date_start >= %s
               AND date_start < %s
               AND date_start IS NOT NULL

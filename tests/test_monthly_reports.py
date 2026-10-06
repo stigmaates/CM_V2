@@ -107,3 +107,33 @@ def test_report_keeps_no_data_sections_valid():
     assert report["crm"]["best_manual"] is None
     assert report["gamification"]["wheel"]["participants"] == 0
     assert report["data_quality"]
+
+
+def test_shared_login_money_is_not_attributed_to_a_person_or_campaign():
+    sources = {
+        "sessions": [session(None, datetime(2026, 8, 2, 10)), session(1, datetime(2026, 8, 2, 10))],
+        "topups": [{"guest_id": None, "amount": 500, "topup_at": datetime(2026, 8, 3)}],
+        "case_openings": [
+            {"guest_id": 1, "created_at": datetime(2026, 8, 2)},
+            {"guest_id": 1, "created_at": datetime(2026, 8, 3)},
+        ],
+        "mailing_recipients": [
+            {
+                "guest_id": 1,
+                "mailing_id": 7,
+                "status": "sent",
+                "interaction_at": datetime(2026, 8, 1),
+                "filters_json": "{}",
+            }
+        ],
+    }
+    report = build_report_from_sources(
+        sources,
+        {"club_id": 1, "name": "Test", "timezone": "Asia/Yekaterinburg"},
+        2026,
+        8,
+        generated_at=datetime(2026, 9, 14),
+    )
+    assert report["metrics"]["unique_guests"]["value"] == 1
+    assert report["engaged_revenue"]["amount"] == 0
+    assert report["crm"]["best_manual"]["topup_amount"] == 0

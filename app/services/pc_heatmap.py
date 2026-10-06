@@ -23,6 +23,7 @@ def ensure_pc_names_table(cursor) -> None:
             uuid VARCHAR(100) NOT NULL,
             display_name VARCHAR(120) NULL,
             sort_order INT NOT NULL DEFAULT 0,
+            is_archived TINYINT(1) NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uq_club_pc_uuid (club_id, uuid),
@@ -92,7 +93,7 @@ def get_pc_name_settings(club_id: int) -> list[dict[str, Any]]:
                 """
                 SELECT uuid, display_name, sort_order
                 FROM club_pc_names
-                WHERE club_id = %s
+                WHERE club_id = %s AND is_archived = 0
                 ORDER BY sort_order, COALESCE(NULLIF(display_name, ''), uuid), uuid
                 """,
                 (club_id,),
@@ -204,6 +205,7 @@ def get_pc_hours_heatmap_stats(
                     cpn.uuid,
                     cpn.display_name,
                     cpn.sort_order,
+                    cpn.is_archived,
                     gs.id AS session_id,
                     gs.date_start,
                     gs.date_stop
@@ -215,6 +217,7 @@ def get_pc_hours_heatmap_stats(
                  AND gs.date_start < %s
                  AND COALESCE(gs.date_stop, %s) > %s
                 WHERE cpn.club_id = %s
+                  AND (cpn.is_archived = 0 OR gs.id IS NOT NULL)
                 ORDER BY cpn.sort_order,
                          COALESCE(NULLIF(cpn.display_name, ''), cpn.uuid),
                          cpn.uuid,
@@ -238,6 +241,7 @@ def get_pc_hours_heatmap_stats(
                 "uuid": uuid,
                 "display_name": row.get("display_name"),
                 "sort_order": row.get("sort_order"),
+                "is_archived": bool(row.get("is_archived")),
                 "sessions_count": 0,
                 "intervals": [],
             },
@@ -259,6 +263,7 @@ def get_pc_hours_heatmap_stats(
                 "uuid": pc["uuid"],
                 "display_name": pc["display_name"],
                 "sort_order": pc["sort_order"],
+                "is_archived": pc["is_archived"],
                 "total_hours": _merged_occupied_seconds(pc["intervals"]) / 3600,
                 "sessions_count": pc["sessions_count"],
             }
@@ -277,11 +282,14 @@ def get_pc_hours_heatmap_stats(
         )
         display_name = (row.get("display_name") or "").strip()
         label = display_name or f"ПК {idx}"
+        if row.get("is_archived"):
+            label += " (архив)"
         pcs.append(
             {
                 "uuid": row.get("uuid"),
                 "name": label,
                 "display_name": display_name,
+                "is_archived": bool(row.get("is_archived")),
                 "hours": round(raw_hours, 1),
                 "hours_display": str(round(raw_hours, 1)).replace(".0", "").replace(".", ","),
                 "sessions_count": int(row.get("sessions_count") or 0),
