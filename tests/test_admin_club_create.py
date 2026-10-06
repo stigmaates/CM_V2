@@ -56,7 +56,7 @@ def test_insert_admin_club_raises_for_duplicate_club_id():
 
 def test_gizmo_club_is_disabled_without_langame_credentials_on_stage(monkeypatch):
     from app.routes.admin import clubs
-    monkeypatch.setattr(clubs, 'APP_ENV', 'stage')
+    monkeypatch.setattr(clubs, 'stage_pilot_available', lambda: True)
     cursor = FakeCursor()
     clubs._insert_admin_club(cursor, 900001, 'Next, Уфа', '', '', provider='gizmo', timezone_name='Asia/Yekaterinburg')
     insert_sql, params = cursor.queries[-2]
@@ -69,7 +69,7 @@ def test_gizmo_creation_is_not_enabled_in_production(monkeypatch):
     import pytest
 
     from app.routes.admin import clubs
-    monkeypatch.setattr(clubs, 'APP_ENV', 'production')
+    monkeypatch.setattr(clubs, 'stage_pilot_available', lambda: False)
     cursor = FakeCursor()
     with pytest.raises(ValueError, match='стейдже'):
         clubs._insert_admin_club(cursor, 900001, 'Next', '', '', provider='gizmo')
