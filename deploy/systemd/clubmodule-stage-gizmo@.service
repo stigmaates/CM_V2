@@ -1,0 +1,15 @@
+[Unit]
+Description=Gizmo stage pilot full history reconciliation for club %i
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/root/cm_stage/CM_V2/.stage-no-outbound
+ConditionPathExists=/root/gizmo-stage-check/sync-%i.json
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/cm_stage/CM_V2
+EnvironmentFile=/root/cm_stage/CM_V2/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/root/cm_stage/CM_V2/venv/bin/python scripts/sync_gizmo_stage.py --club-id %i
+UMask=0077
+TimeoutStartSec=3600

@@ -1,0 +1,10 @@
+[Unit]
+Description=Reconcile Gizmo stage pilot club %i every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=30min
+Unit=clubmodule-stage-gizmo@%i.service
+
+[Install]
+WantedBy=timers.target
