@@ -145,7 +145,8 @@ def test_pilot_does_not_write_to_existing_active_or_langame_club(club):
         check_target(club)
 
 
-def test_available_session_methods_join_by_usage_session_id_and_store_utc():
+@pytest.mark.parametrize("completed", [True, False])
+def test_available_session_methods_verify_same_id_user_span_and_store_utc(completed):
     from datetime import UTC
 
     from app.integrations.gizmo_import import collect
@@ -158,14 +159,18 @@ def test_available_session_methods_join_by_usage_session_id_and_store_utc():
                 "users": [member()],
                 "hosts": [{"Type": 0, "Model": {"Id": 5, "Name": "PC05", "Number": 5}}],
                 "deposittransactions": [deposit()],
-                "usersessions": [{"id": 99, "userId": 10, "hostId": 5, "state": 2}],
+                "usersessions": [
+                    {"id": 99, "userId": 999, "hostId": 6, "state": 2, "span": 2000},
+                    {"id": 123, "userId": 10, "hostId": 5, "state": 2, "span": 3590.125},
+                ],
                 "sessions": [
                     {
                         "id": 123,
                         "usageSessionId": 99,
+                        "span": 3590.125,
                         "userId": 10,
                         "startTime": "2026-10-01T15:00:00+05:00",
-                        "endTime": "2026-10-01T16:00:00+05:00",
+                        "endTime": "2026-10-01T16:00:00+05:00" if completed else None,
                     }
                 ],
             }
@@ -179,6 +184,10 @@ def test_available_session_methods_join_by_usage_session_id_and_store_utc():
         end=datetime(2026, 10, 2, tzinfo=UTC),
         cash_method_ids={-1},
     )
+    assert data["counts"]["open_sessions_skipped"] == (0 if completed else 1)
+    if not completed:
+        assert data["sessions"] == []
+        return
     assert data["sessions"] == [
         dict(
             id=123,
@@ -221,3 +230,36 @@ def test_langame_workers_never_call_external_api_for_gizmo_even_if_service_enabl
 
     monkeypatch.setattr(mod, "start_job_run", fail)
     assert getattr(mod, module)(900001) == [{"club_id": 900001, "skipped": "provider"}]
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"userId": 99},
+        {"span": 7000},
+        {"span": None},
+        {"span": "NaN"},
+        {"span": "Infinity"},
+        {"span": -1},
+        {"state": 1},
+        {"state": 999},
+    ],
+)
+def test_same_id_alone_never_authorizes_session_linkage(patch):
+    from app.integrations.gizmo_import import closed_session_detail
+
+    raw = dict(
+        id=24889, userId=1417, usageSessionId=24885, span=6566.929060999993, endTime="2026-09-29T04:48:30.8564568Z"
+    )
+    detail = dict(id=24889, userId=1417, hostId=7, state=2, span=raw["span"])
+    detail.update(patch)
+    with pytest.raises(GizmoError):
+        closed_session_detail(raw, {24889: detail})
+
+
+def test_session_link_does_not_fall_back_to_usage_reference():
+    from app.integrations.gizmo_import import closed_session_detail
+
+    raw = dict(id=123, userId=10, usageSessionId=99, span=3600, endTime="2026-10-01T11:00:00Z")
+    with pytest.raises(GizmoError, match="same-ID"):
+        closed_session_detail(raw, {99: dict(id=99, userId=10, hostId=5, span=3600, state=2)})
