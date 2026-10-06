@@ -39,6 +39,7 @@ class GizmoClient:
             raise GizmoError("Certificate does not match the approved fingerprint")
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.context.load_verify_locations(cadata=certificate_pem)
+        self.context.verify_flags |= ssl.VERIFY_X509_PARTIAL_CHAIN
 
     def get(self, resource, params=None):
         # Only GETs are retried. Authentication, TLS and malformed data require

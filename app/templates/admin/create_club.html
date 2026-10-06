@@ -10,7 +10,7 @@
 </section>
 
 <section class="admin-card admin-form-card">
-    <form class="admin-form" method="POST" enctype="multipart/form-data">
+    <form class="admin-form" method="POST">
         <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
         <div>
             <label for="name">Название клуба</label>
@@ -53,17 +53,12 @@
             <input type="number" id="port" name="port" min="1" max="65535" value="{{ values.port or 443 }}" disabled>
         </div>
         <div data-gizmo hidden>
-            <label for="server_name">Имя сервера в сертификате</label>
+            <label for="server_name">HTTPS-имя сервера</label>
             <input id="server_name" name="server_name" value="{{ values.server_name or 'gizmo.local' }}" disabled>
         </div>
         <div data-gizmo hidden>
             <label for="gizmo_api_key">API-ключ Gizmo</label>
             <input type="password" id="gizmo_api_key" name="gizmo_api_key" autocomplete="new-password" maxlength="4096" disabled>
-        </div>
-        <div data-gizmo hidden>
-            <label for="certificate">Публичный HTTPS-сертификат (.pem)</label>
-            <input type="file" id="certificate" name="certificate" accept=".pem,.crt" disabled>
-            <small>Получите у клуба сертификат сервера Gizmo. Закрытый ключ не нужен.</small>
         </div>
         {% endif %}
         <button class="admin-btn" id="createClubButton" type="submit">Создать клуб</button>

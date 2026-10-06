@@ -1,6 +1,5 @@
 """Club creation and protected onboarding request are submitted together."""
 
-import io
 import json
 
 import pytest
@@ -51,7 +50,6 @@ def data(certificate):
         port="443",
         server_name="gizmo.local",
         gizmo_api_key="gizmo-private-key",
-        certificate=(io.BytesIO(certificate.encode()), "server.pem"),
     )
 
 
@@ -78,7 +76,7 @@ def test_gizmo_creation_stores_credentials_and_queues_initial_import(creation, c
     assert "gizmo-private-key" not in json.dumps(conn.records("club_integrations"))
 
 
-@pytest.mark.parametrize("invalid", ["address", "certificate", "gizmo_api_key"])
+@pytest.mark.parametrize("invalid", ["address", "gizmo_api_key"])
 def test_invalid_gizmo_input_does_not_create_club_and_keeps_nonsecret_fields(creation, certificate, invalid):
     conn, directory = creation
     payload = data(certificate)
