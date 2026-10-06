@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from app.integrations.gizmo import GizmoClient, GizmoError, GizmoHTTPError
 from app.integrations.gizmo_certificate import endpoint
 from app.integrations.gizmo_import import all_rows, check_target
+from app.integrations.gizmo_lifecycle import read_club
 from app.integrations.gizmo_sync import DIRECTORY, atomic_json, private_json, read_target, run_lock
 from app.integrations.stage import require_stage_environment
 
@@ -80,7 +81,7 @@ def inspect_connection(client):
 def queue_setup(conn, club_id, form, *, certificate_pem=None, directory=DIRECTORY):
     require_stage_environment()
     with run_lock(directory / f"sync-{club_id}.lock"):
-        settings = read_target(conn, club_id, allow_initial=True)
+        settings = read_target(conn, club_id, allow_initial=True, lifecycle=True)
         path = directory / f"sync-{club_id}.json"
         existing = private_json(path) if path.exists() else {}
         existing = dict(existing)
@@ -94,6 +95,8 @@ def queue_setup(conn, club_id, form, *, certificate_pem=None, directory=DIRECTOR
         # silently mix two clubs' guests or overwrite an external ID namespace.
         if settings.get("source") and settings["source"] != credentials["connection"]:
             raise GizmoError("У клуба уже есть история. Смену сервера или сертификата нужно проверить отдельно.")
+        club = read_club(conn, club_id)
+        credentials["refresh_disabled"] = bool(club.get("integration_ready") and not club.get("service_enabled"))
         credentials["requested_at_utc"] = datetime.now(UTC).isoformat()
         status_path = directory / f"status-{club_id}.json"
         previous = private_json(status_path) if status_path.exists() else {}
@@ -111,7 +114,7 @@ def pause_sync(conn, club_id, *, directory=DIRECTORY):
     with run_lock(directory / f"sync-{club_id}.lock"):
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM clubs WHERE club_id=%s", (club_id,))
-            check_target(cur.fetchone())
+            check_target(cur.fetchone(), lifecycle=True)
         conn.rollback()
         path = directory / f"sync-{club_id}.json"
         data = private_json(path)

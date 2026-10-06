@@ -263,14 +263,14 @@ def collect(
     }
 
 
-def check_target(club):
+def check_target(club, *, lifecycle=False):
     if not club or club.get("integration_provider") != "gizmo":
         raise GizmoError("Target must be a Gizmo club")
-    if int(club.get("service_enabled", 1)) or int(club.get("integration_ready", 1)):
+    if not lifecycle and (int(club.get("service_enabled", 1)) or int(club.get("integration_ready", 1))):
         raise GizmoError("Pilot import requires disabled service and integration_ready=0")
 
 
-def save(conn, club_id, data):
+def save(conn, club_id, data, *, target_check=None):
     """Idempotent upserts preserve Telegram links and hand-edited PC names/order.
 
     Use the same advisory lock as the stage mirror. All network I/O is finished
@@ -287,7 +287,7 @@ def save(conn, club_id, data):
         conn.begin()
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM clubs WHERE club_id=%s FOR UPDATE", (club_id,))
-            check_target(cur.fetchone())
+            (target_check or check_target)(cur.fetchone())
             cur.execute(
                 "SELECT external_branch_id, settings FROM club_integrations WHERE club_id=%s FOR UPDATE", (club_id,)
             )

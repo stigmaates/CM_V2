@@ -11,7 +11,7 @@
   <p id="gizmoCounts"></p>
   <p id="gizmoSuccess"></p>
   <p id="gizmoError" role="alert"></p>
-  <p class="muted">Обслуживание остаётся выключенным до приёмки. Проверка не отправляет гостям сообщения и не выдаёт награды.</p>
+  <p class="muted">Обслуживание {{ 'включено' if club.service_enabled else 'выключено' }}. На стейдже отправка сообщений гостям заблокирована.</p>
 </section>
 <section class="admin-card admin-form-card">
   <form class="admin-form" method="post" autocomplete="off">
@@ -24,6 +24,11 @@
     <button class="admin-btn" type="submit" name="action" value="configure">Проверить и загрузить данные</button>
   </form>
   {% if state.configured %}
+  <form method="post" class="gizmo-pause-form">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
+    <button class="admin-btn" type="submit" name="action" value="{{ 'disable' if club.service_enabled else 'activate' }}">{{ 'Выключить обслуживание' if club.service_enabled else 'Включить обслуживание на стейдже' }}</button>
+    <p>Включение доступно после успешной загрузки данных и аналитики не старше часа. Если данные устарели, сначала запустите проверку выше.</p>
+  </form>
   <form method="post" class="gizmo-pause-form">
     <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
     <button class="admin-btn" type="submit" name="action" value="pause">Приостановить обновления</button>

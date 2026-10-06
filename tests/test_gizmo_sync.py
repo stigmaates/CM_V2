@@ -98,6 +98,9 @@ def worker(tmp_path, monkeypatch):
     (tmp_path / "server.pem").write_text("fixture-cert")
     monkeypatch.setattr(sync, "require_stage_environment", lambda: None)
     monkeypatch.setattr(
+        sync, "read_club", lambda *a: dict(integration_provider="gizmo", service_enabled=0, integration_ready=0)
+    )
+    monkeypatch.setattr(
         sync,
         "read_target",
         lambda *a, **kw: dict(
@@ -118,7 +121,7 @@ def worker(tmp_path, monkeypatch):
         return dict(scope={}, counts={"sessions": 10})
 
     monkeypatch.setattr(sync, "collect", collect_data)
-    monkeypatch.setattr(sync, "save", lambda *a: events.append("save"))
+    monkeypatch.setattr(sync, "save", lambda *a, **kw: events.append("save"))
     monkeypatch.setattr(
         sync, "rebuild_club_portrait", lambda *a: events.append("portrait") or dict(status="updated", guests=5)
     )

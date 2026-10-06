@@ -1,7 +1,6 @@
-"""Shared scheduler for configured, isolated stage previews.
+"""Shared Gizmo scheduler: onboarding, active service and explicit paused refresh.
 
-The production activation policy is deliberately not implemented here. Preview
-credentials opt a disabled club into imports, never into messages or rewards.
+Still restricted to isolated stage until production acceptance.
 """
 
 from app.core import get_db_connection
@@ -16,7 +15,7 @@ def configured_clubs(conn):
             SELECT c.club_id FROM clubs c
             JOIN club_integrations i ON i.club_id = c.club_id
             WHERE c.integration_provider = 'gizmo'
-              AND c.service_enabled = 0 AND c.integration_ready = 0
+              AND (c.service_enabled = 0 OR c.integration_ready = 1)
             ORDER BY c.club_id
         """)
         rows = cur.fetchall()

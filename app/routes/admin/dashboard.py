@@ -659,6 +659,28 @@ def club_service_toggle(club_id: int):
     if not club:
         return jsonify({"status": False, "message": "Клуб не найден"}), 404
 
+    if club.get("integration_provider") == "gizmo":
+        from app.integrations.gizmo_lifecycle import set_service
+        from app.integrations.gizmo_onboarding import public_error
+
+        try:
+            with get_db_connection() as db:
+                set_service(db, club_id, enabled)
+        except (ValueError, OSError) as exc:
+            return jsonify({"status": False, "message": public_error(exc)}), 400
+        record_audit_event(
+            action="admin.club_service.toggle",
+            club_id=club_id,
+            entity_type="club",
+            entity_id=club_id,
+            details={"service_enabled": enabled},
+        )
+        return jsonify(
+            status=True,
+            service_enabled=enabled,
+            message="Обслуживание включено" if enabled else "Обслуживание выключено",
+        )
+
     if enabled and service_activation_error(club):
         return jsonify({"status": False, "message": service_activation_error(club)}), 400
 

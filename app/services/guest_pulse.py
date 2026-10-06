@@ -282,9 +282,7 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False, st
     try:
         conn.commit()
         eligibility = (
-            "service_enabled=0 AND integration_provider='gizmo' AND integration_ready=0"
-            if stage_gizmo_preview
-            else "service_enabled=1"
+            "service_enabled=0 AND integration_provider='gizmo'" if stage_gizmo_preview else "service_enabled=1"
         )
         club = rows(conn, f"SELECT timezone FROM clubs WHERE club_id=%s AND {eligibility}", (club_id,))
         if not club:
