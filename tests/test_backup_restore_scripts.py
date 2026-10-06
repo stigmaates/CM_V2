@@ -204,6 +204,14 @@ def test_enabled_gizmo_private_backup_includes_credentials_and_certificate(tmp_p
     monkeypatch.setattr(backup, "ENV_FILE", env_file)
     monkeypatch.setattr(backup, "BACKUP_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup, "GIZMO_PRODUCTION_STATE", roots["gizmo"])
+    original_open = tarfile.open
+
+    def private_archive_open(*args, **kwargs):
+        if "fileobj" in kwargs:
+            assert os.fstat(kwargs["fileobj"].fileno()).st_mode & 0o777 == 0o600
+        return original_open(*args, **kwargs)
+
+    monkeypatch.setattr(tarfile, "open", private_archive_open)
     assert backup.main() == 0
     path = Path(capsys.readouterr().out.strip())
     assert path.stat().st_mode & 0o777 == 0o600

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import tarfile
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -59,14 +60,16 @@ def main() -> int:
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     target = backup_dir / f"private_storage_{timestamp}.tar.gz"
-    temporary = backup_dir / f".{target.name}.tmp"
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=backup_dir)
+    temporary = Path(temporary_name)
 
     try:
-        with tarfile.open(temporary, "w:gz") as archive:
-            archive.dereference = False
-            for archive_name, source in sources.items():
-                archive.add(source, arcname=archive_name, recursive=True)
-        temporary.chmod(0o600)
+        # Keep secrets private while writing, not just after closing the archive.
+        with os.fdopen(descriptor, "wb") as output:
+            with tarfile.open(fileobj=output, mode="w:gz") as archive:
+                archive.dereference = False
+                for archive_name, source in sources.items():
+                    archive.add(source, arcname=archive_name, recursive=True)
         temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)
