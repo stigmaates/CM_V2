@@ -37,7 +37,7 @@ async def offer_phone_choices(message, context, phone):
             [
                 [
                     InlineKeyboardButton(
-                        "Мой номер Telegram не совпадает с номером в LG", callback_data=f"lg_link:{nonce}:different"
+                        "Мой номер Telegram отличается от номера в клубе", callback_data=f"lg_link:{nonce}:different"
                     )
                 ],
                 [InlineKeyboardButton("Это точно мой номер", callback_data=f"lg_link:{nonce}:help")],
@@ -116,7 +116,7 @@ async def phone_choice_callback(update, context):
                     text=(
                         f"Привязка Telegram · заявка №{request_id}\nКлуб: {club_id}\n"
                         f"Гость: {guest.get('fio') or 'ФИО не указано'}\n"
-                        f"Номер LG: {guest['phone']}\n\n"
+                        f"Номер в клубе: {guest['phone']}\n\n"
                         "Перед подтверждением найдите аккаунт в кабинете и проверьте личность гостя "
                         "в клубе. Попросите его показать эту заявку в своём Telegram. "
                         "Подтверждение предоставит доступ к кабинету и бонусам."
@@ -138,7 +138,7 @@ async def phone_choice_callback(update, context):
         await query.edit_message_text(
             f"Заявка №{request_id} отправлена администратору клуба. Покажите ему это сообщение "
             "для проверки аккаунта.\nПосле подтверждения откройте новую ссылку входа на сайте — "
-            "номер LG повторно вводить не нужно."
+            "номер клуба повторно вводить не нужно."
         )
     except ValueError as exc:
         await query.answer(str(exc), show_alert=True)

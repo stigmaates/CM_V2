@@ -21,6 +21,7 @@ from app.services.first_visit_survey import (
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
 from app.services.mailing import (
+    _ensure_mailing_recipient_message_column,
     create_mailing_for_recipients,
     get_inactive_auto_mailing_recipients,
     render_message_template,
@@ -70,44 +71,61 @@ def process_inactive_14_bonus(conn, setting: dict) -> int:
     if not recipients:
         return 0
 
-    mailing = create_mailing_for_recipients(
-        conn=conn,
-        club_id=club_id,
-        recipients=recipients,
-        message_text=message_text,
-        parse_mode="HTML",
-        filters_json={
-            "auto_mailing": code,
-            "days_inactive": days_inactive,
-            "smart_inactive_enabled": smart_inactive_enabled,
-            "smart_inactive_days": smart_inactive_days,
-            "smart_interval_multiplier": smart_interval_multiplier,
-            "confidence_threshold": 50,
-            "bonus_amount": bonus_amount,
-            "is_expiring": True,
-            "expires_after_seconds": 7 * 24 * 60 * 60,
-            "repeat_after_days": repeat_after_days,
-        },
-    )
-
-    mailing_id = mailing["mailing_id"]
-
+    # Complete lazy schema setup before taking a transactional club lock: DDL
+    # would otherwise release it via MySQL's implicit commit.
     with conn.cursor() as cur:
         ensure_cm_bonus_tables(cur)
-        for row in recipients:
-            add_cm_bonus_transaction(
-                cursor=cur,
-                guest_id=int(row["guest_id"]),
-                club_id=int(club_id),
-                amount=bonus_amount,
-                source_type="auto_mailing",
-                source_id=str(mailing_id),
-                description=f"Авторассылка: {setting.get('title') or code} (сгорает через 7 дней)",
-                status="done",
-                expires_at=bonus_expires_at,
-            )
-
+        _ensure_mailing_recipient_message_column(cur)
     conn.commit()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT service_enabled FROM clubs WHERE club_id=%s FOR UPDATE", (club_id,))
+            club = cur.fetchone()
+            if not club or int(club.get("service_enabled") if club.get("service_enabled") is not None else 1) != 1:
+                conn.rollback()
+                return 0
+        # Queue and awards become visible together. Disabling the club uses the
+        # same row lock, so it either precedes this batch or waits for its commit.
+        mailing = create_mailing_for_recipients(
+            conn=conn,
+            club_id=club_id,
+            recipients=recipients,
+            message_text=message_text,
+            parse_mode="HTML",
+            filters_json={
+                "auto_mailing": code,
+                "days_inactive": days_inactive,
+                "smart_inactive_enabled": smart_inactive_enabled,
+                "smart_inactive_days": smart_inactive_days,
+                "smart_interval_multiplier": smart_interval_multiplier,
+                "confidence_threshold": 50,
+                "bonus_amount": bonus_amount,
+                "is_expiring": True,
+                "expires_after_seconds": 7 * 24 * 60 * 60,
+                "repeat_after_days": repeat_after_days,
+            },
+        )
+
+        mailing_id = mailing["mailing_id"]
+
+        with conn.cursor() as cur:
+            for row in recipients:
+                add_cm_bonus_transaction(
+                    cursor=cur,
+                    guest_id=int(row["guest_id"]),
+                    club_id=int(club_id),
+                    amount=bonus_amount,
+                    source_type="auto_mailing",
+                    source_id=str(mailing_id),
+                    description=f"Авторассылка: {setting.get('title') or code} (сгорает через 7 дней)",
+                    status="done",
+                    expires_at=bonus_expires_at,
+                )
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
     process_one_mailing(conn, mailing_id)
 

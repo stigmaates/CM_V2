@@ -352,7 +352,7 @@ def test_yes_submits_for_admin_review_without_authenticating(monkeypatch, delive
     notification = admin_bot.send_message.call_args.kwargs
     assert notification["chat_id"] == "-200"
     assert "79990000000" not in notification["text"]
-    assert "Номер LG: 9270086145" in notification["text"]
+    assert "Номер в клубе: 9270086145" in notification["text"]
     assert "Гость: Тестовый Гость Отчество" in notification["text"]
     assert "ID аккаунта" not in notification["text"]
 
@@ -364,7 +364,7 @@ def test_unmatched_own_contact_offers_both_choices(monkeypatch):
     monkeypatch.setattr(guest_bot, "find_guest_by_phone", lambda *args: (None, 0))
     asyncio.run(guest_bot.handle_contact(update, context))
     buttons = update.message.reply_text.call_args.kwargs["reply_markup"].inline_keyboard
-    assert buttons[0][0].text == "Мой номер Telegram не совпадает с номером в LG"
+    assert buttons[0][0].text == "Мой номер Telegram отличается от номера в клубе"
     assert buttons[1][0].text == "Это точно мой номер"
 
 
