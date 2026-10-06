@@ -90,6 +90,7 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
     skipped_open = 0
     skipped_nonmember = 0
     skipped_unknown_host = 0
+    rejected_sessions = []
     if include_sessions:
         # Next 3.0.92 diagnostics: same ID + user + span match;
         # usageSessionId points elsewhere and must not be used as a join.
@@ -112,6 +113,18 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             if stop_at is None:
                 skipped_open += 1
                 continue
+            if stop_at <= start_at:
+                # Zero/negative wall-clock intervals cannot represent an analytical
+                # visit. Quarantine explicitly; keep strict linkage for valid rows.
+                rejected_sessions.append(
+                    {
+                        "id": normalize.external_id(raw["id"]),
+                        "reason": "end_equals_start" if stop_at == start_at else "end_before_start",
+                        "start_utc": start_at.isoformat(),
+                        "end_utc": stop_at.isoformat(),
+                    }
+                )
+                continue
             detail = usage.get(normalize.external_id(raw["id"]))
             if detail and detail.get("state") not in (2, 17):
                 # The session may have ended between the two paginated reads.
@@ -130,7 +143,14 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
                 sessions[row["id"]] = row
             else:
                 skipped_unknown_host += 1
+    if rejected_sessions:
+        logging.getLogger(__name__).warning(
+            "Gizmo: исключено сессий с окончанием не позже начала: %s; примеры ID: %s",
+            len(rejected_sessions),
+            ", ".join(str(row["id"]) for row in rejected_sessions[:10]),
+        )
     return {
+        "rejected_sessions": rejected_sessions,
         "guests": guests,
         "hosts": hosts,
         "topups": topups,
@@ -155,6 +175,7 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             "open_sessions_skipped": skipped_open,
             "sessions_unregistered_guest_skipped": skipped_nonmember,
             "sessions_unknown_host_skipped": skipped_unknown_host,
+            "sessions_invalid_time_skipped": len(rejected_sessions),
             "deposit_operations_read": len(raw_topups),
         },
     }
@@ -246,6 +267,10 @@ def save(conn, club_id, data):
                         host["sort_order"],
                     ),
                 )
+            # If Gizmo corrected a previously imported session to an invalid interval,
+            # remove only that source ID in this club, in the same transaction.
+            for rejected in data.get("rejected_sessions", []):
+                cur.execute("DELETE FROM guest_sessions WHERE club_id=%s AND id=%s", (club_id, rejected["id"]))
             for row in data["sessions"]:
                 cur.execute(
                     """INSERT INTO guest_sessions (club_id,id,guest_id,uuid,date_start,date_stop)

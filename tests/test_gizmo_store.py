@@ -164,3 +164,29 @@ def test_changing_source_or_branch_cannot_overwrite_guest_identity(sample):
     changed["scope"]["source"]["address"] = "another"
     with pytest.raises(ValueError, match="identity"):
         save(conn, 900001, changed)
+
+
+def test_rejected_session_removes_only_same_club_record_atomically(sample):
+    conn = Connection()
+    save(conn, 900001, sample)
+    conn.db.execute(
+        "INSERT INTO guest_sessions VALUES (900002,123,10,'gizmo:5','2026-10-01 10:00:00','2026-10-01 11:00:00')"
+    )
+    conn.commit()
+    corrected = copy.deepcopy(sample)
+    corrected["rejected_sessions"] = [dict(id=123, reason="end_before_start")]
+    corrected["sessions"] = []
+    save(conn, 900001, corrected)
+    assert [(r["club_id"], r["id"]) for r in conn.records("guest_sessions")] == [(900002, 123)]
+
+
+def test_rejected_session_deletion_rolls_back_if_valid_session_write_fails(sample):
+    conn = Connection()
+    save(conn, 900001, sample)
+    corrected = copy.deepcopy(sample)
+    corrected["rejected_sessions"] = [dict(id=123, reason="end_before_start")]
+    corrected["sessions"][0]["id"] = 124
+    conn.fail = True
+    with pytest.raises(RuntimeError, match="injected"):
+        save(conn, 900001, corrected)
+    assert [r["id"] for r in conn.records("guest_sessions")] == [123]

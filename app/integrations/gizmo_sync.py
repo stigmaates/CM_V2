@@ -104,6 +104,16 @@ def synchronize(conn, club_id, *, directory=DIRECTORY):
                 full_history=True,
             )
             data["scope"]["source"] = source
+            rejected = data.get("rejected_sessions", [])
+            status["session_time_examples"] = rejected[:10]
+            atomic_json(
+                directory / f"session-quality-{club_id}.json",
+                {
+                    "club_id": club_id,
+                    "collected_at_utc": datetime.now(UTC).isoformat(),
+                    "rejected_sessions": rejected,
+                },
+            )
             logging.getLogger(__name__).info("Gizmo: проверка пройдена, сохраняем данные в stage...")
             save(conn, club_id, data)
             status.update(
