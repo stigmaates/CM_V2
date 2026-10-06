@@ -115,7 +115,17 @@ def main():
     try:
         club_id = provision(conn, args.create_club, tz) if args.create_club else args.club_id
         save(conn, club_id, data)
-        print(f"Импорт завершён. Club ID: {club_id}. Обслуживание выключено; рассылки и награды не запускались.")
+        print(
+            f"Импорт завершён. Club ID: {club_id}. Обслуживание выключено; рассылки и награды не запускались.",
+            flush=True,
+        )
+        from app.services.guest_pulse import refresh_club
+
+        print("Расчёт пульса по импортированным визитам...", flush=True)
+        result = refresh_club(conn, club_id, stage_gizmo_preview=True)
+        print(json.dumps(result, ensure_ascii=False), flush=True)
+        if result["status"] != "updated":
+            raise GizmoError("Данные импортированы, но пульс не пересчитан; запустите rebuild_gizmo_stage_pulse.py")
     finally:
         conn.close()
 

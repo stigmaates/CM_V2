@@ -703,7 +703,9 @@ def test_audience_can_sort_all_rows_by_overall_score(pulse_client, database, mix
             sql(
                 "SELECT detail_json FROM guest_pulse_current WHERE club_id=2 AND guest_id=%s",
                 (guest_id,),
-            )[0]["detail_json"]
+            )[
+                0
+            ]["detail_json"]
         )
         for metric in ("health", "value", "engagement"):
             row[metric]["score"] = score
@@ -750,3 +752,62 @@ def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, d
     assert selection["group"]["guest_ids"] == [42]
     assert all(guest["has_telegram"] for guest in selection["group"]["guests"])
     assert selection["group"]["selection_id"]
+
+
+@pytest.mark.parametrize(
+    "provider,enabled,ready,allowed",
+    [
+        ("gizmo", 0, 0, True),
+        ("langame", 0, 0, False),
+        ("gizmo", 1, 0, False),
+        ("gizmo", 0, 1, False),
+    ],
+)
+def test_stage_gizmo_preview_populates_disabled_pilot_without_history(
+    database, monkeypatch, provider, enabled, ready, allowed
+):
+    from app.integrations import stage
+
+    monkeypatch.setattr(stage, "require_stage_environment", lambda: None)
+    connect, sql = database
+    sql("ALTER TABLE clubs ADD COLUMN integration_provider VARCHAR(16)")
+    sql("ALTER TABLE clubs ADD COLUMN integration_ready INT")
+    sql(
+        "UPDATE clubs SET service_enabled=%s,integration_provider=%s,integration_ready=%s WHERE club_id=2",
+        (enabled, provider, ready),
+    )
+    sql("UPDATE guests SET telegram_id=NULL WHERE club_id=2")
+    if not enabled:
+        assert run(connect, force=True)["status"] == "disabled"
+    result = run(connect, stage_gizmo_preview=True)
+    assert result["status"] == ("updated" if allowed else "disabled")
+    assert sql("SELECT * FROM guest_score_history WHERE club_id=2") == []
+    assert sql("SELECT * FROM guest_lifecycle_events WHERE club_id=2") == []
+    assert sql("SELECT * FROM guest_pulse_current WHERE club_id=3") == []
+    assert sql("SELECT service_enabled,integration_ready FROM clubs WHERE club_id=2")[0] == dict(
+        service_enabled=enabled, integration_ready=ready
+    )
+    if allowed:
+        assert result["guests"] == 1  # Only the guest with visits, including without Telegram.
+        state = sql("SELECT * FROM guest_pulse_clubs WHERE club_id=2")[0]
+        assert state["backfilled_at"] is None
+        assert state["snapshot_date"] is None
+        conn = connect()
+        try:
+            current = get_current(conn, 2)
+            assert len(current) == 1 and current[0]["has_telegram"] is False
+        finally:
+            conn.close()
+        assert run(connect, stage_gizmo_preview=True)["guests"] == 1
+        assert len(sql("SELECT * FROM guest_pulse_current WHERE club_id=2")) == 1
+
+
+def test_gizmo_preview_requires_verified_stage_before_any_database_access(monkeypatch):
+    from app.integrations import stage
+
+    def reject():
+        raise ValueError("Not the isolated stage")
+
+    monkeypatch.setattr(stage, "require_stage_environment", reject)
+    with pytest.raises(ValueError, match="isolated stage"):
+        refresh_club(None, 900001, stage_gizmo_preview=True)

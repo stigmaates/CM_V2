@@ -21,7 +21,6 @@ from app.services.guest_pulse_scores import (
 from app.services.timezones import club_local_datetime_to_utc, utc_datetime_to_club_local
 from app.services.visits import collapse_sessions_to_visits
 
-
 CURRENT_CACHE_TTL_SECONDS = 120
 _current_cache = {}
 _current_cache_lock = Lock()
@@ -269,14 +268,25 @@ def write_snapshot(cur, club_id, values, day, now_utc, reconstructed=False):
         )
 
 
-def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False):
+def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False, stage_gizmo_preview=False):
+    if stage_gizmo_preview:
+        from app.integrations.stage import require_stage_environment
+
+        require_stage_environment()
+        if backfill:
+            raise ValueError("A partial Gizmo preview cannot reconstruct historical snapshots")
     now_utc = now_utc or datetime.now(UTC).replace(tzinfo=None)
     lock_name = f"guest-pulse:{club_id}"
     if not rows(conn, "SELECT GET_LOCK(CONCAT(MD5(DATABASE()),%s),0) AS acquired", (lock_name,))[0]["acquired"]:
         return {"club_id": club_id, "status": "locked"}
     try:
         conn.commit()
-        club = rows(conn, "SELECT timezone FROM clubs WHERE club_id=%s AND service_enabled=1", (club_id,))
+        eligibility = (
+            "service_enabled=0 AND integration_provider='gizmo' AND integration_ready=0"
+            if stage_gizmo_preview
+            else "service_enabled=1"
+        )
+        club = rows(conn, f"SELECT timezone FROM clubs WHERE club_id=%s AND {eligibility}", (club_id,))
         if not club:
             return {"club_id": club_id, "status": "disabled"}
         tz = club[0].get("timezone")
@@ -285,10 +295,10 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False):
         dirty = (rows(conn, "SELECT generation FROM guest_pulse_dirty WHERE club_id=%s", (club_id,)) or [{}])[0].get(
             "generation"
         )
-        daily_due = now.hour >= 4 and state.get("snapshot_date") != now.date()
-        needs_backfill = backfill or not state.get("backfilled_at")
+        daily_due = not stage_gizmo_preview and now.hour >= 4 and state.get("snapshot_date") != now.date()
+        needs_backfill = not stage_gizmo_preview and (backfill or not state.get("backfilled_at"))
         # A daily recency refresh is mandatory even when sources did not change.
-        if not force and not dirty and not daily_due and not needs_backfill:
+        if not stage_gizmo_preview and not force and not dirty and not daily_due and not needs_backfill:
             return {"club_id": club_id, "status": "unchanged"}
         sources = load_sources(conn, club_id, tz)
         old = previous_states(
@@ -313,7 +323,8 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False):
                 if not old:
                     old = replay
             values = calculate_club(sources, now, old)
-            write_events(cur, club_id, values, old, tz)
+            if not stage_gizmo_preview:
+                write_events(cur, club_id, values, old, tz)
             if daily_due:
                 write_snapshot(cur, club_id, values, now.date(), now_utc)
         history = defaultdict(list)
@@ -440,7 +451,4 @@ def get_current(conn, club_id):
         int(row["guest_id"]): bool(row.get("telegram_id"))
         for row in rows(conn, "SELECT guest_id,telegram_id FROM guests WHERE club_id=%s", (club_id,))
     }
-    return [
-        {**row, "has_telegram": telegram_by_guest.get(int(row["guest_id"]), False)}
-        for row in cached_rows
-    ]
+    return [{**row, "has_telegram": telegram_by_guest.get(int(row["guest_id"]), False)} for row in cached_rows]
