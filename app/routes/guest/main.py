@@ -201,6 +201,8 @@ def generate_game_contracts(game: str):
             details={"game": game, "contracts_count": len(contracts)},
         )
         return jsonify({"ok": True, "pool": pool})
+    except ClubServiceDisabled as exc:
+        return jsonify({"ok": False, "error": "club_service_disabled", "message": str(exc)}), 403
     except GameContractError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 400
     except Exception:
@@ -227,6 +229,8 @@ def accept_game_contracts(game: str):
             details={"game": game, "contract_ids": [int(item["id"]) for item in contracts]},
         )
         return jsonify({"ok": True, "contracts_count": len(contracts)})
+    except ClubServiceDisabled as exc:
+        return jsonify({"ok": False, "error": "club_service_disabled", "message": str(exc)}), 403
     except GameContractError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 400
     except Exception:
@@ -254,6 +258,8 @@ def refresh_game_contracts(game: str):
             details=result,
         )
         return jsonify({"ok": True, **result, "pool": pool})
+    except ClubServiceDisabled as exc:
+        return jsonify({"ok": False, "error": "club_service_disabled", "message": str(exc)}), 403
     except GameContractError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 400
     except Exception:
@@ -277,6 +283,8 @@ def api_game_contracts_sync():
     errors = {}
     try:
         repaired_rewards = repair_missing_contract_rewards(club_id, guest_id)
+    except ClubServiceDisabled:
+        raise
     except Exception as exc:
         current_app.logger.exception(
             "Completed contract reward repair failed for club=%s guest=%s",
@@ -299,6 +307,8 @@ def api_game_contracts_sync():
         try:
             sync_contracts_for_guest(club_id, guest_id, game)
             synced_games.append(game)
+        except ClubServiceDisabled:
+            raise
         except Exception as exc:
             current_app.logger.warning(
                 "Dashboard contract sync failed for club=%s guest=%s game=%s: %s",
