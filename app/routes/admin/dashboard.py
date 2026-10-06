@@ -5,6 +5,7 @@ from threading import Thread
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
 from app.core import admin_required, get_db_connection
+from app.integrations.providers import service_activation_error, supports_langame_sync
 from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
 from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_runs
@@ -92,12 +93,14 @@ def ensure_admin_impersonation_logs_table():
 
 
 def get_club_by_id(club_id: int):
+    provider_expr = "integration_provider" if table_has_column("clubs", "integration_provider") else "'langame'"
+    ready_expr = "integration_ready" if table_has_column("clubs", "integration_ready") else "1"
     service_enabled_expr = "service_enabled" if table_has_column("clubs", "service_enabled") else "1"
     with get_db_connection() as db:
         with db.cursor() as cur:
             cur.execute(
                 f"""
-                SELECT club_id, name, {service_enabled_expr} AS service_enabled
+                SELECT club_id, name, {provider_expr} AS integration_provider, {ready_expr} AS integration_ready, {service_enabled_expr} AS service_enabled
                 FROM clubs
                 WHERE club_id = %s
                 LIMIT 1
@@ -174,6 +177,8 @@ def table_has_column(table_name: str, column_name: str) -> bool:
 
 
 def get_clubs_for_admin():
+    provider_expr = "c.integration_provider" if table_has_column("clubs", "integration_provider") else "'langame'"
+    ready_expr = "c.integration_ready" if table_has_column("clubs", "integration_ready") else "1"
     service_enabled_expr = "c.service_enabled" if table_has_column("clubs", "service_enabled") else "1"
     cooperation_expr = "c.cooperation_started_at" if table_has_column("clubs", "cooperation_started_at") else "NULL"
     timezone_expr = "c.timezone" if table_has_column("clubs", "timezone") else "NULL"
@@ -182,6 +187,8 @@ def get_clubs_for_admin():
             cur.execute(f"""
                 SELECT
                     c.club_id,
+                    {provider_expr} AS integration_provider,
+                    {ready_expr} AS integration_ready,
                     {service_enabled_expr} AS service_enabled,
                     c.name,
                     c.owner_id,
@@ -672,6 +679,9 @@ def club_service_toggle(club_id: int):
     if not club:
         return jsonify({"status": False, "message": "Клуб не найден"}), 404
 
+    if enabled and service_activation_error(club):
+        return jsonify({"status": False, "message": service_activation_error(club)}), 400
+
     with get_db_connection() as db:
         with db.cursor() as cur:
             cur.execute(
@@ -812,6 +822,9 @@ def club_sync(club_id: int, sync_type: str):
         return jsonify({"status": False, "message": "Клуб не найден"}), 404
     if not _is_club_service_enabled(club):
         return jsonify({"status": False, "message": "Клуб выключен, синхронизация недоступна"}), 400
+
+    if not supports_langame_sync(club):
+        return jsonify({"status": False, "message": "Для Gizmo используется отдельный импорт пилотного клуба"}), 400
 
     script_name, sync_mode, func = actions[sync_type]
     running_log = get_running_sync_log(club_id, script_name, sync_mode)

@@ -42,7 +42,7 @@
                 {% for club in clubs %}
                     <tr class="club-row" data-club-id="{{ club.club_id }}">
                         <td>{{ club.club_id }}</td>
-                        <td>{{ club.name }}</td>
+                        <td>{{ club.name }}<br><small class="muted">{{ 'Gizmo' if club.integration_provider == 'gizmo' else 'Langame' }}{{ ' · пилот' if club.integration_provider == 'gizmo' and not club.integration_ready else '' }}</small></td>
                         <td>{{ club.owner_name or club.owner_login or '—' }}</td>
                         <td>{{ club.guests_count or 0 }}</td>
                         <td>{{ club.telegram_guests_count or 0 }}</td>
@@ -368,11 +368,15 @@ async function openClubModal(clubId) {
 
     const club = data.club;
     document.getElementById('modalClubName').textContent = club.name || 'Клуб';
-    document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Гостей: ${formatValue(club.guests_count)} · Telegram: ${formatValue(club.telegram_guests_count)}`;
+    document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · ${club.integration_provider === 'gizmo' ? 'Gizmo' : 'Langame'} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Гостей: ${formatValue(club.guests_count)} · Telegram: ${formatValue(club.telegram_guests_count)}`;
     document.getElementById('impersonateForm').action = `/admin/clubs/${club.club_id}/impersonate`;
     document.getElementById('guestTestForm').action = `/admin/clubs/${club.club_id}/guest-test`;
     updateServiceUi(serviceEnabledValue(club.service_enabled));
     updateClubMaintenanceUi(maintenanceEnabledValue(club.maintenance_enabled));
+    document.querySelectorAll('.sync-btn').forEach(button => {
+        button.disabled = club.integration_provider === 'gizmo';
+        button.title = button.disabled ? 'Gizmo: используется отдельный импорт пилотного клуба' : '';
+    });
     renderLogs(data.logs);
     modal.hidden = false;
 }

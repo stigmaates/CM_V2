@@ -24,9 +24,10 @@ from app.config import (
     DB_USER,
     DB_WRITE_TIMEOUT,
 )
+from app.integrations.providers import supports_langame_sync
 from app.services.job_locks import job_lock
 from app.services.job_runs import finish_job_run, start_job_run
-from scripts.sync_utils import is_service_enabled, service_enabled_select_expr
+from scripts.sync_utils import integration_provider_select_expr, is_service_enabled, service_enabled_select_expr
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,16 +58,17 @@ def get_clubs(club_id=None):
     try:
         with conn.cursor() as cursor:
             service_enabled_expr = service_enabled_select_expr(cursor)
+            provider_expr = integration_provider_select_expr(cursor)
             if club_id is None:
                 cursor.execute(f"""
-                    SELECT club_id, lg_api_key, secret, {service_enabled_expr}
+                    SELECT club_id, lg_api_key, secret, {service_enabled_expr}, {provider_expr}
                     FROM clubs
                     ORDER BY club_id
                 """)
             else:
                 cursor.execute(
                     f"""
-                    SELECT club_id, lg_api_key, secret, {service_enabled_expr}
+                    SELECT club_id, lg_api_key, secret, {service_enabled_expr}, {provider_expr}
                     FROM clubs
                     WHERE club_id = %s
                     ORDER BY club_id
@@ -236,6 +238,9 @@ def sync_operations_incremental(club_id=None):
 
     for club in clubs:
         current_club_id = int(club["club_id"])
+        if not supports_langame_sync(club):
+            summary.append({"club_id": current_club_id, "skipped": "provider"})
+            continue
         if not is_service_enabled(club):
             job_run_id = start_job_run(
                 "sync_operations_incremental",

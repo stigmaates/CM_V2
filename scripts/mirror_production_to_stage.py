@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STAGE_ROOT = Path("/root/cm_stage/CM_V2")
 PROD_ROOT = Path("/root/cm_v2/CM_V2")
 PRESERVE = {
+    "club_integrations",
     "schema_migrations", "clubs", "guest_score_history", "guest_lifecycle_events",
     "background_job_locks", "background_job_runs", "module_registrations",
     "team_admins", "team_shifts", "team_sync_state", "team_admin_settings",
@@ -162,7 +163,7 @@ def safe_error(exc):
     return type(exc).__name__ + (f" (code {code})" if code is not None else "")
 
 
-def replace_tables(source, stage, plan, *, reset_pulse=False, batch_size=500):
+def replace_tables(source, stage, plan, *, reset_pulse=False, batch_size=500, protected_clubs=()):
     """No DDL/TRUNCATE: a failure rolls back every replaced stage table together."""
     source.rollback()
     stage.rollback()
@@ -170,9 +171,15 @@ def replace_tables(source, stage, plan, *, reset_pulse=False, batch_size=500):
         cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
         cursor.execute("SET TRANSACTION READ ONLY")
         cursor.execute("START TRANSACTION WITH CONSISTENT SNAPSHOT")
+    protected_clubs = tuple(int(value) for value in protected_clubs)
+    excluded = ','.join(['%s'] * len(protected_clubs))
+    scoped_where = f" WHERE club_id IS NULL OR club_id NOT IN ({excluded})" if protected_clubs else ""
     copied = {}
     table = "transaction setup"
     try:
+        if protected_clubs and query(source,
+                f"SELECT club_id FROM clubs WHERE club_id IN ({excluded})", protected_clubs):
+            raise ValueError("Production club ID collides with a stage-only integration; mirror stopped")
         with stage.cursor() as cursor:
             cursor.execute("SET FOREIGN_KEY_CHECKS=0")
         stage.begin()
@@ -181,12 +188,18 @@ def replace_tables(source, stage, plan, *, reset_pulse=False, batch_size=500):
             projection = ",".join(quote(name) for name in names)
             insert = f"INSERT INTO {quote(table)} ({projection}) VALUES ({','.join(['%s'] * len(names))})"
             with stage.cursor() as destination:
-                destination.execute(f"DELETE FROM {quote(table)}")
+                where = scoped_where if 'club_id' in names else ''
+                scope_args = protected_clubs if where else ()
+                destination.execute(f"DELETE FROM {quote(table)}{where}", scope_args)
                 count = 0
                 for batch in source_batches(source, table, names, batch_size):
+                    if where:
+                        club_index = names.index('club_id')
+                        if any(row[club_index] is not None and int(row[club_index]) in protected_clubs for row in batch):
+                            raise ValueError("Source data uses a stage-only club ID")
                     destination.executemany(insert, batch)
                     count += len(batch)
-            actual = query(stage, f"SELECT COUNT(*) AS cnt FROM {quote(table)}")[0]["cnt"]
+            actual = query(stage, f"SELECT COUNT(*) AS cnt FROM {quote(table)}{where}", scope_args)[0]["cnt"]
             if actual != count:
                 raise ValueError(f"Stage row count mismatch: {table}")
             copied[table] = count
@@ -194,7 +207,7 @@ def replace_tables(source, stage, plan, *, reset_pulse=False, batch_size=500):
         if reset_pulse:
             with stage.cursor() as cursor:
                 for table in PULSE_TABLES:
-                    cursor.execute(f"DELETE FROM {quote(table)}")
+                    cursor.execute(f"DELETE FROM {quote(table)}{scoped_where}", protected_clubs)
         stage.commit()
     except BaseException as exc:
         print(f"Copy failed at {table}: {safe_error(exc)}", file=sys.stderr, flush=True)
@@ -242,7 +255,10 @@ def copy_or_resume(source, stage, plan, *, rebuild_only=False, reset_pulse=False
     if rebuild_only:
         print("Resuming rebuild on existing stage data; no business tables or HVE history are deleted.", flush=True)
         return {table: query(stage, f"SELECT COUNT(*) AS cnt FROM {quote(table)}")[0]["cnt"] for table in plan}
-    copied = replace_tables(source, stage, plan, reset_pulse=reset_pulse)
+    has_provider = any(row['COLUMN_NAME'] == 'integration_provider' for row in columns(stage, 'clubs'))
+    protected = tuple(int(row['club_id']) for row in query(stage,
+        "SELECT club_id FROM clubs WHERE integration_provider <> 'langame'")) if has_provider else ()
+    copied = replace_tables(source, stage, plan, reset_pulse=reset_pulse, protected_clubs=protected)
     print(f"Business data committed atomically; tables={len(copied)}, rows={sum(copied.values())}", flush=True)
     return copied
 
