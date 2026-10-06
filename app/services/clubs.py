@@ -65,6 +65,7 @@ def get_club_info(club_id):
                     owner_id,
                     name,
                     timezone,
+                    integration_provider,
                     lg_api_key,
                     secret,
                     cm_bonus_admin_chat_id,

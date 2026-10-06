@@ -117,6 +117,9 @@ def worker(tmp_path, monkeypatch):
 
     monkeypatch.setattr(sync, "collect", collect_data)
     monkeypatch.setattr(sync, "save", lambda *a: events.append("save"))
+    monkeypatch.setattr(
+        sync, "rebuild_club_portrait", lambda *a: events.append("portrait") or dict(status="updated", guests=5)
+    )
 
     def pulse(*args, **kwargs):
         assert kwargs["stage_gizmo_preview"] is True
@@ -130,7 +133,7 @@ def worker(tmp_path, monkeypatch):
 def test_worker_completes_only_after_storage_and_pulse(worker):
     directory, events = worker
     status = sync.synchronize(None, 900001, directory=directory)
-    assert events == ["collect", "save", "pulse"]
+    assert events == ["collect", "save", "portrait", "pulse"]
     assert status["status"] == "complete"
     assert status["last_success_at_utc"]
     text = (directory / "status-900001.json").read_text()
@@ -163,7 +166,7 @@ def test_pulse_failure_keeps_data_saved_marker_but_not_success(worker, monkeypat
     status = sync.private_json(directory / "status-900001.json")
     assert status["status"] == "error" and status["data_saved_at_utc"]
     assert status["last_success_at_utc"] is None
-    assert events == ["collect", "save"]
+    assert events == ["collect", "save", "portrait"]
 
 
 def test_paused_sync_performs_no_api_or_db_work(worker):
@@ -181,3 +184,14 @@ def test_wrong_environment_is_rejected_before_any_io(monkeypatch, tmp_path):
     with pytest.raises(ValueError, match="Not stage"):
         sync.synchronize(None, 900001, directory=tmp_path)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_portrait_failure_does_not_mark_sync_success_or_run_pulse(worker, monkeypatch):
+    directory, events = worker
+    monkeypatch.setattr(sync, "rebuild_club_portrait", lambda *a: dict(status="failed"))
+    with pytest.raises(GizmoError, match="CRM portrait"):
+        sync.synchronize(None, 900001, directory=directory)
+    status = sync.private_json(directory / "status-900001.json")
+    assert status["status"] == "error" and status["data_saved_at_utc"]
+    assert status["last_success_at_utc"] is None
+    assert "pulse" not in events

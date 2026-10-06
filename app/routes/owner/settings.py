@@ -4,6 +4,7 @@ from flask import current_app, flash, redirect, render_template, request, sessio
 
 from app.config import TOPUP_BONUS_MAX_AMOUNT
 from app.core import OWNER_ACCESS_ROLES, owner_required
+from app.integrations.providers import provider_for
 from app.services.audit import record_audit_event
 from app.services.cases import get_cases_for_admin, get_game_mode
 from app.services.clubs import get_club_info, update_club_info
@@ -494,7 +495,15 @@ def settings():
         yandex_maps_url = request.form.get("yandex_maps_url", "").strip()
         two_gis_url = request.form.get("two_gis_url", "").strip()
 
-        if not name or not lg_api_key or not secret:
+        club = get_club_info(club_id)
+        if not club:
+            flash("Клуб не найден", "error")
+            return redirect(url_for("owner.settings", tab="club"))
+        provider = provider_for(club)
+        if provider == "gizmo":
+            # Ordinary club settings must not overwrite another provider's credentials.
+            lg_api_key, secret = club.get("lg_api_key") or "", club.get("secret") or ""
+        if not name or (provider == "langame" and (not lg_api_key or not secret)):
             flash("Заполни все поля", "error")
             return redirect(url_for("owner.settings", tab="club"))
 

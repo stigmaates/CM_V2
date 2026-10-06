@@ -92,37 +92,30 @@ def calc_crm_type(
     ).crm_type
 
 
-def fetch_guests(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def fetch_guests(conn, club_id=None) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
-        SELECT
-            guest_id,
-            club_id,
-            phone,
-            birth_date,
-            date_insert,
-            telegram_id,
-            gender
-        FROM guests
+        SELECT g.guest_id, g.club_id, g.phone, g.birth_date, g.date_insert,
+               g.telegram_id, g.gender, c.timezone AS club_timezone
+        FROM guests g
+        LEFT JOIN clubs c ON c.club_id=g.club_id
+        WHERE (%s IS NULL OR g.club_id=%s)
     """
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(sql, (club_id, club_id))
         rows = cur.fetchall()
     return {(int(row["club_id"]), int(row["guest_id"])): row for row in rows}
 
 
-def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def fetch_sessions_agg(conn, now: datetime, club_id=None) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
-        SELECT
-            club_id,
-            guest_id,
-            date_start,
-            date_stop
-        FROM guest_sessions
-        WHERE club_id IS NOT NULL
-          AND guest_id IS NOT NULL
-          AND date_start IS NOT NULL
-          AND date_stop IS NOT NULL
-        ORDER BY club_id, guest_id, date_start
+        SELECT gs.club_id, gs.guest_id, gs.date_start, gs.date_stop,
+               c.timezone AS club_timezone
+        FROM guest_sessions gs
+        LEFT JOIN clubs c ON c.club_id=gs.club_id
+        WHERE gs.club_id IS NOT NULL AND gs.guest_id IS NOT NULL
+          AND gs.date_start IS NOT NULL AND gs.date_stop IS NOT NULL
+          AND (%s IS NULL OR gs.club_id=%s)
+        ORDER BY gs.club_id, gs.guest_id, gs.date_start
     """
 
     result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(
@@ -150,7 +143,7 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
     )
 
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(sql, (club_id, club_id))
         rows = cur.fetchall()
 
     sessions_by_guest: Dict[Tuple[int, int], List[Dict[str, Any]]] = defaultdict(list)
@@ -195,8 +188,9 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
                 agg["visits_90d"] += 1
                 agg["is_active_90d"] = 1
 
-            hour = date_start.hour
-            weekday = date_start.weekday()  # 0=Mon ... 6=Sun
+            local_start = utc_datetime_to_club_local(date_start, guest_sessions[0].get("club_timezone"))
+            hour = local_start.hour
+            weekday = local_start.weekday()  # 0=Mon ... 6=Sun
 
             if hour >= 22 or hour < 8:
                 night_count[key] += 1
@@ -223,10 +217,12 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
             )
 
         visits = collapse_sessions_to_visits(sessions_by_guest.get(key, []))
-        starts = [visit["date_start"] for visit in visits]
+        timezone_name = sessions_by_guest[key][0].get("club_timezone")
+        local_now = utc_datetime_to_club_local(now, timezone_name)
+        starts = [utc_datetime_to_club_local(visit["date_start"], timezone_name) for visit in visits]
         if starts:
-            agg["days_since_last_visit"] = (now.date() - starts[-1].date()).days
-            agg["lifetime_days"] = max((now.date() - starts[0].date()).days, 0)
+            agg["days_since_last_visit"] = (local_now.date() - starts[-1].date()).days
+            agg["lifetime_days"] = max((local_now.date() - starts[0].date()).days, 0)
 
             if len(starts) >= 2:
                 gaps = []
@@ -235,7 +231,7 @@ def fetch_sessions_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, A
                 agg["avg_days_between_visits"] = sum(gaps) / len(gaps)
 
             months = max(
-                (now.year - starts[0].year) * 12 + (now.month - starts[0].month),
+                (local_now.year - starts[0].year) * 12 + (local_now.month - starts[0].month),
                 1,
             )
             agg["avg_visits_per_month"] = total_visits / months
@@ -250,7 +246,7 @@ def normalize_phone(phone: Optional[str]) -> Optional[str]:
     return digits or None
 
 
-def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def fetch_topups_agg(conn, now: datetime, club_id=None) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
         SELECT
             club_id,
@@ -262,6 +258,7 @@ def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any
           AND guest_id IS NOT NULL
           AND amount > 0
           AND amount <= %s
+          AND (%s IS NULL OR club_id=%s)
     """
 
     result: Dict[Tuple[int, int], Dict[str, Any]] = defaultdict(
@@ -277,7 +274,7 @@ def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any
     topup_dates: Dict[Tuple[int, int], List[datetime]] = defaultdict(list)
 
     with conn.cursor() as cur:
-        cur.execute(sql, (BALANCE_TOPUP_MAX_AMOUNT,))
+        cur.execute(sql, (BALANCE_TOPUP_MAX_AMOUNT, club_id, club_id))
         rows = cur.fetchall()
 
     for row in rows:
@@ -310,7 +307,7 @@ def fetch_topups_agg(conn, now: datetime) -> Dict[Tuple[int, int], Dict[str, Any
     return result
 
 
-def fetch_spins_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def fetch_spins_agg(conn, club_id=None) -> Dict[Tuple[int, int], Dict[str, Any]]:
     sql = """
         SELECT
             club_id,
@@ -320,10 +317,11 @@ def fetch_spins_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
         FROM guest_wheel_spins
         WHERE club_id IS NOT NULL
           AND guest_id IS NOT NULL
+          AND (%s IS NULL OR club_id=%s)
         GROUP BY club_id, guest_id
     """
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(sql, (club_id, club_id))
         rows = cur.fetchall()
 
     result: Dict[Tuple[int, int], Dict[str, Any]] = {}
@@ -336,16 +334,20 @@ def fetch_spins_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
     return result
 
 
-def fetch_cases_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def fetch_cases_agg(conn, club_id=None) -> Dict[Tuple[int, int], Dict[str, Any]]:
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT o.club_id, o.guest_id, o.case_id, c.name AS case_name,
                    COUNT(*) AS openings_count, MAX(o.created_at) AS last_opening_at
             FROM guest_case_openings o
             LEFT JOIN club_cases c ON c.id = o.case_id AND c.club_id = o.club_id
+            WHERE (%s IS NULL OR o.club_id=%s)
             GROUP BY o.club_id, o.guest_id, o.case_id, c.name
             ORDER BY o.club_id, o.guest_id, o.case_id
-            """)
+            """,
+            (club_id, club_id),
+        )
         rows = cur.fetchall()
     result = {}
     for row in rows:
@@ -369,7 +371,7 @@ def fetch_cases_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
     return result
 
 
-def fetch_missions_agg(conn, now_utc: datetime) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def fetch_missions_agg(conn, now_utc: datetime, club_id=None) -> Dict[Tuple[int, int], Dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -378,10 +380,10 @@ def fetch_missions_agg(conn, now_utc: datetime) -> Dict[Tuple[int, int], Dict[st
                    MAX(h.completed_at) AS last_completed_at, c.timezone AS club_timezone
             FROM guest_mission_completions h
             LEFT JOIN clubs c ON c.club_id = h.club_id
-            WHERE h.completed_at <= %s
+            WHERE h.completed_at <= %s AND (%s IS NULL OR h.club_id=%s)
             GROUP BY h.club_id, h.guest_id, c.timezone
             """,
-            (now_utc,),
+            (now_utc, club_id, club_id),
         )
         rows = cur.fetchall()
     result = {}
@@ -398,15 +400,19 @@ def fetch_missions_agg(conn, now_utc: datetime) -> Dict[Tuple[int, int], Dict[st
     return result
 
 
-def fetch_steam_games_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def fetch_steam_games_agg(conn, club_id=None) -> Dict[Tuple[int, int], Dict[str, Any]]:
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT club_id, guest_id,
                    cs2_hours_total, cs2_hours_2weeks,
                    dota2_hours_total, dota2_hours_2weeks,
                    game_stats_updated_at
             FROM guest_steam_accounts
-            """)
+            WHERE (%s IS NULL OR club_id=%s)
+            """,
+            (club_id, club_id),
+        )
         rows = cur.fetchall()
     result = {}
     for row in rows:
@@ -422,16 +428,17 @@ def fetch_steam_games_agg(conn) -> Dict[Tuple[int, int], Dict[str, Any]]:
     return result
 
 
-def build_records(conn) -> List[Dict[str, Any]]:
-    now = datetime.now()
+def build_records(conn, club_id=None) -> List[Dict[str, Any]]:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    scope = {"club_id": club_id} if club_id is not None else {}
 
-    guests = fetch_guests(conn)
-    sessions = fetch_sessions_agg(conn, now)
-    topups = fetch_topups_agg(conn, now)
-    spins = fetch_spins_agg(conn)
-    cases = fetch_cases_agg(conn)
-    missions = fetch_missions_agg(conn, datetime.now(UTC).replace(tzinfo=None))
-    steam_games = fetch_steam_games_agg(conn)
+    guests = fetch_guests(conn, **scope)
+    sessions = fetch_sessions_agg(conn, now, **scope)
+    topups = fetch_topups_agg(conn, now, **scope)
+    spins = fetch_spins_agg(conn, **scope)
+    cases = fetch_cases_agg(conn, **scope)
+    missions = fetch_missions_agg(conn, now, **scope)
+    steam_games = fetch_steam_games_agg(conn, **scope)
 
     records: List[Dict[str, Any]] = []
 
@@ -451,7 +458,7 @@ def build_records(conn) -> List[Dict[str, Any]]:
         games = steam_games.get(key, {})
 
         birth_date = g.get("birth_date")
-        age = calc_age(birth_date, now)
+        age = calc_age(birth_date, utc_datetime_to_club_local(now, g.get("club_timezone")))
 
         total_visits = sess.get("total_visits", 0)
         visits_90d = sess.get("visits_90d", 0)
@@ -675,6 +682,21 @@ def cleanup_deleted_guests(conn) -> None:
     """
     with conn.cursor() as cur:
         cur.execute(sql)
+
+
+def rebuild_club_portrait(conn, club_id):
+    """Refresh only this club's current projection, without sending/crediting anything."""
+    club_id = int(club_id)
+    try:
+        records = build_records(conn, club_id=club_id)
+        if any(record["club_id"] != club_id for record in records):
+            raise ValueError("Portrait projection escaped its club scope")
+        upsert_user_portrait(conn, records)
+        conn.commit()
+        return {"club_id": club_id, "status": "updated", "guests": len(records)}
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def rebuild_user_portrait():
