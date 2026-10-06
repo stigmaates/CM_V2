@@ -3153,7 +3153,7 @@
                             <div>
                                 <div class="cm-bonus-wallet-title">Кошелек КиберБонусов</div>
                                 <div class="cm-bonus-wallet-value"><span id="cmBonusBalance">{{ cm_balance }}</span> бонусов</div>
-                                <div class="cm-bonus-wallet-hint">Бонусы из призов колеса и заданий. Их можно перевести на игровой аккаунт Langame через администратора.</div>
+                                <div class="cm-bonus-wallet-hint">Бонусы из призов колеса и заданий. Их можно перевести на игровой баланс клуба через администратора.</div>
                             </div>
                             <div class="cm-bonus-actions">
                                 <button class="cm-bonus-transfer-btn" id="cmBonusTransferBtn" type="button" {% if cm_balance|int <= 0 %}disabled{% endif %}>Перевести на баланс</button>
@@ -3505,7 +3505,7 @@
         <div class="app-modal">
             <button class="modal-close" onclick="closeModal('cmBonusModal')" aria-label="Закрыть">×</button>
             <h2 class="modal-title" id="cmBonusModalTitle">КБ</h2>
-            <div class="win-desc" id="cmBonusModalText">В ближайшее время администратор зачислит бонусы на ваш игровой аккаунт Langame.</div>
+            <div class="win-desc" id="cmBonusModalText">В ближайшее время администратор зачислит бонусы на ваш игровой баланс клуба.</div>
             <button class="claim-btn" onclick="closeModal('cmBonusModal')">Понятно</button>
         </div>
     </div>
@@ -5136,7 +5136,7 @@
 
                 setCmBonuses(data.balance_after || 0);
                 cmBonusModalTitle.textContent = 'Заявка отправлена';
-                cmBonusModalText.textContent = `В ближайшее время администратор зачислит ${data.amount || 0} бонусов на ваш игровой аккаунт Langame.`;
+                cmBonusModalText.textContent = `В ближайшее время администратор зачислит ${data.amount || 0} бонусов на ваш игровой баланс клуба.`;
                 openModal('cmBonusModal');
             } catch (error) {
                 cmBonusModalTitle.textContent = 'Ошибка';

@@ -83,7 +83,7 @@ async def phone_choice_callback(update, context):
             state["step"] = "phone"
             await query.answer()
             await query.edit_message_text(
-                "Введите номер телефона, указанный в Langame, вместе с кодом страны.\n"
+                "Введите номер телефона, указанный при регистрации в клубе, вместе с кодом страны.\n"
                 "Например: +7 (912)-123-45-67."
             )
             return
@@ -162,7 +162,7 @@ async def handle_lg_phone(update, context):
         phone = normalize_phone(update.message.text)
         if not phone:
             raise ValueError(
-                "Введите номер из Langame вместе с кодом страны. "
+                "Введите номер, указанный при регистрации в клубе, вместе с кодом страны. "
                 "Например: +7 (912)-123-45-67."
             )
         guest, count = find_guest_by_phone(phone, club_id)

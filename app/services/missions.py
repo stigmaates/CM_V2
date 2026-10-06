@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timedelta
 
 from app.core import get_db_connection
-from app.services.timezones import club_local_datetime_to_utc, get_club_local_now
+from app.services.timezones import club_local_datetime_to_utc, get_club_local_now, utc_datetime_to_club_local
 
 MISSION_METRICS = {
     "visits_count": {
@@ -513,6 +513,7 @@ def get_club_missions(club_id: int):
                        cm.is_enabled,
                        cm.sort_order,
                        c.timezone AS club_timezone,
+                       c.integration_provider,
                        mt.code,
                        mt.name,
                        mt.short_description,
@@ -557,6 +558,7 @@ def get_club_missions_all(club_id: int):
                        cm.is_enabled,
                        cm.sort_order,
                        c.timezone AS club_timezone,
+                       c.integration_provider,
                        mt.code,
                        mt.name,
                        mt.short_description,
@@ -882,7 +884,8 @@ def _collapse_sessions_to_visits(rows, gap_hours: int = 2):
 
 
 def _fetch_sessions(cursor, guest_id: int, club_id: int, mission):
-    period_conditions, period_params = build_period_filter(mission)
+    sessions_are_utc = mission.get("integration_provider") == "gizmo"
+    period_conditions, period_params = build_period_filter(mission, timestamps_are_utc=sessions_are_utc)
     where_parts = [
         "guest_id = %s",
         "club_id = %s",
@@ -897,7 +900,20 @@ def _fetch_sessions(cursor, guest_id: int, club_id: int, mission):
         ORDER BY date_start
     """
     cursor.execute(sql, params)
-    return cursor.fetchall()
+    rows = cursor.fetchall()
+    # Gizmo stores UTC; legacy Langame sessions retain their source wall time.
+    if sessions_are_utc:
+        rows = [
+            {
+                **row,
+                **{
+                    field: utc_datetime_to_club_local(row[field], mission.get("club_timezone"))
+                    for field in ("date_start", "date_stop")
+                },
+            }
+            for row in rows
+        ]
+    return rows
 
 
 def _fetch_visits(cursor, guest_id: int, club_id: int, mission):

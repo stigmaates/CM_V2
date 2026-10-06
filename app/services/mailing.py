@@ -214,19 +214,19 @@ MESSAGE_VARIABLES = [
         "key": "sessions_7d",
         "label": "Сессии за 7 дней",
         "token": "{sessions_7d}",
-        "description": "Сырые Langame-сессии",
+        "description": "Игровые сессии из системы клуба",
     },
     {
         "key": "sessions_30d",
         "label": "Сессии за 30 дней",
         "token": "{sessions_30d}",
-        "description": "Сырые Langame-сессии",
+        "description": "Игровые сессии из системы клуба",
     },
     {
         "key": "sessions_90d",
         "label": "Сессии за 90 дней",
         "token": "{sessions_90d}",
-        "description": "Сырые Langame-сессии",
+        "description": "Игровые сессии из системы клуба",
     },
     {
         "key": "case_openings_count",
