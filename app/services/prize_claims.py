@@ -433,7 +433,7 @@ def mark_prize_claim_issued_by_telegram(
                 return {"ok": False, "error": "not_found", "message": f"Заявка #{claim_id} не найдена."}
 
             stored_chat_id = str(claim.get("admin_chat_id") or "").strip()
-            if stored_chat_id and chat_id_str and stored_chat_id != chat_id_str:
+            if not stored_chat_id or not chat_id_str or stored_chat_id != chat_id_str:
                 return {
                     "ok": False,
                     "error": "wrong_chat",

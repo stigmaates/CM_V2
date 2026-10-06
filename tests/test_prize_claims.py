@@ -44,6 +44,12 @@ def test_create_prize_claim_marks_test_claim(monkeypatch):
 
 
 class _SyncCursor:
+    def execute(self, sql, params=()):
+        assert "service_enabled FROM clubs" in sql and "FOR UPDATE" in sql
+
+    def fetchone(self):
+        return {"club_id": 2, "service_enabled": 1}
+
     def __enter__(self):
         return self
 
@@ -85,6 +91,7 @@ def test_completed_mission_with_text_reward_creates_and_notifies_claim(monkeypat
     monkeypatch.setattr(wheel, "get_db_connection", lambda: conn)
     monkeypatch.setattr(wheel, "ensure_token_tables", lambda _cursor: None)
     monkeypatch.setattr(wheel, "ensure_cm_bonus_tables", lambda _cursor: None)
+    monkeypatch.setattr(wheel, "ensure_prize_claim_tables", lambda _cursor: None)
     monkeypatch.setattr(wheel, "record_mission_completion", lambda *_args: True)
     monkeypatch.setattr(
         wheel,
@@ -123,6 +130,7 @@ def test_existing_mission_completion_does_not_create_duplicate_claim(monkeypatch
     monkeypatch.setattr(wheel, "get_db_connection", lambda: conn)
     monkeypatch.setattr(wheel, "ensure_token_tables", lambda _cursor: None)
     monkeypatch.setattr(wheel, "ensure_cm_bonus_tables", lambda _cursor: None)
+    monkeypatch.setattr(wheel, "ensure_prize_claim_tables", lambda _cursor: None)
     monkeypatch.setattr(wheel, "record_mission_completion", lambda *_args: False)
     monkeypatch.setattr(wheel, "create_prize_claim", lambda **kwargs: created.append(kwargs))
     monkeypatch.setattr(wheel, "notify_prize_claim_admin_chat", lambda _claim_id: None)

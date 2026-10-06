@@ -3,6 +3,7 @@ import re
 from datetime import UTC, datetime, timedelta
 
 from app.core import get_db_connection
+from app.services.club_service import require_club_service
 from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.game_contracts import add_contract_refreshes
 from app.services.managed_drops import consume_managed_drop, reserve_managed_drop
@@ -876,6 +877,7 @@ def open_case(guest_id: int, club_id: int, case_id: int, *, test_mode: bool = Fa
             ensure_token_tables(cursor)
             ensure_cm_bonus_tables(cursor)
             ensure_prize_claim_tables(cursor)
+            require_club_service(cursor, club_id, lock=True)
 
             cursor.execute(
                 f"SELECT {CASE_FIELDS} FROM club_cases WHERE id = %s AND club_id = %s AND is_active = 1 LIMIT 1",

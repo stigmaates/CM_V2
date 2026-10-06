@@ -188,12 +188,18 @@ def exercise(conn, club_id):
     redeem = cm_bonuses.redeem_cm_bonuses(dict(club_id=club_id, guest_id=guest_id), amount=50)
     check(redeem["amount"] == 50 and redeem["balance_after"] == 75, "Manual credit request debit differs")
     check(not redeem["notification_sent"], "Unexpected notification delivery")
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE cm_bonus_redeem_requests SET admin_chat_id=%s WHERE id=%s", ("328908187", redeem["request_id"])
+        )
     # Exercise callback service only: no real Telegram callback or Gizmo credit.
     credited = cm_bonuses.mark_cm_bonus_redeem_credited_by_telegram(
-        redeem["request_id"], None, None, "stage-acceptance"
+        redeem["request_id"], 328908187, 328908187, "stage-acceptance"
     )
     check(credited["ok"], "Manual credit confirmation failed")
-    repeat = cm_bonuses.mark_cm_bonus_redeem_credited_by_telegram(redeem["request_id"], None, None, "stage-acceptance")
+    repeat = cm_bonuses.mark_cm_bonus_redeem_credited_by_telegram(
+        redeem["request_id"], 328908187, 328908187, "stage-acceptance"
+    )
     check(repeat.get("already_done"), "Repeated manual confirmation was not idempotent")
     check(cm_bonuses.get_cm_bonus_balance(guest_id, club_id) == 75, "Repeated confirmation changed wallet")
     return dict(
@@ -245,7 +251,7 @@ def run(source_club_id, *, directory=DIRECTORY):
                     )
                     check(cur.fetchone()["n"] == 0, "Acceptance club already has automatic visit rewards")
                     # Transaction rollback is only reliable on transactional tables.
-                    for table in sorted(WRITE_TABLES):
+                    for table in sorted(WRITE_TABLES | {"clubs"}):
                         cur.execute(
                             "SELECT ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s",
                             (table,),
@@ -254,6 +260,8 @@ def run(source_club_id, *, directory=DIRECTORY):
                         check(row and row["engine"].lower() == "innodb", f"{table}: existing InnoDB table required")
                     cur.execute("SELECT COUNT(*) AS n FROM guests WHERE club_id=%s", (club_id,))
                     guest_count = cur.fetchone()["n"]
+                    # Only this uncommitted transaction sees service enabled.
+                    cur.execute("UPDATE clubs SET service_enabled=1 WHERE club_id=%s", (club_id,))
                 with service_transaction(conn) as transaction:
                     report.update(exercise(transaction, club_id))
             finally:
@@ -265,6 +273,8 @@ def run(source_club_id, *, directory=DIRECTORY):
                 with conn.cursor() as cur:
                     cur.execute("SELECT COUNT(*) AS n FROM guests WHERE club_id=%s", (club_id,))
                     check(cur.fetchone()["n"] == guest_count, "Guest count changed after rollback")
+                    cur.execute("SELECT service_enabled FROM clubs WHERE club_id=%s", (club_id,))
+                    check(cur.fetchone()["service_enabled"] == 0, "Club service changed after rollback")
                     for table in (
                         "guests",
                         "guest_sessions",

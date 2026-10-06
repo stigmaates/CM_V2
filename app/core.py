@@ -122,6 +122,16 @@ def _service_gate_club_id():
 
 
 def register_club_service_gate(flask_app: Flask) -> None:
+    from app.services.club_service import ClubServiceDisabled
+
+    @flask_app.errorhandler(ClubServiceDisabled)
+    def paused_during_operation(error):
+        if request.path.startswith("/guest/api/") or (
+            request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+        ):
+            return jsonify({"ok": False, "error": "club_service_disabled", "message": str(error)}), 403
+        return render_template("service_unavailable.html", club_name=session.get("club_name")), 403
+
     @flask_app.before_request
     def club_service_gate():
         endpoint = request.endpoint or ""

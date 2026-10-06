@@ -773,6 +773,8 @@ def api_wheel_spin():
             test_mode=bool(session.get("guest_test_mode")),
             return_prize=True,
         )
+    except ClubServiceDisabled:
+        raise
     except ValueError as exc:
         return {"error": str(exc)}, 400
 
@@ -825,6 +827,8 @@ def api_case_open(case_id):
             case_id=case_id,
             test_mode=bool(session.get("guest_test_mode")),
         )
+    except ClubServiceDisabled:
+        raise
     except ValueError as e:
         code = str(e)
         if code == "no_tokens":
@@ -865,6 +869,8 @@ def api_cm_bonuses_redeem():
 
     try:
         result = redeem_cm_bonuses(guest)
+    except ClubServiceDisabled:
+        raise
     except ValueError as e:
         return {"error": "invalid_request", "message": str(e)}, 400
     except Exception as e:
