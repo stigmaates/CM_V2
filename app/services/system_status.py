@@ -6,6 +6,7 @@ from typing import Any, Dict
 from zoneinfo import ZoneInfo
 
 from app.core import get_db_connection
+from app.integrations.sync_jobs import GIZMO_SYNC_JOB, sync_jobs_for
 from app.services.auto_mailing_schedule import (
     AUTO_MAILING_SEND_START,
     format_auto_mailing_time,
@@ -50,6 +51,18 @@ UPDATE_TASKS = [
         "ok_after_minutes": 10,
     },
 ]
+
+GIZMO_UPDATE_TASK = {
+    "key": "gizmo",
+    "job_type": GIZMO_SYNC_JOB,
+    "title": "Обновление Gizmo и аналитики",
+    "ok_after_minutes": 60,
+}
+
+
+def update_tasks_for(club):
+    return [GIZMO_UPDATE_TASK] if GIZMO_SYNC_JOB in sync_jobs_for(club) else UPDATE_TASKS
+
 
 ERROR_MARKERS = ("traceback", "error", "exception", "failed", "importerror")
 
@@ -127,6 +140,14 @@ def _build_update_status(
     if job_row:
         last_run = _to_local(job_row.get("finished_at") or job_row.get("started_at"), timezone_name)
         minutes = _minutes_since(last_run)
+        if job_type == GIZMO_SYNC_JOB and job_row.get("status") == "running" and minutes is not None and minutes <= 60:
+            return {
+                "key": item["key"],
+                "title": item["title"],
+                "status": "обновляется",
+                "status_class": "off",
+                "last_run": _format_local(last_run),
+            }
         is_ok = (
             (job_row.get("status") or "").lower() == "success"
             and minutes is not None
@@ -140,6 +161,15 @@ def _build_update_status(
             "last_run": _format_local(last_run),
         }
 
+    # A different club's logfile must never imply that Gizmo is healthy.
+    if not item.get("log_file"):
+        return {
+            "key": item["key"],
+            "title": item["title"],
+            "status": "нет данных",
+            "status_class": "bad",
+            "last_run": "—",
+        }
     log_path = LOGS_DIR / item["log_file"]
     last_run = _file_mtime_local(log_path, timezone_name)
     minutes = _minutes_since(last_run)
@@ -195,7 +225,7 @@ def _build_auto_status(
 
 def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
     """Compact status block for owner settings in the configured club timezone."""
-    job_types = [item["job_type"] for item in UPDATE_TASKS]
+    job_types = [item["job_type"] for item in [*UPDATE_TASKS, GIZMO_UPDATE_TASK]]
     try:
         latest_jobs_by_type = get_latest_job_runs_by_club(job_types).get(int(club_id), {})
     except Exception:
@@ -209,7 +239,7 @@ def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
             conn.commit()
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT timezone FROM clubs WHERE club_id = %s LIMIT 1",
+                "SELECT timezone, integration_provider FROM clubs WHERE club_id = %s LIMIT 1",
                 (club_id,),
             )
             club_row = cur.fetchone() or {}
@@ -228,7 +258,8 @@ def get_owner_settings_system_status(club_id: int) -> Dict[str, Any]:
         conn.close()
 
     updates = [
-        _build_update_status(item, latest_jobs_by_type, timezone_name=timezone_name) for item in UPDATE_TASKS
+        _build_update_status(item, latest_jobs_by_type, timezone_name=timezone_name)
+        for item in update_tasks_for(club_row)
     ]
 
     return {

@@ -108,6 +108,8 @@ def worker(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(sync, "GizmoClient", lambda **kw: object())
     events = []
+    monkeypatch.setattr(sync, "start_job_run", lambda *a, **kw: 123)
+    monkeypatch.setattr(sync, "finish_job_run", lambda *a, **kw: None)
 
     def collect_data(*args, **kwargs):
         assert kwargs["full_history"] is True
@@ -195,3 +197,54 @@ def test_portrait_failure_does_not_mark_sync_success_or_run_pulse(worker, monkey
     assert status["status"] == "error" and status["data_saved_at_utc"]
     assert status["last_success_at_utc"] is None
     assert "pulse" not in events
+
+
+def test_worker_records_common_job_and_safe_failure(worker, monkeypatch):
+    directory, events = worker
+    starts, ends = [], []
+    monkeypatch.setattr(sync, "start_job_run", lambda *a, **kw: starts.append((a, kw)) or 456)
+    monkeypatch.setattr(sync, "finish_job_run", lambda *a, **kw: ends.append((a, kw)))
+    result = sync.synchronize(None, 900001, directory=directory)
+    assert starts[0][0] == ("sync_gizmo",)
+    assert starts[0][1]["club_id"] == 900001
+    assert ends[0][0] == (456, "success")
+    assert ends[0][1]["metadata"]["pulse"]["status"] == "updated"
+    assert result["finished_at_utc"] == result["last_success_at_utc"]
+    assert sync.private_json(directory / "sync-900001.json")["certificate_pem"] == "fixture-cert"
+
+    def broken(*a, **kw):
+        raise RuntimeError("private-key")
+
+    monkeypatch.setattr(sync, "read_target", broken)
+    with pytest.raises(RuntimeError):
+        sync.synchronize(None, 900001, directory=directory)
+    assert ends[-1][0] == (456, "error")
+    assert ends[-1][1]["error_text"] == "RuntimeError"
+    assert "private-key" not in json.dumps(ends)
+
+
+def test_worker_due_check_happens_under_club_lock_and_skips_job(worker, monkeypatch):
+    directory, events = worker
+    sync.atomic_json(
+        directory / "status-900001.json", {"status": "complete", "last_success_at_utc": datetime.now(UTC).isoformat()}
+    )
+    monkeypatch.setattr(
+        sync, "start_job_run", lambda *a, **kw: pytest.fail("A skipped job must not hide latest success")
+    )
+    assert sync.synchronize(None, 900001, directory=directory, only_if_due=True)["status"] == "not_due"
+    assert events == []
+
+
+def test_worker_uses_per_club_certificate_without_shared_file(worker, monkeypatch):
+    directory, events = worker
+    (directory / "server.pem").unlink()
+    credentials = sync.private_json(directory / "sync-900001.json")
+    credentials["certificate_pem"] = "club-specific-cert"
+    sync.atomic_json(directory / "sync-900001.json", credentials)
+
+    def client(**kwargs):
+        assert kwargs["certificate_pem"] == "club-specific-cert"
+        return object()
+
+    monkeypatch.setattr(sync, "GizmoClient", client)
+    assert sync.synchronize(None, 900001, directory=directory)["status"] == "complete"

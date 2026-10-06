@@ -1,0 +1,15 @@
+[Unit]
+Description=Synchronize due configured Gizmo stage previews
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/root/cm_stage/CM_V2/.stage-no-outbound
+ConditionPathIsDirectory=/root/gizmo-stage-check
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/cm_stage/CM_V2
+EnvironmentFile=/root/cm_stage/CM_V2/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/root/cm_stage/CM_V2/venv/bin/python scripts/sync_gizmo_stage.py --all-due
+UMask=0077
+TimeoutStartSec=3600

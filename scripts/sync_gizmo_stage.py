@@ -9,16 +9,25 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core import get_db_connection
 from app.integrations.gizmo import GizmoError
+from app.integrations.gizmo_scheduler import synchronize_due
 from app.integrations.gizmo_sync import synchronize
 from app.integrations.stage import require_stage_environment
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--club-id", type=int, required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--club-id", type=int)
+    target.add_argument("--all-due", action="store_true")
     args = parser.parse_args()
     require_stage_environment()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    if args.all_due:
+        result = synchronize_due()
+        print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
+        if any(item["status"] == "error" for item in result):
+            raise SystemExit(1)
+        return
     conn = get_db_connection()
     try:
         result = synchronize(conn, args.club_id)
