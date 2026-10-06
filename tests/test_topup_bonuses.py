@@ -472,6 +472,7 @@ def test_welcome_reward_requires_at_least_one_enabled_reward():
 class _WelcomeCursor:
     def __init__(self):
         self.fetchone_results = [
+            {"club_id": 2, "service_enabled": 1},
             {
                 "welcome_reward_enabled": 1,
                 "welcome_cm_bonus_amount": 150,
@@ -513,6 +514,8 @@ class _WelcomeConnection:
 
 
 def test_first_authorization_can_award_kb_and_tokens_together(monkeypatch):
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_token_tables", lambda cur: None)
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_cm_bonus_tables", lambda cur: None)
     connection = _WelcomeConnection()
     awarded = []
 

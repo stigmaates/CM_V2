@@ -15,6 +15,7 @@ from app.services.cases import (
     open_case,
     serialize_case,
 )
+from app.services.club_service import ClubServiceDisabled
 from app.services.cm_bonuses import (
     get_cm_bonus_balance,
     get_cm_bonus_history,
@@ -643,6 +644,11 @@ def check_login():
     if expires_at and expires_at < now:
         return {"ok": False, "status": "expired"}
 
+    club = get_guest_login_club(token_row.get("club_id")) if token_row.get("club_id") else None
+    if not club or (club.get("service_enabled") is not None and not int(club["service_enabled"])):
+        _clear_guest_session()
+        return {"ok": False, "error": "service_disabled"}, 403
+
     if not token_row["is_confirmed"]:
         return {"ok": True, "status": "pending"}
 
@@ -671,6 +677,8 @@ def login():
     club = get_guest_login_club(requested_club_id)
     if not club:
         return render_template("guest/guest_login_error.html"), 400
+    if club.get("service_enabled") is not None and not int(club["service_enabled"]):
+        return render_template("service_unavailable.html", club_name=club.get("name")), 403
     if is_maintenance_enabled(club["club_id"]):
         return render_template("maintenance.html", club_name=club.get("name")), 503
 
@@ -680,7 +688,10 @@ def login():
     elif session.get("guest_logged_in") and session.get("guest_id"):
         return redirect(url_for("guest.dashboard"))
 
-    token = create_guest_login_token(int(club["club_id"]))
+    try:
+        token = create_guest_login_token(int(club["club_id"]))
+    except ClubServiceDisabled:
+        return render_template("service_unavailable.html", club_name=club.get("name")), 403
     start_payload = f"login_{token}"
     bot_link = f"https://t.me/{bot_username}?start={start_payload}"
     telegram_link = f"tg://resolve?domain={bot_username}&start={start_payload}"
