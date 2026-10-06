@@ -52,8 +52,11 @@ def closed_session_detail(raw, usage):
     return detail
 
 
-def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=True):
-    if start.tzinfo is None or end.tzinfo is None or not 0 < (end - start).total_seconds() <= 31 * 86400:
+def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=True, full_history=False):
+    if end.tzinfo is None or (
+        not full_history
+        and (start is None or start.tzinfo is None or not 0 < (end - start).total_seconds() <= 31 * 86400)
+    ):
         raise GizmoError("Pilot period must have a timezone and be at most 31 days")
     branches = all_rows(client, "branches")
     if len(branches) != 1 or int(branches[0]["id"]) != branch_id:
@@ -67,17 +70,26 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
     guest_ids = {row["guest_id"] for row in guests}
     hosts = [normalize.host(row) for row in all_rows(client, "hosts", {"BranchId": branch_id})]
     host_ids = {row["external_id"] for row in hosts}
-    raw_topups = all_rows(
-        client, "deposittransactions", {"BranchId": branch_id, "DateFrom": start.isoformat(), "DateTo": end.isoformat()}
-    )
+    topup_params = {"BranchId": branch_id}
+    if not full_history:
+        topup_params.update(DateFrom=start.isoformat(), DateTo=end.isoformat())
+    raw_topups = all_rows(client, "deposittransactions", topup_params)
     topups = [
         normalize.topup(row, branch_id=branch_id, cash_method_ids=cash_method_ids, guest_ids=guest_ids)
         for row in raw_topups
     ]
-    topups = [row for row in topups if row is not None]
+    end_utc = end.astimezone(UTC).replace(tzinfo=None)
+    start_utc = None if full_history else start.astimezone(UTC).replace(tzinfo=None)
+    topups = [
+        row
+        for row in topups
+        if row is not None and row["topup_at"] < end_utc and (start_utc is None or row["topup_at"] >= start_utc)
+    ]
     sessions = {}
     skipped_unlinked = 0
     skipped_open = 0
+    skipped_nonmember = 0
+    skipped_unknown_host = 0
     if include_sessions:
         # Next 3.0.92 diagnostics: same ID + user + span match;
         # usageSessionId points elsewhere and must not be used as a join.
@@ -91,14 +103,23 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             stop_at = normalize.utc_date(raw.get("endTime"), optional=True)
             if start_at >= end.astimezone(UTC).replace(tzinfo=None):
                 continue
-            if stop_at is not None and stop_at < start.astimezone(UTC).replace(tzinfo=None):
+            if start_utc is not None and stop_at is not None and stop_at < start_utc:
                 continue
             user_id = normalize.external_id(raw.get("userId"))
             if user_id not in guest_ids:
+                skipped_nonmember += 1
                 continue
             if stop_at is None:
                 skipped_open += 1
                 continue
+            detail = usage.get(normalize.external_id(raw["id"]))
+            if detail and detail.get("state") not in (2, 17):
+                # The session may have ended between the two paginated reads.
+                # Re-read that same ID once; all linkage checks still apply.
+                detail = client.get(f"usersessions/{normalize.external_id(raw['id'])}")
+                if not isinstance(detail, dict) or detail.get("id") != raw["id"]:
+                    raise GizmoError("Session detail response has an unexpected identity")
+                usage[normalize.external_id(raw["id"])] = detail
             detail = closed_session_detail(raw, usage)
             row = normalize.session(
                 dict(raw, hostId=detail["hostId"], state=detail["state"]),
@@ -107,6 +128,8 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             )
             if row:
                 sessions[row["id"]] = row
+            else:
+                skipped_unknown_host += 1
     return {
         "guests": guests,
         "hosts": hosts,
@@ -114,7 +137,8 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
         "sessions": list(sessions.values()),
         "scope": {
             "branch_id": branch_id,
-            "start": start.isoformat(),
+            "start": None if full_history else start.isoformat(),
+            "full_history": full_history,
             "end": end.isoformat(),
             "cash_method_ids": sorted(cash_method_ids),
             "sessions_included": include_sessions,
@@ -129,6 +153,8 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
             "sessions": len(sessions),
             "sessions_without_start_time": skipped_unlinked,
             "open_sessions_skipped": skipped_open,
+            "sessions_unregistered_guest_skipped": skipped_nonmember,
+            "sessions_unknown_host_skipped": skipped_unknown_host,
             "deposit_operations_read": len(raw_topups),
         },
     }
