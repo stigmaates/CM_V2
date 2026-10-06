@@ -180,7 +180,8 @@ def process_one_mailing(conn, mailing_id: int):
                         cur.execute("SELECT service_enabled FROM clubs WHERE club_id=%s", (mailing["club_id"],))
                         club = cur.fetchone()
                     conn.commit()
-                    if not club or not int(club.get("service_enabled") or 0):
+                    enabled = club.get("service_enabled") if club else 0
+                    if not club or (enabled is not None and not int(enabled)):
                         with conn.cursor() as cur:
                             cur.execute(
                                 """UPDATE mailings SET status='queued', finished_at=NULL,

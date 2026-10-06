@@ -4,6 +4,8 @@ import sqlite3
 from contextlib import contextmanager
 from types import SimpleNamespace
 
+import pytest
+
 from scripts import process_mailings as worker
 
 
@@ -55,10 +57,13 @@ class Connection:
         self.db.commit()
 
 
-def test_disable_pauses_remaining_recipients_and_resume_does_not_duplicate(monkeypatch):
+@pytest.mark.parametrize("initial_service", [1, None])
+def test_disable_pauses_remaining_recipients_and_resume_does_not_duplicate(monkeypatch, initial_service):
     from app.services import outbound_policy
 
     conn = Connection()
+    conn.db.execute("UPDATE clubs SET service_enabled=?", (initial_service,))
+    conn.commit()
     monkeypatch.setattr(outbound_policy, "ensure_outbound_allowed", lambda: None)
     monkeypatch.setattr(worker, "table_has_column", lambda *a: True)
     monkeypatch.setattr(worker, "start_job_run", lambda *a, **kw: 1)
