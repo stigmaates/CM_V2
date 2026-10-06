@@ -11,7 +11,14 @@ from app.integrations.gizmo import GizmoError
 from app.integrations.gizmo_import import collect
 
 
-def test_full_history_reads_all_dates_and_rechecks_old_cancellations():
+@pytest.mark.parametrize(
+    "invalid_end,reason",
+    [
+        ("2020-01-01T10:00:00Z", "end_equals_start"),
+        ("2020-01-01T09:59:00Z", "end_before_start"),
+    ],
+)
+def test_full_history_reads_all_dates_and_rechecks_old_cancellations(invalid_end, reason):
     calls = []
 
     class API:
@@ -31,7 +38,7 @@ def test_full_history_reads_all_dates_and_rechecks_old_cancellations():
                 "users": [dict(Type=0, Model=dict(Id=10, FirstName="Test", RegistrationDate="2019-01-01T00:00:00Z"))],
                 "hosts": [dict(Type=0, Model=dict(Id=5, Name="PC5", Number=5))],
                 "usersessions": [dict(id=123, userId=10, hostId=5, state=2, span=3500)],
-                "sessions": [old_session],
+                "sessions": [old_session, dict(old_session, id=124, endTime=invalid_end)],
                 "deposittransactions": [
                     dict(
                         id=50,
@@ -52,6 +59,11 @@ def test_full_history_reads_all_dates_and_rechecks_old_cancellations():
         API(), branch_id=1, start=None, end=datetime(2026, 10, 6, tzinfo=UTC), cash_method_ids={-1}, full_history=True
     )
     assert result["sessions"][0]["date_start"] == datetime(2020, 1, 1, 10)
+    assert len(result["sessions"]) == 1
+    assert result["counts"]["sessions_invalid_time_skipped"] == 1
+    assert result["rejected_sessions"] == [
+        dict(id=124, reason=reason, start_utc="2020-01-01T10:00:00", end_utc=invalid_end.removesuffix("Z"))
+    ]
     assert result["topups"][0]["amount"] == 0
     assert result["scope"]["full_history"] is True and result["scope"]["start"] is None
     params = next(params for resource, params in calls if resource == "deposittransactions")
