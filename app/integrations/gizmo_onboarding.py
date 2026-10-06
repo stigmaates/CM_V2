@@ -1,4 +1,4 @@
-"""Durable stage onboarding requests; API secrets never enter HTML or SQL."""
+"""Durable onboarding requests; API secrets never enter HTML or SQL."""
 
 import hashlib
 import ssl
@@ -9,8 +9,8 @@ from app.integrations.gizmo import GizmoClient, GizmoError, GizmoHTTPError
 from app.integrations.gizmo_certificate import endpoint
 from app.integrations.gizmo_import import all_rows, check_target
 from app.integrations.gizmo_lifecycle import read_club
+from app.integrations.gizmo_runtime import require_gizmo_environment
 from app.integrations.gizmo_sync import DIRECTORY, atomic_json, private_json, read_target, run_lock
-from app.integrations.stage import require_stage_environment
 
 
 def prepare_connection(form, *, certificate_pem=None, existing=None):
@@ -49,7 +49,7 @@ def prepare_connection(form, *, certificate_pem=None, existing=None):
 @contextmanager
 def initial_setup(club_id, credentials, *, directory=DIRECTORY):
     """Hold the import lock until club creation commits; roll back new files on failure."""
-    require_stage_environment()
+    require_gizmo_environment(directory=directory)
     with run_lock(directory / f"sync-{club_id}.lock"):
         paths = [directory / f"status-{club_id}.json", directory / f"sync-{club_id}.json"]
         if any(path.exists() or path.is_symlink() for path in paths):
@@ -79,7 +79,7 @@ def inspect_connection(client):
 
 
 def queue_setup(conn, club_id, form, *, certificate_pem=None, directory=DIRECTORY):
-    require_stage_environment()
+    require_gizmo_environment(directory=directory)
     with run_lock(directory / f"sync-{club_id}.lock"):
         settings = read_target(conn, club_id, allow_initial=True, lifecycle=True)
         path = directory / f"sync-{club_id}.json"
@@ -110,7 +110,7 @@ def queue_setup(conn, club_id, form, *, certificate_pem=None, directory=DIRECTOR
 
 
 def pause_sync(conn, club_id, *, directory=DIRECTORY):
-    require_stage_environment()
+    require_gizmo_environment(directory=directory)
     with run_lock(directory / f"sync-{club_id}.lock"):
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM clubs WHERE club_id=%s", (club_id,))

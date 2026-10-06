@@ -94,7 +94,7 @@ def test_per_club_cadence_and_crash_resume(state, elapsed, due):
 
 
 def test_scheduler_isolates_failures_and_skips_unconfigured_club(tmp_path, monkeypatch):
-    monkeypatch.setattr(scheduler, "require_stage_environment", lambda: None)
+    monkeypatch.setattr(scheduler, "require_gizmo_environment", lambda **kw: None)
     monkeypatch.setattr(scheduler, "configured_clubs", lambda _: [1, 2, 3, 4])
     connections = []
 
@@ -132,10 +132,10 @@ def test_scheduler_isolates_failures_and_skips_unconfigured_club(tmp_path, monke
 
 
 def test_scheduler_checks_environment_before_connecting(tmp_path, monkeypatch):
-    def reject():
+    def reject(**kwargs):
         raise ValueError("not stage")
 
-    monkeypatch.setattr(scheduler, "require_stage_environment", reject)
+    monkeypatch.setattr(scheduler, "require_gizmo_environment", reject)
     monkeypatch.setattr(scheduler, "get_db_connection", lambda: pytest.fail("DB touched"))
     with pytest.raises(ValueError, match="not stage"):
         scheduler.synchronize_due(directory=tmp_path)

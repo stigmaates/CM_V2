@@ -1,4 +1,4 @@
-"""Explicit stage pilot synchronization, with secrets outside the checkout/DB."""
+"""Provider synchronization, with secrets outside the checkout/DB."""
 
 import fcntl
 import json
@@ -8,19 +8,18 @@ import stat
 import tempfile
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from pathlib import Path
 
 from app.integrations.gizmo import GizmoClient, GizmoError
 from app.integrations.gizmo_certificate import discover, endpoint
 from app.integrations.gizmo_import import check_target, collect, save
 from app.integrations.gizmo_lifecycle import SyncPaused, assert_mode, mode_for, read_club
-from app.integrations.stage import require_stage_environment
+from app.integrations.gizmo_runtime import is_stage_runtime, require_gizmo_environment, state_directory
 from app.integrations.sync_jobs import GIZMO_SYNC_JOB
 from app.services.guest_pulse import refresh_club
 from app.services.job_runs import finish_job_run, start_job_run
 from scripts.rebuild_user_portrait import rebuild_club_portrait
 
-DIRECTORY = Path("/root/gizmo-stage-check")
+DIRECTORY = state_directory()
 
 
 def private_json(path):
@@ -97,7 +96,7 @@ def sync_is_due(previous, now):
 
 
 def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
-    require_stage_environment()
+    require_gizmo_environment(directory=directory)
     with run_lock(directory / f"sync-{club_id}.lock"):
         credentials = private_json(directory / f"sync-{club_id}.json")
         if credentials.get("enabled") is not True:
@@ -118,7 +117,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             "last_success_at_utc": previous.get("last_success_at_utc"),
         }
         atomic_json(status_path, status)
-        job_id = start_job_run(GIZMO_SYNC_JOB, club_id=club_id, metadata={"provider": "gizmo", "stage_preview": True})
+        job_id = start_job_run(GIZMO_SYNC_JOB, club_id=club_id, metadata={"provider": "gizmo", "stage_preview": is_stage_runtime()})
         try:
             settings = read_target(conn, club_id, allow_initial=bool(credentials.get("connection")), lifecycle=True)
             source = settings.get("source") or credentials["connection"]
@@ -219,7 +218,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             status["phase"] = "pulse"
             atomic_json(status_path, status)
             assert_mode(read_club(conn, club_id), credentials, mode)
-            pulse = refresh_club(conn, club_id, stage_gizmo_preview=mode != "service")
+            pulse = refresh_club(conn, club_id, gizmo_preview=mode != "service")
             if pulse["status"] != "updated":
                 raise GizmoError("Data saved but Guest Pulse refresh did not complete; retry sync")
             status.update(
@@ -236,7 +235,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                 rows_saved=sum(data["counts"].get(key, 0) for key in ("guests", "hosts", "sessions", "topups")),
                 metadata={
                     "provider": "gizmo",
-                    "stage_preview": True,
+                    "stage_preview": is_stage_runtime(),
                     "counts": data["counts"],
                     "portrait": portrait,
                     "pulse": pulse,
@@ -261,7 +260,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                 error_text=status["error"],
                 metadata={
                     "provider": "gizmo",
-                    "stage_preview": True,
+                    "stage_preview": is_stage_runtime(),
                     "phase": status.get("phase", "collect"),
                     "data_saved_at_utc": status.get("data_saved_at_utc"),
                 },

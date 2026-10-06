@@ -30,9 +30,9 @@ class CreateConnection(Connection):
 def creation(tmp_path, monkeypatch):
     conn = CreateConnection()
     monkeypatch.setattr(clubs, "get_db_connection", lambda: conn)
-    monkeypatch.setattr(clubs, "stage_pilot_available", lambda: True)
+    monkeypatch.setattr(clubs, "gizmo_available", lambda: True)
     monkeypatch.setattr(clubs, "_column_exists", lambda *a: True)
-    monkeypatch.setattr(onboarding, "require_stage_environment", lambda: None)
+    monkeypatch.setattr(onboarding, "require_gizmo_environment", lambda **kw: None)
     monkeypatch.setattr(
         clubs,
         "initial_setup",
@@ -144,7 +144,7 @@ def test_langame_creation_does_not_require_gizmo_fields_or_queue_job(creation):
 
 def test_gizmo_create_not_available_outside_stage(creation, certificate, monkeypatch):
     conn, directory = creation
-    monkeypatch.setattr(clubs, "stage_pilot_available", lambda: False)
+    monkeypatch.setattr(clubs, "gizmo_available", lambda: False)
     _, status = post(data(certificate))
     assert status == 400 and len(conn.records("clubs")) == 1
     assert list(directory.iterdir()) == []

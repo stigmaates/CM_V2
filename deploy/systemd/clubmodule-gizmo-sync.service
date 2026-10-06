@@ -1,0 +1,14 @@
+[Unit]
+Description=Synchronize configured Gizmo clubs
+After=network-online.target
+Wants=network-online.target
+ConditionPathIsDirectory=/var/lib/cyber-bonus/gizmo
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/cm_v2/CM_V2
+EnvironmentFile=/root/cm_v2/CM_V2/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/root/cm_v2/CM_V2/venv/bin/python scripts/sync_gizmo.py --all-due
+UMask=0077
+TimeoutStartSec=3600
