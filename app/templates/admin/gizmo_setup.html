@@ -14,13 +14,12 @@
   <p class="muted">Обслуживание остаётся выключенным до приёмки. Проверка не отправляет гостям сообщения и не выдаёт награды.</p>
 </section>
 <section class="admin-card admin-form-card">
-  <form class="admin-form" method="post" enctype="multipart/form-data" autocomplete="off">
+  <form class="admin-form" method="post" autocomplete="off">
     <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
     <div><label for="address">Внешний IP-адрес Gizmo</label><input id="address" name="address" value="{{ connection.address or '' }}" placeholder="213.59.152.72" required></div>
     <div><label for="port">HTTPS-порт</label><input type="number" id="port" name="port" min="1" max="65535" value="{{ connection.port or 443 }}" required></div>
-    <div><label for="server_name">Имя сервера в сертификате</label><input id="server_name" name="server_name" value="{{ connection.server_name or 'gizmo.local' }}" required></div>
+    <div><label for="server_name">HTTPS-имя сервера</label><input id="server_name" name="server_name" value="{{ connection.server_name or 'gizmo.local' }}" required></div>
     <div><label for="api_key">API-ключ Gizmo</label><input type="password" id="api_key" name="api_key" autocomplete="new-password" maxlength="4096" {% if not state.configured %}required{% endif %}><small>{{ 'Оставьте пустым, чтобы использовать сохранённый ключ.' if state.configured else 'Ключ должен разрешать чтение гостей, ПК, сессий и пополнений.' }}</small></div>
-    <div><label for="certificate">Публичный HTTPS-сертификат (.pem)</label><input type="file" id="certificate" name="certificate" accept=".pem,.crt" {% if not state.configured %}required{% endif %}><small>{{ 'Сертификат сохранён. Для повторной проверки загружать его не нужно.' if state.configured else 'Получите у клуба сертификат сервера Gizmo. Закрытый ключ не нужен.' }}</small></div>
     <p>Система сама определит филиал, загрузит гостей, ПК, историю сессий и пополнений наличными и картой. Пока поддерживается Gizmo 3 с одним филиалом на сервере.</p>
     <button class="admin-btn" type="submit" name="action" value="configure">Проверить и загрузить данные</button>
   </form>

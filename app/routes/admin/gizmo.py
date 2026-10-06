@@ -10,7 +10,6 @@ from app.integrations.gizmo_onboarding import (
     public_error,
     public_status,
     queue_setup,
-    read_certificate_upload,
 )
 from app.integrations.gizmo_sync import read_target
 from app.integrations.stage import stage_pilot_available
@@ -45,8 +44,7 @@ def gizmo_setup(club_id):
                     pause_sync(conn, club_id)
                     flash("Обновления Gizmo приостановлены.", "success")
                 else:
-                    certificate = read_certificate_upload(request.files.get("certificate"))
-                    queue_setup(conn, club_id, request.form, certificate_pem=certificate)
+                    queue_setup(conn, club_id, request.form)
                     flash("Проверка и загрузка поставлены в очередь. Можно закрыть страницу.", "success")
             except (GizmoError, OSError, ValueError) as exc:
                 flash(public_error(exc), "error")

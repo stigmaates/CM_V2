@@ -3,7 +3,7 @@ from contextlib import nullcontext
 from flask import flash, redirect, render_template, request, url_for
 
 from app.core import get_db_connection
-from app.integrations.gizmo_onboarding import initial_setup, prepare_connection, public_error, read_certificate_upload
+from app.integrations.gizmo_onboarding import initial_setup, prepare_connection, public_error
 from app.integrations.providers import validate_provider
 from app.integrations.stage import stage_pilot_available
 from app.routes.admin import admin_bp
@@ -108,7 +108,6 @@ def create_club():
                     raise ValueError("Пилот Gizmo доступен только на стейдже.")
                 credentials = prepare_connection(
                     {**request.form, "api_key": request.form.get("gizmo_api_key", "")},
-                    certificate_pem=read_certificate_upload(request.files.get("certificate")),
                 )
         except (ValueError, OSError) as exc:
             flash(str(exc) if isinstance(exc, ValueError) else public_error(exc), "error")

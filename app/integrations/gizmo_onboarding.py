@@ -1,65 +1,48 @@
 """Durable stage onboarding requests; API secrets never enter HTML or SQL."""
 
 import hashlib
-import ipaddress
 import ssl
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from app.integrations.gizmo import GizmoClient, GizmoError, GizmoHTTPError
+from app.integrations.gizmo_certificate import endpoint
 from app.integrations.gizmo_import import all_rows, check_target
 from app.integrations.gizmo_sync import DIRECTORY, atomic_json, private_json, read_target, run_lock
 from app.integrations.stage import require_stage_environment
 
 
-def prepare_connection(form, *, certificate_pem, existing=None):
+def prepare_connection(form, *, certificate_pem=None, existing=None):
     existing = existing or {}
     source = existing.get("connection") or {}
-    address = (form.get("address") or source.get("address") or "").strip()
-    try:
-        address = str(ipaddress.ip_address(address))
-        port = int(form.get("port") or source.get("port") or 443)
-        if not 1 <= port <= 65535:
-            raise ValueError()
-    except ValueError:
-        raise GizmoError("Укажите IP-адрес сервера Gizmo и порт от 1 до 65535.") from None
-    server_name = (form.get("server_name") or source.get("server_name") or "gizmo.local").strip()
+    target = endpoint({**source, **form})
+    connection = {k: v for k, v in target.items() if k != "port" or v != 443}
+    if source and endpoint(source) != target:
+        raise GizmoError("У клуба уже есть подключение. Смену сервера нужно проверить отдельно.")
+    key = (form.get("api_key") or existing.get("api_key") or "").strip()
+    if not key or len(key) > 4096 or any(c in key for c in "\r\n"):
+        raise GizmoError("Укажите корректный API-ключ Gizmo.")
     certificate_pem = certificate_pem or existing.get("certificate_pem")
-    if not certificate_pem or len(certificate_pem) > 16384:
-        raise GizmoError("Загрузите публичный HTTPS-сертификат сервера в формате PEM (до 16 КБ).")
-    if "PRIVATE KEY" in certificate_pem or certificate_pem.count("BEGIN CERTIFICATE") != 1:
+    if not certificate_pem:
+        if source.get("fingerprint"):
+            raise GizmoError("Сохранённый сертификат отсутствует. Нужна проверка подключения.")
+        # Explicit marker: only a brand-new, unpinned connection may bootstrap.
+        # The worker freezes the certificate before making any API request.
+        return dict(enabled=True, api_key=key, connection=connection, bootstrap_tls=True)
+    if (
+        len(certificate_pem) > 16384
+        or "PRIVATE KEY" in certificate_pem
+        or certificate_pem.count("BEGIN CERTIFICATE") != 1
+    ):
         raise GizmoError("Нужен один публичный сертификат сервера, без закрытого ключа.")
     try:
         der = ssl.PEM_cert_to_DER_cert(certificate_pem)
     except ValueError:
         raise GizmoError("Не удалось прочитать сертификат PEM.") from None
     fingerprint = hashlib.sha256(der).hexdigest()
-    fingerprint = ":".join(fingerprint[i : i + 2] for i in range(0, 64, 2)).upper()
-    connection = dict(address=address, server_name=server_name, fingerprint=fingerprint)
-    if port != 443:
-        connection["port"] = port
-    key = (form.get("api_key") or "").strip()
-    if not key and source and connection != source:
-        raise GizmoError("Для другого адреса или сертификата укажите API-ключ заново.")
-    key = key or existing.get("api_key") or ""
-    if len(key) > 4096:
-        raise GizmoError("Слишком длинный API-ключ.")
-    # Local validation only. The scheduler performs network requests outside
-    # the web process, so browser timeouts cannot interrupt the import.
+    connection["fingerprint"] = ":".join(fingerprint[i : i + 2] for i in range(0, 64, 2)).upper()
     GizmoClient(**connection, certificate_pem=certificate_pem, api_key=key)
     return dict(enabled=True, api_key=key, certificate_pem=certificate_pem, connection=connection)
-
-
-def read_certificate_upload(upload):
-    if not upload or not upload.filename:
-        return None
-    raw = upload.read(16385)
-    if len(raw) > 16384:
-        raise GizmoError("Сертификат должен быть не больше 16 КБ.")
-    try:
-        return raw.decode("utf-8")
-    except UnicodeError:
-        raise GizmoError("Нужен текстовый сертификат в формате PEM.") from None
 
 
 @contextmanager
@@ -102,8 +85,10 @@ def queue_setup(conn, club_id, form, *, certificate_pem=None, directory=DIRECTOR
         existing = private_json(path) if path.exists() else {}
         existing = dict(existing)
         existing.setdefault("connection", settings.get("source"))
-        if existing.get("api_key") and not existing.get("certificate_pem"):
+        if (existing.get("connection") or {}).get("fingerprint") and not existing.get("certificate_pem"):
             existing["certificate_pem"] = (directory / "server.pem").read_text()
+        if settings.get("source") and endpoint(form) != endpoint(settings["source"]):
+            raise GizmoError("У клуба уже есть история. Смену сервера нужно проверить отдельно.")
         credentials = prepare_connection(form, certificate_pem=certificate_pem, existing=existing)
         # Existing imported identity is immutable: a changed endpoint must not
         # silently mix two clubs' guests or overwrite an external ID namespace.

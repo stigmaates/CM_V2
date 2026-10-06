@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.integrations.gizmo import GizmoClient, GizmoError
+from app.integrations.gizmo_certificate import discover, endpoint
 from app.integrations.gizmo_import import check_target, collect, save
 from app.integrations.stage import require_stage_environment
 from app.integrations.sync_jobs import GIZMO_SYNC_JOB
@@ -117,6 +118,25 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
         try:
             settings = read_target(conn, club_id, allow_initial=bool(credentials.get("connection")))
             source = settings.get("source") or credentials["connection"]
+            if not source.get("fingerprint"):
+                if settings or credentials.get("bootstrap_tls") is not True:
+                    raise GizmoError("Сохранённые настройки HTTPS повреждены. Нужна проверка подключения.")
+                status["phase"] = "connect"
+                atomic_json(status_path, status)
+                discovered = discover(endpoint(source))
+                from app.integrations.gizmo_onboarding import prepare_connection
+
+                pinned = prepare_connection(
+                    dict(source, api_key=credentials["api_key"]),
+                    certificate_pem=discovered["certificate_pem"],
+                )
+                credentials.update(pinned)
+                credentials.pop("bootstrap_tls", None)
+                credentials["tls_trust"] = "public_ca" if discovered["trusted"] else "first_use"
+                # Persist before transmitting the key. A failed API call or a
+                # retry must never silently accept a different certificate.
+                atomic_json(directory / f"sync-{club_id}.json", credentials)
+                source = credentials["connection"]
             certificate_pem = credentials.get("certificate_pem") or (directory / "server.pem").read_text()
             client = GizmoClient(
                 port=source.get("port", 443),

@@ -215,3 +215,56 @@ def test_status_and_setup_never_render_saved_secrets(setup, certificate, monkeyp
         response = routes.gizmo_status.__wrapped__(900001)
         assert response.headers["Cache-Control"] == "no-store"
         assert "secret-test-key" not in response.get_data(as_text=True)
+
+
+def test_new_connection_pins_in_background_before_key_is_used(setup, certificate, monkeypatch):
+    conn, form, directory = setup
+    onboarding.queue_setup(conn, 900001, form, directory=directory)
+    before = sync.private_json(directory / "sync-900001.json")
+    assert before["bootstrap_tls"] and "certificate_pem" not in before
+    discoveries = []
+
+    def discover(target):
+        discoveries.append(target)
+        assert "api_key" not in target
+        return dict(certificate_pem=certificate, trusted=False)
+
+    monkeypatch.setattr(sync, "discover", discover)
+    source = api(monkeypatch)
+
+    def client(**kwargs):
+        saved = sync.private_json(directory / "sync-900001.json")
+        assert saved["certificate_pem"] == certificate
+        assert saved["connection"]["fingerprint"] == kwargs["fingerprint"]
+        assert "bootstrap_tls" not in saved
+        return source
+
+    monkeypatch.setattr(sync, "GizmoClient", client)
+    source.details["system/version"] = GizmoHTTPError("system/version", 403)
+    with pytest.raises(GizmoHTTPError):
+        sync.synchronize(conn, 900001, directory=directory)
+    assert len(discoveries) == 1
+    assert conn.records("guests") == []
+    onboarding.queue_setup(conn, 900001, dict(form, api_key="corrected"), directory=directory)
+    source.details["system/version"] = "3.0.92"
+    assert sync.synchronize(conn, 900001, directory=directory)["status"] == "complete"
+    assert len(discoveries) == 1  # Retry cannot replace the initially pinned identity.
+    assert len(conn.records("guests")) == 1
+
+
+def test_failed_pin_write_never_sends_api_key(setup, certificate, monkeypatch):
+    conn, form, directory = setup
+    onboarding.queue_setup(conn, 900001, form, directory=directory)
+    monkeypatch.setattr(sync, "discover", lambda target: dict(certificate_pem=certificate, trusted=False))
+    original = sync.atomic_json
+
+    def fail_pin(path, value):
+        if path.name == "sync-900001.json":
+            raise OSError("disk full")
+        original(path, value)
+
+    monkeypatch.setattr(sync, "atomic_json", fail_pin)
+    monkeypatch.setattr(sync, "GizmoClient", lambda **kw: pytest.fail("API client used before pin was saved"))
+    with pytest.raises(OSError):
+        sync.synchronize(conn, 900001, directory=directory)
+    assert conn.records("guests") == []
