@@ -378,7 +378,7 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
         )
         processed_at = _format_dt(processed_at)
         return (
-            "✅ <b>КБ зачислены в Langame</b>\n\n"
+            "✅ <b>КБ зачислены на игровой баланс</b>\n\n"
             f"Заявка КБ: <code>{request_id}</code>\n\n"
             f"Гость: <b>{guest_name}</b>\n"
             f"Телефон: <code>{phone}</code>\n"
@@ -397,9 +397,9 @@ def format_cm_bonus_redeem_message(request: dict[str, Any], credited: bool = Fal
         f"Телефон: <code>{phone}</code>\n"
         f"Guest ID: <code>{guest_id}</code>\n"
         f"Club ID: <code>{club_id}</code>\n"
-        f"Сумма к зачислению в Langame: <b>{amount}</b> бонусов\n\n"
+        f"Сумма к зачислению на игровой баланс: <b>{amount}</b> бонусов\n\n"
         "Бонусы уже списаны с кошелька гостя в Cyber Bonus.\n"
-        "После зачисления в Langame нажмите кнопку ниже."
+        "После зачисления на игровой баланс клуба нажмите кнопку ниже."
     )
 
 
@@ -627,7 +627,7 @@ def retry_failed_cm_bonus_redeem_notifications(limit: int = 50) -> dict[str, Any
 
 
 def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[str, Any]:
-    """Withdraw guest КБ and notify admin chat for manual Langame credit."""
+    """Withdraw guest КБ and notify admin chat for manual credit to the club gaming balance."""
     guest_id = int(guest["guest_id"])
     club_id = int(guest["club_id"])
 
@@ -666,7 +666,7 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
                 amount=-redeem_amount,
                 source_type="redeem_request",
                 source_id=str(redeem_request_id),
-                description="Перевод КБ на игровой баланс Langame",
+                description="Перевод КБ на игровой баланс клуба",
                 status="pending_admin_credit",
             )
         conn.commit()

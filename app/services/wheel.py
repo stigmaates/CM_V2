@@ -12,6 +12,7 @@ from app.services.prize_claims import (
     ensure_prize_claim_tables,
     notify_prize_claim_admin_chat,
 )
+from app.services.timezones import club_local_datetime_to_utc, get_club_local_now, utc_datetime_to_club_local
 
 _token_tables_ready = False
 
@@ -168,16 +169,10 @@ def get_wheel_settings(club_id: int):
             ensure_wheel_settings_display_columns(cursor)
             cursor.execute(
                 """
-                SELECT
-                    club_id,
-                    tokens_start_date,
-                    spin_cost,
-                    is_enabled,
-                    show_only_own_valuable_drops,
-                    created_at,
-                    updated_at
-                FROM club_wheel_settings
-                WHERE club_id = %s
+                SELECT w.*, c.timezone AS club_timezone, c.integration_provider
+                FROM club_wheel_settings w
+                JOIN clubs c ON c.club_id = w.club_id
+                WHERE w.club_id = %s
                 LIMIT 1
                 """,
                 (club_id,),
@@ -502,7 +497,24 @@ def _to_date(value: Any) -> date | None:
     return None
 
 
-def _get_visit_days(cursor, guest_id: int, club_id: int, start_date) -> list[date]:
+def _get_visit_days(cursor, guest_id: int, club_id: int, start_date, *, settings=None) -> list[date]:
+    if (settings or {}).get("integration_provider") == "gizmo":
+        start_day = _to_date(start_date)
+        start_utc = club_local_datetime_to_utc(
+            datetime.combine(start_day, datetime.min.time()), settings.get("club_timezone")
+        )
+        cursor.execute(
+            """SELECT date_start FROM guest_sessions
+               WHERE guest_id = %s AND club_id = %s AND date_start >= %s
+               ORDER BY date_start""",
+            (guest_id, club_id, start_utc),
+        )
+        return sorted(
+            {
+                utc_datetime_to_club_local(row["date_start"], settings.get("club_timezone")).date()
+                for row in cursor.fetchall()
+            }
+        )
     cursor.execute(
         """
         SELECT DATE(date_start) AS visit_day
@@ -577,11 +589,17 @@ def get_guest_streak_info(guest_id: int, club_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            rows = _calculate_streak_rows(_get_visit_days(cursor, guest_id, club_id, settings["tokens_start_date"]))
+            rows = _calculate_streak_rows(
+                _get_visit_days(cursor, guest_id, club_id, settings["tokens_start_date"], settings=settings)
+            )
     finally:
         conn.close()
 
-    today = datetime.now(UTC).replace(tzinfo=None).date()
+    today = (
+        get_club_local_now(settings.get("club_timezone")).date()
+        if settings.get("integration_provider") == "gizmo"
+        else datetime.now(UTC).replace(tzinfo=None).date()
+    )
     if not rows:
         return {
             **empty,
@@ -640,7 +658,9 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
         try:
             with conn.cursor() as cursor:
                 ensure_token_tables(cursor)
-                visit_days = _get_visit_days(cursor, guest_id, club_id, settings["tokens_start_date"])
+                visit_days = _get_visit_days(
+                    cursor, guest_id, club_id, settings["tokens_start_date"], settings=settings
+                )
                 streak_rows = _calculate_streak_rows(visit_days)
 
                 for row in streak_rows:
