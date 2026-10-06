@@ -4,29 +4,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core import get_db_connection
+from app.integrations.sync_jobs import SYNC_JOB_LABELS, SYNC_JOB_TYPES, sync_jobs_for
+from app.integrations.sync_jobs import SYNC_STALE_HOURS as SYNC_MAX_AGE_HOURS
 from app.services.backup_monitor import get_backup_status
 from app.services.job_runs import ensure_background_job_runs_table, get_latest_job_runs_by_club
-
-SYNC_JOB_TYPES = [
-    "sync_guests_incremental",
-    "sync_sessions_incremental",
-    "sync_operations_incremental",
-    "sync_balance_topups_incremental",
-]
-
-SYNC_JOB_LABELS = {
-    "sync_guests_incremental": "Гости",
-    "sync_sessions_incremental": "Сессии",
-    "sync_operations_incremental": "Операции",
-    "sync_balance_topups_incremental": "Пополнения",
-}
-
-SYNC_MAX_AGE_HOURS = {
-    "sync_guests_incremental": 24,
-    "sync_sessions_incremental": 8,
-    "sync_operations_incremental": 8,
-    "sync_balance_topups_incremental": 8,
-}
 
 
 def _utcnow() -> datetime:
@@ -82,7 +63,7 @@ def build_operational_alerts(
         club_id = int(club["club_id"])
         club_name = club.get("name")
         latest = latest_jobs_by_club.get(club_id, {})
-        for job_type in SYNC_JOB_TYPES:
+        for job_type in sync_jobs_for(club):
             row = latest.get(job_type)
             label = SYNC_JOB_LABELS[job_type]
             max_age_hours = SYNC_MAX_AGE_HOURS[job_type]
@@ -189,12 +170,15 @@ def build_operational_alerts(
 def _fetch_clubs(cursor) -> list[dict[str, Any]]:
     try:
         cursor.execute("""
-            SELECT club_id, name, service_enabled
+            SELECT club_id, name, service_enabled, integration_provider
             FROM clubs
             ORDER BY club_id
             """)
     except Exception:
-        cursor.execute("SELECT club_id, name, 1 AS service_enabled FROM clubs ORDER BY club_id")
+        try:
+            cursor.execute("SELECT club_id, name, service_enabled FROM clubs ORDER BY club_id")
+        except Exception:
+            cursor.execute("SELECT club_id, name, 1 AS service_enabled FROM clubs ORDER BY club_id")
     return cursor.fetchall() or []
 
 

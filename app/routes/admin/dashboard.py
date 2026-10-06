@@ -6,6 +6,7 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 
 from app.core import admin_required, get_db_connection
 from app.integrations.providers import service_activation_error, supports_langame_sync
+from app.integrations.sync_jobs import SYNC_JOB_LABELS, SYNC_JOB_TYPES, SYNC_STALE_HOURS, sync_jobs_for
 from app.routes.admin import admin_bp
 from app.services.audit import record_audit_event
 from app.services.job_runs import get_latest_job_runs_by_club, get_recent_job_runs
@@ -20,32 +21,11 @@ from app.services.support_health import build_admin_readiness, get_admin_system_
 from app.services.test_guests import ensure_test_guest
 from app.services.timezones import utc_datetime_to_club_local
 
-SYNC_JOB_TYPES = [
-    "sync_guests_incremental",
-    "sync_sessions_incremental",
-    "sync_operations_incremental",
-    "sync_balance_topups_incremental",
-]
-
-SYNC_JOB_LABELS = {
-    "sync_guests_incremental": "Гости",
-    "sync_sessions_incremental": "Сессии",
-    "sync_operations_incremental": "Операции",
-    "sync_balance_topups_incremental": "Пополнения",
-}
-
 JOB_TYPE_LABELS = {
     **SYNC_JOB_LABELS,
     "process_mailing": "Рассылка",
     "process_auto_mailing": "Авторассылка",
     "process_referrals": "Рефералы",
-}
-
-SYNC_STALE_HOURS = {
-    "sync_guests_incremental": 24,
-    "sync_sessions_incremental": 8,
-    "sync_operations_incremental": 8,
-    "sync_balance_topups_incremental": 8,
 }
 
 
@@ -332,7 +312,7 @@ def get_club_sync_health(clubs):
             continue
 
         latest = latest_by_club.get(club_id, {})
-        jobs = [_job_state(job_type, latest.get(job_type)) for job_type in SYNC_JOB_TYPES]
+        jobs = [_job_state(job_type, latest.get(job_type)) for job_type in sync_jobs_for(club)]
         overall = _overall_sync_status(jobs)
 
         health.append(

@@ -33,15 +33,17 @@ def main():
                 conn.close()
             key = getpass.getpass("API-ключ Gizmo для автоматической синхронизации (ввод скрыт): ").strip()
             source = settings["source"]
+            existing = private_json(path) if path.exists() else {}
+            certificate_pem = existing.get("certificate_pem") or (DIRECTORY / "server.pem").read_text()
             client = GizmoClient(
                 address=source["address"],
                 server_name=source["server_name"],
                 fingerprint=source["fingerprint"],
-                certificate_pem=(DIRECTORY / "server.pem").read_text(),
+                certificate_pem=certificate_pem,
                 api_key=key,
             )
             client.get("system/version")
-            data = {"enabled": True, "api_key": key}
+            data = {"enabled": True, "api_key": key, "certificate_pem": certificate_pem}
         atomic_json(path, data)
     print(
         "Синхронизация приостановлена."

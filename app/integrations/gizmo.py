@@ -8,6 +8,7 @@ import ipaddress
 import json
 import socket
 import ssl
+import time
 from urllib.parse import urlencode
 
 
@@ -40,6 +41,22 @@ class GizmoClient:
         self.context.load_verify_locations(cadata=certificate_pem)
 
     def get(self, resource, params=None):
+        # Only GETs are retried. Authentication, TLS and malformed data require
+        # attention and must not trigger repeated requests with the same key.
+        for attempt in range(3):
+            try:
+                return self._get_once(resource, params)
+            except GizmoHTTPError as exc:
+                if exc.status not in {429, 500, 502, 503, 504} or attempt == 2:
+                    raise
+            except ssl.SSLError:
+                raise
+            except (TimeoutError, ConnectionError, http.client.RemoteDisconnected, http.client.IncompleteRead):
+                if attempt == 2:
+                    raise
+            time.sleep(2**attempt)
+
+    def _get_once(self, resource, params=None):
         if not resource or resource.startswith("/") or any(c in resource for c in "?#\r\n") or ".." in resource:
             raise GizmoError("Invalid API resource")
         client = self
