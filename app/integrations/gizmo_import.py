@@ -221,80 +221,101 @@ def save(conn, club_id, data):
                 if previous.get(identity) and previous[identity] != data["scope"].get(identity):
                     raise GizmoError("Cannot change an imported club source identity or session ID namespace")
             now = datetime.now(UTC).replace(tzinfo=None)
-            for guest in data["guests"]:
-                cur.execute(
-                    """INSERT INTO guests
-                    (club_id,guest_id,phone,fio,birth_date,date_insert,created_at,gender)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                    ON DUPLICATE KEY UPDATE phone=VALUES(phone),fio=VALUES(fio),
-                    birth_date=VALUES(birth_date),date_insert=VALUES(date_insert)""",
-                    (
-                        club_id,
-                        guest["guest_id"],
-                        guest["phone"],
-                        guest["fio"],
-                        guest["birth_date"],
-                        guest["date_insert"],
-                        now,
-                        guest["gender"],
-                    ),
-                )
-            # Stage-only surrogate IDs must not collide with new production rows
-            # during a later mirror. Business IDs remain the source IDs scoped by club.
-            counters = {}
+
+            def write_batches(label, statement, values):
+                # PyMySQL emits a multi-value INSERT per batch, avoiding one
+                # round trip per record. Commit remains atomic for the whole run.
+                total = len(values)
+                for offset in range(0, total, 500):
+                    cur.executemany(statement, values[offset : offset + 500])
+                    logging.getLogger(__name__).info(
+                        "Gizmo запись %s: %s/%s (до общего commit)",
+                        label,
+                        min(offset + 500, total),
+                        total,
+                    )
+
+            write_batches(
+                "гостей",
+                """INSERT INTO guests
+                (club_id,guest_id,phone,fio,birth_date,date_insert,created_at,gender)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                ON DUPLICATE KEY UPDATE phone=VALUES(phone),fio=VALUES(fio),
+                birth_date=VALUES(birth_date),date_insert=VALUES(date_insert)""",
+                [
+                    (club_id, g["guest_id"], g["phone"], g["fio"], g["birth_date"], g["date_insert"], now, g["gender"])
+                    for g in data["guests"]
+                ],
+            )
+            # Cache existing source IDs once, under the stage mirror lock.
+            # Negative surrogate IDs do not collide with future production rows.
+            counters, existing_ids = {}, {}
 
             def surrogate(table, source_column, source_value):
-                cur.execute(f"SELECT id FROM {table} WHERE club_id=%s AND {source_column}=%s", (club_id, source_value))
-                existing = cur.fetchone()
-                if existing:
-                    return existing["id"]
+                if table not in existing_ids:
+                    cur.execute(f"SELECT id,{source_column} FROM {table} WHERE club_id=%s", (club_id,))
+                    existing_ids[table] = {str(row[source_column]): row["id"] for row in cur.fetchall()}
+                key = str(source_value)
+                if key in existing_ids[table]:
+                    return existing_ids[table][key]
                 if table not in counters:
                     cur.execute(f"SELECT MIN(id) AS minimum FROM {table}")
                     counters[table] = min(0, int((cur.fetchone() or {}).get("minimum") or 0))
                 counters[table] -= 1
+                existing_ids[table][key] = counters[table]
                 return counters[table]
 
-            for host in data["hosts"]:
-                # Source IDs remain stable even after a PC is renamed or retired.
-                cur.execute(
-                    """INSERT INTO club_pc_names (id,club_id,uuid,display_name,sort_order)
-                    VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid)""",
+            write_batches(
+                "ПК",
+                """INSERT INTO club_pc_names (id,club_id,uuid,display_name,sort_order)
+                VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid)""",
+                [
                     (
-                        surrogate("club_pc_names", "uuid", host["uuid"]),
+                        surrogate("club_pc_names", "uuid", h["uuid"]),
                         club_id,
-                        host["uuid"],
-                        host["display_name"],
-                        host["sort_order"],
-                    ),
-                )
-            # If Gizmo corrected a previously imported session to an invalid interval,
-            # remove only that source ID in this club, in the same transaction.
-            for rejected in data.get("rejected_sessions", []):
-                cur.execute("DELETE FROM guest_sessions WHERE club_id=%s AND id=%s", (club_id, rejected["id"]))
-            for row in data["sessions"]:
-                cur.execute(
-                    """INSERT INTO guest_sessions (club_id,id,guest_id,uuid,date_start,date_stop)
-                    VALUES (%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
-                    guest_id=VALUES(guest_id),uuid=VALUES(uuid),date_start=VALUES(date_start),date_stop=VALUES(date_stop)""",
-                    (club_id, row["id"], row["guest_id"], row["uuid"], row["date_start"], row["date_stop"]),
-                )
-            for row in data["topups"]:
-                cur.execute(
-                    """INSERT INTO guest_balance_topups
-                    (id,club_id,topup_id,guest_id,amount,topup_at,created_at,updated_at)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
-                    guest_id=VALUES(guest_id),amount=VALUES(amount),topup_at=VALUES(topup_at),updated_at=VALUES(updated_at)""",
+                        h["uuid"],
+                        h["display_name"],
+                        h["sort_order"],
+                    )
+                    for h in data["hosts"]
+                ],
+            )
+            # Remove only rejected source IDs from this club, in the same transaction.
+            rejected = data.get("rejected_sessions", [])
+            for offset in range(0, len(rejected), 500):
+                ids = [row["id"] for row in rejected[offset : offset + 500]]
+                placeholders = ",".join(["%s"] * len(ids))
+                cur.execute(f"DELETE FROM guest_sessions WHERE club_id=%s AND id IN ({placeholders})", (club_id, *ids))
+            write_batches(
+                "сессий",
+                """INSERT INTO guest_sessions (club_id,id,guest_id,uuid,date_start,date_stop)
+                VALUES (%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
+                guest_id=VALUES(guest_id),uuid=VALUES(uuid),date_start=VALUES(date_start),date_stop=VALUES(date_stop)""",
+                [
+                    (club_id, r["id"], r["guest_id"], r["uuid"], r["date_start"], r["date_stop"])
+                    for r in data["sessions"]
+                ],
+            )
+            write_batches(
+                "пополнений",
+                """INSERT INTO guest_balance_topups
+                (id,club_id,topup_id,guest_id,amount,topup_at,created_at,updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE
+                guest_id=VALUES(guest_id),amount=VALUES(amount),topup_at=VALUES(topup_at),updated_at=VALUES(updated_at)""",
+                [
                     (
-                        surrogate("guest_balance_topups", "topup_id", row["topup_id"]),
+                        surrogate("guest_balance_topups", "topup_id", r["topup_id"]),
                         club_id,
-                        row["topup_id"],
-                        row["guest_id"],
-                        row["amount"],
-                        row["topup_at"],
+                        r["topup_id"],
+                        r["guest_id"],
+                        r["amount"],
+                        r["topup_at"],
                         now,
                         now,
-                    ),
-                )
+                    )
+                    for r in data["topups"]
+                ],
+            )
             cur.execute(
                 """UPDATE club_integrations SET external_branch_id=%s, settings=%s,
                 last_import_at=%s WHERE club_id=%s""",
