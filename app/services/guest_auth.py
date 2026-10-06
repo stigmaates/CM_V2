@@ -2,6 +2,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from app.core import get_db_connection
+from app.services.club_service import require_club_service
 
 _guest_login_tokens_club_column_ready = False
 
@@ -37,6 +38,7 @@ def create_guest_login_token(club_id: int | None = None):
     try:
         with conn.cursor() as cursor:
             ensure_guest_login_tokens_club_column(cursor)
+            require_club_service(cursor, club_id_value, lock=True)
             cursor.execute(
                 """
                 INSERT INTO guest_login_tokens (
@@ -54,6 +56,9 @@ def create_guest_login_token(club_id: int | None = None):
             )
         conn.commit()
         return token
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -65,7 +70,7 @@ def get_guest_login_club(club_id: int | None = None):
             if club_id is not None:
                 cursor.execute(
                     """
-                    SELECT club_id, name
+                    SELECT club_id, name, service_enabled
                     FROM clubs
                     WHERE club_id = %s
                     LIMIT 1
@@ -75,7 +80,7 @@ def get_guest_login_club(club_id: int | None = None):
                 return cursor.fetchone()
 
             cursor.execute("""
-                SELECT club_id, name
+                SELECT club_id, name, service_enabled
                 FROM clubs
                 ORDER BY club_id
                 LIMIT 2

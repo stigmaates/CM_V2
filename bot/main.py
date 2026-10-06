@@ -24,6 +24,7 @@ from telegram.ext import (
 from telegram.request import HTTPXRequest
 
 from app.config import BOT_TOKEN, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, TG_PROXY_URL
+from app.services.club_service import require_club_service
 from app.services.first_visit_survey import (
     build_social_links_message,
     complete_survey_and_award,
@@ -176,6 +177,7 @@ def confirm_login_token(token: str, guest_id: int, club_id: int, telegram_id: in
     try:
         with conn.cursor() as cursor:
             ensure_guest_login_tokens_club_column(cursor)
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 """
                 UPDATE guest_login_tokens
@@ -191,6 +193,9 @@ def confirm_login_token(token: str, guest_id: int, club_id: int, telegram_id: in
             if cursor.rowcount != 1:
                 raise ValueError("Ссылка уже использована или устарела. Откройте новую ссылку входа.")
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

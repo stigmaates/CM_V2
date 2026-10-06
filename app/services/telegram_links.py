@@ -1,6 +1,7 @@
 """Account links are serialized per club, including ordinary contact-based login."""
 
 from app.core import get_db_connection
+from app.services.club_service import require_club_service
 
 HELP_MESSAGE = "Обратитесь к администратору для помощи с этой проблемой"
 
@@ -23,9 +24,7 @@ def find_linked_guest(club_id, telegram_id):
 
 
 def _lock_club(cur, club_id):
-    cur.execute("SELECT club_id FROM clubs WHERE club_id = %s FOR UPDATE", (club_id,))
-    if not cur.fetchone():
-        raise ValueError(HELP_MESSAGE)
+    require_club_service(cur, club_id, lock=True)
 
 
 def _check_link(cur, club_id, guest_id, telegram_id):

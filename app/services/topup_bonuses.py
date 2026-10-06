@@ -11,8 +11,9 @@ import httpx
 
 from app.config import CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL, TOPUP_BONUS_MAX_AMOUNT
 from app.core import get_db_connection
-from app.services.cm_bonuses import add_cm_bonus_transaction
-from app.services.wheel import add_guest_token_transaction
+from app.services.club_service import require_club_service
+from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
+from app.services.wheel import add_guest_token_transaction, ensure_token_tables
 
 REWARD_TYPES = {"cm_bonus", "tokens"}
 
@@ -891,6 +892,10 @@ def award_first_authorization_reward(guest_id: int, club_id: int) -> dict[str, A
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            # Lazy schema DDL must finish before the transactional service lock.
+            ensure_cm_bonus_tables(cursor)
+            ensure_token_tables(cursor)
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 """
                 SELECT welcome_reward_enabled, welcome_cm_bonus_amount, welcome_token_amount

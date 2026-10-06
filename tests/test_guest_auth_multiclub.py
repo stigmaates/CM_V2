@@ -21,7 +21,7 @@ class FakeCursor:
         self.queries.append((sql, params))
 
     def fetchone(self):
-        return None
+        return {"club_id": 2, "service_enabled": 1}
 
     def fetchall(self):
         return self.rows
@@ -52,7 +52,7 @@ def test_guest_login_token_stores_club_id(monkeypatch):
     token = guest_auth.create_guest_login_token(2)
 
     assert token
-    insert_sql, params = cursor.queries[0]
+    insert_sql, params = cursor.queries[1]
     assert "club_id" in insert_sql
     assert params[1] == 2
     assert conn.committed

@@ -313,12 +313,12 @@ def test_foreign_or_unverified_contact_is_rejected(monkeypatch):
 
 
 def test_confirm_token_is_scoped_unexpired_and_single_use(monkeypatch):
-    conn = Connection([])
+    conn = Connection([{"club_id": 2, "service_enabled": 1}])
     conn.cur.rowcount = 1
     monkeypatch.setattr(guest_bot, "get_db_connection", lambda: conn)
     monkeypatch.setattr(guest_bot, "ensure_guest_login_tokens_club_column", lambda cur: None)
     guest_bot.confirm_login_token("token", 7, 2, 100)
-    query, params = conn.cur.executed[0]
+    query, params = conn.cur.executed[1]
     assert query.count("%s") == len(params)
     assert "AND club_id = %s AND is_confirmed = 0 AND expires_at > UTC_TIMESTAMP()" in query
     assert conn.committed
