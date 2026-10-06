@@ -3,6 +3,7 @@
 import hashlib
 import ipaddress
 import ssl
+from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from app.integrations.gizmo import GizmoClient, GizmoError, GizmoHTTPError
@@ -47,6 +48,36 @@ def prepare_connection(form, *, certificate_pem, existing=None):
     # the web process, so browser timeouts cannot interrupt the import.
     GizmoClient(**connection, certificate_pem=certificate_pem, api_key=key)
     return dict(enabled=True, api_key=key, certificate_pem=certificate_pem, connection=connection)
+
+
+def read_certificate_upload(upload):
+    if not upload or not upload.filename:
+        return None
+    raw = upload.read(16385)
+    if len(raw) > 16384:
+        raise GizmoError("Сертификат должен быть не больше 16 КБ.")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeError:
+        raise GizmoError("Нужен текстовый сертификат в формате PEM.") from None
+
+
+@contextmanager
+def initial_setup(club_id, credentials, *, directory=DIRECTORY):
+    """Hold the import lock until club creation commits; roll back new files on failure."""
+    require_stage_environment()
+    with run_lock(directory / f"sync-{club_id}.lock"):
+        paths = [directory / f"status-{club_id}.json", directory / f"sync-{club_id}.json"]
+        if any(path.exists() or path.is_symlink() for path in paths):
+            raise GizmoError("Для этого ID уже есть подключение Gizmo. Обновите страницу и повторите создание.")
+        try:
+            atomic_json(paths[0], dict(club_id=club_id, status="queued", phase="queued"))
+            atomic_json(paths[1], dict(credentials, requested_at_utc=datetime.now(UTC).isoformat()))
+            yield
+        except BaseException:
+            for path in paths:
+                path.unlink(missing_ok=True)
+            raise
 
 
 def inspect_connection(client):

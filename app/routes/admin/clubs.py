@@ -1,6 +1,9 @@
+from contextlib import nullcontext
+
 from flask import flash, redirect, render_template, request, url_for
 
 from app.core import get_db_connection
+from app.integrations.gizmo_onboarding import initial_setup, prepare_connection, public_error, read_certificate_upload
 from app.integrations.providers import validate_provider
 from app.integrations.stage import stage_pilot_available
 from app.routes.admin import admin_bp
@@ -71,6 +74,20 @@ def _insert_admin_club(
     )
 
 
+def _creation_form():
+    # Never send secrets back to the browser after validation errors.
+    values = {
+        key: request.form.get(key, "")
+        for key in ("name", "integration_provider", "timezone", "address", "port", "server_name")
+    }
+    return render_template(
+        "admin/create_club.html",
+        gizmo_pilot_enabled=stage_pilot_available(),
+        timezone_choices=CLUB_TIMEZONE_CHOICES,
+        values=values,
+    )
+
+
 @admin_bp.route("/clubs/create", methods=["GET", "POST"])
 @admin_required
 def create_club():
@@ -78,36 +95,69 @@ def create_club():
         name = (request.form.get("name") or "").strip()
         api_key = (request.form.get("api_key") or "").strip()
         secret = (request.form.get("secret") or "").strip()
-
+        credentials = None
         try:
             provider = validate_provider(request.form.get("integration_provider"))
             timezone_name = validate_club_timezone(request.form.get("timezone"))
-        except ValueError as exc:
-            flash(str(exc), "error")
-            return redirect(url_for("admin.create_club"))
-
-        if not name or (provider == "langame" and (not api_key or not secret)):
-            flash("Заполни название, API key и secret", "error")
-            return redirect(url_for("admin.create_club"))
+            if not name:
+                raise ValueError("Укажите название клуба.")
+            if provider == "langame" and (not api_key or not secret):
+                raise ValueError("Заполните API key и secret Langame.")
+            if provider == "gizmo":
+                if not stage_pilot_available():
+                    raise ValueError("Пилот Gizmo доступен только на стейдже.")
+                credentials = prepare_connection(
+                    {**request.form, "api_key": request.form.get("gizmo_api_key", "")},
+                    certificate_pem=read_certificate_upload(request.files.get("certificate")),
+                )
+        except (ValueError, OSError) as exc:
+            flash(str(exc) if isinstance(exc, ValueError) else public_error(exc), "error")
+            return _creation_form(), 400
 
         with get_db_connection() as db:
             cur = db.cursor()
             try:
                 club_id = _next_club_id(cur)
-                _insert_admin_club(cur, club_id, name, api_key, secret, provider=provider, timezone_name=timezone_name)
-                if provider == "langame":
-                    cur.execute("UPDATE clubs SET timezone=%s WHERE club_id=%s", (timezone_name, club_id))
-                db.commit()
-            except ValueError as exc:
+                # The scheduler cannot observe this club until SQL commits and
+                # the per-club lock is released. Failed creation removes only
+                # its newly written credentials, never another club's files.
+                setup = initial_setup(club_id, credentials) if provider == "gizmo" else nullcontext()
+                with setup:
+                    _insert_admin_club(
+                        cur,
+                        club_id,
+                        name,
+                        api_key if provider == "langame" else "",
+                        secret if provider == "langame" else "",
+                        provider=provider,
+                        timezone_name=timezone_name,
+                    )
+                    if provider == "langame":
+                        cur.execute("UPDATE clubs SET timezone=%s WHERE club_id=%s", (timezone_name, club_id))
+                    db.commit()
+            except (ValueError, OSError) as exc:
                 db.rollback()
-                flash(str(exc), "error")
-                return redirect(url_for("admin.create_club"))
+                flash(
+                    (
+                        str(exc)
+                        if isinstance(exc, ValueError)
+                        else "Не удалось сохранить подключение Gizmo. Повторите создание."
+                    ),
+                    "error",
+                )
+                return _creation_form(), 400
+            except Exception:
+                db.rollback()
+                flash("Не удалось создать клуб. Повторите попытку.", "error")
+                return _creation_form(), 500
 
-        flash(f"Клуб создан выключенным. Внутренний ID: {club_id}. Включи обслуживание после проверки API.", "success")
         if provider == "gizmo":
+            flash(
+                f"Клуб создан. Внутренний ID: {club_id}. Проверка и загрузка данных запустятся автоматически.",
+                "success",
+            )
             return redirect(url_for("admin.gizmo_setup", club_id=club_id))
+        flash(f"Клуб создан выключенным. Внутренний ID: {club_id}. Включи обслуживание после проверки API.", "success")
         return redirect("/admin/clubs")
 
-    return render_template(
-        "admin/create_club.html", gizmo_pilot_enabled=stage_pilot_available(), timezone_choices=CLUB_TIMEZONE_CHOICES
-    )
+    return _creation_form()
