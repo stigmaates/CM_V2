@@ -41,6 +41,14 @@ class Cursor:
         params = tuple(str(x) if isinstance(x, Decimal) else x for x in params)
         self.cur.execute(sql, params)
 
+    def fetchall(self):
+        return [dict(row) for row in self.cur.fetchall()]
+
+    def executemany(self, sql, values):
+        self.owner.batches.append((sql, len(values)))
+        for params in values:
+            self.execute(sql, params)
+
     def fetchone(self):
         if self.special:
             return self.special
@@ -53,6 +61,7 @@ class Connection:
         self.db = sqlite3.connect(":memory:")
         self.db.row_factory = sqlite3.Row
         self.fail = False
+        self.batches = []
         self.db.executescript("""
             CREATE TABLE clubs (club_id INTEGER PRIMARY KEY,integration_provider TEXT,service_enabled INTEGER,integration_ready INTEGER);
             INSERT INTO clubs VALUES (900001,'gizmo',0,0);
@@ -190,3 +199,24 @@ def test_rejected_session_deletion_rolls_back_if_valid_session_write_fails(sampl
     with pytest.raises(RuntimeError, match="injected"):
         save(conn, 900001, corrected)
     assert [r["id"] for r in conn.records("guest_sessions")] == [123]
+
+
+def test_large_import_batches_rows_and_preserves_ids_on_repeat(sample, caplog):
+    import logging
+
+    from pymysql.cursors import RE_INSERT_VALUES
+
+    conn = Connection()
+    sample["sessions"] = [dict(sample["sessions"][0], id=i) for i in range(1, 1202)]
+    sample["topups"] = [dict(sample["topups"][0], topup_id=i) for i in range(1, 1202)]
+    with caplog.at_level(logging.INFO, logger="app.integrations.gizmo_import"):
+        save(conn, 900001, sample)
+    assert len(conn.records("guest_sessions")) == 1201
+    topup_ids = {r["topup_id"]: r["id"] for r in conn.records("guest_balance_topups")}
+    assert len(topup_ids) == 1201 and max(topup_ids.values()) < 0
+    assert [n for sql, n in conn.batches if "INSERT INTO guest_sessions" in sql] == [500, 500, 201]
+    assert all(RE_INSERT_VALUES.match(sql) for sql, _ in conn.batches)
+    assert "1201/1201" in caplog.text
+    assert sample["guests"][0]["phone"] not in caplog.text
+    save(conn, 900001, sample)
+    assert {r["topup_id"]: r["id"] for r in conn.records("guest_balance_topups")} == topup_ids
