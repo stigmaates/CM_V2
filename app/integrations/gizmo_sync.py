@@ -14,6 +14,7 @@ from app.integrations.gizmo import GizmoClient, GizmoError
 from app.integrations.gizmo_import import check_target, collect, save
 from app.integrations.stage import require_stage_environment
 from app.services.guest_pulse import refresh_club
+from scripts.rebuild_user_portrait import rebuild_club_portrait
 
 DIRECTORY = Path("/root/gizmo-stage-check")
 
@@ -124,6 +125,12 @@ def synchronize(conn, club_id, *, directory=DIRECTORY):
                 first_session_utc=min((r["date_start"].isoformat() for r in data.get("sessions", [])), default=None),
                 first_topup_utc=min((r["topup_at"].isoformat() for r in data.get("topups", [])), default=None),
             )
+            atomic_json(status_path, status)
+            logging.getLogger(__name__).info("Gizmo: строим CRM-портреты клуба...")
+            portrait = rebuild_club_portrait(conn, club_id)
+            if portrait["status"] != "updated":
+                raise GizmoError("Data saved but CRM portrait refresh did not complete; retry sync")
+            status["portrait"] = portrait
             atomic_json(status_path, status)
             # Explicit preview continues to keep service, mail and rewards disabled.
             logging.getLogger(__name__).info("Gizmo: данные сохранены, пересчитываем Пульс...")

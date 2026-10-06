@@ -776,14 +776,21 @@
                         </div>
 
                         <div class="form-group">
+                            {% if club and club.integration_provider == 'gizmo' %}
+                            <label>Система клуба</label>
+                            <p>Gizmo</p>
+                            {% else %}
                             <label for="lg_api_key">Langame API Key</label>
                             <input class="form-input" type="text" id="lg_api_key" name="lg_api_key" value="{{ club.lg_api_key if club else '' }}" required>
+                            {% endif %}
                         </div>
 
+                        {% if not club or club.integration_provider != 'gizmo' %}
                         <div class="form-group">
                             <label for="secret">Secret</label>
                             <input class="form-input" type="text" id="secret" name="secret" value="{{ club.secret if club else '' }}" required>
                         </div>
+                        {% endif %}
 
                         <div class="form-group">
                             <label for="cm_bonus_admin_chat_id">ID Telegram-беседы для заявок на КБ</label>
