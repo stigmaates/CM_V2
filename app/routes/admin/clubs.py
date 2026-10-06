@@ -1,8 +1,8 @@
 from flask import flash, redirect, render_template, request, url_for
 
-from app.config import APP_ENV
 from app.core import get_db_connection
 from app.integrations.providers import validate_provider
+from app.integrations.stage import stage_pilot_available
 from app.routes.admin import admin_bp
 from app.routes.common.auth import admin_required
 from app.services.timezones import CLUB_TIMEZONE_CHOICES, validate_club_timezone
@@ -36,7 +36,7 @@ def _insert_admin_club(cursor, club_id: int, name: str, api_key: str, secret: st
         raise ValueError("Клуб с таким club_id уже существует")
 
     if provider == "gizmo":
-        if APP_ENV != "stage":
+        if not stage_pilot_available():
             raise ValueError("Пилот Gizmo доступен только на стейдже")
         if not _column_exists(cursor, "clubs", "integration_provider"):
             raise ValueError("Сначала примените миграцию интеграций")
@@ -102,4 +102,4 @@ def create_club():
         flash(f"Клуб создан выключенным. Внутренний ID: {club_id}. Включи обслуживание после проверки API.", "success")
         return redirect("/admin/clubs")
 
-    return render_template("admin/create_club.html", gizmo_pilot_enabled=APP_ENV == "stage", timezone_choices=CLUB_TIMEZONE_CHOICES)
+    return render_template("admin/create_club.html", gizmo_pilot_enabled=stage_pilot_available(), timezone_choices=CLUB_TIMEZONE_CHOICES)

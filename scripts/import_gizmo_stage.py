@@ -12,28 +12,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.config import APP_ENV
 from app.core import get_db_connection
 from app.integrations.gizmo import GizmoClient, GizmoError
 from app.integrations.gizmo_import import check_target, collect, save
+from app.integrations.stage import require_stage_environment
 from app.services.timezones import validate_club_timezone
-from scripts.mirror_production_to_stage import target, validate_targets
 
 ADDRESS = "213.59.152.72"
 FINGERPRINT = "AA:36:45:41:83:DD:89:63:64:48:CA:C2:44:51:35:D7:AE:77:3D:DD:01:90:1F:BC:99:46:58:D5:E1:8A:DC:8A"
 
 
 def require_stage():
-    if APP_ENV != "stage" or ROOT.resolve() != Path("/root/cm_stage/CM_V2"):
-        raise GizmoError("Pilot must run in /root/cm_stage/CM_V2 with APP_ENV=stage")
-    if not (ROOT / ".stage-no-outbound").is_file():
-        raise GizmoError("Stage outbound stop marker is required")
-    source, stage = target(Path("/root/cm_v2/CM_V2/.env")), target(ROOT / ".env")
-    validate_targets(source, stage)
-    from app.config import DB_HOST, DB_NAME, DB_PORT
-
-    if (DB_NAME, DB_HOST, DB_PORT) != (stage["database"], stage["host"], stage["port"]):
-        raise GizmoError("Loaded database settings do not match the stage environment file")
+    require_stage_environment()
 
 
 def provision(conn, name, timezone_name):
