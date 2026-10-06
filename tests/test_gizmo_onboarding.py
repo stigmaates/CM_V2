@@ -39,8 +39,8 @@ def certificate():
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch, certificate):
-    monkeypatch.setattr(onboarding, "require_stage_environment", lambda: None)
-    monkeypatch.setattr(sync, "require_stage_environment", lambda: None)
+    monkeypatch.setattr(onboarding, "require_gizmo_environment", lambda **kw: None)
+    monkeypatch.setattr(sync, "require_gizmo_environment", lambda **kw: None)
     monkeypatch.setattr(sync, "start_job_run", lambda *a, **kw: 1)
     monkeypatch.setattr(sync, "finish_job_run", lambda *a, **kw: None)
     monkeypatch.setattr(sync, "rebuild_club_portrait", lambda *a: {"status": "updated", "guests": 1})
@@ -188,7 +188,7 @@ def test_owner_cannot_access_admin_gizmo_routes(monkeypatch):
 
 
 def test_setup_hidden_outside_stage(monkeypatch):
-    monkeypatch.setattr(routes, "stage_pilot_available", lambda: False)
+    monkeypatch.setattr(routes, "gizmo_available", lambda: False)
     with app.test_request_context("/admin/clubs/900001/gizmo"):
         from werkzeug.exceptions import NotFound
 

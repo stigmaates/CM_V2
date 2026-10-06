@@ -96,7 +96,7 @@ def test_worker_lock_prevents_overlapping_full_imports(tmp_path):
 def worker(tmp_path, monkeypatch):
     sync.atomic_json(tmp_path / "sync-900001.json", dict(enabled=True, api_key="private-key"))
     (tmp_path / "server.pem").write_text("fixture-cert")
-    monkeypatch.setattr(sync, "require_stage_environment", lambda: None)
+    monkeypatch.setattr(sync, "require_gizmo_environment", lambda **kw: None)
     monkeypatch.setattr(
         sync, "read_club", lambda *a: dict(integration_provider="gizmo", service_enabled=0, integration_ready=0)
     )
@@ -127,7 +127,7 @@ def worker(tmp_path, monkeypatch):
     )
 
     def pulse(*args, **kwargs):
-        assert kwargs["stage_gizmo_preview"] is True
+        assert kwargs["gizmo_preview"] is True
         events.append("pulse")
         return dict(status="updated", guests=5)
 
@@ -182,10 +182,10 @@ def test_paused_sync_performs_no_api_or_db_work(worker):
 
 
 def test_wrong_environment_is_rejected_before_any_io(monkeypatch, tmp_path):
-    def reject():
+    def reject(**kwargs):
         raise ValueError("Not stage")
 
-    monkeypatch.setattr(sync, "require_stage_environment", reject)
+    monkeypatch.setattr(sync, "require_gizmo_environment", reject)
     with pytest.raises(ValueError, match="Not stage"):
         sync.synchronize(None, 900001, directory=tmp_path)
     assert list(tmp_path.iterdir()) == []

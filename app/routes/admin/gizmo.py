@@ -1,4 +1,4 @@
-"""Admin-only stage setup, status and pause controls for Gizmo."""
+"""Admin-only setup, status and pause controls for Gizmo."""
 
 from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 
@@ -11,13 +11,13 @@ from app.integrations.gizmo_onboarding import (
     public_status,
     queue_setup,
 )
+from app.integrations.gizmo_runtime import gizmo_available, is_stage_runtime
 from app.integrations.gizmo_sync import read_target
-from app.integrations.stage import stage_pilot_available
 from app.routes.admin import admin_bp
 
 
 def target(club_id):
-    if not stage_pilot_available():
+    if not gizmo_available():
         abort(404)
     conn = get_db_connection()
     try:
@@ -74,6 +74,7 @@ def gizmo_setup(club_id):
             club=club,
             connection=settings.get("source") or public_connection(club_id),
             state=state,
+            gizmo_stage=is_stage_runtime(),
         )
     finally:
         conn.close()

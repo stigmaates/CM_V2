@@ -21,7 +21,7 @@
             <label for="integration_provider">Система клуба</label>
             <select id="integration_provider" name="integration_provider">
                 <option value="langame" {{ 'selected' if values.integration_provider != 'gizmo' else '' }}>Langame</option>
-                {% if gizmo_pilot_enabled %}<option value="gizmo" {{ 'selected' if values.integration_provider == 'gizmo' else '' }}>Gizmo — пилот</option>{% endif %}
+                {% if gizmo_enabled %}<option value="gizmo" {{ 'selected' if values.integration_provider == 'gizmo' else '' }}>Gizmo</option>{% endif %}
             </select>
         </div>
         <div>
@@ -43,7 +43,7 @@
             <input type="text" id="secret" name="secret" placeholder="620" required>
         </div>
 
-        {% if gizmo_pilot_enabled %}
+        {% if gizmo_enabled %}
         <div data-gizmo hidden>
             <label for="address">Внешний IP-адрес Gizmo</label>
             <input id="address" name="address" value="{{ values.address }}" placeholder="213.59.152.72" disabled>

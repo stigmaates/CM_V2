@@ -18,7 +18,7 @@ def imported(setup, certificate, monkeypatch):
     conn, directory = queued(setup, certificate)
     api(monkeypatch)
     sync.synchronize(conn, 900001, directory=directory)
-    monkeypatch.setattr(lifecycle, "require_stage_environment", lambda: None)
+    monkeypatch.setattr(lifecycle, "require_gizmo_environment", lambda **kw: None)
     return conn, directory
 
 
@@ -116,10 +116,10 @@ def test_activation_cannot_race_running_worker(imported):
 def test_production_activation_remains_blocked(imported, monkeypatch):
     conn, directory = imported
 
-    def reject():
+    def reject(**kwargs):
         raise ValueError("not isolated stage")
 
-    monkeypatch.setattr(lifecycle, "require_stage_environment", reject)
+    monkeypatch.setattr(lifecycle, "require_gizmo_environment", reject)
     with pytest.raises(ValueError):
         lifecycle.set_service(conn, 900001, True, directory=directory)
     assert conn.records("clubs")[0]["service_enabled"] == 0

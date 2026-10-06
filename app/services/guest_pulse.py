@@ -268,11 +268,17 @@ def write_snapshot(cur, club_id, values, day, now_utc, reconstructed=False):
         )
 
 
-def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False, stage_gizmo_preview=False):
+def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False, stage_gizmo_preview=False, gizmo_preview=False):
     if stage_gizmo_preview:
         from app.integrations.stage import require_stage_environment
 
         require_stage_environment()
+    elif gizmo_preview:
+        from app.integrations.gizmo_runtime import require_gizmo_environment
+
+        require_gizmo_environment()
+    preview = stage_gizmo_preview or gizmo_preview
+    if preview:
         if backfill:
             raise ValueError("A partial Gizmo preview cannot reconstruct historical snapshots")
     now_utc = now_utc or datetime.now(UTC).replace(tzinfo=None)
@@ -282,7 +288,7 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False, st
     try:
         conn.commit()
         eligibility = (
-            "service_enabled=0 AND integration_provider='gizmo'" if stage_gizmo_preview else "service_enabled=1"
+            "service_enabled=0 AND integration_provider='gizmo'" if preview else "service_enabled=1"
         )
         club = rows(conn, f"SELECT timezone FROM clubs WHERE club_id=%s AND {eligibility}", (club_id,))
         if not club:
@@ -293,10 +299,10 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False, st
         dirty = (rows(conn, "SELECT generation FROM guest_pulse_dirty WHERE club_id=%s", (club_id,)) or [{}])[0].get(
             "generation"
         )
-        daily_due = not stage_gizmo_preview and now.hour >= 4 and state.get("snapshot_date") != now.date()
-        needs_backfill = not stage_gizmo_preview and (backfill or not state.get("backfilled_at"))
+        daily_due = not preview and now.hour >= 4 and state.get("snapshot_date") != now.date()
+        needs_backfill = not preview and (backfill or not state.get("backfilled_at"))
         # A daily recency refresh is mandatory even when sources did not change.
-        if not stage_gizmo_preview and not force and not dirty and not daily_due and not needs_backfill:
+        if not preview and not force and not dirty and not daily_due and not needs_backfill:
             return {"club_id": club_id, "status": "unchanged"}
         sources = load_sources(conn, club_id, tz)
         old = previous_states(
@@ -321,7 +327,7 @@ def refresh_club(conn, club_id, *, now_utc=None, backfill=False, force=False, st
                 if not old:
                     old = replay
             values = calculate_club(sources, now, old)
-            if not stage_gizmo_preview:
+            if not preview:
                 write_events(cur, club_id, values, old, tz)
             if daily_due:
                 write_snapshot(cur, club_id, values, now.date(), now_utc)

@@ -4,8 +4,8 @@ from flask import flash, redirect, render_template, request, url_for
 
 from app.core import get_db_connection
 from app.integrations.gizmo_onboarding import initial_setup, prepare_connection, public_error
+from app.integrations.gizmo_runtime import gizmo_available
 from app.integrations.providers import validate_provider
-from app.integrations.stage import stage_pilot_available
 from app.routes.admin import admin_bp
 from app.routes.common.auth import admin_required
 from app.services.timezones import CLUB_TIMEZONE_CHOICES, validate_club_timezone
@@ -41,8 +41,8 @@ def _insert_admin_club(
         raise ValueError("Клуб с таким club_id уже существует")
 
     if provider == "gizmo":
-        if not stage_pilot_available():
-            raise ValueError("Пилот Gizmo доступен только на стейдже")
+        if not gizmo_available():
+            raise ValueError("Подключение Gizmo не включено в этом окружении")
         if not _column_exists(cursor, "clubs", "integration_provider"):
             raise ValueError("Сначала примените миграцию интеграций")
         cursor.execute(
@@ -82,7 +82,7 @@ def _creation_form():
     }
     return render_template(
         "admin/create_club.html",
-        gizmo_pilot_enabled=stage_pilot_available(),
+        gizmo_enabled=gizmo_available(),
         timezone_choices=CLUB_TIMEZONE_CHOICES,
         values=values,
     )
@@ -104,8 +104,8 @@ def create_club():
             if provider == "langame" and (not api_key or not secret):
                 raise ValueError("Заполните API key и secret Langame.")
             if provider == "gizmo":
-                if not stage_pilot_available():
-                    raise ValueError("Пилот Gizmo доступен только на стейдже.")
+                if not gizmo_available():
+                    raise ValueError("Подключение Gizmo не включено в этом окружении.")
                 credentials = prepare_connection(
                     {**request.form, "api_key": request.form.get("gizmo_api_key", "")},
                 )

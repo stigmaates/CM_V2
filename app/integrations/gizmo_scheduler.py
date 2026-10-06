@@ -1,12 +1,12 @@
 """Shared Gizmo scheduler: onboarding, active service and explicit paused refresh.
 
-Still restricted to isolated stage until production acceptance.
+Production requires explicit runtime opt-in and isolated private state.
 """
 
 from app.core import get_db_connection
 from app.integrations.gizmo import GizmoError
+from app.integrations.gizmo_runtime import require_gizmo_environment
 from app.integrations.gizmo_sync import DIRECTORY, run_lock, synchronize
-from app.integrations.stage import require_stage_environment
 
 
 def configured_clubs(conn):
@@ -24,7 +24,7 @@ def configured_clubs(conn):
 
 
 def synchronize_due(*, directory=DIRECTORY):
-    require_stage_environment()
+    require_gizmo_environment(directory=directory)
     with run_lock(directory / "scheduler.lock"):
         conn = get_db_connection()
         try:

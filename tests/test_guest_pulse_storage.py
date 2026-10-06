@@ -763,12 +763,15 @@ def test_selection_returns_inline_form_audience_with_stage_block(pulse_client, d
         ("gizmo", 0, 1, True),
     ],
 )
+@pytest.mark.parametrize("preview_arg", ["stage_gizmo_preview", "gizmo_preview"])
 def test_stage_gizmo_preview_populates_disabled_pilot_without_history(
-    database, monkeypatch, provider, enabled, ready, allowed
+    database, monkeypatch, provider, enabled, ready, allowed, preview_arg
 ):
     from app.integrations import stage
 
     monkeypatch.setattr(stage, "require_stage_environment", lambda: None)
+    from app.integrations import gizmo_runtime
+    monkeypatch.setattr(gizmo_runtime, "require_gizmo_environment", lambda: None)
     connect, sql = database
     sql("ALTER TABLE clubs ADD COLUMN integration_provider VARCHAR(16)")
     sql("ALTER TABLE clubs ADD COLUMN integration_ready INT")
@@ -779,7 +782,7 @@ def test_stage_gizmo_preview_populates_disabled_pilot_without_history(
     sql("UPDATE guests SET telegram_id=NULL WHERE club_id=2")
     if not enabled:
         assert run(connect, force=True)["status"] == "disabled"
-    result = run(connect, stage_gizmo_preview=True)
+    result = run(connect, **{preview_arg: True})
     assert result["status"] == ("updated" if allowed else "disabled")
     assert sql("SELECT * FROM guest_score_history WHERE club_id=2") == []
     assert sql("SELECT * FROM guest_lifecycle_events WHERE club_id=2") == []
@@ -798,7 +801,7 @@ def test_stage_gizmo_preview_populates_disabled_pilot_without_history(
             assert len(current) == 1 and current[0]["has_telegram"] is False
         finally:
             conn.close()
-        assert run(connect, stage_gizmo_preview=True)["guests"] == 1
+        assert run(connect, **{preview_arg: True})["guests"] == 1
         assert len(sql("SELECT * FROM guest_pulse_current WHERE club_id=2")) == 1
 
 

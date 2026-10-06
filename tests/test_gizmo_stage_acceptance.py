@@ -22,7 +22,7 @@ def test_acceptance_creates_isolated_club_then_leaves_it_disabled(imported, monk
     monkeypatch.setattr(runner, "get_db_connection", lambda: conn)
     monkeypatch.setattr(runner, "require_stage_environment", lambda: None)
     monkeypatch.setattr(clubs, "get_db_connection", lambda: conn)
-    monkeypatch.setattr(clubs, "stage_pilot_available", lambda: True)
+    monkeypatch.setattr(clubs, "gizmo_available", lambda: True)
     monkeypatch.setattr(clubs, "_column_exists", lambda *a: True)
     monkeypatch.setattr(
         clubs,

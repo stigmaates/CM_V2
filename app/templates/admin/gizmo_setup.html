@@ -2,7 +2,7 @@
 {% block title %}Gizmo — {{ club.name }}{% endblock %}
 {% block content %}
 <section class="admin-page-head">
-  <div><h1>Gizmo · {{ club.name }}</h1><p>Подключение и обновление данных клуба на стейдже.</p></div>
+  <div><h1>Gizmo · {{ club.name }}</h1><p>Подключение и обновление данных клуба.</p></div>
   <a class="admin-btn" href="{{ url_for('admin.clubs_list') }}">К списку клубов</a>
 </section>
 <section class="admin-card" aria-live="polite">
@@ -11,7 +11,7 @@
   <p id="gizmoCounts"></p>
   <p id="gizmoSuccess"></p>
   <p id="gizmoError" role="alert"></p>
-  <p class="muted">Обслуживание {{ 'включено' if club.service_enabled else 'выключено' }}. На стейдже отправка сообщений гостям заблокирована.</p>
+  <p class="muted">Обслуживание {{ 'включено' if club.service_enabled else 'выключено' }}. {% if gizmo_stage %}На стейдже отправка сообщений гостям заблокирована.{% endif %}</p>
 </section>
 <section class="admin-card admin-form-card">
   <form class="admin-form" method="post" autocomplete="off">
@@ -26,7 +26,7 @@
   {% if state.configured %}
   <form method="post" class="gizmo-pause-form">
     <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}">
-    <button class="admin-btn" type="submit" name="action" value="{{ 'disable' if club.service_enabled else 'activate' }}">{{ 'Выключить обслуживание' if club.service_enabled else 'Включить обслуживание на стейдже' }}</button>
+    <button class="admin-btn" type="submit" name="action" value="{{ 'disable' if club.service_enabled else 'activate' }}">{{ 'Выключить обслуживание' if club.service_enabled else 'Включить обслуживание' }}</button>
     <p>Включение доступно после успешной загрузки данных и аналитики не старше часа. Если данные устарели, сначала запустите проверку выше.</p>
   </form>
   <form method="post" class="gizmo-pause-form">

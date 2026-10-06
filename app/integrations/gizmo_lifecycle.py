@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from app.integrations.gizmo import GizmoError
-from app.integrations.stage import require_stage_environment
+from app.integrations.gizmo_runtime import require_gizmo_environment
 
 
 class SyncPaused(GizmoError):
@@ -96,8 +96,8 @@ def set_service(conn, club_id, enabled, *, directory=None):
     """
     from app.integrations.gizmo_sync import DIRECTORY, atomic_json, private_json, read_target, run_lock
 
-    require_stage_environment()
     directory = directory or DIRECTORY
+    require_gizmo_environment(directory=directory)
     if not enabled:
         try:
             conn.rollback()
