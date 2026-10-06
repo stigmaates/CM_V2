@@ -9,14 +9,15 @@ from pathlib import Path
 from typing import Any
 
 from app.core import get_db_connection
-from app.services.cm_bonuses import add_cm_bonus_transaction
+from app.services.club_service import ClubServiceDisabled, require_club_service
+from app.services.cm_bonuses import add_cm_bonus_transaction, ensure_cm_bonus_tables
 from app.services.steam import (
     SteamError,
     fetch_dota_recent_matches,
     get_cs2_recent_matches,
     sync_cs2_match_history,
 )
-from app.services.wheel import add_guest_token_transaction
+from app.services.wheel import add_guest_token_transaction, ensure_token_tables
 
 logger = logging.getLogger(__name__)
 
@@ -730,6 +731,7 @@ def generate_weekly_contracts(club_id: int, guest_id: int, game: str) -> list[di
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            require_club_service(cursor, club_id, lock=True)
             steam_id, availability = _available_games(cursor, club_id, guest_id)
             if not steam_id:
                 raise GameContractError("Сначала подключите Steam")
@@ -952,6 +954,7 @@ def accept_weekly_contracts(club_id: int, guest_id: int, game: str, contract_ids
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 "SELECT id, steam_id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
                 (club_id, guest_id),
@@ -1153,6 +1156,7 @@ def reroll_guest_contracts(
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 "SELECT id, steam_id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s FOR UPDATE",
                 (club_id, guest_id),
@@ -1458,6 +1462,9 @@ def repair_missing_contract_rewards(club_id: int, guest_id: int) -> int:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            ensure_token_tables(cursor)
+            ensure_cm_bonus_tables(cursor)
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 """
                 SELECT c.*
@@ -1497,6 +1504,9 @@ def evaluate_contracts_for_guest(club_id: int, guest_id: int, game: str) -> int:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            ensure_token_tables(cursor)
+            ensure_cm_bonus_tables(cursor)
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 """
                 SELECT * FROM guest_game_contracts
@@ -1583,6 +1593,7 @@ def _sync_contracts_for_guest(club_id: int, guest_id: int, game: str) -> dict:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            require_club_service(cursor, club_id)
             cursor.execute(
                 "SELECT steam_id FROM guest_steam_accounts WHERE club_id=%s AND guest_id=%s LIMIT 1",
                 (club_id, guest_id),
@@ -1606,6 +1617,7 @@ def _sync_contracts_for_guest(club_id: int, guest_id: int, game: str) -> dict:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            require_club_service(cursor, club_id, lock=True)
             for match in matches:
                 _upsert_match(
                     cursor, club_id=club_id, guest_id=guest_id, steam_id=steam_id,
@@ -1625,6 +1637,7 @@ def _record_sync_state(club_id: int, guest_id: int, game: str, *, error: str | N
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            require_club_service(cursor, club_id, lock=True)
             cursor.execute(
                 """
                 INSERT INTO guest_game_sync_state
@@ -1638,6 +1651,9 @@ def _record_sync_state(club_id: int, guest_id: int, game: str, *, error: str | N
                 (club_id, guest_id, game, now, None if error else now, error[:500] if error else None),
             )
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -1645,6 +1661,8 @@ def _record_sync_state(club_id: int, guest_id: int, game: str, *, error: str | N
 def sync_contracts_for_guest(club_id: int, guest_id: int, game: str) -> dict:
     try:
         result = _sync_contracts_for_guest(club_id, guest_id, game)
+    except ClubServiceDisabled:
+        raise
     except Exception as exc:
         logger.exception("Game contract sync failed for club=%s guest=%s game=%s", club_id, guest_id, game)
         try:
@@ -1665,9 +1683,10 @@ def process_active_contracts() -> dict:
                 """
                 SELECT DISTINCT c.club_id, c.guest_id, c.game
                 FROM guest_game_contracts c
+                JOIN clubs club ON club.club_id=c.club_id
                 LEFT JOIN guest_game_sync_state s
                   ON s.club_id=c.club_id AND s.guest_id=c.guest_id AND s.game=c.game
-                WHERE c.status='active' AND c.expires_at >= DATE_SUB(%s, INTERVAL 24 HOUR)
+                WHERE COALESCE(club.service_enabled, 1)=1 AND c.status='active' AND c.expires_at >= DATE_SUB(%s, INTERVAL 24 HOUR)
                   AND (
                     c.game <> 'dota2'
                     OR s.last_attempt_at IS NULL
@@ -1680,12 +1699,14 @@ def process_active_contracts() -> dict:
             targets = cursor.fetchall()
     finally:
         conn.close()
-    result = {"guests": len(targets), "matches": 0, "completed": 0, "errors": 0}
+    result = {"guests": len(targets), "matches": 0, "completed": 0, "errors": 0, "skipped_disabled": 0}
     for target in targets:
         try:
             synced = sync_contracts_for_guest(target["club_id"], target["guest_id"], target["game"])
             result["matches"] += synced["matches"]
             result["completed"] += synced["completed"]
+        except ClubServiceDisabled:
+            result["skipped_disabled"] += 1
         except Exception:
             result["errors"] += 1
     expire_contracts(now=now)

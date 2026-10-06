@@ -234,7 +234,9 @@ def test_force_refresh_uses_the_linked_steam_account_and_creates_six_offers(monk
         def execute(self, sql, params=()):
             normalized = " ".join(sql.split())
             self.rows = []
-            if "FROM guest_steam_accounts" in normalized:
+            if "service_enabled FROM clubs" in normalized:
+                self.rows = [{"club_id": 1, "service_enabled": 1}]
+            elif "FROM guest_steam_accounts" in normalized:
                 self.rows = [{"id": 1, "steam_id": "76561190000000000"}]
             elif "FROM guest_game_contract_sets" in normalized and normalized.startswith("SELECT"):
                 self.rows = [{"id": 41, "status": "active"}]
@@ -331,6 +333,9 @@ def test_repair_missing_contract_rewards_issues_completed_reward_once(monkeypatc
             elif sql.strip().startswith("SELECT c.*"):
                 self.select_sql = sql
 
+        def fetchone(self):
+            return {"club_id": 1, "service_enabled": 1}
+
         def fetchall(self):
             return [contract]
 
@@ -353,6 +358,8 @@ def test_repair_missing_contract_rewards_issues_completed_reward_once(monkeypatc
 
     connection = RepairConnection()
     awarded = []
+    monkeypatch.setattr(game_contracts, "ensure_token_tables", lambda cursor: None)
+    monkeypatch.setattr(game_contracts, "ensure_cm_bonus_tables", lambda cursor: None)
     monkeypatch.setattr(game_contracts, "get_db_connection", lambda: connection)
     monkeypatch.setattr(
         game_contracts,
