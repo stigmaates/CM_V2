@@ -51,3 +51,5 @@ Before the first paid rollout, test restore on staging:
 - Never run restore without checking `ENV_FILE`.
 - Keep at least one known-good backup outside the application directory.
 - Treat database backups as sensitive personal data.
+
+При включённом `GIZMO_ENABLED=1` производственный `backup_private_storage.py` также сохраняет каталог `/var/lib/cyber-bonus/gizmo` под именем `gizmo/` в архиве. При восстановлении верните его по исходному пути с правами каталога 0700 и секретов 0600 до запуска планировщика Gizmo. Архив не содержит `.env`; его нужно резервировать отдельно.

@@ -64,6 +64,19 @@ def database_report(conn, revisions):
                 unknown_applied_migrations=sorted(applied - set(revisions)),
                 schema_migrations_exists=exists,
             )
+            cur.execute(
+                "SELECT TABLE_NAME,ENGINE,TABLE_ROWS,DATA_LENGTH,INDEX_LENGTH "
+                "FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() "
+                "AND TABLE_NAME IN ('clubs','club_pc_names','guest_sessions','guest_balance_topups')"
+            )
+            result["migration_tables"] = cur.fetchall()
+            cur.execute(
+                "SELECT TABLE_NAME,COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA "
+                "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() "
+                "AND ((TABLE_NAME IN ('guest_sessions','guest_balance_topups') AND COLUMN_NAME='guest_id') "
+                "OR (TABLE_NAME='guest_sessions' AND COLUMN_NAME IN ('date_start','date_stop')))"
+            )
+            result["migration_columns"] = cur.fetchall()
             return result
         finally:
             conn.rollback()
@@ -80,7 +93,9 @@ def run():
         raise ValueError("Production Git revision could not be read")
     _, candidate_commit = command(["git", "rev-parse", "HEAD"], cwd=ROOT)
     _, branch = command(["git", "branch", "--show-current"], cwd=prod_root)
-    dirty_code, dirty = command(["git", "--no-optional-locks", "status", "--porcelain", "--untracked-files=no"], cwd=prod_root)
+    dirty_code, dirty = command(
+        ["git", "--no-optional-locks", "status", "--porcelain", "--untracked-files=no"], cwd=prod_root
+    )
     contains, _ = command(["git", "merge-base", "--is-ancestor", prod_commit, "HEAD"], cwd=ROOT)
     diff_code, changes = command(["git", "diff", "--name-only", prod_commit, "HEAD"], cwd=ROOT)
     _, web = command(
@@ -103,6 +118,7 @@ def run():
         changed_files_count=len(changes.splitlines()) if diff_code == 0 else None,
         production_web=dict(line.split("=", 1) for line in web.splitlines() if "=" in line),
         production_gizmo_opt_in=prod_env.get("GIZMO_ENABLED") == "1",
+        production_app_env=prod_env.get("APP_ENV"),
         production_gizmo_timer=scheduler,
         database=database,
         deployed=False,

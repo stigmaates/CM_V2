@@ -184,3 +184,42 @@ def test_private_storage_backup_contains_both_private_roots(tmp_path):
         names = set(archive.getnames())
     assert "admin-drive/reference.png" in names
     assert "monthly-reports/report.pdf" in names
+
+
+def test_enabled_gizmo_private_backup_includes_credentials_and_certificate(tmp_path, monkeypatch, capsys):
+    from scripts import backup_private_storage as backup
+    from app.integrations.gizmo_runtime import PRODUCTION_STATE
+
+    assert backup.GIZMO_PRODUCTION_STATE == PRODUCTION_STATE
+    roots = {name: tmp_path / name for name in ("admin", "reports", "gizmo")}
+    for path in roots.values():
+        path.mkdir()
+    (roots["gizmo"] / "5.json").write_text('{"api_key":"test-only"}')
+    (roots["gizmo"] / "5.pem").write_text("test certificate")
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        f"ADMIN_FILES_ROOT={roots['admin']}\nMONTHLY_REPORT_ROOT={roots['reports']}\n"
+        "APP_ENV=production\nGIZMO_ENABLED=1\n"
+    )
+    monkeypatch.setattr(backup, "ENV_FILE", env_file)
+    monkeypatch.setattr(backup, "BACKUP_DIR", tmp_path / "backups")
+    monkeypatch.setattr(backup, "GIZMO_PRODUCTION_STATE", roots["gizmo"])
+    assert backup.main() == 0
+    path = Path(capsys.readouterr().out.strip())
+    assert path.stat().st_mode & 0o777 == 0o600
+    with tarfile.open(path) as archive:
+        assert archive.extractfile("gizmo/5.json").read() == b'{"api_key":"test-only"}'
+        assert "gizmo/5.pem" in archive.getnames()
+
+
+def test_enabled_gizmo_backup_fails_if_secrets_directory_missing(tmp_path, monkeypatch):
+    import pytest
+    from scripts import backup_private_storage as backup
+
+    monkeypatch.setattr(backup, "GIZMO_PRODUCTION_STATE", tmp_path / "missing")
+    values = dict(ADMIN_FILES_ROOT=str(tmp_path), MONTHLY_REPORT_ROOT=str(tmp_path))
+    assert "gizmo" not in backup.backup_sources(values)
+    with pytest.raises(RuntimeError, match="does not exist"):
+        backup.backup_sources(dict(values, APP_ENV="production", GIZMO_ENABLED="1"))
+    with pytest.raises(RuntimeError, match="APP_ENV"):
+        backup.backup_sources(dict(values, APP_ENV="stage", GIZMO_ENABLED="1"))

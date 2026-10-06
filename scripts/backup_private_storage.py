@@ -17,6 +17,7 @@ PRIVATE_ROOTS = {
     "admin-drive": "ADMIN_FILES_ROOT",
     "monthly-reports": "MONTHLY_REPORT_ROOT",
 }
+GIZMO_PRODUCTION_STATE = Path("/var/lib/cyber-bonus/gizmo")
 
 
 def _validated_root(raw: str | None, variable: str) -> Path:
@@ -30,15 +31,26 @@ def _validated_root(raw: str | None, variable: str) -> Path:
     return path.resolve()
 
 
+def backup_sources(values: dict) -> dict[str, Path]:
+    sources = {
+        archive_name: _validated_root(values.get(variable), variable)
+        for archive_name, variable in PRIVATE_ROOTS.items()
+    }
+    if str(values.get("GIZMO_ENABLED") or "").strip() == "1":
+        if str(values.get("APP_ENV") or "").strip().lower() != "production":
+            raise RuntimeError("Gizmo production backup requires APP_ENV=production")
+        if GIZMO_PRODUCTION_STATE.resolve() != GIZMO_PRODUCTION_STATE:
+            raise RuntimeError("Gizmo backup source must not be redirected by a symlink")
+        sources["gizmo"] = _validated_root(str(GIZMO_PRODUCTION_STATE), "Gizmo private state")
+    return sources
+
+
 def main() -> int:
     if not ENV_FILE.is_file():
         raise RuntimeError(f"Environment file not found: {ENV_FILE}")
 
     values = dotenv_values(ENV_FILE)
-    sources = {
-        archive_name: _validated_root(values.get(variable), variable)
-        for archive_name, variable in PRIVATE_ROOTS.items()
-    }
+    sources = backup_sources(values)
     backup_dir = BACKUP_DIR.expanduser().resolve()
     for source in sources.values():
         if backup_dir == source or backup_dir.is_relative_to(source):
