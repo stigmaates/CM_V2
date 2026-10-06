@@ -100,7 +100,7 @@ def worker(tmp_path, monkeypatch):
     monkeypatch.setattr(
         sync,
         "read_target",
-        lambda *a: dict(
+        lambda *a, **kw: dict(
             branch_id=1,
             cash_method_ids=[-1, -2],
             source=dict(address="192.0.2.1", server_name="gizmo.local", fingerprint="fixture"),

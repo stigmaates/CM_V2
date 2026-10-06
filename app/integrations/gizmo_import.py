@@ -27,7 +27,7 @@ def referenced_record(client, resource, identity):
     return row
 
 
-def all_rows(client, resource, params=None):
+def all_rows(client, resource, params=None, *, progress=None):
     records = []
     ids = set()
     for page in iter_pages(client, resource, params, limit=500):
@@ -39,6 +39,8 @@ def all_rows(client, resource, params=None):
             ids.add(str(identity))
             records.append(record)
         logging.getLogger(__name__).info("Gizmo %s: %s записей", resource, len(records))
+        if progress:
+            progress(resource, len(records))
         if len(records) > 200000:
             raise GizmoError("Pilot export exceeds 200000 records")
     return records
@@ -66,30 +68,36 @@ def closed_session_detail(raw, usage):
     return detail
 
 
-def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=True, full_history=False):
+def collect(
+    client, *, branch_id, start, end, cash_method_ids, include_sessions=True, full_history=False, progress=None
+):
     if end.tzinfo is None or (
         not full_history
         and (start is None or start.tzinfo is None or not 0 < (end - start).total_seconds() <= 31 * 86400)
     ):
         raise GizmoError("Pilot period must have a timezone and be at most 31 days")
-    branches = all_rows(client, "branches")
+
+    def read(resource, params=None):
+        return all_rows(client, resource, params, progress=progress)
+
+    branches = read("branches")
     if len(branches) != 1 or int(branches[0]["id"]) != branch_id:
         raise GizmoError("Pilot requires one confirmed branch; shared-network users need a separate mapping")
-    methods = all_rows(client, "paymentmethods")
+    methods = read("paymentmethods")
     available_methods = {int(row["id"]) for row in methods}
     if not cash_method_ids or not set(cash_method_ids).issubset(available_methods):
         raise GizmoError("Explicit, existing money payment method IDs are required")
-    raw_guests = all_rows(client, "users", {"IsGuest": "false"})
+    raw_guests = read("users", {"IsGuest": "false"})
     guests = [normalize.guest(row) for row in raw_guests]
     guests = [row for row in guests if row is not None]
     guest_ids = {row["guest_id"] for row in guests}
-    hosts = [normalize.host(row) for row in all_rows(client, "hosts", {"BranchId": branch_id})]
+    hosts = [normalize.host(row) for row in read("hosts", {"BranchId": branch_id})]
     host_ids = {row["external_id"] for row in hosts}
     topup_params = {"BranchId": branch_id}
     if not full_history:
         topup_params.update(DateFrom=start.isoformat(), DateTo=end.isoformat())
-    raw_topups = all_rows(client, "deposittransactions", topup_params)
-    raw_sessions = all_rows(client, "sessions") if include_sessions else []
+    raw_topups = read("deposittransactions", topup_params)
+    raw_sessions = read("sessions") if include_sessions else []
     # The live list can omit both guest accounts and deleted members. Resolve
     # referenced IDs once before normalizing payments or personal visits.
     shared_accounts = {normalize.external_id(row["Model"]["Id"]) for row in raw_guests if row["Type"] == 1}
@@ -142,7 +150,7 @@ def collect(client, *, branch_id, start, end, cash_method_ids, include_sessions=
         # Next 3.0.92 diagnostics: same ID + user + span match;
         # usageSessionId points elsewhere and must not be used as a join.
         # Fetch complete resources: /sessions has no documented date filter.
-        usage = {normalize.external_id(row["id"]): row for row in all_rows(client, "usersessions")}
+        usage = {normalize.external_id(row["id"]): row for row in read("usersessions")}
         for raw in raw_sessions:
             if raw.get("startTime") is None:
                 skipped_unlinked += 1

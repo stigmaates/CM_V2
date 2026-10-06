@@ -98,6 +98,8 @@
             </form>
         </div>
 
+        <a class="admin-btn" id="gizmoSetupLink" hidden>Подключение Gizmo</a>
+
         <div class="club-service-control">
             <div>
                 <div class="modal-owner-access__title">Обслуживание клуба</div>
@@ -368,6 +370,9 @@ async function openClubModal(clubId) {
 
     const club = data.club;
     document.getElementById('modalClubName').textContent = club.name || 'Клуб';
+    const gizmoLink = document.getElementById('gizmoSetupLink');
+    gizmoLink.hidden = club.integration_provider !== 'gizmo';
+    gizmoLink.href = `/admin/clubs/${encodeURIComponent(club.club_id)}/gizmo`;
     document.getElementById('modalClubMeta').textContent = `ID: ${club.club_id} · ${club.integration_provider === 'gizmo' ? 'Gizmo' : 'Langame'} · Owner: ${formatValue(club.owner_name || club.owner_login)} · Гостей: ${formatValue(club.guests_count)} · Telegram: ${formatValue(club.telegram_guests_count)}`;
     document.getElementById('impersonateForm').action = `/admin/clubs/${club.club_id}/impersonate`;
     document.getElementById('guestTestForm').action = `/admin/clubs/${club.club_id}/guest-test`;
