@@ -24,7 +24,7 @@ from telegram.ext import (
 from telegram.request import HTTPXRequest
 
 from app.config import BOT_TOKEN, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, TG_PROXY_URL
-from app.services.club_service import require_club_service
+from app.services.club_service import ClubServiceDisabled, require_club_service
 from app.services.first_visit_survey import (
     build_social_links_message,
     complete_survey_and_award,
@@ -400,6 +400,9 @@ async def first_visit_survey_start_callback(update: Update, context: ContextType
             await query.answer("Опрос уже пройден", show_alert=True)
             return
         mark_survey_started(conn, survey_id)
+    except ClubServiceDisabled as exc:
+        await query.answer(str(exc), show_alert=True)
+        return
     finally:
         conn.close()
 
@@ -452,6 +455,9 @@ async def first_visit_survey_rate_callback(update: Update, context: ContextTypes
             await query.answer("Опрос уже пройден", show_alert=True)
             return
         save_survey_rating(conn, survey_id, rating)
+    except ClubServiceDisabled as exc:
+        await query.answer(str(exc), show_alert=True)
+        return
     finally:
         conn.close()
 

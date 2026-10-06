@@ -168,7 +168,7 @@ def test_topup_bonus_claim_returns_exists_for_already_processed_topup():
 
 class _ReviewCursor:
     def __init__(self, fetchone_results):
-        self.fetchone_results = list(fetchone_results)
+        self.fetchone_results = [{"club_id": 2, "service_enabled": 1}] + list(fetchone_results)
         self.calls = []
 
     def __enter__(self):
@@ -227,6 +227,8 @@ def _pending_award(**overrides):
 def test_topup_bonus_is_granted_only_after_approval(monkeypatch):
     connection = _ReviewConnection([_pending_award(), {"cm_balance": 700, "token_balance": 2}])
     transactions = []
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_cm_bonus_tables", lambda cur: None)
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_token_tables", lambda cur: None)
     monkeypatch.setattr("app.services.topup_bonuses.get_db_connection", lambda: connection)
     monkeypatch.setattr(
         "app.services.topup_bonuses.add_cm_bonus_transaction",
@@ -249,6 +251,8 @@ def test_topup_bonus_is_granted_only_after_approval(monkeypatch):
 
 def test_rejected_topup_bonus_does_not_change_balance(monkeypatch):
     connection = _ReviewConnection([_pending_award()])
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_cm_bonus_tables", lambda cur: None)
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_token_tables", lambda cur: None)
     monkeypatch.setattr("app.services.topup_bonuses.get_db_connection", lambda: connection)
     monkeypatch.setattr(
         "app.services.topup_bonuses.add_cm_bonus_transaction",
@@ -272,6 +276,8 @@ def test_rejected_topup_bonus_does_not_change_balance(monkeypatch):
 
 def test_topup_bonus_review_cannot_be_repeated(monkeypatch):
     connection = _ReviewConnection([_pending_award(status="awarded")])
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_cm_bonus_tables", lambda cur: None)
+    monkeypatch.setattr("app.services.topup_bonuses.ensure_token_tables", lambda cur: None)
     monkeypatch.setattr("app.services.topup_bonuses.get_db_connection", lambda: connection)
 
     result = review_topup_bonus_award(award_id=41, club_id=2, user_id=9, approve=True)
