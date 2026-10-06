@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app.core import get_db_connection
+from app.services.club_service import require_club_service
 from app.services.cm_bonuses import add_cm_bonus_transaction, award_cm_bonuses_for_wheel_prize, ensure_cm_bonus_tables
 from app.services.managed_drops import consume_managed_drop, reserve_managed_drop
 from app.services.mission_history import record_mission_completion
@@ -658,6 +659,7 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
         try:
             with conn.cursor() as cursor:
                 ensure_token_tables(cursor)
+                require_club_service(cursor, club_id, lock=True)
                 visit_days = _get_visit_days(
                     cursor, guest_id, club_id, settings["tokens_start_date"], settings=settings
                 )
@@ -676,6 +678,9 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
                         description=description,
                     )
             conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             conn.close()
 
@@ -687,6 +692,8 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
         with conn.cursor() as cursor:
             ensure_token_tables(cursor)
             ensure_cm_bonus_tables(cursor)
+            ensure_prize_claim_tables(cursor)
+            require_club_service(cursor, club_id, lock=True)
             for mission in missions:
                 if not mission.get("is_completed"):
                     continue
@@ -742,6 +749,9 @@ def sync_guest_wheel_tokens(guest_id: int, club_id: int):
                     if claim_id:
                         mission_claim_ids.append(claim_id)
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -890,6 +900,7 @@ def save_guest_wheel_spin(
             ensure_cm_bonus_tables(cursor)
             ensure_prize_claim_tables(cursor)
             ensure_wheel_prize_bonus_columns(cursor)
+            require_club_service(cursor, club_id, lock=True)
             balance = _get_balance_for_update(cursor, guest_id, club_id)
             if balance < int(spent_tokens):
                 raise ValueError("no_tokens")

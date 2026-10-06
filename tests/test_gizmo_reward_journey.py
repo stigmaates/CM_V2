@@ -60,6 +60,7 @@ def ready(wallets, monkeypatch):  # noqa: F811
 def test_complete_journey_uses_real_services_and_rolls_back_every_write(ready):
     before = {table: ready.records(table) for table in journey.WRITE_TABLES}
     try:
+        ready.db.execute("UPDATE clubs SET service_enabled=1 WHERE club_id=?", (CLUB,))
         with journey.service_transaction(ready) as transaction:
             report = journey.exercise(transaction, CLUB)
         assert report["mission_reward_not_duplicated"]
@@ -82,6 +83,7 @@ def test_mid_journey_failure_cannot_commit_fixtures(ready, monkeypatch):
 
     monkeypatch.setattr(cases, "open_case", fail)
     try:
+        ready.db.execute("UPDATE clubs SET service_enabled=1 WHERE club_id=?", (CLUB,))
         with pytest.raises(ValueError, match="injected"):
             with journey.service_transaction(ready) as transaction:
                 journey.exercise(transaction, CLUB)

@@ -110,6 +110,8 @@ def drop_db(monkeypatch, tmp_path):
 
     try:
         schema = [
+            "CREATE TABLE clubs (club_id INT PRIMARY KEY, service_enabled INT)",
+            "INSERT INTO clubs VALUES (2,1),(3,1)",
             "CREATE TABLE guests (guest_id INT, club_id INT, fio VARCHAR(255), phone VARCHAR(80))",
             "CREATE TABLE balances (club_id INT, guest_id INT, balance INT, PRIMARY KEY (club_id, guest_id))",
             """CREATE TABLE club_cases (id INT PRIMARY KEY, club_id INT, name VARCHAR(255), description TEXT,

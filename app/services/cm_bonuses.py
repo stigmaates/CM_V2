@@ -8,6 +8,7 @@ import httpx
 
 from app.config import CM_BONUS_ADMIN_CHAT_ID, CM_BONUS_BOT_TOKEN, CM_BONUS_PROXY_URL, TG_PROXY_URL
 from app.core import get_db_connection
+from app.services.club_service import require_club_service
 from app.services.clubs import ensure_club_bonus_chat_column
 from app.services.timezones import utc_datetime_to_club_local
 
@@ -635,6 +636,7 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
     try:
         with conn.cursor() as cursor:
             ensure_cm_bonus_tables(cursor)
+            require_club_service(cursor, club_id, lock=True)
             balance = _get_balance_for_update(cursor, guest_id, club_id)
             redeem_amount = int(amount or balance)
             if redeem_amount <= 0:
@@ -670,6 +672,9 @@ def redeem_cm_bonuses(guest: dict[str, Any], amount: int | None = None) -> dict[
                 status="pending_admin_credit",
             )
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -766,7 +771,7 @@ def mark_cm_bonus_redeem_credited_by_telegram(
                 return {"ok": False, "error": "not_found", "message": f"Заявка КБ #{request_id} не найдена."}
 
             stored_chat_id = str(request.get("admin_chat_id") or "").strip()
-            if stored_chat_id and chat_id_str and stored_chat_id != chat_id_str:
+            if not stored_chat_id or not chat_id_str or stored_chat_id != chat_id_str:
                 return {
                     "ok": False,
                     "error": "wrong_chat",
