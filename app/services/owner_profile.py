@@ -43,8 +43,8 @@ def update_owner_profile(
         raise ValueError("Укажи имя")
     if len(clean_name) > 255:
         raise ValueError("Имя не должно быть длиннее 255 символов")
-    if new_password and len(new_password) < 8:
-        raise ValueError("Новый пароль должен содержать не менее 8 символов")
+    if new_password and len(new_password) < 12:
+        raise ValueError("Новый пароль должен содержать не менее 12 символов")
     if new_password and not current_password:
         raise ValueError("Введи текущий пароль")
 

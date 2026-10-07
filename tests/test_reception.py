@@ -2,13 +2,14 @@ from app.main import app
 from app.services.reception import _phone_variants, _source_label
 
 
-def test_reception_role_is_redirected_back_to_reception_from_owner_page():
+def test_reception_role_is_redirected_back_to_reception_from_owner_page(staff_login):
     client = app.test_client()
     with client.session_transaction() as session:
         session["user_id"] = 11
         session["role"] = "reception"
         session["club_id"] = 1
 
+    staff_login(client, user_id=11, role="reception", club_id=1)
     response = client.get("/owner/dashboard")
 
     assert response.status_code == 302

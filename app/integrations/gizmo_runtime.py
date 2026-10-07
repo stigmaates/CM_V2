@@ -11,6 +11,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
+from app.integrations.database_identity import peer_database_identity
 from app.integrations.stage import ROOT, STAGE_ROOT, require_stage_environment
 
 PRODUCTION_ROOT = Path("/root/cm_v2/CM_V2")
@@ -62,7 +63,7 @@ def require_gizmo_environment(*, directory=None):
     validate_production_target(
         root=ROOT,
         production=dotenv_values(PRODUCTION_ROOT / ".env"),
-        stage=dotenv_values(STAGE_ROOT / ".env"),
+        stage=peer_database_identity("stage", legacy_env=STAGE_ROOT / ".env"),
         loaded=(DB_HOST, DB_PORT, DB_NAME),
         enabled=os.getenv("GIZMO_ENABLED", "").strip(),
         directory=directory,

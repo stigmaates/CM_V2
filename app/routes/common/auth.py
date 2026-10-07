@@ -1,13 +1,18 @@
+import secrets
 from datetime import UTC, datetime
 from functools import wraps
 
 from flask import flash, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.core import OWNER_ACCESS_ROLES, get_db_connection
-from app.services.rate_limit import client_ip, is_rate_limited
+from app.services.login_throttle import login_is_limited
+from app.services.rate_limit import client_ip
+from app.services.staff_sessions import establish_staff_session
 
 from . import auth_bp
+
+_DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_urlsafe(32))
 
 
 def _mark_user_last_login(cursor, user_id: int) -> None:
@@ -25,11 +30,15 @@ def _mark_user_last_login(cursor, user_id: int) -> None:
 def login():
     if request.method == "POST":
         ip = client_ip()
-        if is_rate_limited(f"auth.login:{ip}", limit=10, window_seconds=300):
+        login_value = request.form.get("login", "").strip()
+        try:
+            limited = login_is_limited(ip, login_value)
+        except Exception:
+            return "Вход временно недоступен. Попробуйте позже.", 503
+        if limited:
             flash("Слишком много попыток входа. Попробуйте позже.", "error")
             return redirect(url_for("auth.login"))
 
-        login_value = request.form.get("login", "").strip()
         password = request.form.get("password", "").strip()
 
         if not login_value or not password:
@@ -59,23 +68,16 @@ def login():
                 )
                 user = cursor.fetchone()
 
-            if not user:
-                flash("Пользователь не найден", "error")
-                return redirect(url_for("auth.login"))
-            if not check_password_hash(user["pass_hash"], password):
-                flash("Неверный пароль", "error")
+            password_ok = check_password_hash(user["pass_hash"] if user else _DUMMY_PASSWORD_HASH, password)
+            if not user or not password_ok:
+                flash("Неверный логин или пароль", "error")
                 return redirect(url_for("auth.login"))
 
             with conn.cursor() as cursor:
                 _mark_user_last_login(cursor, user["user_id"])
             conn.commit()
 
-            session["user_id"] = user["user_id"]
-            session["role"] = user["role"]
-            session["name"] = user["name"]
-            session["login"] = user["login"]
-            session["club_id"] = user["club_id"]
-            session["club_name"] = user.get("club_name")
+            establish_staff_session(user)
 
             if user["role"] == "admin":
                 return redirect(url_for("admin.dashboard"))
@@ -84,8 +86,8 @@ def login():
             if user["club_id"] is None:
                 return redirect(url_for("owner.club_create"))
             return redirect(url_for("owner.dashboard"))
-        except Exception as e:
-            flash(f"Ошибка авторизации: {e}", "error")
+        except Exception:
+            flash("Вход временно недоступен. Попробуйте позже.", "error")
             return redirect(url_for("auth.login"))
         finally:
             if conn:

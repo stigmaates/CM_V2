@@ -4,6 +4,8 @@ import sys
 import tarfile
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -87,7 +89,8 @@ def test_backup_script_requires_env_file(tmp_path):
     assert "Environment file not found" in result.stderr
 
 
-def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
+@pytest.mark.parametrize("dump_ok", [True, False])
+def test_backup_script_accepts_dotenv_with_spaces(tmp_path, dump_ok):
     env_file = tmp_path / ".env"
     env_file.write_text(
         "\n".join(
@@ -107,7 +110,7 @@ def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
     args_file = tmp_path / "mysqldump.args"
     mysqldump = bin_dir / "mysqldump"
     mysqldump.write_text(
-        f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {args_file}\necho 'CREATE TABLE smoke (id int);'\n",
+        f"#!/usr/bin/env bash\nif [[ \"$1\" == \"--help\" ]]; then echo ssl-mode; exit 0; fi\nprintf '%s\\n' \"$@\" > {args_file}\necho 'CREATE TABLE smoke (id int);'\nexit {0 if dump_ok else 1}\n",
         encoding="utf-8",
     )
     mysqldump.chmod(0o755)
@@ -130,11 +133,18 @@ def test_backup_script_accepts_dotenv_with_spaces(tmp_path):
         text=True,
     )
 
+    if not dump_ok:
+        assert result.returncode != 0
+        assert not list(backup_dir.iterdir())
+        return
     assert result.returncode == 0, result.stderr
     backup_path = Path(result.stdout.strip())
+    assert backup_path.stat().st_mode & 0o777 == 0o600
+    assert backup_dir.stat().st_mode & 0o777 == 0o700
     assert backup_path.exists()
     assert backup_path.read_text(encoding="utf-8").startswith("CREATE TABLE smoke")
     args = args_file.read_text(encoding="utf-8")
+    assert "--ssl-mode=VERIFY_IDENTITY" in args
     assert "--no-defaults" in args
     assert "--set-gtid-purged=OFF" in args
     assert "--skip-opt" in args
@@ -178,6 +188,8 @@ def test_private_storage_backup_contains_both_private_roots(tmp_path):
 
     assert result.returncode == 0, result.stderr
     backup_path = Path(result.stdout.strip())
+    assert backup_path.stat().st_mode & 0o777 == 0o600
+    assert backup_dir.stat().st_mode & 0o777 == 0o700
     assert backup_path.exists()
     assert backup_path.stat().st_mode & 0o777 == 0o600
     with tarfile.open(backup_path, "r:gz") as archive:
@@ -187,8 +199,8 @@ def test_private_storage_backup_contains_both_private_roots(tmp_path):
 
 
 def test_enabled_gizmo_private_backup_includes_credentials_and_certificate(tmp_path, monkeypatch, capsys):
-    from scripts import backup_private_storage as backup
     from app.integrations.gizmo_runtime import PRODUCTION_STATE
+    from scripts import backup_private_storage as backup
 
     assert backup.GIZMO_PRODUCTION_STATE == PRODUCTION_STATE
     roots = {name: tmp_path / name for name in ("admin", "reports", "gizmo")}
@@ -222,6 +234,7 @@ def test_enabled_gizmo_private_backup_includes_credentials_and_certificate(tmp_p
 
 def test_enabled_gizmo_backup_fails_if_secrets_directory_missing(tmp_path, monkeypatch):
     import pytest
+
     from scripts import backup_private_storage as backup
 
     monkeypatch.setattr(backup, "GIZMO_PRODUCTION_STATE", tmp_path / "missing")

@@ -19,9 +19,14 @@ from dotenv import dotenv_values
 from pymysql.cursors import DictCursor
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from app.database_transport import database_ssl
+
 STAGE_ROOT = Path("/root/cm_stage/CM_V2")
 PROD_ROOT = Path("/root/cm_v2/CM_V2")
 PRESERVE = {
+    "users", "guest_login_tokens",
     "club_integrations",
     "schema_migrations", "clubs", "guest_score_history", "guest_lifecycle_events",
     "background_job_locks", "background_job_runs", "module_registrations",
@@ -52,6 +57,7 @@ def target(env_file):
         "host": values["DB_HOST"], "port": int(values.get("DB_PORT") or 3306),
         "user": values["DB_USER"], "password": values["DB_PASSWORD"],
         "database": values["DB_NAME"],
+        "ssl_ca": values.get("DB_SSL_CA"),
     }
 
 
@@ -62,7 +68,9 @@ def validate_targets(source, stage):
 
 
 def connect(settings):
-    return pymysql.connect(**settings, charset="utf8mb4", autocommit=False,
+    settings = dict(settings)
+    ca = settings.pop("ssl_ca", None)
+    return pymysql.connect(**settings, ssl=database_ssl({"DB_SSL_CA": ca}), charset="utf8mb4", autocommit=False,
                            connect_timeout=20, read_timeout=300, write_timeout=300)
 
 

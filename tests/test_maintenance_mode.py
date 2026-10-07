@@ -16,7 +16,7 @@ def test_maintenance_migration_exports_settings_table():
     )
 
 
-def test_maintenance_gate_blocks_owner(monkeypatch):
+def test_maintenance_gate_blocks_owner(monkeypatch, staff_login):
     import app.core as core
     import app.services.maintenance as maintenance
 
@@ -36,6 +36,7 @@ def test_maintenance_gate_blocks_owner(monkeypatch):
         sess["club_id"] = 7
         sess["club_name"] = "Test Club"
 
+    staff_login(client, role="owner")
     response = client.get("/owner/dashboard")
 
     assert response.status_code == 503
@@ -68,7 +69,7 @@ def test_maintenance_gate_blocks_guest_json(monkeypatch):
     assert response.get_json() == {"ok": False, "error": "maintenance_mode"}
 
 
-def test_maintenance_gate_never_blocks_admin(monkeypatch):
+def test_maintenance_gate_never_blocks_admin(monkeypatch, staff_login):
     import app.core as core
     import app.services.maintenance as maintenance
 
@@ -86,6 +87,7 @@ def test_maintenance_gate_never_blocks_admin(monkeypatch):
         sess["role"] = "admin"
         sess["club_id"] = 7
 
+    staff_login(client, role="admin", user_id=1)
     response = client.get("/admin/dashboard")
 
     assert response.status_code == 200

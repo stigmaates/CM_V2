@@ -57,7 +57,8 @@ def main() -> int:
         if backup_dir == source or backup_dir.is_relative_to(source):
             raise RuntimeError("BACKUP_DIR must be outside private storage directories")
 
-    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    backup_dir.chmod(0o700)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     target = backup_dir / f"private_storage_{timestamp}.tar.gz"
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=backup_dir)

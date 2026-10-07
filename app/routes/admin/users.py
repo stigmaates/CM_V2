@@ -133,8 +133,8 @@ def user_reset_password(user_id: int):
     if password != password_confirm:
         flash("Пароли не совпадают", "error")
         return redirect(url_for("admin.users_list", user_id=user_id))
-    if len(password) < 6:
-        flash("Пароль должен быть не короче 6 символов", "error")
+    if len(password) < 12:
+        flash("Пароль должен быть не короче 12 символов", "error")
         return redirect(url_for("admin.users_list", user_id=user_id))
 
     conn = None
@@ -188,6 +188,10 @@ def users_create():
             except ValueError:
                 flash("club_id должен быть числом", "error")
                 return redirect(url_for("admin.users_create"))
+
+        if len(password) < 12:
+            flash("Пароль должен быть не короче 12 символов", "error")
+            return redirect(url_for("admin.users_create"))
 
         pass_hash = generate_password_hash(password)
         conn = None

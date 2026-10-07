@@ -193,7 +193,7 @@ def test_ambiguous_club_mapping_is_rejected():
             fetch_team(client, "demo")
 
 
-def test_team_endpoint_owner_club_scope(monkeypatch):
+def test_team_endpoint_owner_club_scope(monkeypatch, staff_login):
     import app.core as core
     from app.main import app
     from app.routes.owner import team
@@ -218,6 +218,7 @@ def test_team_endpoint_owner_club_scope(monkeypatch):
     assert client.get("/owner/api/team").status_code == 302
     with client.session_transaction() as sess:
         sess.update(user_id=1, role="owner", club_id=7, club_name="Test", _csrf_token="token")
+    staff_login(client, user_id=1, role="owner", club_id=7)
     assert client.get("/owner/team").status_code == 200
     assert client.get("/owner/api/team?club_id=99").status_code == 200
     response = client.post(

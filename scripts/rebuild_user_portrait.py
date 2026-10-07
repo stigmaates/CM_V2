@@ -13,6 +13,7 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from app.config import BALANCE_TOPUP_MAX_AMOUNT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from app.database_transport import database_ssl
 from app.services.crm_pulse import record_crm_status_changes
 from app.services.crm_segments import calculate_crm_segment
 from app.services.timezones import utc_datetime_to_club_local
@@ -28,7 +29,7 @@ def get_connection():
         database=DB_NAME,
         charset="utf8mb4",
         cursorclass=DictCursor,
-        ssl={"check_hostname": False},
+        ssl=database_ssl(),
     )
 
 

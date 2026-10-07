@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable
@@ -12,8 +13,14 @@ _BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 def client_ip() -> str:
     if not has_request_context():
         return "unknown"
-    forwarded = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
-    return forwarded or request.remote_addr or "unknown"
+    peer = request.remote_addr or "unknown"
+    # nginx overwrites X-Real-IP. Never trust the client-controlled X-Forwarded-For list.
+    if peer in {"127.0.0.1", "::1"}:
+        try:
+            return str(ipaddress.ip_address(request.headers.get("X-Real-IP", "")))
+        except ValueError:
+            pass
+    return peer
 
 
 def is_rate_limited(

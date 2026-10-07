@@ -90,7 +90,7 @@ def test_admin_required_returns_json_for_json_requests_without_session():
     assert response.get_json()["error"] == "login_required"
 
 
-def test_club_service_gate_blocks_owner_when_service_disabled(monkeypatch):
+def test_club_service_gate_blocks_owner_when_service_disabled(monkeypatch, staff_login):
     import app.core as core
 
     flask_app = core.create_flask_app()
@@ -108,13 +108,16 @@ def test_club_service_gate_blocks_owner_when_service_disabled(monkeypatch):
         sess["club_id"] = 7
         sess["club_name"] = "Test Club"
 
+    with client.session_transaction() as sess:
+        role = sess["role"]
+    staff_login(client, role=role)
     response = client.get("/owner/dashboard")
 
     assert response.status_code == 403
     assert "Пожалуйста, свяжитесь с нами" in response.get_data(as_text=True)
 
 
-def test_club_service_gate_blocks_co_owner_when_service_disabled(monkeypatch):
+def test_club_service_gate_blocks_co_owner_when_service_disabled(monkeypatch, staff_login):
     import app.core as core
 
     flask_app = core.create_flask_app()
@@ -132,13 +135,16 @@ def test_club_service_gate_blocks_co_owner_when_service_disabled(monkeypatch):
         sess["club_id"] = 7
         sess["club_name"] = "Test Club"
 
+    with client.session_transaction() as sess:
+        role = sess["role"]
+    staff_login(client, role=role)
     response = client.get("/owner/dashboard")
 
     assert response.status_code == 403
     assert "Пожалуйста, свяжитесь с нами" in response.get_data(as_text=True)
 
 
-def test_owner_required_allows_co_owner():
+def test_owner_required_allows_co_owner(staff_login):
     from app.core import create_flask_app, owner_required
 
     flask_app = create_flask_app()
@@ -154,13 +160,14 @@ def test_owner_required_allows_co_owner():
         sess["role"] = "co-owner"
         sess["club_id"] = 7
 
+    staff_login(client, role="co-owner")
     response = client.get("/owner/private")
 
     assert response.status_code == 200
     assert response.get_data(as_text=True) == "owner ok"
 
 
-def test_club_service_gate_does_not_block_admin(monkeypatch):
+def test_club_service_gate_does_not_block_admin(monkeypatch, staff_login):
     import app.core as core
 
     flask_app = core.create_flask_app()
@@ -177,6 +184,7 @@ def test_club_service_gate_does_not_block_admin(monkeypatch):
         sess["role"] = "admin"
         sess["club_id"] = 7
 
+    staff_login(client, user_id=1, role="admin")
     response = client.get("/admin/dashboard")
 
     assert response.status_code == 200

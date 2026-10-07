@@ -2,23 +2,26 @@ import hmac
 import secrets
 from datetime import datetime, timedelta
 from functools import wraps
+from pathlib import Path
 from urllib.parse import quote_plus
 
 import pymysql
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from flask.sessions import SecureCookieSessionInterface
 from pymysql.cursors import DictCursor
 from sqlalchemy import create_engine
 
 from app.config import (
+    APP_ENV,
     CLUBMODULE_IMAGE_MAX_MB,
     DB_HOST,
     DB_NAME,
     DB_PASSWORD,
     DB_PORT,
     DB_USER,
-    IS_PRODUCTION,
     SECRET_KEY,
 )
+from app.database_transport import database_ssl
 
 CSRF_SESSION_KEY = "_csrf_token"
 CSRF_FORM_FIELD = "csrf_token"
@@ -185,12 +188,33 @@ def create_flask_app():
     app.secret_key = SECRET_KEY
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-    app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
+    app.config["SESSION_COOKIE_SECURE"] = APP_ENV in {"production", "stage", "staging"}
+    app.session_interface = SecureCookieSessionInterface()
+    app.session_interface.salt = f"cyberbonus-session:{APP_ENV}"
+    app.config["LOGIN_RATE_LIMIT_FILE"] = str(Path(app.instance_path) / "security" / "login-limits.sqlite3")
     # Limit image upload requests at Flask level. Per-club quota is checked separately.
     app.config["MAX_CONTENT_LENGTH"] = int(CLUBMODULE_IMAGE_MAX_MB or 5) * 1024 * 1024 + 1024 * 1024
+    from app.services.staff_sessions import register_staff_session_guard
+
+    register_staff_session_guard(app)
     register_csrf_protection(app)
     register_club_service_gate(app)
     register_maintenance_gate(app)
+
+    @app.after_request
+    def security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Content-Security-Policy", "frame-ancestors 'self'; object-src 'none'; base-uri 'self'"
+        )
+        if APP_ENV in {"production", "stage", "staging"}:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        if session or request.path.startswith(("/login", "/admin", "/owner", "/guest", "/reception")):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     return app
 
 
@@ -199,7 +223,7 @@ app = create_flask_app()
 encoded_password = quote_plus(DB_PASSWORD)
 engine = create_engine(
     f"mysql+pymysql://{DB_USER}:{encoded_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4",
-    connect_args={"ssl": {}},
+    connect_args={"ssl": database_ssl()},
     pool_pre_ping=True,
 )
 
@@ -213,7 +237,7 @@ def get_db_connection():
         database=DB_NAME,
         charset="utf8mb4",
         cursorclass=DictCursor,
-        ssl={"check_hostname": False},
+        ssl=database_ssl(),
     )
 
 

@@ -1,6 +1,8 @@
 """Identify the actual isolated stage, independently of Flask's runtime mode."""
 from pathlib import Path
 
+from app.integrations.database_identity import peer_database_identity
+
 STAGE_ROOT = Path('/root/cm_stage/CM_V2')
 PRODUCTION_ENV = Path('/root/cm_v2/CM_V2/.env')
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,7 +31,7 @@ def require_stage_environment():
     validate_stage_target(
         root=ROOT,
         stage=dotenv_values(ROOT / '.env'),
-        production=dotenv_values(PRODUCTION_ENV),
+        production=peer_database_identity("production", legacy_env=PRODUCTION_ENV),
         loaded=(DB_HOST, DB_PORT, DB_NAME),
         outbound_blocked=(ROOT / '.stage-no-outbound').is_file(),
     )

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env}"
@@ -23,7 +24,7 @@ import sys
 
 from dotenv import dotenv_values
 
-names = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME")
+names = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSL_CA")
 values = dotenv_values(sys.argv[1])
 for name in names:
     value = values.get(name)
@@ -42,11 +43,30 @@ for name in "${required[@]}"; do
 done
 
 mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
 timestamp="$(date +%Y%m%d_%H%M%S)"
 backup_file="$BACKUP_DIR/${DB_NAME}_${timestamp}.sql.gz"
 
+dump_help="$(mysqldump --help)"
+ssl_args=()
+if [[ "$dump_help" == *"ssl-mode"* ]]; then
+  ssl_args+=(--ssl-mode=VERIFY_IDENTITY)
+elif [[ "$dump_help" == *"ssl-verify-server-cert"* ]]; then
+  ssl_args+=(--ssl-verify-server-cert)
+else
+  echo "mysqldump does not support verified TLS; backup stopped" >&2
+  exit 1
+fi
+if [[ -n "${DB_SSL_CA:-}" ]]; then
+  ssl_args+=(--ssl-ca="$DB_SSL_CA")
+fi
+
+temporary_file="$(mktemp "$BACKUP_DIR/.${DB_NAME}_${timestamp}.XXXXXX.tmp")"
+trap 'rm -f "$temporary_file"' EXIT
+
 MYSQL_PWD="$DB_PASSWORD" mysqldump \
   --no-defaults \
+  "${ssl_args[@]}" \
   --host="$DB_HOST" \
   --port="$DB_PORT" \
   --user="$DB_USER" \
@@ -62,6 +82,7 @@ MYSQL_PWD="$DB_PASSWORD" mysqldump \
   --set-charset \
   --triggers \
   --default-character-set=utf8mb4 \
-  "$DB_NAME" | gzip -c > "$backup_file"
+  "$DB_NAME" | gzip -c > "$temporary_file"
+mv "$temporary_file" "$backup_file"
 
 echo "$backup_file"

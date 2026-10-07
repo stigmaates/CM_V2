@@ -356,7 +356,7 @@ def test_selected_and_completed_contracts_are_counted_in_engagement(database):
 
 
 @pytest.fixture
-def pulse_client(database, monkeypatch):
+def pulse_client(database, monkeypatch, staff_login):
     import app.core as core
     from app.main import app
     from app.routes.owner import guest_pulse
@@ -372,10 +372,11 @@ def pulse_client(database, monkeypatch):
         sess["club_id"] = 2
         sess["club_name"] = "Test"
         sess[core.CSRF_SESSION_KEY] = "pulse-test-csrf"
+    staff_login(client, user_id=10, role="owner", club_id=2)
     return client
 
 
-def test_api_filters_counts_and_detail_club_scope(pulse_client):
+def test_api_filters_counts_and_detail_club_scope(pulse_client, staff_login):
     data = pulse_client.get("/owner/api/guest-pulse").get_json()
     assert data["ok"] and data["total"] == 1
     assert "days_since_last_visit" in data["guests"][0]
@@ -404,12 +405,11 @@ def test_api_filters_counts_and_detail_club_scope(pulse_client):
     assert detail["value"]["played_hours_30d"] == 12
     assert detail["value"]["revenue_30d"] == 0
     assert pulse_client.get("/owner/api/guest-pulse/guests/43").status_code == 404
-    with pulse_client.session_transaction() as sess:
-        sess["club_id"] = 3
+    staff_login(pulse_client, user_id=10, role="owner", club_id=3)
     assert pulse_client.get("/owner/api/guest-pulse/guests/42").status_code == 404
 
 
-def test_stage_navigation_and_role_gate(pulse_client):
+def test_stage_navigation_and_role_gate(pulse_client, staff_login):
     response = pulse_client.get("/owner/guest-pulse")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
@@ -449,8 +449,7 @@ def test_stage_navigation_and_role_gate(pulse_client):
     assert 'data-slider="health"' not in html
     assert 'data-slider="value"' not in html
     assert 'data-slider="engagement"' not in html
-    with pulse_client.session_transaction() as sess:
-        sess["role"] = "reception"
+    staff_login(pulse_client, user_id=10, role="reception", club_id=2)
     assert pulse_client.get("/owner/api/guest-pulse").status_code == 302
 
 
@@ -468,7 +467,7 @@ def test_selection_uses_entire_server_audience_and_requires_csrf(pulse_client, d
     assert selection["guest_ids"] == [42]
 
 
-def test_crm_handoff_idempotent_and_cannot_use_other_clubs_selection(pulse_client, database, monkeypatch):
+def test_crm_handoff_idempotent_and_cannot_use_other_clubs_selection(pulse_client, database, monkeypatch, staff_login):
     from app.routes.owner import crm
 
     connect, sql = database
@@ -501,8 +500,7 @@ def test_crm_handoff_idempotent_and_cannot_use_other_clubs_selection(pulse_clien
     assert len(calls) == 1 and calls[0]["recipients"][0]["guest_id"] == 42
     assert calls[0]["filters_json"]["type"] == "guest_pulse"
     assert calls[0]["attachments"] == attachments
-    with pulse_client.session_transaction() as sess:
-        sess["club_id"] = 3
+    staff_login(pulse_client, user_id=10, role="owner", club_id=3)
     assert pulse_client.post("/owner/api/crm-pulse/interact", json=payload, headers=headers).status_code == 404
 
 

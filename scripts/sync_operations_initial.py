@@ -18,6 +18,7 @@ from app.config import (
     DB_USER,
     DB_WRITE_TIMEOUT,
 )
+from app.database_transport import database_ssl
 from app.integrations.providers import supports_langame_sync
 from scripts.sync_utils import integration_provider_select_expr, is_service_enabled, service_enabled_select_expr
 
@@ -38,7 +39,7 @@ def get_db_connection():
         database=DB_NAME,
         charset="utf8mb4",
         cursorclass=DictCursor,
-        ssl={"check_hostname": False},
+        ssl=database_ssl(),
         connect_timeout=DB_CONNECT_TIMEOUT,
         read_timeout=DB_READ_TIMEOUT,
         write_timeout=DB_WRITE_TIMEOUT,

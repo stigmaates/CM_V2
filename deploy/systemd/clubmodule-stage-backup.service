@@ -4,6 +4,7 @@ After=network-online.target mysql.service
 Wants=network-online.target
 
 [Service]
+UMask=0077
 Type=oneshot
 WorkingDirectory=/root/cm_stage/CM_V2
 Environment=ENV_FILE=/root/cm_stage/CM_V2/.env

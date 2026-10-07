@@ -24,6 +24,7 @@ from telegram.ext import (
 from telegram.request import HTTPXRequest
 
 from app.config import BOT_TOKEN, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, TG_PROXY_URL
+from app.database_transport import database_ssl
 from app.services.club_service import ClubServiceDisabled, require_club_service
 from app.services.first_visit_survey import (
     build_social_links_message,
@@ -60,7 +61,7 @@ def get_db_connection():
         database=DB_NAME,
         charset="utf8mb4",
         cursorclass=DictCursor,
-        ssl={"check_hostname": False},
+        ssl=database_ssl(),
     )
 
 
