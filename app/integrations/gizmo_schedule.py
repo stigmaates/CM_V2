@@ -5,7 +5,7 @@ from datetime import datetime
 from app.integrations.gizmo import GizmoError
 from app.integrations.gizmo_normalize import external_id
 
-INTERVAL_MINUTES = {"guests": 10, "sessions": 1, "topups": 3}
+INTERVAL_MINUTES = {"guests": 3, "sessions": 1, "topups": 3}
 
 
 def components_due(settings, now):

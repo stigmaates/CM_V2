@@ -29,15 +29,15 @@ def prepared():
     [
         (1, {"sessions"}),
         (2, {"sessions"}),
-        (3, {"sessions", "topups"}),
-        (9, {"sessions", "topups"}),
-        (10, {"guests", "sessions"}),
+        (3, {"guests", "sessions", "topups"}),
+        (9, {"guests", "sessions", "topups"}),
+        (10, {"sessions"}),
         (30, {"guests", "sessions", "topups"}),
     ],
 )
 def test_utc_cron_slots_and_catch_up(minute, expected):
     stamps = {
-        "guests": NOW.isoformat(),
+        "guests": (NOW + timedelta(minutes=((minute - 1) // 3) * 3)).isoformat(),
         "sessions": (NOW + timedelta(minutes=minute - 1)).isoformat(),
         "topups": (NOW + timedelta(minutes=((minute - 1) // 3) * 3)).isoformat(),
     }
@@ -45,6 +45,12 @@ def test_utc_cron_slots_and_catch_up(minute, expected):
         components_due({"sync_checkpoint": {"component_success_at": stamps}}, NOW + timedelta(minutes=minute))
         == expected
     )
+
+
+def test_guest_updates_catch_up_after_missed_three_minute_slot():
+    now = NOW + timedelta(minutes=4)
+    stamps = {"guests": NOW.isoformat(), "sessions": now.isoformat(), "topups": now.isoformat()}
+    assert components_due({"sync_checkpoint": {"component_success_at": stamps}}, now) == {"guests"}
 
 
 def test_first_run_and_backwards_clock_recover_all_components():
