@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from app.integrations import gizmo_onboarding as onboarding
 from app.routes.admin import clubs
 from scripts import verify_gizmo_stage_lifecycle as runner
@@ -10,7 +12,8 @@ from tests.test_gizmo_onboarding import certificate as certificate
 from tests.test_gizmo_onboarding import setup as setup
 
 
-def test_acceptance_creates_isolated_club_then_leaves_it_disabled(imported, monkeypatch):
+@pytest.mark.parametrize("incremental", [False, True])
+def test_acceptance_creates_isolated_club_then_leaves_it_disabled(imported, monkeypatch, incremental):
     conn, directory = imported
     for field in ("name", "timezone", "owner_id", "lg_api_key", "secret"):
         conn.db.execute(f"ALTER TABLE clubs ADD COLUMN {field} TEXT")
@@ -33,8 +36,13 @@ def test_acceptance_creates_isolated_club_then_leaves_it_disabled(imported, monk
 
     certificate = sync.private_json(directory / "sync-900001.json")["certificate_pem"]
     monkeypatch.setattr(sync, "discover", lambda *a: dict(certificate_pem=certificate, trusted=False))
-    runner.run(900001, directory=directory)
-    report = json.loads((directory / "acceptance-report-900001.json").read_text())
+    runner.run(900001, directory=directory, incremental=incremental)
+    prefix = "acceptance-incremental" if incremental else "acceptance"
+    report = json.loads((directory / f"{prefix}-report-900001.json").read_text())
+    if incremental:
+        assert report["initial_mode"] == "full"
+        assert report["active_mode"] == report["repeat_mode"] == "incremental"
+        assert report["scheduler_waits"] is True
     assert report["status"] == "complete"
     assert report["test_club_id"] == 900002
     assert report["initial"] == report["active"]
@@ -46,6 +54,6 @@ def test_acceptance_creates_isolated_club_then_leaves_it_disabled(imported, monk
     assert all(row["service_enabled"] == 0 for row in conn.records("clubs"))
     assert len(conn.records("guest_sessions")) == 2
     # Rerun reuses only the manifest's acceptance club, never creates duplicates.
-    runner.run(900001, directory=directory)
+    runner.run(900001, directory=directory, incremental=incremental)
     assert len(conn.records("clubs")) == 2
     assert len(conn.records("guest_sessions")) == 2

@@ -20,7 +20,15 @@ from app.core import get_db_connection
 from app.integrations.gizmo import GizmoError
 from app.integrations.gizmo_lifecycle import read_club, set_service
 from app.integrations.gizmo_onboarding import pause_sync, queue_setup
-from app.integrations.gizmo_sync import DIRECTORY, atomic_json, private_json, read_target, run_lock, synchronize
+from app.integrations.gizmo_sync import (
+    DIRECTORY,
+    atomic_json,
+    private_json,
+    read_target,
+    run_lock,
+    sync_is_due,
+    synchronize,
+)
 from app.integrations.stage import require_stage_environment
 from app.main import app
 from app.routes.admin.clubs import create_club
@@ -41,10 +49,12 @@ def totals(conn, club_id):
     return result
 
 
-def run(source_club_id, *, directory=DIRECTORY):
+def run(source_club_id, *, directory=DIRECTORY, incremental=False):
     require_stage_environment()
     conn = get_db_connection()
-    manifest = directory / f"acceptance-{source_club_id}.json"
+    manifest_prefix = "acceptance-incremental" if incremental else "acceptance"
+    test_name = TEST_NAME + (" · обновления" if incremental else "")
+    manifest = directory / f"{manifest_prefix}-{source_club_id}.json"
     report = dict(started_at_utc=datetime.now(UTC).isoformat(), source_club_id=source_club_id, status="running")
     club_id = None
     try:
@@ -62,7 +72,7 @@ def run(source_club_id, *, directory=DIRECTORY):
                 if (
                     test_id == source_club_id
                     or not test_club
-                    or test_club.get("name") != TEST_NAME
+                    or test_club.get("name") != test_name
                     or test_club.get("owner_id") is not None
                 ):
                     raise GizmoError("Acceptance club identity differs; no existing club was changed")
@@ -74,7 +84,7 @@ def run(source_club_id, *, directory=DIRECTORY):
                     "/admin/clubs/create",
                     method="POST",
                     data=dict(
-                        name=TEST_NAME,
+                        name=test_name,
                         integration_provider="gizmo",
                         timezone=source.get("timezone"),
                         gizmo_api_key=source_credentials["api_key"],
@@ -118,6 +128,25 @@ def run(source_club_id, *, directory=DIRECTORY):
             active = synchronize(conn, club_id, directory=directory, only_if_due=True)
             if active["status"] != "complete":
                 raise GizmoError("Active cycle did not complete")
+            if incremental:
+                if first.get("sync_mode") != "full" or active.get("sync_mode") != "incremental":
+                    raise GizmoError("Expected full initial import followed by incremental sync")
+                report["initial_mode"] = first["sync_mode"]
+                report["active_mode"] = active["sync_mode"]
+                report["active_batch_counts"] = active["batch_counts"]
+                if sync_is_due(active, datetime.now(UTC)):
+                    raise GizmoError("Scheduler would immediately repeat the completed update")
+                repeated = synchronize(conn, club_id, directory=directory)
+                if repeated.get("status") != "complete" or repeated.get("sync_mode") != "incremental":
+                    raise GizmoError("Second incremental cycle did not complete")
+                report["repeat_mode"] = repeated["sync_mode"]
+                report["repeat_batch_counts"] = repeated["batch_counts"]
+                checkpoint = read_target(conn, club_id, lifecycle=True)["sync_checkpoint"]
+                report["checkpoint"] = {
+                    k: checkpoint[k] for k in ("version", "session_high_id", "through", "last_full_at")
+                }
+                report["checkpoint"]["pending_count"] = len(checkpoint["pending"])
+                report["scheduler_waits"] = True
             report["active"] = totals(conn, club_id)
             report["active_pulse"] = active["pulse"]
             set_service(conn, club_id, False, directory=directory)
@@ -157,7 +186,7 @@ def run(source_club_id, *, directory=DIRECTORY):
             raise
         finally:
             report["finished_at_utc"] = datetime.now(UTC).isoformat()
-            atomic_json(directory / f"acceptance-report-{source_club_id}.json", report)
+            atomic_json(directory / f"{manifest_prefix}-report-{source_club_id}.json", report)
             conn.close()
             print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)
 
@@ -165,6 +194,9 @@ def run(source_club_id, *, directory=DIRECTORY):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-club-id", type=int, required=True)
+    parser.add_argument(
+        "--incremental", action="store_true", help="Use a separate test club and verify two incremental cycles"
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -173,7 +205,7 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGTERM, stop_requested)
     try:
-        run(args.source_club_id)
+        run(args.source_club_id, incremental=args.incremental)
     except Exception as exc:
         print(str(exc) if isinstance(exc, GizmoError) else type(exc).__name__, file=sys.stderr)
         raise SystemExit(1)
