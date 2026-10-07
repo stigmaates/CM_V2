@@ -115,8 +115,8 @@ def worker(tmp_path, monkeypatch):
     monkeypatch.setattr(sync, "finish_job_run", lambda *a, **kw: None)
 
     def collect_data(*args, **kwargs):
-        assert kwargs["full_history"] is True
-        assert kwargs["start"] is None
+        assert kwargs["settings"]["branch_id"] == 1
+        assert kwargs["force_full"] is False
         events.append("collect")
         return dict(scope={}, counts={"sessions": 10})
 

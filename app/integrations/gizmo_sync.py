@@ -11,7 +11,8 @@ from datetime import UTC, datetime
 
 from app.integrations.gizmo import GizmoClient, GizmoError
 from app.integrations.gizmo_certificate import discover, endpoint
-from app.integrations.gizmo_import import check_target, collect, save
+from app.integrations.gizmo_import import check_target, save
+from app.integrations.gizmo_incremental import collect_sync as collect
 from app.integrations.gizmo_lifecycle import SyncPaused, assert_mode, mode_for, read_club
 from app.integrations.gizmo_runtime import is_stage_runtime, require_gizmo_environment, state_directory
 from app.integrations.sync_jobs import GIZMO_SYNC_JOB
@@ -117,7 +118,9 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             "last_success_at_utc": previous.get("last_success_at_utc"),
         }
         atomic_json(status_path, status)
-        job_id = start_job_run(GIZMO_SYNC_JOB, club_id=club_id, metadata={"provider": "gizmo", "stage_preview": is_stage_runtime()})
+        job_id = start_job_run(
+            GIZMO_SYNC_JOB, club_id=club_id, metadata={"provider": "gizmo", "stage_preview": is_stage_runtime()}
+        )
         try:
             settings = read_target(conn, club_id, allow_initial=bool(credentials.get("connection")), lifecycle=True)
             source = settings.get("source") or credentials["connection"]
@@ -173,11 +176,9 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
 
             data = collect(
                 client,
-                branch_id=int(settings["branch_id"]),
-                start=None,
+                settings=settings,
                 end=end,
-                cash_method_ids=set(settings["cash_method_ids"]),
-                full_history=True,
+                force_full=bool(credentials.get("requested_at_utc")),
                 progress=progress,
             )
             data["scope"]["source"] = source
@@ -191,11 +192,14 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                     "rejected_sessions": rejected,
                 },
             )
-            logging.getLogger(__name__).info("Gizmo: проверка пройдена, сохраняем данные в stage...")
+            logging.getLogger(__name__).info("Gizmo: проверка пройдена, сохраняем данные...")
             status["phase"] = "save"
             atomic_json(status_path, status)
             save(conn, club_id, data, target_check=lambda club: assert_mode(club, credentials, mode))
             status.update(
+                sync_mode=data["scope"].get("sync_mode", "full"),
+                sync_reason=data["scope"].get("sync_reason"),
+                batch_counts=data["counts"],
                 counts=data["counts"],
                 excluded_accounts=data.get("excluded_accounts", {}),
                 nonpersonal_activity=data.get("nonpersonal_activity", {}),
@@ -203,6 +207,24 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                 first_session_utc=min((r["date_start"].isoformat() for r in data.get("sessions", [])), default=None),
                 first_topup_utc=min((r["topup_at"].isoformat() for r in data.get("topups", [])), default=None),
             )
+            if data["scope"].get("sync_mode") == "incremental":
+                with conn.cursor() as cur:
+                    totals = {}
+                    for key, table, date_column in (
+                        ("guests", "guests", None),
+                        ("hosts", "club_pc_names", None),
+                        ("sessions", "guest_sessions", "date_start"),
+                        ("topups", "guest_balance_topups", "topup_at"),
+                    ):
+                        date_sql = f", MIN({date_column}) AS first_at" if date_column else ""
+                        cur.execute(f"SELECT COUNT(*) AS n{date_sql} FROM {table} WHERE club_id=%s", (club_id,))
+                        row = cur.fetchone()
+                        totals[key] = int(row["n"])
+                        if date_column:
+                            first_key = "first_session_utc" if key == "sessions" else "first_topup_utc"
+                            status[first_key] = str(row["first_at"]).replace(" ", "T") if row["first_at"] else None
+                conn.rollback()
+                status["counts"] = totals
             atomic_json(status_path, status)
             logging.getLogger(__name__).info("Gizmo: строим CRM-портреты клуба...")
             status["phase"] = "portraits"
@@ -237,6 +259,8 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                     "provider": "gizmo",
                     "stage_preview": is_stage_runtime(),
                     "counts": data["counts"],
+                    "sync_mode": data["scope"].get("sync_mode", "full"),
+                    "sync_reason": data["scope"].get("sync_reason"),
                     "portrait": portrait,
                     "pulse": pulse,
                 },
