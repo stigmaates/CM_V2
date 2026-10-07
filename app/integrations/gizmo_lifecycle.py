@@ -62,7 +62,9 @@ def activation_error(settings, credentials, state, *, now=None):
     if not credentials.get("certificate_pem") or not settings["source"].get("fingerprint"):
         return "Защищённое подключение ещё не настроено."
     for projection in ("portrait", "pulse"):
-        if (state.get(projection) or {}).get("status") != "updated":
+        projection_state = (state.get(projection) or {}).get("status")
+        shared = state.get("projection_schedule") == "shared" and projection_state == "scheduled"
+        if projection_state != "updated" and not shared:
             return "Дождитесь обновления CRM-портретов и Пульса гостя."
     counts = state.get("counts") or {}
     if any(

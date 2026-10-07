@@ -69,7 +69,19 @@ def closed_session_detail(raw, usage):
 
 
 def collect(
-    client, *, branch_id, start, end, cash_method_ids, include_sessions=True, full_history=False, progress=None
+    client,
+    *,
+    branch_id,
+    start,
+    end,
+    cash_method_ids,
+    include_sessions=True,
+    full_history=False,
+    progress=None,
+    include_topups=True,
+    known_guest_ids=None,
+    known_host_ids=None,
+    shared_account_ids=(),
 ):
     if end.tzinfo is None or (
         not full_history
@@ -87,20 +99,22 @@ def collect(
     available_methods = {int(row["id"]) for row in methods}
     if not cash_method_ids or not set(cash_method_ids).issubset(available_methods):
         raise GizmoError("Explicit, existing money payment method IDs are required")
-    raw_guests = read("users", {"IsGuest": "false"})
+    raw_guests = read("users", {"IsGuest": "false"}) if known_guest_ids is None else []
     guests = [normalize.guest(row) for row in raw_guests]
     guests = [row for row in guests if row is not None]
-    guest_ids = {row["guest_id"] for row in guests}
-    hosts = [normalize.host(row) for row in read("hosts", {"BranchId": branch_id})]
-    host_ids = {row["external_id"] for row in hosts}
+    guest_ids = {row["guest_id"] for row in guests} | set(known_guest_ids or ())
+    hosts = [normalize.host(row) for row in read("hosts", {"BranchId": branch_id})] if known_host_ids is None else []
+    host_ids = {row["external_id"] for row in hosts} | set(known_host_ids or ())
     topup_params = {"BranchId": branch_id}
     if not full_history:
         topup_params.update(DateFrom=start.isoformat(), DateTo=end.isoformat())
-    raw_topups = read("deposittransactions", topup_params)
+    raw_topups = read("deposittransactions", topup_params) if include_topups else []
     raw_sessions = read("sessions") if include_sessions else []
     # The live list can omit both guest accounts and deleted members. Resolve
     # referenced IDs once before normalizing payments or personal visits.
-    shared_accounts = {normalize.external_id(row["Model"]["Id"]) for row in raw_guests if row["Type"] == 1}
+    shared_accounts = {normalize.external_id(row["Model"]["Id"]) for row in raw_guests if row["Type"] == 1} | set(
+        shared_account_ids
+    )
     referenced_users = {
         normalize.external_id(row.get("userId")) for row in raw_sessions if row.get("startTime") is not None
     }

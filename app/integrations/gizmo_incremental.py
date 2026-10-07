@@ -116,7 +116,10 @@ class ReadView:
         return result
 
 
-def incremental_view(client, state, end, progress):
+def incremental_view(client, state, end, progress, *, sessions_due=True):
+    if not sessions_due:
+        start = datetime.fromisoformat(state.get("topups_through", state["through"])).astimezone(UTC) - TOPUP_OVERLAP
+        return ReadView(client, sessions=[], usage=[], topup_start=start, end=end)
     floor = max(0, state["session_high_id"] - OVERLAP_IDS)
     recent = ordered_tail(client, "sessions", floor, state["sort_by"], progress)
     sessions = {external_id(row["id"]): row for row in recent}
@@ -142,7 +145,7 @@ def incremental_view(client, state, end, progress):
             if not isinstance(detail, dict) or external_id(detail.get("id")) != identity:
                 raise GizmoError("Gizmo session detail identity mismatch")
             usage[identity] = detail
-    start = datetime.fromisoformat(state["through"]).astimezone(UTC) - TOPUP_OVERLAP
+    start = datetime.fromisoformat(state.get("topups_through", state["through"])).astimezone(UTC) - TOPUP_OVERLAP
     return ReadView(client, sessions=list(sessions.values()), usage=list(usage.values()), topup_start=start, end=end)
 
 
@@ -167,13 +170,25 @@ def make_checkpoint(rows, data, old, end, sort_by, full):
     )
 
 
-def collect_sync(client, *, settings, end, force_full=False, progress=None):
+def collect_sync(client, *, settings, end, force_full=False, progress=None, components=None, references=None):
+    parts = set(components) if components is not None else {"guests", "sessions", "topups"}
+    if not parts or not parts <= {"guests", "sessions", "topups"}:
+        raise GizmoError("Invalid Gizmo update components")
     state = settings.get("sync_checkpoint") or {}
     full = force_full or not checkpoint_valid(state, end)
     reason = "requested" if force_full else "initial_or_daily_reconciliation"
     if not full:
         try:
-            view = incremental_view(client, state, end, progress)
+            view = incremental_view(client, state, end, progress, sessions_due="sessions" in parts)
+            context = {}
+            if "guests" not in parts:
+                if references is None:
+                    raise GizmoError("Saved guest and PC references are required for a partial update")
+                context = dict(
+                    known_guest_ids=references["guests"],
+                    known_host_ids=references["hosts"],
+                    shared_account_ids=settings.get("shared_account_ids", []),
+                )
             data = collect(
                 view,
                 branch_id=int(settings["branch_id"]),
@@ -182,11 +197,15 @@ def collect_sync(client, *, settings, end, force_full=False, progress=None):
                 cash_method_ids=set(settings["cash_method_ids"]),
                 full_history=True,
                 progress=progress,
+                include_sessions="sessions" in parts,
+                include_topups="topups" in parts,
+                **context,
             )
         except UnsupportedQuery:
             full = True
             reason = "api_filter_fallback"
     if full:
+        parts = {"guests", "sessions", "topups"}
         view = ReadView(client)
         data = collect(
             view,
@@ -201,7 +220,19 @@ def collect_sync(client, *, settings, end, force_full=False, progress=None):
     else:
         sort_by = state["sort_by"]
         data["scope"].update(full_history=False, start=view.topup_start.isoformat())
-    data["scope"]["sync_checkpoint"] = make_checkpoint(view.seen_sessions, data, state, end, sort_by, full)
+    checkpoint = (
+        make_checkpoint(view.seen_sessions, data, state, end, sort_by, full)
+        if "sessions" in parts
+        else dict(state, through=end.isoformat())
+    )
+    checkpoint["topups_through"] = (
+        end.isoformat() if "topups" in parts else state.get("topups_through", state["through"])
+    )
+    checkpoint["component_success_at"] = dict(state.get("component_success_at") or {})
+    checkpoint["component_success_at"].update({part: end.isoformat() for part in parts})
+    data["scope"]["sync_checkpoint"] = checkpoint
+    data["scope"]["shared_account_ids"] = data["excluded_accounts"]["shared_account_ids"]
+    data["scope"]["updated_components"] = sorted(parts)
     data["scope"]["sync_mode"] = "full" if full else "incremental"
     data["scope"]["sync_reason"] = reason if full else "scheduled_update"
     return data

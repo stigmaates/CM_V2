@@ -2,8 +2,8 @@
 Description=Check configured Gizmo stage previews every minute
 
 [Timer]
-OnBootSec=2min
-OnUnitInactiveSec=1min
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
 Unit=clubmodule-stage-gizmo-sync.service
 
 [Install]

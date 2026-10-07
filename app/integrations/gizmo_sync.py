@@ -15,6 +15,7 @@ from app.integrations.gizmo_import import check_target, save
 from app.integrations.gizmo_incremental import collect_sync as collect
 from app.integrations.gizmo_lifecycle import SyncPaused, assert_mode, mode_for, read_club
 from app.integrations.gizmo_runtime import is_stage_runtime, require_gizmo_environment, state_directory
+from app.integrations.gizmo_schedule import components_due, read_references
 from app.integrations.sync_jobs import GIZMO_SYNC_JOB
 from app.services.guest_pulse import refresh_club
 from app.services.job_runs import finish_job_run, start_job_run
@@ -92,8 +93,10 @@ def sync_is_due(previous, now):
         raise GizmoError("Invalid Gizmo synchronization timestamp") from None
     elapsed = (now - finished).total_seconds()
     # A backward clock correction must not suspend a club indefinitely.
-    interval = 300 if previous.get("status") == "error" else 1800
-    return elapsed < 0 or elapsed >= interval
+    if previous.get("incremental_supported") is False and previous.get("status") == "complete":
+        return elapsed < 0 or elapsed >= 1800
+    # Match cron minute boundaries, rather than drifting by run duration.
+    return elapsed < 0 or int(now.timestamp()) // 60 != int(finished.timestamp()) // 60
 
 
 def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
@@ -174,12 +177,22 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                 status["progress"] = {"resource": resource, "records": count}
                 atomic_json(status_path, status)
 
+            parts = (
+                components_due(settings, end)
+                if only_if_due and previous.get("status") != "queued"
+                else {"guests", "sessions", "topups"}
+            )
+            # A queued/recovered run must still make progress within the same minute.
+            parts = parts or {"sessions"}
+            references = read_references(conn, club_id) if "guests" not in parts else None
             data = collect(
                 client,
                 settings=settings,
                 end=end,
                 force_full=bool(credentials.get("requested_at_utc")),
                 progress=progress,
+                components=parts,
+                references=references,
             )
             data["scope"]["source"] = source
             rejected = data.get("rejected_sessions", [])
@@ -199,6 +212,9 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
             status.update(
                 sync_mode=data["scope"].get("sync_mode", "full"),
                 sync_reason=data["scope"].get("sync_reason"),
+                updated_components=data["scope"].get("updated_components", sorted(parts)),
+                incremental_supported=(data["scope"].get("sync_checkpoint") or {}).get("sort_by") in ("id", "Id"),
+                component_success_at=(data["scope"].get("sync_checkpoint") or {}).get("component_success_at", {}),
                 batch_counts=data["counts"],
                 counts=data["counts"],
                 excluded_accounts=data.get("excluded_accounts", {}),
@@ -226,23 +242,31 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                 conn.rollback()
                 status["counts"] = totals
             atomic_json(status_path, status)
-            logging.getLogger(__name__).info("Gizmo: строим CRM-портреты клуба...")
-            status["phase"] = "portraits"
-            atomic_json(status_path, status)
-            assert_mode(read_club(conn, club_id), credentials, mode)
-            portrait = rebuild_club_portrait(conn, club_id)
-            if portrait["status"] != "updated":
-                raise GizmoError("Data saved but CRM portrait refresh did not complete; retry sync")
-            status["portrait"] = portrait
-            atomic_json(status_path, status)
-            # Explicit preview continues to keep service, mail and rewards disabled.
-            logging.getLogger(__name__).info("Gizmo: данные сохранены, пересчитываем Пульс...")
-            status["phase"] = "pulse"
-            atomic_json(status_path, status)
-            assert_mode(read_club(conn, club_id), credentials, mode)
-            pulse = refresh_club(conn, club_id, gizmo_preview=mode != "service")
-            if pulse["status"] != "updated":
-                raise GizmoError("Data saved but Guest Pulse refresh did not complete; retry sync")
+            if mode == "service" and data["scope"].get("sync_mode") == "incremental":
+                # The same cron/timer jobs already rebuild both providers. Do not
+                # pre-empt CRM transition tracking or race the common Pulse job.
+                assert_mode(read_club(conn, club_id), credentials, mode)
+                portrait = {"status": "scheduled", "schedule_minutes": 10}
+                pulse = {"status": "scheduled", "worker": "clubmodule-guest-pulse"}
+                status.update(portrait=portrait, projection_schedule="shared")
+            else:
+                logging.getLogger(__name__).info("Gizmo: строим CRM-портреты клуба...")
+                status["phase"] = "portraits"
+                atomic_json(status_path, status)
+                assert_mode(read_club(conn, club_id), credentials, mode)
+                portrait = rebuild_club_portrait(conn, club_id)
+                if portrait["status"] != "updated":
+                    raise GizmoError("Data saved but CRM portrait refresh did not complete; retry sync")
+                status["portrait"] = portrait
+                atomic_json(status_path, status)
+                # Explicit preview continues to keep service, mail and rewards disabled.
+                logging.getLogger(__name__).info("Gizmo: данные сохранены, пересчитываем Пульс...")
+                status["phase"] = "pulse"
+                atomic_json(status_path, status)
+                assert_mode(read_club(conn, club_id), credentials, mode)
+                pulse = refresh_club(conn, club_id, gizmo_preview=mode != "service")
+                if pulse["status"] != "updated":
+                    raise GizmoError("Data saved but Guest Pulse refresh did not complete; retry sync")
             status.update(
                 status="complete", phase="complete", pulse=pulse, last_success_at_utc=datetime.now(UTC).isoformat()
             )
@@ -261,6 +285,7 @@ def synchronize(conn, club_id, *, directory=DIRECTORY, only_if_due=False):
                     "counts": data["counts"],
                     "sync_mode": data["scope"].get("sync_mode", "full"),
                     "sync_reason": data["scope"].get("sync_reason"),
+                    "updated_components": status["updated_components"],
                     "portrait": portrait,
                     "pulse": pulse,
                 },

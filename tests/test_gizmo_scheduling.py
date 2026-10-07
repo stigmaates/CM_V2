@@ -78,10 +78,10 @@ def test_exhausted_retry_raises_without_unbounded_wait(monkeypatch):
 @pytest.mark.parametrize(
     "state,elapsed,due",
     [
-        ("complete", 1799, False),
-        ("complete", 1800, True),
-        ("error", 299, False),
-        ("error", 300, True),
+        ("complete", 0, False),
+        ("complete", 1, True),
+        ("error", 0, False),
+        ("error", 1, True),
         ("running", 0, True),
         ("complete", -300, True),
     ],

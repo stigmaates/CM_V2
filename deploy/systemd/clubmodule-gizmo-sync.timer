@@ -2,8 +2,8 @@
 Description=Check configured Gizmo clubs every minute
 
 [Timer]
-OnBootSec=2min
-OnUnitInactiveSec=1min
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
 Unit=clubmodule-gizmo-sync.service
 
 [Install]

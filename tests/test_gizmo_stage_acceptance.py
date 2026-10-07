@@ -53,6 +53,25 @@ def test_acceptance_creates_isolated_club_then_leaves_it_disabled(imported, monk
     assert conn.records("clubs")[1]["integration_ready"] == 1
     assert all(row["service_enabled"] == 0 for row in conn.records("clubs"))
     assert len(conn.records("guest_sessions")) == 2
+    if incremental:
+        from scripts import verify_gizmo_schedule as schedule_runner
+
+        monkeypatch.setattr(schedule_runner, "DIRECTORY", directory)
+        monkeypatch.setattr(schedule_runner, "get_db_connection", lambda: conn)
+        monkeypatch.setattr(schedule_runner, "require_stage_environment", lambda: None)
+        monkeypatch.setattr(schedule_runner, "GizmoClient", sync.GizmoClient)
+        monkeypatch.setattr(schedule_runner, "rebuild_club_portrait", sync.rebuild_club_portrait)
+        monkeypatch.setattr(schedule_runner, "refresh_club", sync.refresh_club)
+        schedule_runner.run()
+        schedule_report = json.loads((directory / "schedule-acceptance.json").read_text())
+        assert schedule_report["status"] == "complete"
+        assert [cycle["parts"] for cycle in schedule_report["cycles"]] == [
+            ["sessions"],
+            ["sessions", "topups"],
+            ["guests"],
+        ]
+        assert not schedule_report["cycles"][0]["api_calls"].get("users")
+        assert not schedule_report["cycles"][0]["api_calls"].get("deposittransactions")
     # Rerun reuses only the manifest's acceptance club, never creates duplicates.
     runner.run(900001, directory=directory, incremental=incremental)
     assert len(conn.records("clubs")) == 2
