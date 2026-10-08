@@ -360,9 +360,11 @@
         $("sharedTo").value = data.registration_range[1];
         $("teamUpdated").textContent = formattedTimestamp(data.updated_at);
         $("teamTimezone").textContent = data.timezone;
-        $("teamStatus").textContent = data.error
+        $("teamStatus").textContent = data.stale
+            ? "Смены не обновляются. Отчёт неполный: регистрации после последнего обновления показаны без администратора."
+            : data.error
             ? stateText[data.error] || "Ошибка обновления смен. Показаны сохранённые данные."
-            : data.stale ? "Данные смен требуют обновления." : "";
+            : "";
         setActivePreset();
         renderView();
         $("teamCoverage").textContent = "«Из них в КБ» — новые гости администратора, которые уже подключились к Кибер Бонус. «Зарегистрировано в КБ» — все подключения во время его смен. Смены считаются по уникальным рабочим дням. Конверсия = «Из них в КБ» / «Новые в Langame».";

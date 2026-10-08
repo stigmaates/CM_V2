@@ -1,4 +1,4 @@
-"""Stage-only, read-only Langame staff/shift import and module-registration reconstruction."""
+"""Import Langame staff/shifts and reconstruct local module-registration history."""
 
 import argparse
 import re
@@ -10,9 +10,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx
 
+from app.config import APP_ENV
 from app.core import get_db_connection
+from app.integrations.stage import require_stage_environment
 from app.services.guest_pulse import rows
 from app.services.stage_mirror import stage_mirror_enabled
+
+
+def require_sync_environment():
+    if stage_mirror_enabled():
+        require_stage_environment()
+    elif APP_ENV != "production":
+        raise ValueError("Team sync requires production or the isolated stage mirror")
 
 
 def parse_time(value):
@@ -151,8 +160,7 @@ def main():
     parser.add_argument("--club-id", type=int)
     parser.add_argument("--langame-club-id", type=int)
     args = parser.parse_args()
-    if not stage_mirror_enabled():
-        raise ValueError("This importer is only enabled on the stage mirror")
+    require_sync_environment()
     if args.langame_club_id and not args.club_id:
         raise ValueError("--langame-club-id requires --club-id")
     conn = get_db_connection()

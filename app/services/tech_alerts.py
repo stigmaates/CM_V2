@@ -89,6 +89,7 @@ def plain_alert_summary(alert: dict[str, Any]) -> tuple[str, str]:
     if alert.get("job_type") in job_messages:
         return job_messages[alert["job_type"]]
     names = {
+        "sync_team": ("смен администраторов", "смены администраторов", "Отчёт по сотрудникам неполный; регистрации гостей могут отображаться без администратора."),
         "sync_guests_incremental": ("гостей", "гостей", "Новые гости могут временно не находиться при входе."),
         "sync_sessions_incremental": (
             "визитов",

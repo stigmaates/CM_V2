@@ -3,6 +3,28 @@ from datetime import datetime, timedelta
 from app.services import operational_alerts
 
 
+def test_team_alerts_detect_stale_cache_even_when_worker_dies_before_state_write():
+    now = datetime(2026, 10, 8, 18)
+    clubs = [dict(club_id=cid, integration_provider=provider, service_enabled=enabled)
+             for cid, provider, enabled in ((1, "langame", 1), (2, "langame", 0), (5, "gizmo", 1))]
+    result = operational_alerts.build_operational_alerts(
+        clubs=clubs, latest_jobs_by_club={}, problem_jobs=[], stuck_mailings=[], now=now,
+        team_states=[dict(club_id=1, updated_at=datetime(2026, 9, 20), error_code=None)],
+    )
+    team = [a for a in result if a["job_type"] == "sync_team"]
+    assert len(team) == 1 and team[0]["club_id"] == 1 and team[0]["code"] == "sync_stale"
+
+
+def test_team_alerts_clear_after_successful_sync_and_report_errors_immediately():
+    args = dict(clubs=[dict(club_id=1)], latest_jobs_by_club={}, problem_jobs=[], stuck_mailings=[],
+                now=datetime(2026, 10, 8, 18))
+    fresh = dict(club_id=1, updated_at=args["now"], error_code=None)
+    result = operational_alerts.build_operational_alerts(**args, team_states=[fresh])
+    assert not [a for a in result if a["job_type"] == "sync_team"]
+    result = operational_alerts.build_operational_alerts(**args, team_states=[dict(fresh, error_code="HTTP_503")])
+    assert [a for a in result if a["job_type"] == "sync_team"][0]["code"] == "sync_error"
+
+
 def test_build_operational_alerts_reports_missing_syncs():
     alerts = operational_alerts.build_operational_alerts(
         clubs=[{"club_id": 7, "name": "Test Club"}],

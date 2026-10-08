@@ -28,6 +28,18 @@ def in_range(at, interval):
     return at is not None and interval[0] <= at.date() <= interval[1]
 
 
+def verified_shifts(shifts, updated_at, stale):
+    """A cached open shift is evidence only up to the last successful sync."""
+    if not stale:
+        return shifts
+    if updated_at is None:
+        return []
+    return [
+        dict(s, stopped_at=min(s["stopped_at"] or updated_at, updated_at))
+        for s in shifts if s["started_at"] < updated_at
+    ]
+
+
 def build_report(admins, shifts, guests, registrations, sessions, registration_range, cohort_range, now):
     people = {a["admin_id"]: dict(a) for a in admins}
     for shift in shifts:
@@ -179,9 +191,11 @@ def load_report(conn, club_id, args):
     for session in sessions:
         for field in ("date_start", "date_stop"):
             session[field] = utc_datetime_to_club_local(session.get(field), tz)
-    report = build_report(admins, shifts, guests, registrations, sessions, registration_range, cohort_range, now)
     state = (rows(conn, "SELECT * FROM team_sync_state WHERE club_id=%s", (club_id,)) or [{}])[0]
     updated = state.get("updated_at")
+    stale = not updated or datetime.now(UTC).replace(tzinfo=None) - updated > timedelta(hours=1)
+    shifts = verified_shifts(shifts, utc_datetime_to_club_local(updated, tz) if updated else None, stale)
+    report = build_report(admins, shifts, guests, registrations, sessions, registration_range, cohort_range, now)
     report.update(
         registration_range=[d.isoformat() for d in registration_range],
         cohort_range=[d.isoformat() for d in cohort_range],
@@ -189,7 +203,7 @@ def load_report(conn, club_id, args):
         timezone=tz,
         updated_at=utc_datetime_to_club_local(updated, tz).isoformat() if updated else None,
         error=state.get("error_code"),
-        stale=not updated or datetime.now(UTC).replace(tzinfo=None) - updated > timedelta(hours=1),
+        stale=stale,
     )
     return report
 

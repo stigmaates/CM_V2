@@ -3,14 +3,50 @@ from datetime import date, datetime, timedelta
 import httpx
 import pytest
 
-from app.services.team import build_report, date_range, save_admin_settings, shift_owner
+from app.services.team import build_report, date_range, save_admin_settings, shift_owner, verified_shifts
 from scripts.sync_team import fetch_team
 
 D = datetime(2026, 1, 1, 10)
 
 
+def test_team_sync_accepts_production_without_mirror(monkeypatch):
+    from scripts import sync_team
+    monkeypatch.setattr(sync_team, "APP_ENV", "production")
+    monkeypatch.setattr(sync_team, "stage_mirror_enabled", lambda: False)
+    sync_team.require_sync_environment()
+
+
+def test_team_sync_keeps_stage_database_isolation_check(monkeypatch):
+    from scripts import sync_team
+    calls = []
+    monkeypatch.setattr(sync_team, "APP_ENV", "development")
+    monkeypatch.setattr(sync_team, "stage_mirror_enabled", lambda: True)
+    monkeypatch.setattr(sync_team, "require_stage_environment", lambda: calls.append(True))
+    sync_team.require_sync_environment()
+    assert calls == [True]
+
+
+def test_team_sync_rejects_unknown_environment(monkeypatch):
+    from scripts import sync_team
+    monkeypatch.setattr(sync_team, "APP_ENV", "development")
+    monkeypatch.setattr(sync_team, "stage_mirror_enabled", lambda: False)
+    with pytest.raises(ValueError, match="requires production"):
+        sync_team.require_sync_environment()
+
+
 def shift(admin=1, start=D, stop=None):
     return dict(admin_id=admin, started_at=start, stopped_at=stop)
+
+
+def test_stale_open_shift_cannot_claim_future_registrations():
+    saved = [shift(303, datetime(2026, 9, 20, 20, 12))]
+    cutoff = datetime(2026, 9, 20, 21, 20)
+    verified = verified_shifts(saved, cutoff, True)
+    assert shift_owner(datetime(2026, 9, 20, 21), verified) == 303
+    assert shift_owner(datetime(2026, 10, 1), verified) is None
+    assert saved[0]["stopped_at"] is None
+    assert verified_shifts(saved, None, True) == []
+    assert verified_shifts(saved, cutoff, False) == saved
 
 
 def report(guests, registrations=(), sessions=(), shifts=None):
@@ -285,6 +321,8 @@ def test_club_local_dates_select_exact_cohort_guest_ids(monkeypatch):
             return [dict(admin_id=1, name="Admin")]
         if "FROM team_shifts" in sql:
             return [shift(1, datetime(2025, 12, 31, 19), datetime(2026, 1, 1, 19))]
+        if "FROM team_sync_state" in sql:
+            return [dict(updated_at=datetime(2026, 1, 2), error_code=None)]
         if "FROM guests WHERE" in sql:
             return [dict(guest_id=1, date_insert=datetime(2025, 12, 31, 20))]
         if "FROM module_registrations" in sql:

@@ -50,6 +50,7 @@ def build_operational_alerts(
     problem_jobs: list[dict[str, Any]],
     stuck_mailings: list[dict[str, Any]],
     backup_status: dict[str, Any] | None = None,
+    team_states: list[dict[str, Any]] | None = None,
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     now = now or _utcnow()
@@ -63,6 +64,19 @@ def build_operational_alerts(
         club_id = int(club["club_id"])
         club_name = club.get("name")
         latest = latest_jobs_by_club.get(club_id, {})
+        if team_states is not None and club.get("integration_provider", "langame") == "langame":
+            state = next((s for s in team_states if int(s["club_id"]) == club_id), {})
+            updated = state.get("updated_at")
+            age = _age_minutes(updated, now)
+            error = state.get("error_code")
+            if error or updated is None or age > 60:
+                alerts.append(_alert(
+                    "error" if error else "warning",
+                    "sync_error" if error else "sync_stale" if updated else "sync_missing",
+                    "Смены администраторов не обновляются; распределение гостей по сотрудникам неполное.",
+                    club_id=club_id, club_name=club_name, job_type="sync_team", age_minutes=age,
+                    metadata={"error_text": error},
+                ))
         for job_type in sync_jobs_for(club):
             row = latest.get(job_type)
             label = SYNC_JOB_LABELS[job_type]
@@ -248,6 +262,8 @@ def get_operational_alerts(
             clubs = _fetch_clubs(cursor)
             problem_jobs = _fetch_problem_jobs(cursor, limit=problem_job_limit)
             stuck_mailings = _fetch_stuck_mailings(cursor, max_age_minutes=stuck_mailing_minutes)
+            cursor.execute("SELECT club_id,updated_at,error_code FROM team_sync_state")
+            team_states = cursor.fetchall() or []
 
         latest_jobs_by_club = get_latest_job_runs_by_club(SYNC_JOB_TYPES)
         return build_operational_alerts(
@@ -256,6 +272,7 @@ def get_operational_alerts(
             problem_jobs=problem_jobs,
             stuck_mailings=stuck_mailings,
             backup_status=get_backup_status(),
+            team_states=team_states,
         )
     finally:
         conn.close()
