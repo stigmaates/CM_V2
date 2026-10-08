@@ -1,6 +1,6 @@
 {% extends 'owner/base.html' %}
 {% block title %}{{ header_club_name or 'Cyber Bonus' }} — Команда{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='12') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/team.css', v='14') }}">{% endblock %}
 {% block content %}
 <main class="team" data-team-page>
     <header class="owner-page-heading team-hero">
@@ -27,12 +27,12 @@
 
     <section class="team-kpis" aria-label="Основные показатели">
         <article class="team-kpi">
-            <h2>Новых гостей</h2>
+            <h2>Новые гости клуба</h2>
             <div class="team-kpi__body"><span class="team-kpi__icon" aria-hidden="true">＋</span><div><strong id="kpiClub">—</strong><small>зарегистрировались в системе клуба</small></div></div>
         </article>
         <article class="team-kpi">
-            <h2>Новых гостей в Кибер Бонус</h2>
-            <div class="team-kpi__body"><span class="team-kpi__icon" aria-hidden="true">КБ</span><div><strong id="kpiModule">—</strong><small id="kpiModuleNote">впервые подключились к Кибер Бонус</small></div></div>
+            <h2>Подключились к Кибер Бонус</h2>
+            <div class="team-kpi__body"><span class="team-kpi__icon" aria-hidden="true">КБ</span><div><strong id="kpiModule">—</strong><small id="kpiModuleNote">за выбранный период, включая давних гостей клуба</small></div></div>
         </article>
         <article class="team-kpi">
             <h2>Конверсия 1 → 2</h2>
@@ -81,15 +81,15 @@
     <div class="team-report-grid">
         <section class="team-card" id="teamRegistrationCard">
             <header class="team-card__header">
-                <div class="team-card__title"><span class="team-card__icon" aria-hidden="true">А</span><span><h2>Администраторы</h2><p>Регистрации гостей по каждому администратору</p></span></div>
+                <div class="team-card__title"><span class="team-card__icon" aria-hidden="true">А</span><span><h2>Администраторы</h2><p>Новые гости клуба и подключения к Кибер Бонус по сменам</p></span></div>
             </header>
             <div class="team-table-wrap">
                 <table class="team-registration-table"><thead><tr>
                     <th scope="col">#</th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="name">Администратор</button></th>
-                    <th scope="col" aria-sort="descending"><button class="team-sort-button is-active" type="button" data-sort-table="registrations" data-sort-key="club_registrations" title="Регистрации в системе клуба Langame">Новые в Langame</button></th>
-                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="club_to_module" title="Новые гости этого администратора, которые затем подключились к Кибер Бонус">Из них в КБ</button></th>
-                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_registrations" title="Все подключения к Кибер Бонус, совершённые во время смен администратора">Зарегистрировано в КБ</button></th>
+                    <th scope="col" aria-sort="descending"><button class="team-sort-button is-active" type="button" data-sort-table="registrations" data-sort-key="club_registrations" title="Регистрации в системе клуба Langame">Новые гости клуба</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="club_to_module" title="Новые гости этого администратора, которые затем подключились к Кибер Бонус">Из новых — в КБ</button></th>
+                    <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_registrations" title="Первые подключения к Кибер Бонус за выбранный период во время смен администратора, включая давних гостей клуба">Подключились к КБ</button></th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="shift_count" title="Уникальные рабочие дни со сменой в выбранном периоде">Смены</button></th>
                     <th scope="col" aria-sort="none"><button class="team-sort-button" type="button" data-sort-table="registrations" data-sort-key="module_conversion" title="Конверсия регистрации Langame в подключение к Кибер Бонус">Конверсия в КБ</button></th>
                 </tr></thead><tbody id="teamRegistrations"></tbody></table>
@@ -142,4 +142,4 @@
     </dialog>
 </main>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='13') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js', v='14') }}" defer></script>{% endblock %}

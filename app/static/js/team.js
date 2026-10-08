@@ -99,7 +99,7 @@
     function renderKpis(total) {
         $("kpiClub").textContent = num(total.club_registrations);
         $("kpiModule").textContent = num(total.module_registrations);
-        $("kpiModuleNote").textContent = "впервые подключились к Кибер Бонус";
+        $("kpiModuleNote").textContent = "за выбранный период, включая давних гостей клуба";
         $("kpiConversion12").textContent = percent(total.conversion12);
         $("kpiConversion23").textContent = percent(total.conversion23);
     }
@@ -367,7 +367,7 @@
             : "";
         setActivePreset();
         renderView();
-        $("teamCoverage").textContent = "«Из них в КБ» — новые гости администратора, которые уже подключились к Кибер Бонус. «Зарегистрировано в КБ» — все подключения во время его смен. Смены считаются по уникальным рабочим дням. Конверсия = «Из них в КБ» / «Новые в Langame».";
+        $("teamCoverage").textContent = "«Из новых — в КБ» — сколько новых гостей клуба уже подключились к Кибер Бонус. «Подключились к КБ» — все первые подключения за выбранный период во время смен администратора, включая давних гостей клуба. Поэтому показатели могут отличаться. Смены — уникальные рабочие дни. Конверсия = «Из новых — в КБ» / «Новые гости клуба».";
     }
 
     async function load() {
