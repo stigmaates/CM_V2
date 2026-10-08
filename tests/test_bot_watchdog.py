@@ -11,6 +11,40 @@ from app.services.tech_alerts import format_tech_alert_message
 from bot.health import ObservedApplication, ObservedPollingRequest
 
 
+def test_stage_watchdog_uses_isolation_even_in_development_mode(monkeypatch):
+    from scripts import check_guest_bot_health as script
+    calls = []
+    monkeypatch.setattr(script, "ROOT", script.STAGE_ROOT)
+    monkeypatch.setattr(script.Path, "cwd", lambda: script.STAGE_ROOT)
+    monkeypatch.setattr(script, "APP_ENV", "development")
+    monkeypatch.setattr(script, "require_stage_environment", lambda: calls.append("validated"))
+    assert script.target() == "clubmodule-stage-bot.service"
+    assert calls == ["validated"]
+
+
+def test_stage_watchdog_rejects_unverified_database(monkeypatch):
+    from scripts import check_guest_bot_health as script
+    monkeypatch.setattr(script, "ROOT", script.STAGE_ROOT)
+    monkeypatch.setattr(script.Path, "cwd", lambda: script.STAGE_ROOT)
+    def refuse():
+        raise ValueError("Stage and production must have distinct database names")
+    monkeypatch.setattr(script, "require_stage_environment", refuse)
+    with pytest.raises(ValueError, match="distinct database"):
+        script.target()
+
+
+def test_development_mode_cannot_target_production(monkeypatch):
+    from pathlib import Path
+
+    from scripts import check_guest_bot_health as script
+    root = Path("/root/cm_v2/CM_V2")
+    monkeypatch.setattr(script, "ROOT", root)
+    monkeypatch.setattr(script.Path, "cwd", lambda: root)
+    monkeypatch.setattr(script, "APP_ENV", "development")
+    with pytest.raises(ValueError, match="matching"):
+        script.target()
+
+
 def heartbeat(**values):
     return dict(pid=42, boot_id="boot", started_at=100, last_poll_success=995, **values)
 

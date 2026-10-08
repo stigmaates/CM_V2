@@ -13,19 +13,21 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app.config import APP_ENV, BOT_TOKEN, TG_PROXY_URL
+from app.integrations.stage import STAGE_ROOT, require_stage_environment
 from app.services.bot_health import HEALTH_DIR, atomic_write, boot_id, diagnose, read_json
 from app.services.bot_watchdog import run_check
 
 
 def target():
-    targets = {
-        "production": (Path("/root/cm_v2/CM_V2"), "clubmodule-bot.service"),
-        "stage": (Path("/root/cm_stage/CM_V2"), "clubmodule-stage-bot.service"),
-    }
-    expected, unit = targets.get(APP_ENV, (None, None))
-    if ROOT != expected or Path.cwd() != ROOT:
+    if Path.cwd() != ROOT:
         raise ValueError("Watchdog requires the matching stage/production checkout")
-    return unit
+    if ROOT == STAGE_ROOT:
+        # Stage uses a mirror marker and a distinct database, not APP_ENV='stage'.
+        require_stage_environment()
+        return "clubmodule-stage-bot.service"
+    if ROOT == Path("/root/cm_v2/CM_V2") and APP_ENV == "production" and not (ROOT / ".stage-no-outbound").exists():
+        return "clubmodule-bot.service"
+    raise ValueError("Watchdog requires the matching stage/production checkout")
 
 
 def service_state(unit):
@@ -134,7 +136,7 @@ def main():
                 metadata={"pending_updates": probe.get("pending_updates")},
             )
             text = format_tech_alert_message(alert)
-            if APP_ENV == "stage":
+            if ROOT == STAGE_ROOT:
                 # Keep existing stage outbound restrictions; record exercise evidence locally.
                 print("STAGE notification suppressed: " + text, flush=True)
                 return True
