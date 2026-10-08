@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Cyber Bonus guest bot every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Unit=clubmodule-guest-bot-watchdog.service
+
+[Install]
+WantedBy=timers.target

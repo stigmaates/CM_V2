@@ -51,9 +51,88 @@ def build_alert_key(alert: dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def plain_alert_summary(alert: dict[str, Any]) -> tuple[str, str]:
+    code = str(alert.get("code") or "")
+    if code == "bot_recovered":
+        return "✅ Бот снова работает", "Получение сообщений восстановлено. Гости снова могут войти через Telegram."
+    if code.startswith("bot_"):
+        return (
+            "🚨 Бот не отвечает гостям",
+            "Вход через Telegram может быть недоступен. Сообщения могут оставаться без ответа.",
+        )
+    if code == "mailing_stuck":
+        return "🚨 Рассылка остановилась", "Часть гостей могла не получить сообщение. Нужно проверить очередь рассылки."
+    if code.startswith("backup_"):
+        return (
+            "🚨 Нет свежей резервной копии",
+            "Восстановление последних изменений при аварии может оказаться невозможным.",
+        )
+    job_messages = {
+        "process_mailings": ("🚨 Не удалось отправить рассылку", "Часть гостей могла не получить сообщение."),
+        "process_auto_mailings": (
+            "🚨 Сбой автоматических рассылок",
+            "Запланированные сценарии возврата гостей могли не сработать.",
+        ),
+        "process_topup_bonuses": (
+            "🚨 Сбой начисления бонусов",
+            "Бонусы за последние пополнения могут начисляться с задержкой.",
+        ),
+        "process_expiring_bonuses": (
+            "🚨 Сбой проверки срока бонусов",
+            "Списание истёкших бонусов или напоминания могут задерживаться.",
+        ),
+        "retry_cm_bonus_redeem_notifications": (
+            "🚨 Не доставлено уведомление о бонусах",
+            "Администратор мог не получить заявку гостя.",
+        ),
+    }
+    if alert.get("job_type") in job_messages:
+        return job_messages[alert["job_type"]]
+    names = {
+        "sync_guests_incremental": ("гостей", "гостей", "Новые гости могут временно не находиться при входе."),
+        "sync_sessions_incremental": (
+            "визитов",
+            "визиты",
+            "Последние визиты могут не учитываться в заданиях и аналитике.",
+        ),
+        "sync_balance_topups_incremental": (
+            "пополнений",
+            "пополнения",
+            "Последние пополнения могут не учитываться в бонусах и аналитике.",
+        ),
+        "sync_operations_incremental": (
+            "операций клуба",
+            "операции клуба",
+            "Данные об операциях могут отображаться с задержкой.",
+        ),
+        "sync_gizmo": ("данных Gizmo", "данные Gizmo", "Гости, визиты и пополнения могут отображаться с задержкой."),
+        "rebuild_user_portrait": ("портретов гостей", "портреты гостей", "Аналитика гостей может быть неактуальной."),
+    }
+    if alert.get("job_type") in names:
+        delayed, failed, impact = names[alert["job_type"]]
+        title = (
+            f"Задерживается обновление {delayed}"
+            if code in ("sync_missing", "sync_stale")
+            else f"Не удалось обновить {failed}"
+        )
+        return f"🚨 {title}", impact
+    return "🚨 Сбой в работе Cyber Bonus", "Одна из фоновых задач требует проверки. Подробности указаны ниже."
+
+
 def format_tech_alert_message(alert: dict[str, Any]) -> str:
+    title, impact = plain_alert_summary(alert)
     lines = [
-        "<b>ClubModule: критическое предупреждение</b>",
+        f"<b>{html.escape(title)}</b>",
+        html.escape(impact),
+    ]
+    if str(alert.get("code") or "").startswith("bot_"):
+        lines.append(html.escape(str(alert.get("message") or "")))
+    lines += [
+        "",
+        "<b>Технические подробности</b>",
+        "ClubModule: критическое предупреждение"
+        if alert.get("code") != "bot_recovered"
+        else "ClubModule: восстановление",
         f"Код: <code>{html.escape(str(alert.get('code') or 'unknown'))}</code>",
     ]
     if alert.get("club_id") is not None:
@@ -68,6 +147,8 @@ def format_tech_alert_message(alert: dict[str, Any]) -> str:
     lines.append(f"Сообщение: {html.escape(str(alert.get('message') or ''))}")
 
     metadata = alert.get("metadata") or {}
+    if metadata.get("pending_updates") is not None:
+        lines.append(f"Ожидают получения ботом: {int(metadata['pending_updates'])} сообщений")
     error_text = metadata.get("error_text")
     if error_text:
         lines.append(f"Ошибка: <code>{html.escape(str(error_text)[:800])}</code>")

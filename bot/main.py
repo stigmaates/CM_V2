@@ -39,6 +39,8 @@ from app.services.prize_claims import (
 )
 from app.services.telegram_links import bind_verified_contact, find_linked_guest
 from app.services.topup_bonuses import award_first_authorization_reward
+from app.services.bot_health import Heartbeat
+from bot.health import ObservedApplication, ObservedPollingRequest
 from bot.telegram_link_flow import handle_lg_phone, offer_phone_choices, phone_choice_callback
 
 LOGIN_CONTACT_PROMPT = (
@@ -685,32 +687,22 @@ def main():
 
     ensure_guest_bot_allowed()
 
-    builder = ApplicationBuilder().token(BOT_TOKEN)
-
-    if TG_PROXY_URL:
-        request = HTTPXRequest(
-            proxy_url=TG_PROXY_URL,
-            connect_timeout=30.0,
-            read_timeout=30.0,
-            write_timeout=30.0,
-            pool_timeout=30.0,
-        )
-
-        get_updates_request = HTTPXRequest(
-            proxy_url=TG_PROXY_URL,
-            connect_timeout=30.0,
-            read_timeout=30.0,
-            write_timeout=30.0,
-            pool_timeout=30.0,
-        )
-
-        builder = builder.request(request).get_updates_request(get_updates_request)
-    else:
-        builder = (
-            builder.get_updates_connect_timeout(30.0).get_updates_read_timeout(30.0).get_updates_pool_timeout(30.0)
-        )
-
-    app = builder.build()
+    heartbeat = Heartbeat()
+    heartbeat.save()
+    request = HTTPXRequest(
+        proxy=TG_PROXY_URL or None, connect_timeout=30.0, read_timeout=30.0,
+        write_timeout=30.0, pool_timeout=30.0,
+    )
+    get_updates_request = ObservedPollingRequest(
+        heartbeat, proxy=TG_PROXY_URL or None, connect_timeout=30.0, read_timeout=30.0,
+        write_timeout=30.0, pool_timeout=30.0,
+    )
+    app = (
+        ApplicationBuilder().token(BOT_TOKEN)
+        .application_class(ObservedApplication, kwargs={"heartbeat": heartbeat})
+        .request(request).get_updates_request(get_updates_request).build()
+    )
+    heartbeat.queue_size = app.update_queue.qsize
 
     app.add_handler(
         CallbackQueryHandler(first_visit_survey_start_callback, pattern=r"^first_visit_survey_start:\d+$"), group=-3

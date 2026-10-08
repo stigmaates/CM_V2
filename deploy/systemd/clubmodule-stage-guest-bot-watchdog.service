@@ -1,0 +1,13 @@
+[Unit]
+Description=Cyber Bonus guest bot health and bounded recovery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/cm_stage/CM_V2
+EnvironmentFile=/root/cm_stage/CM_V2/.env
+Environment=BOT_WATCHDOG_ENABLED=1
+ExecStart=/root/cm_stage/CM_V2/venv/bin/python scripts/check_guest_bot_health.py
+TimeoutStartSec=75
+UMask=0077
